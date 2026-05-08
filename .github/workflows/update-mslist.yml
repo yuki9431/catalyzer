@@ -64,14 +64,20 @@ jobs:
         run: |
           PR_URL="${{ steps.create-pr.outputs.pr_url }}"
           # CIチェックが登録されるまでポーリング（最大5分）
+          CI_DETECTED=false
           for i in $(seq 1 30); do
             if gh pr checks "$PR_URL" 2>/dev/null | grep -q .; then
               echo "CI checks detected"
+              CI_DETECTED=true
               break
             fi
             echo "Waiting for CI checks to be registered... ($i/30)"
             sleep 10
           done
+          if [ "$CI_DETECTED" = "false" ]; then
+            echo "::error::CI checks not detected after 5 minutes"
+            exit 1
+          fi
           # CIチェックの完了を待つ
           gh pr checks "$PR_URL" --watch --fail-fast
           gh pr merge --merge "$PR_URL"
