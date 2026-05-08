@@ -99,7 +99,6 @@ jobs:
             echo "CHANGED=false" >> "$GITHUB_ENV"
           else
             git commit -m "ci: update stg image to ${{ github.sha }}"
-            git pull --rebase
             git push
             echo "CHANGED=true" >> "$GITHUB_ENV"
           fi
