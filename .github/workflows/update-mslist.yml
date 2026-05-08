@@ -63,6 +63,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_URL="${{ steps.create-pr.outputs.pr_url }}"
+          # CIがトリガーされるまで待つ
+          sleep 30
           # CIチェック（validate-mslist等）の完了を待つ
           gh pr checks "$PR_URL" --watch --fail-fast
           gh pr merge --merge "$PR_URL"
@@ -77,6 +79,6 @@ jobs:
           sleep 15
           STG_RUN_ID=$(gh run list --workflow=build.yml --branch=main --limit=1 --json databaseId --jq '.[0].databaseId')
           if [ -n "$STG_RUN_ID" ]; then
-            gh run watch "$STG_RUN_ID" --exit-status || true
+            gh run watch "$STG_RUN_ID" --exit-status
           fi
           gh workflow run deploy-prod.yml
