@@ -63,9 +63,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_URL="${{ steps.create-pr.outputs.pr_url }}"
-          # CIがトリガーされるまで待つ
-          sleep 30
-          # CIチェック（validate-mslist等）の完了を待つ
+          # CIチェックが登録されるまでポーリング（最大5分）
+          for i in $(seq 1 30); do
+            if gh pr checks "$PR_URL" 2>/dev/null | grep -q .; then
+              echo "CI checks detected"
+              break
+            fi
+            echo "Waiting for CI checks to be registered... ($i/30)"
+            sleep 10
+          done
+          # CIチェックの完了を待つ
           gh pr checks "$PR_URL" --watch --fail-fast
           gh pr merge --merge "$PR_URL"
 
@@ -76,9 +83,19 @@ jobs:
         run: |
           # push to main で stg build（build.yml）は自動トリガーされる
           # stg build 完了を待ってから deploy-prod.yml で本番昇格
-          sleep 15
-          STG_RUN_ID=$(gh run list --workflow=build.yml --branch=main --limit=1 --json databaseId --jq '.[0].databaseId')
-          if [ -n "$STG_RUN_ID" ]; then
-            gh run watch "$STG_RUN_ID" --exit-status
+          MERGE_SHA=$(gh pr view "${{ steps.create-pr.outputs.pr_url }}" --json mergeCommit --jq '.mergeCommit.oid')
+          for i in $(seq 1 30); do
+            STG_RUN_ID=$(gh run list --workflow=build.yml --branch=main --commit="$MERGE_SHA" --limit=1 --json databaseId --jq '.[0].databaseId' 2>/dev/null)
+            if [ -n "$STG_RUN_ID" ] && [ "$STG_RUN_ID" != "null" ]; then
+              echo "stg build detected: $STG_RUN_ID"
+              break
+            fi
+            echo "Waiting for stg build to start... ($i/30)"
+            sleep 10
+          done
+          if [ -z "$STG_RUN_ID" ] || [ "$STG_RUN_ID" = "null" ]; then
+            echo "::error::stg build not found"
+            exit 1
           fi
+          gh run watch "$STG_RUN_ID" --exit-status
           gh workflow run deploy-prod.yml
