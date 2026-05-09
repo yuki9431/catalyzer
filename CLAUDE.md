@@ -85,7 +85,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
 - `data/ms_list.json` — MS画像URL→名前・コストのマッピング（コスト: 3000/2500/2000/1500）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
-- `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `dns.ts`, `iam.ts`, `budget.ts`）
+- `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `budget.ts`）
 - `infra/app/` — Pulumi IaC 環境別リソース（`index.ts` — Cloud Run, ドメインマッピング, CNAME）
 
 ## GitHub Actions
