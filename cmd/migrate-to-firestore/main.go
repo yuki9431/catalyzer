@@ -64,12 +64,13 @@ func migrateUser(userKey, tmpDir string) error {
 	// scores.csv → Firestore scores
 	csvPath := filepath.Join(userDir, "scores.csv")
 	if found, err := storage.DownloadCSVByKey(userKey, csvPath); err != nil {
-		log.Printf("[WARN] User %s: failed to download CSV: %v", userKey, err)
+		return fmt.Errorf("download CSV: %w", err)
 	} else if found {
 		scores, err := storage.ReadAllScoresCSV(csvPath)
 		if err != nil {
-			log.Printf("[WARN] User %s: failed to parse CSV: %v", userKey, err)
-		} else if len(scores) > 0 {
+			return fmt.Errorf("parse CSV: %w", err)
+		}
+		if len(scores) > 0 {
 			fs.SaveScores(userKey, scores)
 		}
 	}
