@@ -32,15 +32,15 @@ func StartServer() {
 		port = "8080"
 	}
 
-	// Firestore初期化（GCP_PROJECT未設定時はスキップ）
-	if projectID := os.Getenv("GCP_PROJECT"); projectID != "" {
-		if err := firestore.Init(context.Background(), projectID); err != nil {
+	// Firestore初期化（FIRESTORE_DATABASE未設定時はスキップ）
+	if os.Getenv("FIRESTORE_DATABASE") != "" {
+		if err := firestore.Init(context.Background()); err != nil {
 			log.Printf("[WARN] Firestore initialization failed, continuing without Firestore: %v", err)
 		} else {
 			defer firestore.Close()
 		}
 	} else {
-		log.Printf("[INFO] GCP_PROJECT not set, Firestore disabled")
+		log.Printf("[INFO] FIRESTORE_DATABASE not set, Firestore disabled")
 	}
 
 	// 完了済みジョブの定期クリーンアップ（1時間経過したジョブを削除）

@@ -9,6 +9,7 @@ const maxInstances = config.requireNumber("maxInstances");
 const image = config.requireSecret("image");
 const domain = config.require("domain");
 const gcsBucket = config.requireSecret("gcsBucket");
+const firestoreDatabase = config.require("firestoreDatabase");
 
 // shared スタックからDNSゾーン名を取得
 const sharedStackName = config.require("sharedStack");
@@ -37,8 +38,8 @@ export const service = new gcp.cloudrunv2.Service(
               value: gcsBucket,
             },
             {
-              name: "GCP_PROJECT",
-              value: gcp.config.project!,
+              name: "FIRESTORE_DATABASE",
+              value: firestoreDatabase,
             },
           ],
           resources: {
