@@ -5,7 +5,7 @@ import { services } from "./apis";
 export const firestoreDb = new gcp.firestore.Database(
   "firestore-db",
   {
-    name: "(default)",
+    name: "exvs-analyzer",
     locationId: gcp.config.region!,
     type: "FIRESTORE_NATIVE",
   },
