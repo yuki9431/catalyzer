@@ -32,7 +32,7 @@ func BuildMSNameMap(msList []model.MSInfo) map[string]string {
 // FillMsNames はDatedScoresの各スコアにMsNameをセットする（クエリパラメータを除去してマッチ）
 func FillMsNames(ds model.DatedScores, msMap map[string]string) {
 	for i := range ds {
-		if name, ok := msMap[stripQuery(ds[i].PlayerScore.MsImage)]; ok {
+		if name, ok := msMap[stripQuery(ds[i].PlayerScore.MsImageURL)]; ok {
 			ds[i].PlayerScore.MsName = name
 		}
 	}
@@ -42,8 +42,8 @@ func FillMsNames(ds model.DatedScores, msMap map[string]string) {
 func CheckUnknownMS(ds model.DatedScores) {
 	unknown := make(map[string]int)
 	for _, d := range ds {
-		if d.PlayerScore.MsImage != "" && d.PlayerScore.MsName == "" {
-			unknown[d.PlayerScore.MsImage]++
+		if d.PlayerScore.MsImageURL != "" && d.PlayerScore.MsName == "" {
+			unknown[d.PlayerScore.MsImageURL]++
 		}
 	}
 	for url, count := range unknown {

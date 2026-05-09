@@ -11,26 +11,26 @@ type MSInfo struct {
 
 // PlayerScore はスコア
 type PlayerScore struct {
-	City           string
-	Name           string
-	Win            string
-	MsImage        string
-	MsName         string
-	Point          int
-	Kills          int
-	Deaths         int
-	Give_damage    int
-	Receive_damage int
-	Ex_damage      int
-	Mastery        string // ランク(master, gold2, silver5等)
-	TeamName       string // チーム名
-	TitleImage     string // 称号画像URL
-	TitleBadge     string // 称号バッジURL
-	ProfileLink    string // プロフィールページURL
-	ShuffleGrade   string // シャッフル階級画像URL
-	TeamGrade      string // チーム(固定)階級画像URL
-	ScoreRanking   int    // 試合内スコア順位(1-4)
-	ShopName       string // プレイ店舗名
+	City            string
+	Name            string
+	Win             bool
+	MsImageURL      string // 機体画像URL
+	MsName          string
+	Score           int
+	Kills           int
+	Deaths          int
+	GiveDamage      int
+	ReceiveDamage   int
+	ExDamage        int
+	MsProficiency   string // ランク(master, gold2, silver5等)
+	TeamName        string // チーム名
+	PlayerLevelURL  string // 称号画像URL
+	RankBadgeURL    string // 称号バッジURL
+	ProfileURL      string // プロフィールページURL
+	ShuffleGradeURL string // シャッフル階級画像URL
+	TeamGradeURL    string // チーム(固定)階級画像URL
+	ScoreRanking    int    // 試合内スコア順位(1-4)
+	ArcadeName      string // プレイ店舗名
 }
 
 // MatchEvent は試合経過の1イベント

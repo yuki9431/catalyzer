@@ -63,7 +63,7 @@ type dailyLink struct {
 type matchEntry struct {
 	date      string
 	hour      string
-	wins      []string
+	wins      []bool
 	detailURL string
 	shopName  string // プレイ店舗名（dailyLinkから引き継ぎ）
 }
@@ -331,11 +331,11 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 			}
 		}
 
-		var wins []string
+		var wins []bool
 		if e.ChildAttr("a", "class") == "right-arrow vs-detail win" {
-			wins = []string{"win", "win", "lose", "lose"}
+			wins = []bool{true, true, false, false}
 		} else {
-			wins = []string{"lose", "lose", "win", "win"}
+			wins = []bool{false, false, true, true}
 		}
 
 		link := e.Request.AbsoluteURL(e.ChildAttr("a", "href"))
@@ -515,7 +515,7 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 }
 
 // parseDetailPage は試合詳細ページからスコアを抽出する
-func parseDetailPage(s *goquery.Selection, date, hour string, wins []string, shopName string) model.DatedScores {
+func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopName string) model.DatedScores {
 	var scores model.DatedScores
 
 	// スコアタブ(panel3)からの既存データ
@@ -610,26 +610,26 @@ func parseDetailPage(s *goquery.Selection, date, hour string, wins []string, sho
 			PlayerNo: i + 1,
 			Datetime: datetime,
 			PlayerScore: model.PlayerScore{
-				City:           city,
-				Name:           name,
-				Win:            win,
-				MsImage:        msImage,
-				MsName:         "",
-				Point:          point,
-				Kills:          kills,
-				Deaths:         deaths,
-				Give_damage:    giveDamage,
-				Receive_damage: receiveDamage,
-				Ex_damage:      exDamage,
-				Mastery:        mastery,
-				TeamName:       teamName,
-				TitleImage:     titleImage,
-				TitleBadge:     titleBadge,
-				ProfileLink:    profileLink,
-				ShuffleGrade:   shuffleGrade,
-				TeamGrade:      teamGrade,
-				ScoreRanking:   scoreRanking,
-				ShopName:       shopName,
+				City:            city,
+				Name:            name,
+				Win:             win,
+				MsImageURL:      msImage,
+				MsName:          "",
+				Score:           point,
+				Kills:           kills,
+				Deaths:          deaths,
+				GiveDamage:      giveDamage,
+				ReceiveDamage:   receiveDamage,
+				ExDamage:        exDamage,
+				MsProficiency:   mastery,
+				TeamName:        teamName,
+				PlayerLevelURL:  titleImage,
+				RankBadgeURL:    titleBadge,
+				ProfileURL:      profileLink,
+				ShuffleGradeURL: shuffleGrade,
+				TeamGradeURL:    teamGrade,
+				ScoreRanking:    scoreRanking,
+				ArcadeName:      shopName,
 			},
 		}
 

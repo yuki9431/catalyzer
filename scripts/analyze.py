@@ -124,7 +124,7 @@ def get_my_data(match, cost_map=None):
         return cost_map.get(url, 0)
 
     return {
-        "win": p["勝利判定"] == "win",
+        "win": p["勝利判定"] in ("true", "win"),
         "ms": get_player_ms(match),
         "ms_cost": lookup_cost(p),
         "score": int(p["スコア"]),
