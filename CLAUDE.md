@@ -121,7 +121,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **`log.Fatal`はmain関数の初期化時のみ使用可。** リクエスト処理中は`return error`でハンドリングする
 - **エラーは`fmt.Errorf("文脈: %w", err)`でラップして返す。** 呼び出し元でハンドリングできるようにする
 - **未使用のエクスポート関数は削除する。** テストでしか使われない関数はエクスポートしない
-- **循環依存を作らない。** 依存は`model` ← `mslist` / `scraper` / `storage` ← `pipeline` ← `server`の一方向
+- **循環依存を作らない。** 依存は`model` ← `mslist` / `scraper` / `storage` / `firestore` ← `pipeline` ← `server`の一方向
 - **構造体のフィールド名はGoの命名規則（PascalCase）に従う。** スネークケースは使わない
 - **テストは対象パッケージと同じディレクトリに置く。** `xxx_test.go`で`package xxx`を使う
 - **`go vet`と`make build`がパスすることを確認してからコミットする**

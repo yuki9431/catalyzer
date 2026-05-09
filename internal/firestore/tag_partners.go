@@ -5,13 +5,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log"
-)
 
-// TagPartner はタッグ相方情報（scraper.TagPartnerと同じ構造だが循環依存を避けるため再定義）
-type TagPartner struct {
-	TeamName   string
-	PlayerName string
-}
+	"github.com/yuki9431/exvs-analyzer/internal/model"
+)
 
 // tagPartnerDoc はFirestoreに保存するtag_partnersドキュメントの構造体
 type tagPartnerDoc struct {
@@ -20,7 +16,7 @@ type tagPartnerDoc struct {
 }
 
 // SaveTagPartners はタッグ相方情報をFirestoreのtag_partnersサブコレクションに書き込む。
-func SaveTagPartners(userKey string, partners []TagPartner) {
+func SaveTagPartners(userKey string, partners []model.TagPartner) {
 	c := getClient()
 	if c == nil {
 		return
@@ -55,7 +51,7 @@ func SaveTagPartners(userKey string, partners []TagPartner) {
 
 // partnerDocID はtag_partnersドキュメントのIDを生成する。
 // チーム名+プレイヤー名のSHA256ハッシュ先頭16文字を使用。
-func partnerDocID(p TagPartner) string {
+func partnerDocID(p model.TagPartner) string {
 	h := sha256.Sum256([]byte(p.TeamName + ":" + p.PlayerName))
 	return fmt.Sprintf("%x", h[:8])
 }

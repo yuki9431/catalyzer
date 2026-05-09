@@ -63,6 +63,37 @@ type AverageScore struct {
 	PlayerScore PlayerScore
 }
 
+// TagPartner はタッグ戦歴の固定相方情報
+type TagPartner struct {
+	TeamName   string
+	PlayerName string
+}
+
+// JobStatus はジョブの状態
+type JobStatus string
+
+const (
+	StatusPending   JobStatus = "pending"
+	StatusScraping  JobStatus = "scraping"
+	StatusAnalyzing JobStatus = "analyzing"
+	StatusDone      JobStatus = "done"
+	StatusError     JobStatus = "error"
+)
+
+// JobSnapshot はジョブ状態のスナップショット
+type JobSnapshot struct {
+	ID                string
+	Status            JobStatus
+	Message           string
+	Progress          int
+	ProgressTotal     int
+	Report            string
+	PreliminaryReport string
+	Error             string
+	PartialData       bool
+	UserKey           string
+}
+
 // PlayerScores はスコアのリスト
 type PlayerScores []PlayerScore
 

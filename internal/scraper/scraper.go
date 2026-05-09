@@ -46,12 +46,6 @@ var ErrNotFound = errors.New("ページが見つかりません")
 // ErrHTTPRequestFailed はHTTPリクエストが失敗した場合のエラー
 var ErrHTTPRequestFailed = errors.New("データ取得中にHTTPエラーが発生しました")
 
-// TagPartner はタッグ戦歴ページから取得した固定相方情報
-type TagPartner struct {
-	TeamName   string
-	PlayerName string
-}
-
 // dailyLink はrankpageから収集した日別ページ情報
 type dailyLink struct {
 	date     string
@@ -823,8 +817,8 @@ func attrsFromSelection(s *goquery.Selection, selector, attr string) []string {
 }
 
 // ScrapeTagPartners はタッグ戦歴ページからチーム名と相方のプレイヤー名を取得する
-func ScrapeTagPartners(jar http.CookieJar) []TagPartner {
-	var partners []TagPartner
+func ScrapeTagPartners(jar http.CookieJar) []model.TagPartner {
+	var partners []model.TagPartner
 
 	c := colly.NewCollector(colly.AllowedDomains(vsmobile))
 	c.SetCookieJar(jar)
@@ -834,7 +828,7 @@ func ScrapeTagPartners(jar http.CookieJar) []TagPartner {
 		playerName := strings.TrimSpace(e.ChildText("p.ml-ss"))
 
 		if playerName != "" {
-			partners = append(partners, TagPartner{
+			partners = append(partners, model.TagPartner{
 				TeamName:   teamName,
 				PlayerName: playerName,
 			})

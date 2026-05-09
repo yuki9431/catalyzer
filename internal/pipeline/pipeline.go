@@ -27,44 +27,19 @@ const DefaultMSListPath = "data/ms_list.json"
 // DefaultGradeListPath はデフォルトのグレードリストパス
 const DefaultGradeListPath = "data/grade_list.json"
 
-// JobStatus はジョブの状態
-type JobStatus string
-
-const (
-	StatusPending   JobStatus = "pending"
-	StatusScraping  JobStatus = "scraping"
-	StatusAnalyzing JobStatus = "analyzing"
-	StatusDone      JobStatus = "done"
-	StatusError     JobStatus = "error"
-)
-
 // Job はバックグラウンドジョブの情報
 type Job struct {
-	ID                 string    `json:"id"`
-	Status             JobStatus `json:"status"`
-	Message            string    `json:"message,omitempty"`
-	Progress           int       `json:"progress,omitempty"`
-	ProgressTotal      int       `json:"progress_total,omitempty"`
-	Report             string    `json:"report,omitempty"`
-	PreliminaryReport  string    `json:"preliminary_report,omitempty"`
-	Error              string    `json:"error,omitempty"`
-	PartialData        bool      `json:"partial_data,omitempty"`
-	UserKey            string    `json:"-"`
+	ID                 string           `json:"id"`
+	Status             model.JobStatus  `json:"status"`
+	Message            string           `json:"message,omitempty"`
+	Progress           int              `json:"progress,omitempty"`
+	ProgressTotal      int              `json:"progress_total,omitempty"`
+	Report             string           `json:"report,omitempty"`
+	PreliminaryReport  string           `json:"preliminary_report,omitempty"`
+	Error              string           `json:"error,omitempty"`
+	PartialData        bool             `json:"partial_data,omitempty"`
+	UserKey            string           `json:"-"`
 	completedAt        time.Time
-}
-
-// JobSnapshot はジョブ状態のスナップショット
-type JobSnapshot struct {
-	ID                string
-	Status            JobStatus
-	Message           string
-	Progress          int
-	ProgressTotal     int
-	Report            string
-	PreliminaryReport string
-	Error             string
-	PartialData       bool
-	UserKey           string
 }
 
 // ジョブストア（インメモリ）
@@ -77,7 +52,7 @@ var (
 func NewJob() *Job {
 	j := &Job{
 		ID:     uuid.New().String(),
-		Status: StatusPending,
+		Status: model.StatusPending,
 	}
 	jobsMu.Lock()
 	jobs[j.ID] = j
@@ -94,10 +69,10 @@ func GetJob(id string) (*Job, bool) {
 }
 
 // Snapshot はジョブ状態のスナップショットを返す
-func (j *Job) Snapshot() JobSnapshot {
+func (j *Job) Snapshot() model.JobSnapshot {
 	jobsMu.RLock()
 	defer jobsMu.RUnlock()
-	return JobSnapshot{
+	return model.JobSnapshot{
 		ID:                j.ID,
 		Status:            j.Status,
 		Message:           j.Message,
@@ -119,7 +94,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	jobsMu.Lock()
 	j.UserKey = storage.UserKey(username)
 	jobsMu.Unlock()
-	updateStatus(j, StatusScraping)
+	updateStatus(j, model.StatusScraping)
 
 	tmpDir, err := os.MkdirTemp("", "exvs-*")
 	if err != nil {
@@ -261,7 +236,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		}
 
 		jobsMu.Lock()
-		j.Status = StatusDone
+		j.Status = model.StatusDone
 		j.Report = finalReport
 		j.completedAt = time.Now()
 		jobsMu.Unlock()
@@ -338,7 +313,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// Python分析実行
-	updateStatus(j, StatusAnalyzing)
+	updateStatus(j, model.StatusAnalyzing)
 	report := runAnalysis(csvPath, tmpDir, tagPartnersPath, timelinePath)
 	if report == "" {
 		setError(j, "分析処理に失敗しました", "analysis returned empty report")
@@ -346,7 +321,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	jobsMu.Lock()
-	j.Status = StatusDone
+	j.Status = model.StatusDone
 	j.Report = report
 	j.PartialData = is403WithPartialData
 	j.completedAt = time.Now()
@@ -392,7 +367,7 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 }
 
 // saveTagPartners はタッグ相方情報をJSONファイルに保存する
-func saveTagPartners(partners []scraper.TagPartner, path string) error {
+func saveTagPartners(partners []model.TagPartner, path string) error {
 	type tagPartnerJSON struct {
 		TeamName   string `json:"team_name"`
 		PlayerName string `json:"player_name"`
@@ -533,7 +508,7 @@ func runAnalysis(csvPath, tmpDir, tagPartnersPath, timelinePath string) string {
 	return string(report)
 }
 
-func updateStatus(j *Job, s JobStatus) {
+func updateStatus(j *Job, s model.JobStatus) {
 	jobsMu.Lock()
 	j.Status = s
 	jobsMu.Unlock()
@@ -541,7 +516,7 @@ func updateStatus(j *Job, s JobStatus) {
 
 func setError(j *Job, clientMsg, detail string) {
 	jobsMu.Lock()
-	j.Status = StatusError
+	j.Status = model.StatusError
 	j.Error = clientMsg
 	j.completedAt = time.Now()
 	jobsMu.Unlock()
