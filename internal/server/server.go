@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/yuki9431/exvs-analyzer/internal/firestore"
 	"github.com/yuki9431/exvs-analyzer/internal/model"
 	"github.com/yuki9431/exvs-analyzer/internal/pipeline"
 	"github.com/yuki9431/exvs-analyzer/internal/storage"
@@ -28,6 +30,17 @@ func StartServer() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+
+	// Firestore初期化（GCP_PROJECT未設定時はスキップ）
+	if projectID := os.Getenv("GCP_PROJECT"); projectID != "" {
+		if err := firestore.Init(context.Background(), projectID); err != nil {
+			log.Printf("[WARN] Firestore initialization failed, continuing without Firestore: %v", err)
+		} else {
+			defer firestore.Close()
+		}
+	} else {
+		log.Printf("[INFO] GCP_PROJECT not set, Firestore disabled")
 	}
 
 	// 完了済みジョブの定期クリーンアップ（1時間経過したジョブを削除）
