@@ -8,6 +8,7 @@ const requiredApis = [
   "iam.googleapis.com",
   "cloudresourcemanager.googleapis.com",
   "compute.googleapis.com",
+  "firestore.googleapis.com",
 ];
 
 export const services = requiredApis.map(

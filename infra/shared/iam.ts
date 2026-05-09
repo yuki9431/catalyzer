@@ -5,6 +5,8 @@ import { services } from "./apis";
 
 const config = new pulumi.Config();
 const githubRepo = config.require("githubRepo");
+const computeSa = config.requireSecret("computeSa");
+const ownerEmail = config.requireSecret("ownerEmail");
 
 // GitHub Actions用サービスアカウント
 export const githubActionsSa = new gcp.serviceaccount.Account(
@@ -83,7 +85,9 @@ export const projectBindings = projectRoles.map(
     )
 );
 
-// バケット単位のStorage権限（プロジェクトレベルのstorage.adminを廃止）
+// --- Storage権限 ---
+
+// Pulumiステートバケットへの管理権限（GitHub Actions SA）
 export const stateBucketBinding = new gcp.storage.BucketIAMMember(
   "github-actions-state-bucket",
   {
@@ -93,6 +97,7 @@ export const stateBucketBinding = new gcp.storage.BucketIAMMember(
   }
 );
 
+// データバケットへの管理権限（GitHub Actions SA）
 export const dataBucketBinding = new gcp.storage.BucketIAMMember(
   "github-actions-data-bucket",
   {
@@ -110,4 +115,37 @@ export const cloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
     role: "roles/storage.objectUser",
     member: githubActionsSa.member,
   }
+);
+
+// オーナーアカウントにデータバケットの管理権限を付与
+export const dataBucketOwnerIam = new gcp.storage.BucketIAMMember(
+  "app-data-owner",
+  {
+    bucket: dataBucket.name,
+    role: "roles/storage.admin",
+    member: pulumi.interpolate`user:${ownerEmail}`,
+  }
+);
+
+// Cloud Runデフォルトcompute SAにデータバケットへの最低限の権限を付与
+export const dataBucketComputeSaIam = new gcp.storage.BucketIAMMember(
+  "app-data-compute-sa",
+  {
+    bucket: dataBucket.name,
+    role: "roles/storage.objectUser",
+    member: pulumi.interpolate`serviceAccount:${computeSa}`,
+  }
+);
+
+// --- Firestore権限 ---
+
+// Cloud Runデフォルトcompute SAにFirestoreへの読み書き権限を付与
+export const firestoreComputeSaIam = new gcp.projects.IAMMember(
+  "firestore-compute-sa",
+  {
+    project: gcp.config.project!,
+    role: "roles/datastore.user",
+    member: pulumi.interpolate`serviceAccount:${computeSa}`,
+  },
+  { dependsOn: services }
 );

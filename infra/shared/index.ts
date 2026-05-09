@@ -3,6 +3,7 @@ import { repository } from "./artifact-registry";
 import { dnsZone, nameServers } from "./dns";
 import { stateBucket, dataBucket } from "./storage";
 import { githubActionsSa, wifPool, wifProvider } from "./iam";
+import { firestoreDb } from "./firestore";
 // TODO: budget importはBilling Budget APIのquota project設定後に対応
 // import { budget } from "./budget";
 
@@ -18,3 +19,4 @@ export const pulumiStateBucketName = stateBucket.name;
 export const serviceAccountEmail = githubActionsSa.email;
 export const wifPoolId = wifPool.workloadIdentityPoolId;
 export const wifProviderId = wifProvider.workloadIdentityPoolProviderId;
+export const firestoreDbName = firestoreDb.name;
