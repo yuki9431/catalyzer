@@ -48,7 +48,7 @@ func SaveScores(userKey string, scores model.DatedScores) {
 
 	// Firestoreのバッチは最大500操作
 	const batchLimit = 500
-	userRef := userDoc(userKey)
+	userRef := c.Collection("users").Doc(userKey)
 
 	// ユーザードキュメントの作成（存在しなければ）
 	_, err := userRef.Set(ctx, map[string]interface{}{
@@ -76,7 +76,7 @@ func SaveScores(userKey string, scores model.DatedScores) {
 		}
 
 		if _, err := batch.Commit(ctx); err != nil {
-			log.Printf("[WARN] Firestore: failed to save scores batch (%d-%d): %v", i, end, err)
+			log.Printf("[WARN] Firestore: failed to save scores batch (%d-%d of %d, partial write): %v", i, end, len(scores), err)
 			return
 		}
 	}

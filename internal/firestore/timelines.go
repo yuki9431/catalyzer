@@ -3,7 +3,6 @@ package firestore
 import (
 	"context"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +43,7 @@ func SaveTimelines(userKey string, scores model.DatedScores) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	userRef := userDoc(userKey)
+	userRef := c.Collection("users").Doc(userKey)
 	timelinesCol := userRef.Collection("timelines")
 
 	const batchLimit = 500
@@ -82,7 +81,7 @@ func SaveTimelines(userKey string, scores model.DatedScores) {
 		}
 
 		if _, err := batch.Commit(ctx); err != nil {
-			log.Printf("[WARN] Firestore: failed to save timelines batch (%d-%d): %v", i, end, err)
+			log.Printf("[WARN] Firestore: failed to save timelines batch (%d-%d of %d, partial write): %v", i, end, len(docs), err)
 			return
 		}
 	}
@@ -130,17 +129,7 @@ func groupToPlayerNo(group string) string {
 	case "team2-2":
 		return "4"
 	default:
-		// "team1-1" 以外のフォーマットの場合、数値解析を試みる
-		parts := strings.Split(strings.TrimPrefix(group, "team"), "-")
-		if len(parts) != 2 {
-			return ""
-		}
-		teamNo, err1 := strconv.Atoi(parts[0])
-		memberNo, err2 := strconv.Atoi(parts[1])
-		if err1 != nil || err2 != nil {
-			return ""
-		}
-		return strconv.Itoa((teamNo-1)*2 + memberNo)
+		return ""
 	}
 }
 

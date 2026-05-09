@@ -28,7 +28,7 @@ func SaveTagPartners(userKey string, partners []model.TagPartner) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	userRef := userDoc(userKey)
+	userRef := c.Collection("users").Doc(userKey)
 	partnersCol := userRef.Collection("tag_partners")
 
 	batch := c.Batch()

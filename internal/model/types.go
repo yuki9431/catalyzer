@@ -38,7 +38,7 @@ type MatchEvent struct {
 	Group    string  `json:"group"`     // team1-1, team1-2, team2-1, team2-2
 	StartSec float64 `json:"start_sec"` // 開始時間(秒)
 	EndSec   float64 `json:"end_sec"`   // 終了時間(秒、pointの場合は0)
-	ClassName string `json:"class_name"` // ex, exbst-f, exbst-s, exbst-e, ov, exbst-ov, xb
+	ClassName string `json:"class_name"` // ex, exbst-f, exbst-s, exbst-e, ov, exbst-ov
 	IsPoint  bool    `json:"is_point"`  // 被撃墜イベントか
 }
 
@@ -54,13 +54,6 @@ type DatedScore struct {
 	Datetime      time.Time
 	PlayerScore   PlayerScore
 	MatchTimeline *MatchTimeline // 試合経過(PlayerNo==1のときのみセット、4人で共有)
-}
-
-// AverageScore はスコア平均
-type AverageScore struct {
-	Game_count  int
-	Victories   int
-	PlayerScore PlayerScore
 }
 
 // TagPartner はタッグ戦歴の固定相方情報
@@ -93,9 +86,6 @@ type JobSnapshot struct {
 	PartialData       bool
 	UserKey           string
 }
-
-// PlayerScores はスコアのリスト
-type PlayerScores []PlayerScore
 
 // DatedScores は日付付きスコアのリスト
 type DatedScores []DatedScore

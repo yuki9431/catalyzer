@@ -769,6 +769,10 @@ func parseMatchTimeline(s *goquery.Selection) *model.MatchTimeline {
 			}
 
 			if classMatch := reClassName.FindStringSubmatch(content); classMatch != nil {
+				// xb（クロスバースト）は覚醒重複区間から算出するため保存しない
+				if classMatch[1] == "xb" {
+					continue
+				}
 				event.ClassName = classMatch[1]
 			}
 

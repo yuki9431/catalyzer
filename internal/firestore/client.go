@@ -61,8 +61,3 @@ func getClient() *firestore.Client {
 	defer clientMu.RUnlock()
 	return client
 }
-
-// userDoc はユーザードキュメントの参照を返す。
-func userDoc(userKey string) *firestore.DocumentRef {
-	return client.Collection("users").Doc(userKey)
-}
