@@ -11,10 +11,7 @@ import (
 	"cloud.google.com/go/firestore"
 )
 
-const (
-	defaultDatabaseID = "exvs-analyzer"
-	defaultTimeout    = 30 * time.Second
-)
+const defaultTimeout = 30 * time.Second
 
 var (
 	client   *firestore.Client
@@ -22,14 +19,15 @@ var (
 )
 
 // Init はFirestoreクライアントを初期化する。
-// 環境変数 FIRESTORE_DATABASE でデータベースIDを指定可能（デフォルト: exvs-analyzer）。
-func Init(ctx context.Context, projectID string) error {
+// 環境変数 FIRESTORE_DATABASE でデータベースIDを指定する。
+// プロジェクトIDはCloud Run上では自動検出される。
+func Init(ctx context.Context) error {
 	dbID := os.Getenv("FIRESTORE_DATABASE")
 	if dbID == "" {
-		dbID = defaultDatabaseID
+		return fmt.Errorf("FIRESTORE_DATABASE environment variable is required")
 	}
 
-	c, err := firestore.NewClientWithDatabase(ctx, projectID, dbID)
+	c, err := firestore.NewClientWithDatabase(ctx, "", dbID)
 	if err != nil {
 		return fmt.Errorf("firestore client init: %w", err)
 	}
@@ -38,7 +36,7 @@ func Init(ctx context.Context, projectID string) error {
 	client = c
 	clientMu.Unlock()
 
-	log.Printf("[INFO] Firestore client initialized (project: %s, database: %s)", projectID, dbID)
+	log.Printf("[INFO] Firestore client initialized (database: %s)", dbID)
 	return nil
 }
 

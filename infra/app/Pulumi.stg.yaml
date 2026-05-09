@@ -13,3 +13,4 @@ config:
     secure: v1:ZpepUFqv5KJMeSu1:0iAEyxxqllexQbeTezIhRPKvwR+2/sW5VY9iqpRWtWDeidp+gw==
   exvs-app:sharedStack: organization/exvs-shared/shared
   exvs-app:serviceName: stg-exvs-analyzer
+  exvs-app:firestoreDatabase: exvs-analyzer
