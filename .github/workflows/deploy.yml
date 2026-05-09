@@ -39,10 +39,10 @@ jobs:
           CHANGED=$(git diff --name-only HEAD~1 HEAD -- infra/app/Pulumi.*.yaml || echo "")
 
           if echo "$CHANGED" | grep -q "Pulumi.stg.yaml"; then
-            ENVS=$(echo "$ENVS" | jq '. + ["stg"]')
+            ENVS=$(echo "$ENVS" | jq -c '. + ["stg"]')
           fi
           if echo "$CHANGED" | grep -q "Pulumi.prod.yaml"; then
-            ENVS=$(echo "$ENVS" | jq '. + ["prod"]')
+            ENVS=$(echo "$ENVS" | jq -c '. + ["prod"]')
           fi
 
           echo "environments=$ENVS" >> "$GITHUB_OUTPUT"
