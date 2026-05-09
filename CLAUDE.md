@@ -71,7 +71,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 - `cmd/server/main.go` — エントリポイント。`internal/server.StartServer()` に委譲
 - `cmd/update-mslist/main.go` — MSリストをスクレイピングして `data/ms_list.json` を更新するCLI
-- `internal/model/` — 型定義のみ（`PlayerScore`, `DatedScore`, `MSInfo`, `AverageScore`, `MatchEvent`, `MatchTimeline`）
+- `cmd/migrate-to-firestore/main.go` — GCS既存データをFirestoreに移行するワンショットCLI
+- `internal/model/` — 型定義のみ（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）

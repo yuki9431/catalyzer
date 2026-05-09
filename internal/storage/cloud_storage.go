@@ -7,9 +7,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 // BucketName は環境変数 GCS_BUCKET から取得するCloud Storageのバケット名
@@ -173,4 +175,44 @@ func UploadTimeline(username, localPath string) error {
 	}
 	log.Printf("[INFO] Uploaded timelines to GCS")
 	return nil
+}
+
+// DownloadByObjectPath はGCSオブジェクトパスを直接指定してダウンロードする
+func DownloadByObjectPath(objPath, localPath string) (bool, error) {
+	return downloadObject(objPath, localPath)
+}
+
+// ListUserKeys はGCSバケットの users/ 配下からユーザーキー一覧を取得する
+func ListUserKeys() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create storage client: %w", err)
+	}
+	defer client.Close()
+
+	seen := make(map[string]bool)
+	it := client.Bucket(BucketName).Objects(ctx, &storage.Query{Prefix: "users/"})
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list objects: %w", err)
+		}
+		// "users/{userKey}/scores.csv" → userKey を抽出
+		parts := strings.SplitN(attrs.Name, "/", 3)
+		if len(parts) >= 2 && parts[1] != "" {
+			seen[parts[1]] = true
+		}
+	}
+
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
+	}
+	return keys, nil
 }
