@@ -36,6 +36,10 @@ export const service = new gcp.cloudrunv2.Service(
               name: "GCS_BUCKET",
               value: gcsBucket,
             },
+            {
+              name: "GCP_PROJECT",
+              value: gcp.config.project!,
+            },
           ],
           resources: {
             cpuIdle: true,
