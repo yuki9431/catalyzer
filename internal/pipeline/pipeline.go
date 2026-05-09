@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	fs "github.com/yuki9431/exvs-analyzer/internal/firestore"
 	"github.com/yuki9431/exvs-analyzer/internal/gradelist"
 	"github.com/yuki9431/exvs-analyzer/internal/model"
 	"github.com/yuki9431/exvs-analyzer/internal/mslist"
@@ -221,6 +222,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				if err := storage.UploadTagPartners(username, tagPartnersPath); err != nil {
 					log.Printf("[WARN] Failed to upload tag partners to GCS: %v", err)
 				}
+				// Firestoreにtag_partnersを書き込み
+				fs.SaveTagPartners(j.UserKey, tagPartners)
 			}
 		} else {
 			log.Printf("[INFO] No tag partners found (no new data path)")
@@ -283,8 +286,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		log.Printf("[WARN] Failed to upload CSV to Cloud Storage: %v", err)
 	}
 
+	// Firestoreにscoresを書き込み
+	fs.SaveScores(j.UserKey, datedScores)
+
 	// タイムラインデータの保存
-	timelinePath := saveTimelines(datedScores, username, tmpDir)
+	timelinePath := saveTimelines(datedScores, username, j.UserKey, tmpDir)
 
 	// タッグ相方名を取得（403途中保存時はセッションが無効なのでキャッシュを使用）
 	var tagPartnersPath string
@@ -306,6 +312,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				if err := storage.UploadTagPartners(username, tagPartnersPath); err != nil {
 					log.Printf("[WARN] Failed to upload tag partners to GCS: %v", err)
 				}
+				// Firestoreにtag_partnersを書き込み
+				fs.SaveTagPartners(j.UserKey, tagPartners)
 			}
 		} else {
 			log.Printf("[INFO] No tag partners found")
@@ -425,7 +433,7 @@ func mergeAndSaveCSV(newScores model.DatedScores, csvPath string) error {
 }
 
 // saveTimelines はDatedScoresからタイムラインデータを抽出し、JSONファイルに保存・GCSにアップロードする
-func saveTimelines(scores model.DatedScores, username, tmpDir string) string {
+func saveTimelines(scores model.DatedScores, username, userKey, tmpDir string) string {
 	type timelineEntry struct {
 		Datetime string              `json:"datetime"`
 		Timeline *model.MatchTimeline `json:"timeline"`
@@ -477,6 +485,9 @@ func saveTimelines(scores model.DatedScores, username, tmpDir string) string {
 	if err := storage.UploadTimeline(username, timelinePath); err != nil {
 		log.Printf("[WARN] Failed to upload timelines to GCS: %v", err)
 	}
+
+	// Firestoreにtimelinesを書き込み
+	fs.SaveTimelines(userKey, scores)
 
 	log.Printf("[INFO] Saved %d new timelines (%d total)", added, len(existing))
 	return timelinePath
