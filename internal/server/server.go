@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/yuki9431/exvs-analyzer/internal/model"
 	"github.com/yuki9431/exvs-analyzer/internal/pipeline"
 	"github.com/yuki9431/exvs-analyzer/internal/storage"
 	"golang.org/x/time/rate"
@@ -189,7 +190,7 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 
 	snap := j.Snapshot()
 
-	if snap.Status != pipeline.StatusDone && snap.Status != pipeline.StatusError {
+	if snap.Status != model.StatusDone && snap.Status != model.StatusError {
 		if snap.PreliminaryReport != "" {
 			sendRawReport(w, http.StatusOK, snap.PreliminaryReport, string(snap.Status), snap.UserKey, true)
 			return
@@ -198,7 +199,7 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
-	if snap.Status == pipeline.StatusError {
+	if snap.Status == model.StatusError {
 		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": snap.Error})
 		return
 	}
@@ -214,7 +215,7 @@ func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	snap := j.Snapshot()
-	if snap.Status != pipeline.StatusDone {
+	if snap.Status != model.StatusDone {
 		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Job not completed"})
 		return
 	}

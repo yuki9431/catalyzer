@@ -11,26 +11,26 @@ type MSInfo struct {
 
 // PlayerScore はスコア
 type PlayerScore struct {
-	City           string
-	Name           string
-	Win            string
-	MsImage        string
-	MsName         string
-	Point          int
-	Kills          int
-	Deaths         int
-	Give_damage    int
-	Receive_damage int
-	Ex_damage      int
-	Mastery        string // ランク(master, gold2, silver5等)
-	TeamName       string // チーム名
-	TitleImage     string // 称号画像URL
-	TitleBadge     string // 称号バッジURL
-	ProfileLink    string // プロフィールページURL
-	ShuffleGrade   string // シャッフル階級画像URL
-	TeamGrade      string // チーム(固定)階級画像URL
-	ScoreRanking   int    // 試合内スコア順位(1-4)
-	ShopName       string // プレイ店舗名
+	City            string
+	Name            string
+	Win             bool
+	MsImageURL      string // 機体画像URL
+	MsName          string
+	Score           int
+	Kills           int
+	Deaths          int
+	GiveDamage      int
+	ReceiveDamage   int
+	ExDamage        int
+	MsProficiency   string // ランク(master, gold2, silver5等)
+	TeamName        string // チーム名
+	PlayerLevelURL  string // 称号画像URL
+	RankBadgeURL    string // 称号バッジURL
+	ProfileURL      string // プロフィールページURL
+	ShuffleGradeURL string // シャッフル階級画像URL
+	TeamGradeURL    string // チーム(固定)階級画像URL
+	ScoreRanking    int    // 試合内スコア順位(1-4)
+	ArcadeName      string // プレイ店舗名
 }
 
 // MatchEvent は試合経過の1イベント
@@ -38,7 +38,7 @@ type MatchEvent struct {
 	Group    string  `json:"group"`     // team1-1, team1-2, team2-1, team2-2
 	StartSec float64 `json:"start_sec"` // 開始時間(秒)
 	EndSec   float64 `json:"end_sec"`   // 終了時間(秒、pointの場合は0)
-	ClassName string `json:"class_name"` // ex, exbst-f, exbst-s, exbst-e, ov, exbst-ov, xb
+	ClassName string `json:"class_name"` // ex, exbst-f, exbst-s, exbst-e, ov, exbst-ov
 	IsPoint  bool    `json:"is_point"`  // 被撃墜イベントか
 }
 
@@ -56,15 +56,36 @@ type DatedScore struct {
 	MatchTimeline *MatchTimeline // 試合経過(PlayerNo==1のときのみセット、4人で共有)
 }
 
-// AverageScore はスコア平均
-type AverageScore struct {
-	Game_count  int
-	Victories   int
-	PlayerScore PlayerScore
+// TagPartner はタッグ戦歴の固定相方情報
+type TagPartner struct {
+	TeamName   string
+	PlayerName string
 }
 
-// PlayerScores はスコアのリスト
-type PlayerScores []PlayerScore
+// JobStatus はジョブの状態
+type JobStatus string
+
+const (
+	StatusPending   JobStatus = "pending"
+	StatusScraping  JobStatus = "scraping"
+	StatusAnalyzing JobStatus = "analyzing"
+	StatusDone      JobStatus = "done"
+	StatusError     JobStatus = "error"
+)
+
+// JobSnapshot はジョブ状態のスナップショット
+type JobSnapshot struct {
+	ID                string
+	Status            JobStatus
+	Message           string
+	Progress          int
+	ProgressTotal     int
+	Report            string
+	PreliminaryReport string
+	Error             string
+	PartialData       bool
+	UserKey           string
+}
 
 // DatedScores は日付付きスコアのリスト
 type DatedScores []DatedScore

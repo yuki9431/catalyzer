@@ -46,12 +46,6 @@ var ErrNotFound = errors.New("ページが見つかりません")
 // ErrHTTPRequestFailed はHTTPリクエストが失敗した場合のエラー
 var ErrHTTPRequestFailed = errors.New("データ取得中にHTTPエラーが発生しました")
 
-// TagPartner はタッグ戦歴ページから取得した固定相方情報
-type TagPartner struct {
-	TeamName   string
-	PlayerName string
-}
-
 // dailyLink はrankpageから収集した日別ページ情報
 type dailyLink struct {
 	date     string
@@ -63,7 +57,7 @@ type dailyLink struct {
 type matchEntry struct {
 	date      string
 	hour      string
-	wins      []string
+	wins      []bool
 	detailURL string
 	shopName  string // プレイ店舗名（dailyLinkから引き継ぎ）
 }
@@ -331,11 +325,11 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 			}
 		}
 
-		var wins []string
+		var wins []bool
 		if e.ChildAttr("a", "class") == "right-arrow vs-detail win" {
-			wins = []string{"win", "win", "lose", "lose"}
+			wins = []bool{true, true, false, false}
 		} else {
-			wins = []string{"lose", "lose", "win", "win"}
+			wins = []bool{false, false, true, true}
 		}
 
 		link := e.Request.AbsoluteURL(e.ChildAttr("a", "href"))
@@ -515,7 +509,7 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 }
 
 // parseDetailPage は試合詳細ページからスコアを抽出する
-func parseDetailPage(s *goquery.Selection, date, hour string, wins []string, shopName string) model.DatedScores {
+func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopName string) model.DatedScores {
 	var scores model.DatedScores
 
 	// スコアタブ(panel3)からの既存データ
@@ -610,26 +604,26 @@ func parseDetailPage(s *goquery.Selection, date, hour string, wins []string, sho
 			PlayerNo: i + 1,
 			Datetime: datetime,
 			PlayerScore: model.PlayerScore{
-				City:           city,
-				Name:           name,
-				Win:            win,
-				MsImage:        msImage,
-				MsName:         "",
-				Point:          point,
-				Kills:          kills,
-				Deaths:         deaths,
-				Give_damage:    giveDamage,
-				Receive_damage: receiveDamage,
-				Ex_damage:      exDamage,
-				Mastery:        mastery,
-				TeamName:       teamName,
-				TitleImage:     titleImage,
-				TitleBadge:     titleBadge,
-				ProfileLink:    profileLink,
-				ShuffleGrade:   shuffleGrade,
-				TeamGrade:      teamGrade,
-				ScoreRanking:   scoreRanking,
-				ShopName:       shopName,
+				City:            city,
+				Name:            name,
+				Win:             win,
+				MsImageURL:      msImage,
+				MsName:          "",
+				Score:           point,
+				Kills:           kills,
+				Deaths:          deaths,
+				GiveDamage:      giveDamage,
+				ReceiveDamage:   receiveDamage,
+				ExDamage:        exDamage,
+				MsProficiency:   mastery,
+				TeamName:        teamName,
+				PlayerLevelURL:  titleImage,
+				RankBadgeURL:    titleBadge,
+				ProfileURL:      profileLink,
+				ShuffleGradeURL: shuffleGrade,
+				TeamGradeURL:    teamGrade,
+				ScoreRanking:    scoreRanking,
+				ArcadeName:      shopName,
 			},
 		}
 
@@ -775,6 +769,10 @@ func parseMatchTimeline(s *goquery.Selection) *model.MatchTimeline {
 			}
 
 			if classMatch := reClassName.FindStringSubmatch(content); classMatch != nil {
+				// xb（クロスバースト）は覚醒重複区間から算出するため保存しない
+				if classMatch[1] == "xb" {
+					continue
+				}
 				event.ClassName = classMatch[1]
 			}
 
@@ -823,8 +821,8 @@ func attrsFromSelection(s *goquery.Selection, selector, attr string) []string {
 }
 
 // ScrapeTagPartners はタッグ戦歴ページからチーム名と相方のプレイヤー名を取得する
-func ScrapeTagPartners(jar http.CookieJar) []TagPartner {
-	var partners []TagPartner
+func ScrapeTagPartners(jar http.CookieJar) []model.TagPartner {
+	var partners []model.TagPartner
 
 	c := colly.NewCollector(colly.AllowedDomains(vsmobile))
 	c.SetCookieJar(jar)
@@ -834,7 +832,7 @@ func ScrapeTagPartners(jar http.CookieJar) []TagPartner {
 		playerName := strings.TrimSpace(e.ChildText("p.ml-ss"))
 
 		if playerName != "" {
-			partners = append(partners, TagPartner{
+			partners = append(partners, model.TagPartner{
 				TeamName:   teamName,
 				PlayerName: playerName,
 			})

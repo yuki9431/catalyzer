@@ -51,14 +51,14 @@ func BuildGradeMap(list []GradeInfo) map[string]GradeInfo {
 func CheckUnknownGrades(ds model.DatedScores, gradeMap map[string]GradeInfo) {
 	unknown := make(map[string]int)
 	for _, d := range ds {
-		if d.PlayerScore.ShuffleGrade != "" {
-			if _, ok := gradeMap[stripQuery(d.PlayerScore.ShuffleGrade)]; !ok {
-				unknown[d.PlayerScore.ShuffleGrade]++
+		if d.PlayerScore.ShuffleGradeURL != "" {
+			if _, ok := gradeMap[stripQuery(d.PlayerScore.ShuffleGradeURL)]; !ok {
+				unknown[d.PlayerScore.ShuffleGradeURL]++
 			}
 		}
-		if d.PlayerScore.TeamGrade != "" {
-			if _, ok := gradeMap[stripQuery(d.PlayerScore.TeamGrade)]; !ok {
-				unknown[d.PlayerScore.TeamGrade]++
+		if d.PlayerScore.TeamGradeURL != "" {
+			if _, ok := gradeMap[stripQuery(d.PlayerScore.TeamGradeURL)]; !ok {
+				unknown[d.PlayerScore.TeamGradeURL]++
 			}
 		}
 	}

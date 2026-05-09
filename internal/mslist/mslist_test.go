@@ -54,8 +54,8 @@ func TestFillMsNames(t *testing.T) {
 		"https://example.com/gundam.png": "ガンダム",
 	}
 	ds := model.DatedScores{
-		{PlayerNo: 1, PlayerScore: model.PlayerScore{MsImage: "https://example.com/gundam.png"}},
-		{PlayerNo: 2, PlayerScore: model.PlayerScore{MsImage: "https://example.com/unknown.png"}},
+		{PlayerNo: 1, PlayerScore: model.PlayerScore{MsImageURL: "https://example.com/gundam.png"}},
+		{PlayerNo: 2, PlayerScore: model.PlayerScore{MsImageURL: "https://example.com/unknown.png"}},
 	}
 
 	FillMsNames(ds, msMap)
@@ -70,7 +70,7 @@ func TestFillMsNames(t *testing.T) {
 
 func TestFillMsNames_EmptyMap(t *testing.T) {
 	ds := model.DatedScores{
-		{PlayerNo: 1, Datetime: time.Now(), PlayerScore: model.PlayerScore{MsImage: "https://example.com/gundam.png"}},
+		{PlayerNo: 1, Datetime: time.Now(), PlayerScore: model.PlayerScore{MsImageURL: "https://example.com/gundam.png"}},
 	}
 	FillMsNames(ds, map[string]string{})
 
@@ -149,9 +149,9 @@ func TestSaveMSList_Sort(t *testing.T) {
 func TestCheckUnknownMS(t *testing.T) {
 	// CheckUnknownMSはログ出力のみなので、パニックしないことを確認
 	ds := model.DatedScores{
-		{PlayerScore: model.PlayerScore{MsImage: "https://example.com/unknown.png", MsName: ""}},
-		{PlayerScore: model.PlayerScore{MsImage: "https://example.com/gundam.png", MsName: "ガンダム"}},
-		{PlayerScore: model.PlayerScore{MsImage: "", MsName: ""}},
+		{PlayerScore: model.PlayerScore{MsImageURL: "https://example.com/unknown.png", MsName: ""}},
+		{PlayerScore: model.PlayerScore{MsImageURL: "https://example.com/gundam.png", MsName: "ガンダム"}},
+		{PlayerScore: model.PlayerScore{MsImageURL: "", MsName: ""}},
 	}
 	CheckUnknownMS(ds)
 }
