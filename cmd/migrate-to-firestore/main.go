@@ -22,7 +22,7 @@ func main() {
 		log.Fatal("GCS_BUCKET environment variable is required")
 	}
 
-	if err := fs.Init(context.Background(), projectID); err != nil {
+	if err := fs.InitWithProjectID(context.Background(), projectID); err != nil {
 		log.Fatalf("Failed to initialize Firestore: %v", err)
 	}
 	defer fs.Close()

@@ -21,16 +21,25 @@ var (
 
 // Init はFirestoreクライアントを初期化する。
 // 環境変数 FIRESTORE_DATABASE でデータベースIDを指定する。
-// プロジェクトIDはCloud Run上では自動検出される。
+// プロジェクトIDはCloud Runのメタデータサーバーから自動検出される。
 func Init(ctx context.Context) error {
-	dbID := os.Getenv("FIRESTORE_DATABASE")
-	if dbID == "" {
-		return fmt.Errorf("FIRESTORE_DATABASE environment variable is required")
-	}
-
 	projectID, err := metadata.ProjectIDWithContext(ctx)
 	if err != nil {
 		return fmt.Errorf("detect project ID: %w", err)
+	}
+	return initClient(ctx, projectID)
+}
+
+// InitWithProjectID はプロジェクトIDを指定してFirestoreクライアントを初期化する。
+// メタデータサーバーが利用できないローカル環境やCLIツールから使用する。
+func InitWithProjectID(ctx context.Context, projectID string) error {
+	return initClient(ctx, projectID)
+}
+
+func initClient(ctx context.Context, projectID string) error {
+	dbID := os.Getenv("FIRESTORE_DATABASE")
+	if dbID == "" {
+		return fmt.Errorf("FIRESTORE_DATABASE environment variable is required")
 	}
 
 	c, err := firestore.NewClientWithDatabase(ctx, projectID, dbID)
