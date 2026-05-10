@@ -89,6 +89,72 @@ func SaveTimelines(userKey string, scores model.DatedScores) {
 	log.Printf("[INFO] Firestore: saved %d timelines for user %s", len(docs), userKey)
 }
 
+// TimelineEntry はGCS timelines.jsonのエントリ（移行ツール用）
+type TimelineEntry struct {
+	Datetime string              `json:"datetime"`
+	Timeline *model.MatchTimeline `json:"timeline"`
+}
+
+// SaveTimelineEntries はtimelines.jsonのエントリをFirestoreに書き込む。
+func SaveTimelineEntries(userKey string, entries []TimelineEntry) {
+	c := getClient()
+	if c == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	userRef := c.Collection("users").Doc(userKey)
+	timelinesCol := userRef.Collection("timelines")
+
+	const batchLimit = 500
+	var docs []struct {
+		id  string
+		doc timelineDoc
+	}
+
+	for _, e := range entries {
+		if e.Timeline == nil {
+			continue
+		}
+		dt, err := time.Parse("2006-01-02 15:04", e.Datetime)
+		if err != nil {
+			continue
+		}
+		docID := dt.Format("2006-01-02T1504")
+		doc := toTimelineDoc(dt, e.Timeline)
+		docs = append(docs, struct {
+			id  string
+			doc timelineDoc
+		}{docID, doc})
+	}
+
+	if len(docs) == 0 {
+		return
+	}
+
+	for i := 0; i < len(docs); i += batchLimit {
+		end := i + batchLimit
+		if end > len(docs) {
+			end = len(docs)
+		}
+
+		batch := c.Batch()
+		for _, d := range docs[i:end] {
+			ref := timelinesCol.Doc(d.id)
+			batch.Set(ref, d.doc)
+		}
+
+		if _, err := batch.Commit(ctx); err != nil {
+			log.Printf("[WARN] Firestore: failed to save timeline entries batch (%d-%d of %d, partial write): %v", i, end, len(docs), err)
+			return
+		}
+	}
+
+	log.Printf("[INFO] Firestore: saved %d timeline entries for user %s", len(docs), userKey)
+}
+
 // toTimelineDoc はMatchTimelineをFirestoreドキュメント用の構造体に変換する。
 // Events内のgroupをプレイヤー番号(1-4)に変換し、playersマップにまとめる。
 func toTimelineDoc(datetime time.Time, mt *model.MatchTimeline) timelineDoc {
