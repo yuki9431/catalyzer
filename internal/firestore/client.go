@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/firestore"
 )
 
@@ -27,7 +28,12 @@ func Init(ctx context.Context) error {
 		return fmt.Errorf("FIRESTORE_DATABASE environment variable is required")
 	}
 
-	c, err := firestore.NewClientWithDatabase(ctx, "", dbID)
+	projectID, err := metadata.ProjectIDWithContext(ctx)
+	if err != nil {
+		return fmt.Errorf("detect project ID: %w", err)
+	}
+
+	c, err := firestore.NewClientWithDatabase(ctx, projectID, dbID)
 	if err != nil {
 		return fmt.Errorf("firestore client init: %w", err)
 	}
@@ -36,7 +42,7 @@ func Init(ctx context.Context) error {
 	client = c
 	clientMu.Unlock()
 
-	log.Printf("[INFO] Firestore client initialized (database: %s)", dbID)
+	log.Printf("[INFO] Firestore client initialized (project: %s, database: %s)", projectID, dbID)
 	return nil
 }
 
