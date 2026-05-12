@@ -25,7 +25,9 @@
 │   │   └── pipeline.go          # 分析パイプライン（Job管理・実行）
 │   ├── server/
 │   │   ├── server.go            # HTTPサーバー・API
-│   │   └── ratelimit.go         # IPベースレート制限
+│   │   ├── ratelimit.go         # IPベースレート制限
+│   │   ├── basicauth.go         # Basic認証ミドルウェア
+│   │   └── block403.go          # 403時の一時ブロック管理
 │   └── storage/
 │       ├── csv_export.go        # CSV読み書き
 │       └── cloud_storage.go     # Cloud Storage連携
@@ -34,23 +36,27 @@
 ├── static/
 │   ├── index.html               # フロントエンド
 │   ├── app.js                   # フロントエンドJS（CSP対応で外部化）
-│   └── htm-preact-standalone.js # htm + Preactライブラリ
+│   ├── htm-preact-standalone.js # htm + Preactライブラリ
+│   └── chart.umd.min.js        # Chart.jsライブラリ
 ├── data/
 │   ├── ms_list.json             # 機体名・コストマッピング
 │   └── grade_list.json          # 階級画像URL→階級名・グレードマッピング
 ├── infra/
-│   ├── index.ts                 # Pulumiエントリポイント
-│   ├── apis.ts                  # Google API有効化
-│   ├── artifact-registry.ts     # Artifact Registry定義
-│   ├── cloudrun.ts              # Cloud Run定義
-│   ├── domain.ts                # カスタムドメイン・DNS定義
-│   ├── storage.ts               # Cloud Storageバケット定義
-│   ├── iam.ts                   # サービスアカウント・Workload Identity
-│   └── budget.ts                # 予算アラート定義
+│   ├── shared/                  # 共有リソース（環境非依存）
+│   │   ├── index.ts             # エントリポイント
+│   │   ├── apis.ts              # Google API有効化
+│   │   ├── artifact-registry.ts # Artifact Registry定義
+│   │   ├── storage.ts           # Cloud Storageバケット定義
+│   │   ├── dns.ts               # Cloud DNS定義
+│   │   ├── iam.ts               # サービスアカウント・Workload Identity
+│   │   └── budget.ts            # 予算アラート定義
+│   └── app/                     # 環境別リソース（prod/stg）
+│       └── index.ts             # Cloud Run・ドメインマッピング
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml               # CI（Docker build, Go vet, Python構文チェック）
-│       ├── cd.yml               # CD（Pulumi経由でCloud Runデプロイ）
+│       ├── build.yml            # ビルド&プッシュ（mainマージ時）
+│       ├── deploy.yml           # デプロイ（Pulumi up）
 │       ├── infra-ci.yml         # インフラCI（Pulumi preview）
 │       └── update-mslist.yml    # MSリスト自動更新
 ├── Makefile                     # ビルド・起動・インフラコマンド
@@ -73,7 +79,7 @@
 | `internal/scraper/` | スクレイピング・ログイン処理 |
 | `internal/firestore/` | Firestoreクライアント・データ書き込み |
 | `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行） |
-| `internal/server/` | HTTPハンドラ・レート制限 |
+| `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック |
 | `internal/storage/` | CSV・Cloud Storageの読み書き |
 | `scripts/` | Go以外のスクリプト（Python分析等） |
 | `static/` | フロントエンドHTML/JS/CSS |

@@ -20,3 +20,6 @@ static/sample_report.md
 
 # Node.js
 node_modules/
+
+# Temp files
+tmp/

@@ -65,7 +65,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
 ```
 
-**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /health`, `GET /`（静的UI）
+**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /result/{id}/period`, `GET /period`, `GET /health`, `GET /`（静的UI）
 
 ## コード構成
 
@@ -78,12 +78,13 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ scores/timelines/tag_partners書き込み
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数）
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
 - `internal/storage/` — CSV読み書き（`csv_export.go`）+ GCSアップロード/ダウンロード（`cloud_storage.go`）
 - `scripts/analyze.py` — Python分析: カテゴリ別アドバイス、勝率、与被ダメ比、固定相方検出、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応）
 - `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
+- `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
 - `data/ms_list.json` — MS画像URL→名前・コストのマッピング（コスト: 3000/2500/2000/1500）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
@@ -105,6 +106,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **PRのマージは絶対に勝手に行わない。** 必ずユーザーの明示的な指示を待つ
 - PRの `no-deploy` ラベルはデフォルトでは付けない（マージ時にstgへ自動デプロイして検証する）
 - Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける
+- **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `gh workflow run build.yml` で手動実行（環境選択可）、または `no-deploy` なしでPRをマージ
 - **コード構成やディレクトリ構造に変更があった場合は、CLAUDE.mdの「コード構成」セクションとREADME.mdのプロジェクト構成も合わせて更新すること**
 
