@@ -56,10 +56,11 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ```
 ブラウザ → POST /analyze → ジョブ作成（pending）
-  → GCSから既存CSVをダウンロード
+  → Firestoreから既存scoresを読み取り → 速報レポート生成
   → Collyで新規戦績をスクレイピング（状態: scraping）
-  → CSVをマージし、data/ms_list.jsonからMS名・コストを補完
-  → CSVをGCSにアップロード
+  → data/ms_list.jsonからMS名・コストを補完
+  → Firestoreにscores/timelines/tag_partners書き込み
+  → Firestoreから全scores読み取り → CSV生成 → GCSにアップロード（二重書き込み）
   → scripts/analyze.py でCSVを分析（状態: analyzing）
   → JSONレポートを返却（状態: done）
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
@@ -76,7 +77,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
-- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ scores/timelines/tag_partners書き込み
+- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ scores/timelines/tag_partnersの読み書き
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
 - `internal/storage/` — CSV読み書き（`csv_export.go`）+ GCSアップロード/ダウンロード（`cloud_storage.go`）
