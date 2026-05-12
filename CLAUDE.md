@@ -60,7 +60,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   → Collyで新規戦績をスクレイピング（状態: scraping）
   → data/ms_list.jsonからMS名・コストを補完
   → Firestoreにscores/timelines/tag_partners書き込み
-  → Firestoreから全scores読み取り → CSV生成 → GCSにアップロード（二重書き込み）
+  → Firestoreから全scores読み取り → CSV生成
   → scripts/analyze.py でCSVを分析（状態: analyzing）
   → JSONレポートを返却（状態: done）
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得

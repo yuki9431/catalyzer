@@ -229,10 +229,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				tagPartnersPath = ""
 			} else {
 				log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
-				// タッグ相方情報をGCSにアップロード
-				if err := storage.UploadTagPartners(username, tagPartnersPath); err != nil {
-					log.Printf("[WARN] Failed to upload tag partners to GCS: %v", err)
-				}
 				// Firestoreにtag_partnersを書き込み
 				fs.SaveTagPartners(j.UserKey, tagPartners)
 			}
@@ -280,7 +276,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// Firestoreにscoresを書き込み
 	fs.SaveScores(j.UserKey, datedScores)
 
-	// Firestoreから全scoresを読み取り、CSV生成（GCSアップロード用 + Python分析用）
+	// Firestoreから全scoresを読み取り、Python分析用のCSVを生成
 	allScores, err := fs.LoadScores(j.UserKey)
 	if err != nil {
 		log.Printf("[WARN] Failed to reload scores from Firestore: %v", err)
@@ -288,7 +284,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		allScores = append(existingScores, datedScores...)
 	}
 
-	// CSVを生成してGCSにアップロード（二重書き込み維持）
 	if err := os.Remove(csvPath); err != nil && !os.IsNotExist(err) {
 		log.Printf("[WARN] Failed to remove temp CSV: %v", err)
 	}
@@ -296,12 +291,9 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save CSV: %v", err))
 		return
 	}
-	if err := storage.UploadCSV(username, csvPath); err != nil {
-		log.Printf("[WARN] Failed to upload CSV to Cloud Storage: %v", err)
-	}
 
 	// タイムラインデータの保存
-	timelinePath := saveTimelines(datedScores, username, j.UserKey, tmpDir)
+	timelinePath := saveTimelines(datedScores, j.UserKey, tmpDir)
 
 	// タッグ相方名を取得（403途中保存時はセッションが無効なのでキャッシュを使用）
 	var tagPartnersPath string
@@ -319,10 +311,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				tagPartnersPath = ""
 			} else {
 				log.Printf("[INFO] Found %d tag partners", len(tagPartners))
-				// タッグ相方情報をGCSにアップロード
-				if err := storage.UploadTagPartners(username, tagPartnersPath); err != nil {
-					log.Printf("[WARN] Failed to upload tag partners to GCS: %v", err)
-				}
 				// Firestoreにtag_partnersを書き込み
 				fs.SaveTagPartners(j.UserKey, tagPartners)
 			}
@@ -409,12 +397,12 @@ func saveTagPartners(partners []model.TagPartner, path string) error {
 	return os.WriteFile(path, b, 0644)
 }
 
-// saveTimelines はDatedScoresからタイムラインデータを抽出し、Firestoreに保存・GCSにアップロードする
-func saveTimelines(scores model.DatedScores, username, userKey, tmpDir string) string {
+// saveTimelines はDatedScoresからタイムラインデータを抽出し、Firestoreに保存する
+func saveTimelines(scores model.DatedScores, userKey, tmpDir string) string {
 	// Firestoreにtimelinesを書き込み
 	fs.SaveTimelines(userKey, scores)
 
-	// Firestoreから全タイムラインを読み取り（GCSアップロード用 + Python分析用）
+	// Firestoreから全タイムラインを読み取り（Python分析用）
 	entries, err := fs.LoadTimelines(userKey)
 	if err != nil {
 		log.Printf("[WARN] Failed to load timelines from Firestore: %v", err)
@@ -434,11 +422,6 @@ func saveTimelines(scores model.DatedScores, username, userKey, tmpDir string) s
 	if err := os.WriteFile(timelinePath, b, 0644); err != nil {
 		log.Printf("[WARN] Failed to save timelines: %v", err)
 		return ""
-	}
-
-	// GCSにアップロード（二重書き込み維持）
-	if err := storage.UploadTimeline(username, timelinePath); err != nil {
-		log.Printf("[WARN] Failed to upload timelines to GCS: %v", err)
 	}
 
 	log.Printf("[INFO] Loaded %d timelines from Firestore", len(entries))
