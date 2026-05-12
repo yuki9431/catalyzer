@@ -22,15 +22,12 @@
 │   │   ├── scraper.go           # スクレイピング処理
 │   │   └── login.go             # バンダイナムコIDログイン
 │   ├── pipeline/
-│   │   └── pipeline.go          # 分析パイプライン（Job管理・実行）
-│   ├── server/
-│   │   ├── server.go            # HTTPサーバー・API
-│   │   ├── ratelimit.go         # IPベースレート制限
-│   │   ├── basicauth.go         # Basic認証ミドルウェア
-│   │   └── block403.go          # 403時の一時ブロック管理
-│   └── storage/
-│       ├── csv_export.go        # CSV読み書き
-│       └── cloud_storage.go     # Cloud Storage連携
+│   │   └── pipeline.go          # 分析パイプライン（Job管理・実行・CSV生成）
+│   └── server/
+│       ├── server.go            # HTTPサーバー・API
+│       ├── ratelimit.go         # IPベースレート制限
+│       ├── basicauth.go         # Basic認証ミドルウェア
+│       └── block403.go          # 403時の一時ブロック管理
 ├── scripts/
 │   └── analyze.py               # Python分析スクリプト
 ├── static/
@@ -73,14 +70,13 @@
 |-------------|------|
 | `cmd/` | エントリポイント。main関数のみ |
 | `internal/` | プライベートパッケージ。外部から参照不可 |
-| `internal/model/` | データ型の定義のみ |
+| `internal/model/` | データ型の定義・UserKey生成 |
 | `internal/mslist/` | MSリストの読み書き・マージ |
 | `internal/gradelist/` | グレードリストの読み込み・未知URL検出 |
 | `internal/scraper/` | スクレイピング・ログイン処理 |
 | `internal/firestore/` | Firestoreクライアント・データの読み書き |
-| `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行） |
+| `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・CSV生成） |
 | `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック |
-| `internal/storage/` | CSV・Cloud Storageの読み書き |
 | `scripts/` | Go以外のスクリプト（Python分析等） |
 | `static/` | フロントエンドHTML/JS/CSS |
 | `data/` | 静的データファイル（MSリスト等） |
