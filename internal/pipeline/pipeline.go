@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/yuki9431/exvs-analyzer/internal/model"
 	"github.com/yuki9431/exvs-analyzer/internal/mslist"
 	"github.com/yuki9431/exvs-analyzer/internal/scraper"
-	"github.com/yuki9431/exvs-analyzer/internal/storage"
 )
 
 // DefaultMSListPath はデフォルトのMSリストパス
@@ -92,7 +93,7 @@ type On403Func func(userHash string)
 // Run はスクレイピング→分析を実行し、レポートをジョブに保存する
 func Run(j *Job, username, password string, on403 ...On403Func) {
 	jobsMu.Lock()
-	j.UserKey = storage.UserKey(username)
+	j.UserKey = model.UserKey(username)
 	jobsMu.Unlock()
 	updateStatus(j, model.StatusScraping)
 
@@ -151,7 +152,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		}
 
 		// 既存データでCSVを生成して速報レポートを作成
-		if err := storage.SaveAllScoresCSV(existingScores, csvPath); err != nil {
+		if err := saveScoresCSV(existingScores, csvPath); err != nil {
 			log.Printf("[WARN] Failed to generate CSV for preliminary report: %v", err)
 		} else {
 			prelimReport := runAnalysis(csvPath, tmpDir, cachedTagPartnersPath, "")
@@ -165,7 +166,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// スクレイピング
-	log.Printf("[INFO] Scraping for user (hash: %s)", storage.UserKey(username))
+	log.Printf("[INFO] Scraping for user (hash: %s)", model.UserKey(username))
 	onProgress := func(current, total int) {
 		jobsMu.Lock()
 		j.Message = "戦歴データを取得中"
@@ -193,7 +194,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		case errors.Is(err, scraper.ErrAccessDenied):
 			setError(j, "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。", err.Error())
 			if len(on403) > 0 && on403[0] != nil {
-				on403[0](storage.UserKey(username))
+				on403[0](model.UserKey(username))
 			}
 		case errors.Is(err, scraper.ErrUnauthorized):
 			setError(j, "認証の有効期限が切れました。再度ログインしてお試しください。", err.Error())
@@ -209,7 +210,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	if is403WithPartialData {
 		log.Printf("[WARN] Job %s: 403 occurred but %d partial scores available, saving partial data", j.ID, len(datedScores))
 		if len(on403) > 0 && on403[0] != nil {
-			on403[0](storage.UserKey(username))
+			on403[0](model.UserKey(username))
 		}
 	}
 	if len(datedScores) == 0 && !exists {
@@ -287,7 +288,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	if err := os.Remove(csvPath); err != nil && !os.IsNotExist(err) {
 		log.Printf("[WARN] Failed to remove temp CSV: %v", err)
 	}
-	if err := storage.SaveAllScoresCSV(allScores, csvPath); err != nil {
+	if err := saveScoresCSV(allScores, csvPath); err != nil {
 		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save CSV: %v", err))
 		return
 	}
@@ -359,7 +360,7 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 
 	// CSVを生成
 	csvPath := filepath.Join(tmpDir, "scores.csv")
-	if err := storage.SaveAllScoresCSV(scores, csvPath); err != nil {
+	if err := saveScoresCSV(scores, csvPath); err != nil {
 		return "", fmt.Errorf("failed to generate CSV: %w", err)
 	}
 
@@ -487,4 +488,53 @@ func CleanupJobs(ttl time.Duration) {
 			log.Printf("[INFO] Job cleanup: %d -> %d jobs", before, after)
 		}
 	}
+}
+
+// saveScoresCSV はDatedScoresをCSVファイルに保存する（Python分析用）。
+func saveScoresCSV(ds model.DatedScores, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	header := []string{"試合日時", "プレイヤーNo.", "地域", "プレイヤー名", "勝利判定", "機体名", "機体画像URL", "スコア", "撃墜数", "被撃墜数", "与ダメージ", "被ダメージ", "EXダメージ", "ランク", "チーム名", "称号画像URL", "称号バッジURL", "プロフィールURL", "シャッフルグレード画像URL", "チームグレード画像URL", "スコア順位", "店舗名"}
+	if err := w.Write(header); err != nil {
+		return err
+	}
+
+	for _, d := range ds {
+		row := []string{
+			d.Datetime.Format("2006-01-02 15:04"),
+			strconv.Itoa(d.PlayerNo),
+			d.PlayerScore.City,
+			d.PlayerScore.Name,
+			strconv.FormatBool(d.PlayerScore.Win),
+			d.PlayerScore.MsName,
+			d.PlayerScore.MsImageURL,
+			strconv.Itoa(d.PlayerScore.Score),
+			strconv.Itoa(d.PlayerScore.Kills),
+			strconv.Itoa(d.PlayerScore.Deaths),
+			strconv.Itoa(d.PlayerScore.GiveDamage),
+			strconv.Itoa(d.PlayerScore.ReceiveDamage),
+			strconv.Itoa(d.PlayerScore.ExDamage),
+			d.PlayerScore.MsProficiency,
+			d.PlayerScore.TeamName,
+			d.PlayerScore.PlayerLevelURL,
+			d.PlayerScore.RankBadgeURL,
+			d.PlayerScore.ProfileURL,
+			d.PlayerScore.ShuffleGradeURL,
+			d.PlayerScore.TeamGradeURL,
+			strconv.Itoa(d.PlayerScore.ScoreRanking),
+			d.PlayerScore.ArcadeName,
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

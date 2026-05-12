@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"crypto/sha256"
+	"fmt"
+	"time"
+)
 
 // MSInfo は機体情報（画像URL → 機体名のマッピング）
 type MSInfo struct {
@@ -89,3 +93,10 @@ type JobSnapshot struct {
 
 // DatedScores は日付付きスコアのリスト
 type DatedScores []DatedScore
+
+// UserKey はユーザー名（メールアドレス）からユーザー固有のキーを生成する。
+// SHA256ハッシュの先頭8バイト（16進数16文字）を返す。
+func UserKey(username string) string {
+	hash := sha256.Sum256([]byte(username))
+	return fmt.Sprintf("%x", hash[:8])
+}

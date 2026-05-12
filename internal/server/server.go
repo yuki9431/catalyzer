@@ -14,7 +14,6 @@ import (
 	"github.com/yuki9431/exvs-analyzer/internal/firestore"
 	"github.com/yuki9431/exvs-analyzer/internal/model"
 	"github.com/yuki9431/exvs-analyzer/internal/pipeline"
-	"github.com/yuki9431/exvs-analyzer/internal/storage"
 	"golang.org/x/time/rate"
 )
 
@@ -104,7 +103,7 @@ func StartServer() {
 		}
 
 		// 403ブロックチェック
-		userHash := storage.UserKey(req.Username)
+		userHash := model.UserKey(req.Username)
 		if forbidden403.IsBlocked(userHash) {
 			sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"})
 			return

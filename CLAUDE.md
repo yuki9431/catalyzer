@@ -72,15 +72,13 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 - `cmd/server/main.go` — エントリポイント。`internal/server.StartServer()` に委譲
 - `cmd/update-mslist/main.go` — MSリストをスクレイピングして `data/ms_list.json` を更新するCLI
-- `cmd/migrate-to-firestore/main.go` — GCS既存データをFirestoreに移行するワンショットCLI
-- `internal/model/` — 型定義のみ（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`）
+- `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ scores/timelines/tag_partnersの読み書き
-- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数）
+- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、CSV生成）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
-- `internal/storage/` — CSV読み書き（`csv_export.go`）+ GCSアップロード/ダウンロード（`cloud_storage.go`）
 - `scripts/analyze.py` — Python分析: カテゴリ別アドバイス、勝率、与被ダメ比、固定相方検出、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応）
 - `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）
@@ -126,7 +124,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **`log.Fatal`はmain関数の初期化時のみ使用可。** リクエスト処理中は`return error`でハンドリングする
 - **エラーは`fmt.Errorf("文脈: %w", err)`でラップして返す。** 呼び出し元でハンドリングできるようにする
 - **未使用のエクスポート関数は削除する。** テストでしか使われない関数はエクスポートしない
-- **循環依存を作らない。** 依存は`model` ← `mslist` / `scraper` / `storage` / `firestore` ← `pipeline` ← `server`の一方向
+- **循環依存を作らない。** 依存は`model` ← `mslist` / `scraper` / `firestore` ← `pipeline` ← `server`の一方向
 - **構造体のフィールド名はGoの命名規則（PascalCase）に従う。** スネークケースは使わない
 - **テストは対象パッケージと同じディレクトリに置く。** `xxx_test.go`で`package xxx`を使う
 - **`go vet`と`make build`がパスすることを確認してからコミットする**
