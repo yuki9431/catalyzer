@@ -84,6 +84,9 @@ func SaveScores(userKey string, scores model.DatedScores) {
 	log.Printf("[INFO] Firestore: saved %d scores for user %s", len(scores), userKey)
 }
 
+// loadScoresTimeout はLoadScores用のタイムアウト（全量読み取りのため長めに設定）
+const loadScoresTimeout = 120 * time.Second
+
 // LoadScores はFirestoreからユーザーの全scoresを読み取り、datetime昇順で返す。
 func LoadScores(userKey string) (model.DatedScores, error) {
 	c := getClient()
@@ -91,7 +94,7 @@ func LoadScores(userKey string) (model.DatedScores, error) {
 		return nil, fmt.Errorf("firestore client not initialized")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), loadScoresTimeout)
 	defer cancel()
 
 	userRef := c.Collection("users").Doc(userKey)
@@ -138,36 +141,6 @@ func GetLatestDatetime(userKey string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("parse latest score: %w", err)
 	}
 	return sd.Datetime, nil
-}
-
-// NeedsBackfill は直近30日以内のscoresにms_proficiencyが空のドキュメントがあるか判定する。
-func NeedsBackfill(userKey string) bool {
-	c := getClient()
-	if c == nil {
-		return false
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-
-	cutoff := time.Now().AddDate(0, 0, -30)
-	userRef := c.Collection("users").Doc(userKey)
-	docs, err := userRef.Collection("scores").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
-	if err != nil {
-		log.Printf("[WARN] Firestore: failed to check backfill: %v", err)
-		return false
-	}
-
-	for _, doc := range docs {
-		var sd scoreDoc
-		if err := doc.DataTo(&sd); err != nil {
-			continue
-		}
-		if sd.MsProficiency == "" {
-			return true
-		}
-	}
-	return false
 }
 
 // BackfillDates は直近30日以内でms_proficiencyが空のscoresの日付セットを返す。

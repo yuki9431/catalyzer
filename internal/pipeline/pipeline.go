@@ -128,15 +128,16 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// バックフィル判定: Firestoreから新フィールドが空のレコードがある日付を特定
-	needsBackfill := exists && fs.NeedsBackfill(j.UserKey)
 	var backfillDates map[string]bool
-	if needsBackfill {
+	if exists {
 		backfillDates = fs.BackfillDates(j.UserKey)
-		log.Printf("[INFO] Backfill needed: %d dates with missing data", len(backfillDates))
+		if len(backfillDates) > 0 {
+			log.Printf("[INFO] Backfill needed: %d dates with missing data", len(backfillDates))
+		}
 	}
 
 	if exists {
-		if needsBackfill {
+		if len(backfillDates) > 0 {
 			// バックフィル: since=ゼロで対象日付のみ再スクレイプ
 			log.Printf("[INFO] Backfill mode: targeting specific dates")
 		} else {
@@ -175,7 +176,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	var datedScores model.DatedScores
 	var jar http.CookieJar
-	if needsBackfill {
+	if len(backfillDates) > 0 {
 		datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scraper.ScrapingOption{
 			OnProgress:    onProgress,
 			BackfillDates: backfillDates,
@@ -217,6 +218,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// 新規データがない場合はタッグ情報を付与して最終レポートにする
+	// csvPathには速報レポート用に生成したCSVが残っており、ここでそのまま再利用する
 	if len(datedScores) == 0 && j.PreliminaryReport != "" {
 		var tagPartnersPath string
 		tagPartners := scraper.ScrapeTagPartners(jar)

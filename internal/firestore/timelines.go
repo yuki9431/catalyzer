@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -84,6 +85,11 @@ func fromTimelineDoc(td timelineDoc) TimelineEntry {
 			})
 		}
 	}
+
+	// mapイテレーション順序が不定のため、ActionStartSecでソート
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].StartSec < events[j].StartSec
+	})
 
 	return TimelineEntry{
 		Datetime: td.Datetime.Format("2006-01-02 15:04"),
