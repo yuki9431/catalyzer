@@ -15,6 +15,38 @@ type tagPartnerDoc struct {
 	PlayerName string `firestore:"player_name"`
 }
 
+// LoadTagPartners はFirestoreからユーザーのタッグ相方情報を読み取る。
+func LoadTagPartners(userKey string) ([]model.TagPartner, error) {
+	c := getClient()
+	if c == nil {
+		return nil, fmt.Errorf("firestore client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	userRef := c.Collection("users").Doc(userKey)
+	docs, err := userRef.Collection("tag_partners").Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("query tag partners: %w", err)
+	}
+
+	partners := make([]model.TagPartner, 0, len(docs))
+	for _, doc := range docs {
+		var td tagPartnerDoc
+		if err := doc.DataTo(&td); err != nil {
+			log.Printf("[WARN] Firestore: failed to parse tag partner doc %s: %v", doc.Ref.ID, err)
+			continue
+		}
+		partners = append(partners, model.TagPartner{
+			TeamName:   td.TeamName,
+			PlayerName: td.PlayerName,
+		})
+	}
+
+	return partners, nil
+}
+
 // SaveTagPartners はタッグ相方情報をFirestoreのtag_partnersサブコレクションに書き込む。
 func SaveTagPartners(userKey string, partners []model.TagPartner) {
 	c := getClient()

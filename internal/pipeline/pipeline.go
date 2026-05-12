@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -106,51 +105,62 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	csvPath := filepath.Join(tmpDir, "scores.csv")
 
-	// Cloud Storageから既存CSVをダウンロード
+	// Firestoreから既存scoresを読み取り
 	var since time.Time
-	exists, err := storage.DownloadCSV(username, csvPath)
+	existingScores, err := fs.LoadScores(j.UserKey)
 	if err != nil {
-		log.Printf("[WARN] Failed to download existing CSV: %v", err)
+		log.Printf("[WARN] Failed to load scores from Firestore: %v", err)
 	}
-	// GCSから既存タッグ相方情報をダウンロード（速報レポートで使用）
-	cachedTagPartnersPath := filepath.Join(tmpDir, "cached_tag_partners.json")
-	tagPartnersExists, err := storage.DownloadTagPartners(username, cachedTagPartnersPath)
+	exists := len(existingScores) > 0
+
+	// Firestoreから既存タッグ相方情報を読み取り（速報レポートで使用）
+	cachedTagPartnersPath := ""
+	cachedPartners, err := fs.LoadTagPartners(j.UserKey)
 	if err != nil {
-		log.Printf("[WARN] Failed to download existing tag partners: %v", err)
+		log.Printf("[WARN] Failed to load tag partners from Firestore: %v", err)
 	}
-	if !tagPartnersExists {
-		cachedTagPartnersPath = ""
+	if len(cachedPartners) > 0 {
+		cachedTagPartnersPath = filepath.Join(tmpDir, "cached_tag_partners.json")
+		if err := saveTagPartners(cachedPartners, cachedTagPartnersPath); err != nil {
+			log.Printf("[WARN] Failed to save cached tag partners: %v", err)
+			cachedTagPartnersPath = ""
+		}
 	}
 
-	// バックフィル判定: 新フィールドが空のレコードがある日付を特定
-	needsBackfill := exists && storage.NeedsBackfill(csvPath)
+	// バックフィル判定: Firestoreから新フィールドが空のレコードがある日付を特定
 	var backfillDates map[string]bool
-	if needsBackfill {
-		backfillDates = storage.BackfillDates(csvPath)
-		log.Printf("[INFO] Backfill needed: %d dates with missing data", len(backfillDates))
+	if exists {
+		backfillDates = fs.BackfillDates(j.UserKey)
+		if len(backfillDates) > 0 {
+			log.Printf("[INFO] Backfill needed: %d dates with missing data", len(backfillDates))
+		}
 	}
 
 	if exists {
-		if needsBackfill {
+		if len(backfillDates) > 0 {
 			// バックフィル: since=ゼロで対象日付のみ再スクレイプ
 			log.Printf("[INFO] Backfill mode: targeting specific dates")
 		} else {
-			since, err = storage.GetLatestDatetime(csvPath)
+			since, err = fs.GetLatestDatetime(j.UserKey)
 			if err != nil {
-				log.Printf("[WARN] Failed to read latest datetime: %v", err)
+				log.Printf("[WARN] Failed to read latest datetime from Firestore: %v", err)
 			}
 			if !since.IsZero() {
 				log.Printf("[INFO] Fetching scores after %s", since.Format("2006-01-02 15:04"))
 			}
 		}
 
-		// 前回データで即座に分析（速報レポート、キャッシュ済みタッグ情報付き）
-		prelimReport := runAnalysis(csvPath, tmpDir, cachedTagPartnersPath, "")
-		if prelimReport != "" {
-			jobsMu.Lock()
-			j.PreliminaryReport = prelimReport
-			jobsMu.Unlock()
-			log.Printf("[INFO] Job %s: preliminary report ready", j.ID)
+		// 既存データでCSVを生成して速報レポートを作成
+		if err := storage.SaveAllScoresCSV(existingScores, csvPath); err != nil {
+			log.Printf("[WARN] Failed to generate CSV for preliminary report: %v", err)
+		} else {
+			prelimReport := runAnalysis(csvPath, tmpDir, cachedTagPartnersPath, "")
+			if prelimReport != "" {
+				jobsMu.Lock()
+				j.PreliminaryReport = prelimReport
+				jobsMu.Unlock()
+				log.Printf("[INFO] Job %s: preliminary report ready", j.ID)
+			}
 		}
 	}
 
@@ -166,7 +176,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	var datedScores model.DatedScores
 	var jar http.CookieJar
-	if needsBackfill {
+	if len(backfillDates) > 0 {
 		datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scraper.ScrapingOption{
 			OnProgress:    onProgress,
 			BackfillDates: backfillDates,
@@ -208,6 +218,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// 新規データがない場合はタッグ情報を付与して最終レポートにする
+	// csvPathには速報レポート用に生成したCSVが残っており、ここでそのまま再利用する
 	if len(datedScores) == 0 && j.PreliminaryReport != "" {
 		var tagPartnersPath string
 		tagPartners := scraper.ScrapeTagPartners(jar)
@@ -266,28 +277,28 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		gradelist.CheckUnknownGrades(datedScores, gradeMap)
 	}
 
-	// CSV保存
-	if needsBackfill {
-		// バックフィル: 旧CSVの古いデータ（再スクレイプでカバーできない期間）を残して新データとマージ
-		if err := mergeAndSaveCSV(datedScores, csvPath); err != nil {
-			setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save CSV: %v", err))
-			return
-		}
-	} else {
-		// 通常: 既存データに追記
-		if err := storage.SaveAllScoresCSV(datedScores, csvPath); err != nil {
-			setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save CSV: %v", err))
-			return
-		}
+	// Firestoreにscoresを書き込み
+	fs.SaveScores(j.UserKey, datedScores)
+
+	// Firestoreから全scoresを読み取り、CSV生成（GCSアップロード用 + Python分析用）
+	allScores, err := fs.LoadScores(j.UserKey)
+	if err != nil {
+		log.Printf("[WARN] Failed to reload scores from Firestore: %v", err)
+		// フォールバック: 既存 + 新規で組み立て
+		allScores = append(existingScores, datedScores...)
 	}
 
-	// Cloud Storageにアップロード
+	// CSVを生成してGCSにアップロード（二重書き込み維持）
+	if err := os.Remove(csvPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("[WARN] Failed to remove temp CSV: %v", err)
+	}
+	if err := storage.SaveAllScoresCSV(allScores, csvPath); err != nil {
+		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save CSV: %v", err))
+		return
+	}
 	if err := storage.UploadCSV(username, csvPath); err != nil {
 		log.Printf("[WARN] Failed to upload CSV to Cloud Storage: %v", err)
 	}
-
-	// Firestoreにscoresを書き込み
-	fs.SaveScores(j.UserKey, datedScores)
 
 	// タイムラインデータの保存
 	timelinePath := saveTimelines(datedScores, username, j.UserKey, tmpDir)
@@ -349,14 +360,19 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	csvPath := filepath.Join(tmpDir, "scores.csv")
-
-	exists, err := storage.DownloadCSVByKey(userKey, csvPath)
+	// Firestoreからscoresを読み取り
+	scores, err := fs.LoadScores(userKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to download CSV: %w", err)
+		return "", fmt.Errorf("failed to load scores from Firestore: %w", err)
 	}
-	if !exists {
-		return "", fmt.Errorf("CSV not found for user")
+	if len(scores) == 0 {
+		return "", fmt.Errorf("no scores found for user")
+	}
+
+	// CSVを生成
+	csvPath := filepath.Join(tmpDir, "scores.csv")
+	if err := storage.SaveAllScoresCSV(scores, csvPath); err != nil {
+		return "", fmt.Errorf("failed to generate CSV: %w", err)
 	}
 
 	cmd := exec.Command("python3", "scripts/analyze.py", csvPath, "--start", start, "--end", end)
@@ -393,86 +409,24 @@ func saveTagPartners(partners []model.TagPartner, path string) error {
 	return os.WriteFile(path, b, 0644)
 }
 
-// mergeAndSaveCSV はバックフィル時に旧CSVと新スクレイプデータをマージして保存する。
-// 新データでカバーされる日時のレコードは新データで置き換え、それ以外は旧データを残す。
-func mergeAndSaveCSV(newScores model.DatedScores, csvPath string) error {
-	oldScores, err := storage.ReadAllScoresCSV(csvPath)
-	if err != nil {
-		return fmt.Errorf("failed to read old CSV: %w", err)
-	}
-
-	// 新データの日時セットを作成（重複判定用）
-	newDatetimes := make(map[string]bool)
-	for _, s := range newScores {
-		key := s.Datetime.Format("2006-01-02 15:04") + ":" + strconv.Itoa(s.PlayerNo)
-		newDatetimes[key] = true
-	}
-
-	// 旧データから、新データでカバーされていないレコードだけ残す
-	var keepOld model.DatedScores
-	for _, s := range oldScores {
-		key := s.Datetime.Format("2006-01-02 15:04") + ":" + strconv.Itoa(s.PlayerNo)
-		if !newDatetimes[key] {
-			keepOld = append(keepOld, s)
-		}
-	}
-
-	// マージ: 旧データ（古い期間）+ 新データ（新フィールド付き）
-	merged := append(keepOld, newScores...)
-
-	// 新規ファイルとして書き直す
-	if err := os.Remove(csvPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove old CSV: %w", err)
-	}
-	if err := storage.SaveAllScoresCSV(merged, csvPath); err != nil {
-		return fmt.Errorf("failed to save merged CSV: %w", err)
-	}
-
-	log.Printf("[INFO] Backfill merge: %d old records kept, %d new records, %d total", len(keepOld), len(newScores), len(merged))
-	return nil
-}
-
-// saveTimelines はDatedScoresからタイムラインデータを抽出し、JSONファイルに保存・GCSにアップロードする
+// saveTimelines はDatedScoresからタイムラインデータを抽出し、Firestoreに保存・GCSにアップロードする
 func saveTimelines(scores model.DatedScores, username, userKey, tmpDir string) string {
-	type timelineEntry struct {
-		Datetime string              `json:"datetime"`
-		Timeline *model.MatchTimeline `json:"timeline"`
-	}
+	// Firestoreにtimelinesを書き込み
+	fs.SaveTimelines(userKey, scores)
 
-	// 既存タイムラインをGCSからダウンロード
-	timelinePath := filepath.Join(tmpDir, "timelines.json")
-	var existing []timelineEntry
-	if found, err := storage.DownloadTimeline(username, timelinePath); err != nil {
-		log.Printf("[WARN] Failed to download existing timelines: %v", err)
-	} else if found {
-		data, err := os.ReadFile(timelinePath)
-		if err == nil {
-			if err := json.Unmarshal(data, &existing); err != nil {
-				log.Printf("[WARN] Failed to parse existing timelines: %v", err)
-			}
-		}
-	}
-
-	// 新しいタイムラインを追加
-	var added int
-	for _, s := range scores {
-		if s.MatchTimeline != nil {
-			existing = append(existing, timelineEntry{
-				Datetime: s.Datetime.Format("2006-01-02 15:04"),
-				Timeline: s.MatchTimeline,
-			})
-			added++
-		}
-	}
-
-	if added == 0 {
-		if len(existing) > 0 {
-			return timelinePath
-		}
+	// Firestoreから全タイムラインを読み取り（GCSアップロード用 + Python分析用）
+	entries, err := fs.LoadTimelines(userKey)
+	if err != nil {
+		log.Printf("[WARN] Failed to load timelines from Firestore: %v", err)
 		return ""
 	}
 
-	b, err := json.Marshal(existing)
+	if len(entries) == 0 {
+		return ""
+	}
+
+	timelinePath := filepath.Join(tmpDir, "timelines.json")
+	b, err := json.Marshal(entries)
 	if err != nil {
 		log.Printf("[WARN] Failed to marshal timelines: %v", err)
 		return ""
@@ -482,14 +436,12 @@ func saveTimelines(scores model.DatedScores, username, userKey, tmpDir string) s
 		return ""
 	}
 
+	// GCSにアップロード（二重書き込み維持）
 	if err := storage.UploadTimeline(username, timelinePath); err != nil {
 		log.Printf("[WARN] Failed to upload timelines to GCS: %v", err)
 	}
 
-	// Firestoreにtimelinesを書き込み
-	fs.SaveTimelines(userKey, scores)
-
-	log.Printf("[INFO] Saved %d new timelines (%d total)", added, len(existing))
+	log.Printf("[INFO] Loaded %d timelines from Firestore", len(entries))
 	return timelinePath
 }
 

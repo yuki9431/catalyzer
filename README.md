@@ -77,7 +77,7 @@
 | `internal/mslist/` | MSリストの読み書き・マージ |
 | `internal/gradelist/` | グレードリストの読み込み・未知URL検出 |
 | `internal/scraper/` | スクレイピング・ログイン処理 |
-| `internal/firestore/` | Firestoreクライアント・データ書き込み |
+| `internal/firestore/` | Firestoreクライアント・データの読み書き |
 | `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行） |
 | `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック |
 | `internal/storage/` | CSV・Cloud Storageの読み書き |

@@ -84,6 +84,128 @@ func SaveScores(userKey string, scores model.DatedScores) {
 	log.Printf("[INFO] Firestore: saved %d scores for user %s", len(scores), userKey)
 }
 
+// loadScoresTimeout はLoadScores用のタイムアウト（全量読み取りのため長めに設定）
+const loadScoresTimeout = 120 * time.Second
+
+// LoadScores はFirestoreからユーザーの全scoresを読み取り、datetime昇順で返す。
+func LoadScores(userKey string) (model.DatedScores, error) {
+	c := getClient()
+	if c == nil {
+		return nil, fmt.Errorf("firestore client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), loadScoresTimeout)
+	defer cancel()
+
+	userRef := c.Collection("users").Doc(userKey)
+	docs, err := userRef.Collection("scores").OrderBy("datetime", firestore.Asc).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("query scores: %w", err)
+	}
+
+	scores := make(model.DatedScores, 0, len(docs))
+	for _, doc := range docs {
+		var sd scoreDoc
+		if err := doc.DataTo(&sd); err != nil {
+			log.Printf("[WARN] Firestore: failed to parse score doc %s: %v", doc.Ref.ID, err)
+			continue
+		}
+		scores = append(scores, fromScoreDoc(sd))
+	}
+
+	return scores, nil
+}
+
+// GetLatestDatetime はFirestoreからユーザーの最新試合日時を取得する。
+// データがない場合はゼロ値のtimeを返す。
+func GetLatestDatetime(userKey string) (time.Time, error) {
+	c := getClient()
+	if c == nil {
+		return time.Time{}, fmt.Errorf("firestore client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	userRef := c.Collection("users").Doc(userKey)
+	docs, err := userRef.Collection("scores").OrderBy("datetime", firestore.Desc).Limit(1).Documents(ctx).GetAll()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("query latest datetime: %w", err)
+	}
+	if len(docs) == 0 {
+		return time.Time{}, nil
+	}
+
+	var sd scoreDoc
+	if err := docs[0].DataTo(&sd); err != nil {
+		return time.Time{}, fmt.Errorf("parse latest score: %w", err)
+	}
+	return sd.Datetime, nil
+}
+
+// BackfillDates は直近30日以内でms_proficiencyが空のscoresの日付セットを返す。
+// 日付は "2006/01/02" 形式（スクレイパーのdailyLink.dateと同じ形式）。
+func BackfillDates(userKey string) map[string]bool {
+	dates := make(map[string]bool)
+
+	c := getClient()
+	if c == nil {
+		return dates
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	cutoff := time.Now().AddDate(0, 0, -30)
+	userRef := c.Collection("users").Doc(userKey)
+	docs, err := userRef.Collection("scores").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
+	if err != nil {
+		log.Printf("[WARN] Firestore: failed to get backfill dates: %v", err)
+		return dates
+	}
+
+	for _, doc := range docs {
+		var sd scoreDoc
+		if err := doc.DataTo(&sd); err != nil {
+			continue
+		}
+		if sd.MsProficiency == "" {
+			dates[sd.Datetime.Format("2006/01/02")] = true
+		}
+	}
+	return dates
+}
+
+// fromScoreDoc はFirestoreドキュメントをDatedScoreに変換する。
+func fromScoreDoc(sd scoreDoc) model.DatedScore {
+	return model.DatedScore{
+		PlayerNo: sd.PlayerNo,
+		Datetime: sd.Datetime,
+		PlayerScore: model.PlayerScore{
+			City:            sd.City,
+			Name:            sd.Name,
+			Win:             sd.Win,
+			MsName:          sd.MsName,
+			MsImageURL:      sd.MsImageURL,
+			Score:           sd.Score,
+			Kills:           sd.Kills,
+			Deaths:          sd.Deaths,
+			GiveDamage:      sd.GiveDamage,
+			ReceiveDamage:   sd.ReceiveDamage,
+			ExDamage:        sd.ExDamage,
+			MsProficiency:   sd.MsProficiency,
+			TeamName:        sd.TeamName,
+			PlayerLevelURL:  sd.PlayerLevelURL,
+			RankBadgeURL:    sd.RankBadgeURL,
+			ProfileURL:      sd.ProfileURL,
+			ShuffleGradeURL: sd.ShuffleGradeURL,
+			TeamGradeURL:    sd.TeamGradeURL,
+			ScoreRanking:    sd.ScoreRanking,
+			ArcadeName:      sd.ArcadeName,
+		},
+	}
+}
+
 // scoreDocID はscoresドキュメントのIDを生成する（{datetime}_{playerNo}）
 func scoreDocID(s model.DatedScore) string {
 	return fmt.Sprintf("%s_%d", s.Datetime.Format("2006-01-02T1504"), s.PlayerNo)

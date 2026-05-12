@@ -2,10 +2,13 @@ package firestore
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/firestore"
 	"github.com/yuki9431/exvs-analyzer/internal/model"
 )
 
@@ -31,6 +34,100 @@ type actionDoc struct {
 	Action        string  `firestore:"action"`
 	ActionStartSec float64 `firestore:"action_start_sec"`
 	ActionEndSec  float64 `firestore:"action_end_sec"`
+}
+
+// LoadTimelines はFirestoreからユーザーのタイムラインデータを読み取り、TimelineEntryのスライスで返す。
+func LoadTimelines(userKey string) ([]TimelineEntry, error) {
+	c := getClient()
+	if c == nil {
+		return nil, fmt.Errorf("firestore client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	userRef := c.Collection("users").Doc(userKey)
+	docs, err := userRef.Collection("timelines").OrderBy("datetime", firestore.Asc).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("query timelines: %w", err)
+	}
+
+	entries := make([]TimelineEntry, 0, len(docs))
+	for _, doc := range docs {
+		var td timelineDoc
+		if err := doc.DataTo(&td); err != nil {
+			log.Printf("[WARN] Firestore: failed to parse timeline doc %s: %v", doc.Ref.ID, err)
+			continue
+		}
+		entries = append(entries, fromTimelineDoc(td))
+	}
+
+	return entries, nil
+}
+
+// fromTimelineDoc はFirestoreドキュメントをTimelineEntryに変換する。
+func fromTimelineDoc(td timelineDoc) TimelineEntry {
+	// Firestoreのplayers mapをMatchTimelineのEvents形式に戻す
+	var events []model.MatchEvent
+	for playerNo, actions := range td.Players {
+		group := playerNoToGroup(playerNo)
+		if group == "" {
+			continue
+		}
+		for _, a := range actions {
+			className, isPoint := reverseActionName(a.Action)
+			events = append(events, model.MatchEvent{
+				Group:     group,
+				StartSec:  a.ActionStartSec,
+				EndSec:    a.ActionEndSec,
+				ClassName: className,
+				IsPoint:   isPoint,
+			})
+		}
+	}
+
+	// mapイテレーション順序が不定のため、ActionStartSecでソート
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].StartSec < events[j].StartSec
+	})
+
+	return TimelineEntry{
+		Datetime: td.Datetime.Format("2006-01-02 15:04"),
+		Timeline: &model.MatchTimeline{
+			Events:     events,
+			GameEndSec: td.GameEndSec,
+		},
+	}
+}
+
+// playerNoToGroup はプレイヤー番号をvis.jsのgroup名に変換する。
+func playerNoToGroup(playerNo string) string {
+	switch playerNo {
+	case "1":
+		return "team1-1"
+	case "2":
+		return "team1-2"
+	case "3":
+		return "team2-1"
+	case "4":
+		return "team2-2"
+	default:
+		return ""
+	}
+}
+
+// reverseActionName はFirestoreのaction名をHTMLクラス名とisPointフラグに変換する。
+func reverseActionName(action string) (className string, isPoint bool) {
+	if action == "death" {
+		return "", true
+	}
+	// actionMappingの逆引き
+	for k, v := range actionMapping {
+		if v == action {
+			return k, false
+		}
+	}
+	return action, false
 }
 
 // SaveTimelines はDatedScoresからタイムラインを抽出し、Firestoreに書き込む。
