@@ -600,6 +600,11 @@ func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopN
 			scoreRanking = scoreRankings[i]
 		}
 
+		arcadeName := ""
+		if i == 0 {
+			arcadeName = shopName
+		}
+
 		result := model.DatedScore{
 			PlayerNo: i + 1,
 			Datetime: datetime,
@@ -623,7 +628,7 @@ func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopN
 				ShuffleGradeURL: shuffleGrade,
 				TeamGradeURL:    teamGrade,
 				ScoreRanking:    scoreRanking,
-				ArcadeName:      shopName,
+				ArcadeName:      arcadeName,
 			},
 		}
 
