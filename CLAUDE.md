@@ -63,8 +63,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   → Collyで新規戦績をスクレイピング（状態: scraping）
   → data/ms_list.jsonからMS名・コストを補完
   → Firestoreにmatches/tag_partners書き込み（タイムラインはmatchesに埋め込み）
-  → Firestoreから全matches読み取り → CSV生成
-  → scripts/analyze.py でCSVを分析（状態: analyzing）
+  → Firestoreから全matches読み取り → 試合単位JSON生成
+  → scripts/analyze.py でJSONを分析（状態: analyzing）
   → JSONレポートを返却（状態: done）
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
 ```
@@ -83,7 +83,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）
-- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、CSV生成）
+- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
 - `scripts/analyze.py` — Python分析: カテゴリ別アドバイス、勝率、与被ダメ比、固定相方検出、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応）
