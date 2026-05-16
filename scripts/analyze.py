@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
 EXVS2IB 戦績分析スクリプト
-CSVファイルを読み込み、JSON形式の構造化分析レポートを出力する。
-プレイヤー名はCSVのプレイヤーNo.1から自動取得する。
+JSONファイルを読み込み、JSON形式の構造化分析レポートを出力する。
+プレイヤー名はplayers[0]のnameから自動取得する。
 """
 
 import argparse
-import csv
 import json
 import os
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 def get_season(dt):
@@ -47,35 +46,24 @@ def get_season_half(dt):
     return "後半"
 
 
-def load_csv(path):
-    rows = []
+def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            rows.append(r)
-    matches = []
-    for i in range(0, len(rows), 4):
-        if i + 3 < len(rows):
-            matches.append(rows[i : i + 4])
-    return matches
+        raw = json.load(f)
+    return [m for m in raw if len(m.get("players", [])) == 4]
 
 
 def detect_player_name(matches):
     names = defaultdict(int)
     for m in matches:
-        name = m[0]["プレイヤー名"].strip()
+        name = m["players"][0]["name"].strip()
         if name:
             names[name] += 1
     return max(names, key=names.get) if names else ""
 
 
-def load_ms_cost_map(csv_path):
-    """ms_list.jsonから画像URL→コストのマップを生成する。
-    クエリパラメータを除去してマッチさせる。
-    """
-    ms_list_path = os.path.join(os.path.dirname(os.path.dirname(csv_path)), "data", "ms_list.json")
-    if not os.path.exists(ms_list_path):
-        # スクリプト配置場所からの相対パスでもフォールバック
+def load_ms_cost_map(ms_list_path):
+    """ms_list.jsonから画像URL→コストのマップを生成する。"""
+    if not ms_list_path or not os.path.exists(ms_list_path):
         ms_list_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "ms_list.json")
     if not os.path.exists(ms_list_path):
         return {}
@@ -86,14 +74,13 @@ def load_ms_cost_map(csv_path):
         url = ms.get("ImageURL", "")
         cost = ms.get("Cost", 0)
         if url and cost:
-            # クエリパラメータを除去
             url = url.split("?")[0]
             cost_map[url] = cost
     return cost_map
 
 
 def get_player_ms(match):
-    ms = match[0]["機体名"].strip()
+    ms = match["players"][0]["ms_name"].strip()
     return ms if ms else "(不明)"
 
 
@@ -115,38 +102,39 @@ COST_LABEL = {
 
 
 def get_my_data(match, cost_map=None):
-    p = match[0]
-    p2 = match[1]
+    players = match["players"]
+    p = players[0]
+    p2 = players[1]
     cost_map = cost_map or {}
 
-    def lookup_cost(row):
-        url = row.get("機体画像URL", "").strip().split("?")[0]
+    def lookup_cost(player):
+        url = player.get("ms_image_url", "").strip().split("?")[0]
         return cost_map.get(url, 0)
 
     return {
-        "win": p["勝利判定"] in ("true", "win"),
+        "win": p["win"],
         "ms": get_player_ms(match),
         "ms_cost": lookup_cost(p),
-        "score": int(p["スコア"]),
-        "kills": int(p["撃墜数"]),
-        "deaths": int(p["被撃墜数"]),
-        "dmg_given": int(p["与ダメージ"]),
-        "dmg_taken": int(p["被ダメージ"]),
-        "ex_dmg": int(p["EXダメージ"]),
-        "datetime": datetime.strptime(p["試合日時"], "%Y-%m-%d %H:%M"),
-        "partner_name": p2["プレイヤー名"].strip(),
-        "partner_ms": p2["機体名"].strip() or "(不明)",
+        "score": p["score"],
+        "kills": p["kills"],
+        "deaths": p["deaths"],
+        "dmg_given": p["give_damage"],
+        "dmg_taken": p["receive_damage"],
+        "ex_dmg": p["ex_damage"],
+        "datetime": datetime.strptime(match["datetime"], "%Y-%m-%d %H:%M"),
+        "partner_name": p2["name"].strip(),
+        "partner_ms": p2["ms_name"].strip() or "(不明)",
         "partner_cost": lookup_cost(p2),
-        "partner_score": int(p2["スコア"]),
-        "partner_kills": int(p2["撃墜数"]),
-        "partner_deaths": int(p2["被撃墜数"]),
-        "partner_dmg_given": int(p2["与ダメージ"]),
-        "partner_dmg_taken": int(p2["被ダメージ"]),
+        "partner_score": p2["score"],
+        "partner_kills": p2["kills"],
+        "partner_deaths": p2["deaths"],
+        "partner_dmg_given": p2["give_damage"],
+        "partner_dmg_taken": p2["receive_damage"],
         "enemy_ms": [
-            match[2]["機体名"].strip() or "(不明)",
-            match[3]["機体名"].strip() or "(不明)",
+            players[2]["ms_name"].strip() or "(不明)",
+            players[3]["ms_name"].strip() or "(不明)",
         ],
-        "enemy_costs": [lookup_cost(match[2]), lookup_cost(match[3])],
+        "enemy_costs": [lookup_cost(players[2]), lookup_cost(players[3])],
     }
 
 
@@ -1101,12 +1089,12 @@ def build_period_report(all_data, ms_data, tag_partners=None):
 
 
 def filter_by_days(all_data, days):
-    """直近N日分のデータをフィルタする"""
+    """���近N日分（プレイ日基準）のデータをフィルタする"""
     if not all_data:
         return []
-    latest = max(d["datetime"] for d in all_data)
-    cutoff = latest - timedelta(days=days)
-    return [d for d in all_data if d["datetime"] >= cutoff]
+    play_dates = sorted(set(d["datetime"].date() for d in all_data), reverse=True)
+    target_dates = set(play_dates[:days])
+    return [d for d in all_data if d["datetime"].date() in target_dates]
 
 
 def filter_by_datetime_range(all_data, start, end):
@@ -1134,13 +1122,13 @@ def build_json_report(player_name, all_data, ms_data, tag_partners=None):
 
     # プリセット期間
     preset_periods = [
-        ("90d", 90, "90日間"),
-        ("60d", 60, "60日間"),
-        ("30d", 30, "30日間"),
-        ("14d", 14, "14日間"),
-        ("7d", 7, "7日間"),
-        ("3d", 3, "3日間"),
-        ("1d", 1, "1日間"),
+        ("90d", 90, "90日分"),
+        ("60d", 60, "60日分"),
+        ("30d", 30, "30日分"),
+        ("14d", 14, "14日分"),
+        ("7d", 7, "7日分"),
+        ("3d", 3, "3日分"),
+        ("1d", 1, "1日分"),
     ]
     for key, days, label in preset_periods:
         filtered = filter_by_days(all_data, days)
@@ -1179,20 +1167,20 @@ def build_custom_period_report(player_name, all_data, ms_data, start, end):
 
 def main():
     parser = argparse.ArgumentParser(description="EXVS2IB 戦績分析")
-    parser.add_argument("csv_path", help="CSVファイルパス")
+    parser.add_argument("json_path", help="試合データJSONファイルパス")
     parser.add_argument("--start", help="開始日時 (YYYY-MM-DD HH:MM)")
     parser.add_argument("--end", help="終了日時 (YYYY-MM-DD HH:MM)")
     parser.add_argument("--tag-partners", help="タッグ相方JSONファイルパス", default=None)
-    parser.add_argument("--timeline", help="タイムラインJSONファイルパス（将来の覚醒分析用）", default=None)
+    parser.add_argument("--ms-list", help="MSリストJSONファイルパス", default=None)
     args = parser.parse_args()
 
-    matches = load_csv(args.csv_path)
+    matches = load_json(args.json_path)
 
     if not matches:
         print("試合データが見つかりませんでした。")
         sys.exit(1)
 
-    cost_map = load_ms_cost_map(args.csv_path)
+    cost_map = load_ms_cost_map(args.ms_list)
     player_name = detect_player_name(matches)
     tag_partners = load_tag_partners(args.tag_partners)
 
@@ -1212,7 +1200,7 @@ def main():
     else:
         report_data = build_json_report(player_name, all_data, ms_data, tag_partners)
 
-    output_path = os.path.join(os.path.dirname(args.csv_path), "report.json")
+    output_path = os.path.join(os.path.dirname(args.json_path), "report.json")
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report_data, f, ensure_ascii=False, indent=2)
     print(f"分析レポート(JSON)を出力しました: {output_path}")

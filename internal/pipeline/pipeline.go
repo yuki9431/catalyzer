@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
+	"sort"
 	"sync"
 	"time"
 
@@ -104,7 +103,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	csvPath := filepath.Join(tmpDir, "scores.csv")
+	jsonPath := filepath.Join(tmpDir, "scores.json")
 
 	// Firestoreから既存scoresを読み取り
 	var since time.Time
@@ -151,11 +150,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			}
 		}
 
-		// 既存データでCSVを生成して速報レポートを作成
-		if err := saveScoresCSV(existingScores, csvPath); err != nil {
-			log.Printf("[WARN] Failed to generate CSV for preliminary report: %v", err)
+		// 既存データでJSONを生成して速報レポートを作成
+		if err := saveScoresJSON(existingScores, jsonPath); err != nil {
+			log.Printf("[WARN] Failed to generate JSON for preliminary report: %v", err)
 		} else {
-			prelimReport := runAnalysis(csvPath, tmpDir, cachedTagPartnersPath, "")
+			prelimReport := runAnalysis(jsonPath, tmpDir, cachedTagPartnersPath)
 			if prelimReport != "" {
 				jobsMu.Lock()
 				j.PreliminaryReport = prelimReport
@@ -219,7 +218,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// 新規データがない場合はタッグ情報を付与して最終レポートにする
-	// csvPathには速報レポート用に生成したCSVが残っており、ここでそのまま再利用する
+	// jsonPathには速報レポート用に生成したJSONが残っており、ここでそのまま再利用する
 	if len(datedScores) == 0 && j.PreliminaryReport != "" {
 		var tagPartnersPath string
 		tagPartners := scraper.ScrapeTagPartners(jar)
@@ -240,7 +239,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		// タッグ情報がある場合は再分析、なければ速報レポートをそのまま使う
 		finalReport := j.PreliminaryReport
 		if tagPartnersPath != "" {
-			report := runAnalysis(csvPath, tmpDir, tagPartnersPath, "")
+			report := runAnalysis(jsonPath, tmpDir, tagPartnersPath)
 			if report != "" {
 				finalReport = report
 			}
@@ -277,7 +276,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// Firestoreにscoresを書き込み
 	fs.SaveScores(j.UserKey, datedScores)
 
-	// Firestoreから全scoresを読み取り、Python分析用のCSVを生成
+	// Firestoreから全scoresを読み取り、Python分析用のJSONを生成
 	allScores, err := fs.LoadScores(j.UserKey)
 	if err != nil {
 		log.Printf("[WARN] Failed to reload scores from Firestore: %v", err)
@@ -285,16 +284,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		allScores = append(existingScores, datedScores...)
 	}
 
-	if err := os.Remove(csvPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("[WARN] Failed to remove temp CSV: %v", err)
+	if err := os.Remove(jsonPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("[WARN] Failed to remove temp JSON: %v", err)
 	}
-	if err := saveScoresCSV(allScores, csvPath); err != nil {
-		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save CSV: %v", err))
+	if err := saveScoresJSON(allScores, jsonPath); err != nil {
+		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save JSON: %v", err))
 		return
 	}
-
-	// タイムラインJSONを全scoresから生成（matchesコレクションに統合済み）
-	timelinePath := generateTimelineJSON(allScores, tmpDir)
 
 	// タッグ相方名を取得（403途中保存時はセッションが無効なのでキャッシュを使用）
 	var tagPartnersPath string
@@ -322,7 +318,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	// Python分析実行
 	updateStatus(j, model.StatusAnalyzing)
-	report := runAnalysis(csvPath, tmpDir, tagPartnersPath, timelinePath)
+	report := runAnalysis(jsonPath, tmpDir, tagPartnersPath)
 	if report == "" {
 		setError(j, "分析処理に失敗しました", "analysis returned empty report")
 		return
@@ -358,16 +354,29 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 		return "", fmt.Errorf("no scores found for user")
 	}
 
-	// CSVを生成
-	csvPath := filepath.Join(tmpDir, "scores.csv")
-	if err := saveScoresCSV(scores, csvPath); err != nil {
-		return "", fmt.Errorf("failed to generate CSV: %w", err)
+	// JSONを生成
+	jsonPath := filepath.Join(tmpDir, "scores.json")
+	if err := saveScoresJSON(scores, jsonPath); err != nil {
+		return "", fmt.Errorf("failed to generate JSON: %w", err)
 	}
 
-	args := []string{"scripts/analyze.py", csvPath, "--start", start, "--end", end}
-	timelinePath := generateTimelineJSON(scores, tmpDir)
-	if timelinePath != "" {
-		args = append(args, "--timeline", timelinePath)
+	// Firestoreからタッグ相方情報を読み取り
+	var tagPartnersPath string
+	partners, err := fs.LoadTagPartners(userKey)
+	if err != nil {
+		log.Printf("[WARN] Failed to load tag partners for custom period: %v", err)
+	}
+	if len(partners) > 0 {
+		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
+		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
+			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
+			tagPartnersPath = ""
+		}
+	}
+
+	args := []string{"scripts/analyze.py", jsonPath, "--start", start, "--end", end, "--ms-list", DefaultMSListPath}
+	if tagPartnersPath != "" {
+		args = append(args, "--tag-partners", tagPartnersPath)
 	}
 
 	cmd := exec.Command("python3", args...)
@@ -404,50 +413,11 @@ func saveTagPartners(partners []model.TagPartner, path string) error {
 	return os.WriteFile(path, b, 0644)
 }
 
-// generateTimelineJSON はDatedScoresからタイムラインJSONを生成する（Python分析用）。
-func generateTimelineJSON(scores model.DatedScores, tmpDir string) string {
-	type timelineEntry struct {
-		Datetime string              `json:"datetime"`
-		Timeline *model.MatchTimeline `json:"timeline"`
-	}
-
-	var entries []timelineEntry
-	for _, s := range scores {
-		if s.MatchTimeline != nil {
-			entries = append(entries, timelineEntry{
-				Datetime: s.Datetime.Format("2006-01-02 15:04"),
-				Timeline: s.MatchTimeline,
-			})
-		}
-	}
-
-	if len(entries) == 0 {
-		return ""
-	}
-
-	timelinePath := filepath.Join(tmpDir, "timelines.json")
-	b, err := json.Marshal(entries)
-	if err != nil {
-		log.Printf("[WARN] Failed to marshal timelines: %v", err)
-		return ""
-	}
-	if err := os.WriteFile(timelinePath, b, 0644); err != nil {
-		log.Printf("[WARN] Failed to save timelines: %v", err)
-		return ""
-	}
-
-	log.Printf("[INFO] Generated %d timelines for analysis", len(entries))
-	return timelinePath
-}
-
 // runAnalysis はPython分析を実行してJSON形式のレポートを返す。失敗時は空文字を返す。
-func runAnalysis(csvPath, tmpDir, tagPartnersPath, timelinePath string) string {
-	args := []string{"scripts/analyze.py", csvPath}
+func runAnalysis(jsonPath, tmpDir, tagPartnersPath string) string {
+	args := []string{"scripts/analyze.py", jsonPath, "--ms-list", DefaultMSListPath}
 	if tagPartnersPath != "" {
 		args = append(args, "--tag-partners", tagPartnersPath)
-	}
-	if timelinePath != "" {
-		args = append(args, "--timeline", timelinePath)
 	}
 	cmd := exec.Command("python3", args...)
 	cmd.Dir = "/app"
@@ -501,51 +471,158 @@ func CleanupJobs(ttl time.Duration) {
 	}
 }
 
-// saveScoresCSV はDatedScoresをCSVファイルに保存する（Python分析用）。
-func saveScoresCSV(ds model.DatedScores, path string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+// matchJSON はPython分析用の試合単位JSON構造
+type matchJSON struct {
+	Datetime   string       `json:"datetime"`
+	GameEndSec float64      `json:"game_end_sec"`
+	Players    []playerJSON `json:"players"`
+}
 
-	w := csv.NewWriter(f)
-	defer w.Flush()
+// playerJSON はPython分析用のプレイヤー情報
+type playerJSON struct {
+	PlayerNo        int          `json:"player_no"`
+	Name            string       `json:"name"`
+	City            string       `json:"city"`
+	Win             bool         `json:"win"`
+	MsName          string       `json:"ms_name"`
+	MsImageURL      string       `json:"ms_image_url"`
+	Score           int          `json:"score"`
+	Kills           int          `json:"kills"`
+	Deaths          int          `json:"deaths"`
+	GiveDamage      int          `json:"give_damage"`
+	ReceiveDamage   int          `json:"receive_damage"`
+	ExDamage        int          `json:"ex_damage"`
+	MsProficiency   string       `json:"ms_proficiency"`
+	TeamName        string       `json:"team_name"`
+	PlayerLevelURL  string       `json:"player_level_url"`
+	RankBadgeURL    string       `json:"rank_badge_url"`
+	ProfileURL      string       `json:"profile_url"`
+	ShuffleGradeURL string       `json:"shuffle_grade_url"`
+	TeamGradeURL    string       `json:"team_grade_url"`
+	ScoreRanking    int          `json:"score_ranking"`
+	ArcadeName      string       `json:"arcade_name"`
+	Actions         []actionJSON `json:"actions"`
+}
 
-	header := []string{"試合日時", "プレイヤーNo.", "地域", "プレイヤー名", "勝利判定", "機体名", "機体画像URL", "スコア", "撃墜数", "被撃墜数", "与ダメージ", "被ダメージ", "EXダメージ", "ランク", "チーム名", "称号画像URL", "称号バッジURL", "プロフィールURL", "シャッフルグレード画像URL", "チームグレード画像URL", "スコア順位", "店舗名"}
-	if err := w.Write(header); err != nil {
-		return err
-	}
+// actionJSON はタイムラインアクション
+type actionJSON struct {
+	Action         string  `json:"action"`
+	ActionStartSec float64 `json:"action_start_sec"`
+	ActionEndSec   float64 `json:"action_end_sec"`
+}
 
+// saveScoresJSON はDatedScoresを試合単位JSONファイルに保存する（Python分析用）。
+func saveScoresJSON(ds model.DatedScores, path string) error {
+	groups := make(map[string][]model.DatedScore)
 	for _, d := range ds {
-		row := []string{
-			d.Datetime.Format("2006-01-02 15:04"),
-			strconv.Itoa(d.PlayerNo),
-			d.PlayerScore.City,
-			d.PlayerScore.Name,
-			strconv.FormatBool(d.PlayerScore.Win),
-			d.PlayerScore.MsName,
-			d.PlayerScore.MsImageURL,
-			strconv.Itoa(d.PlayerScore.Score),
-			strconv.Itoa(d.PlayerScore.Kills),
-			strconv.Itoa(d.PlayerScore.Deaths),
-			strconv.Itoa(d.PlayerScore.GiveDamage),
-			strconv.Itoa(d.PlayerScore.ReceiveDamage),
-			strconv.Itoa(d.PlayerScore.ExDamage),
-			d.PlayerScore.MsProficiency,
-			d.PlayerScore.TeamName,
-			d.PlayerScore.PlayerLevelURL,
-			d.PlayerScore.RankBadgeURL,
-			d.PlayerScore.ProfileURL,
-			d.PlayerScore.ShuffleGradeURL,
-			d.PlayerScore.TeamGradeURL,
-			strconv.Itoa(d.PlayerScore.ScoreRanking),
-			d.PlayerScore.ArcadeName,
-		}
-		if err := w.Write(row); err != nil {
-			return err
-		}
+		key := d.Datetime.Format("2006-01-02T1504")
+		groups[key] = append(groups[key], d)
 	}
 
-	return nil
+	keys := make([]string, 0, len(groups))
+	for k := range groups {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	matches := make([]matchJSON, 0, len(keys))
+	for _, key := range keys {
+		entries := groups[key]
+		if len(entries) != 4 {
+			continue
+		}
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].PlayerNo < entries[j].PlayerNo
+		})
+
+		var gameEndSec float64
+		var timeline *model.MatchTimeline
+		for _, e := range entries {
+			if e.MatchTimeline != nil {
+				timeline = e.MatchTimeline
+				gameEndSec = timeline.GameEndSec
+				break
+			}
+		}
+
+		players := make([]playerJSON, len(entries))
+		for i, e := range entries {
+			actions := buildPlayerActions(timeline, e.PlayerNo)
+			players[i] = playerJSON{
+				PlayerNo:        e.PlayerNo,
+				Name:            e.PlayerScore.Name,
+				City:            e.PlayerScore.City,
+				Win:             e.PlayerScore.Win,
+				MsName:          e.PlayerScore.MsName,
+				MsImageURL:      e.PlayerScore.MsImageURL,
+				Score:           e.PlayerScore.Score,
+				Kills:           e.PlayerScore.Kills,
+				Deaths:          e.PlayerScore.Deaths,
+				GiveDamage:      e.PlayerScore.GiveDamage,
+				ReceiveDamage:   e.PlayerScore.ReceiveDamage,
+				ExDamage:        e.PlayerScore.ExDamage,
+				MsProficiency:   e.PlayerScore.MsProficiency,
+				TeamName:        e.PlayerScore.TeamName,
+				PlayerLevelURL:  e.PlayerScore.PlayerLevelURL,
+				RankBadgeURL:    e.PlayerScore.RankBadgeURL,
+				ProfileURL:      e.PlayerScore.ProfileURL,
+				ShuffleGradeURL: e.PlayerScore.ShuffleGradeURL,
+				TeamGradeURL:    e.PlayerScore.TeamGradeURL,
+				ScoreRanking:    e.PlayerScore.ScoreRanking,
+				ArcadeName:      e.PlayerScore.ArcadeName,
+				Actions:         actions,
+			}
+		}
+
+		matches = append(matches, matchJSON{
+			Datetime:   entries[0].Datetime.Format("2006-01-02 15:04"),
+			GameEndSec: gameEndSec,
+			Players:    players,
+		})
+	}
+
+	b, err := json.Marshal(matches)
+	if err != nil {
+		return fmt.Errorf("marshal scores JSON: %w", err)
+	}
+	return os.WriteFile(path, b, 0644)
+}
+
+// buildPlayerActions はMatchTimelineから特定プレイヤーのアクションを抽出する。
+func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []actionJSON {
+	if timeline == nil {
+		return []actionJSON{}
+	}
+
+	groupName := ""
+	switch playerNo {
+	case 1:
+		groupName = "team1-1"
+	case 2:
+		groupName = "team1-2"
+	case 3:
+		groupName = "team2-1"
+	case 4:
+		groupName = "team2-2"
+	}
+
+	var actions []actionJSON
+	for _, e := range timeline.Events {
+		if e.Group != groupName {
+			continue
+		}
+		action := e.ClassName
+		if e.IsPoint {
+			action = "death"
+		}
+		actions = append(actions, actionJSON{
+			Action:         action,
+			ActionStartSec: e.StartSec,
+			ActionEndSec:   e.EndSec,
+		})
+	}
+	if actions == nil {
+		return []actionJSON{}
+	}
+	return actions
 }
