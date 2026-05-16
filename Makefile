@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test \
+.PHONY: build run restart stop test extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
 
@@ -27,6 +27,15 @@ stop:
 ## Go テストを実行
 test:
 	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
+
+## Firestoreから未登録グレードURLを抽出
+extract-grades:
+	docker run --rm -v "$(CURDIR)":/app -w /app \
+		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
+		-e GCP_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
+		-e FIRESTORE_DATABASE \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
+		golang:1.26-alpine go run ./cmd/extract-grades
 
 PULUMI_IMAGE := pulumi/pulumi:latest
 PULUMI_STATE_BUCKET ?= exvs2ib-analyzer-pulumi-state

@@ -47,21 +47,30 @@ func BuildGradeMap(list []GradeInfo) map[string]GradeInfo {
 	return m
 }
 
-// CheckUnknownGrades はgrade_list.jsonに未登録のグレード画像URLをログに出力する
-func CheckUnknownGrades(ds model.DatedScores, gradeMap map[string]GradeInfo) {
+// FindUnknownGrades はgrade_list.jsonに未登録のグレード画像URLを返す。
+// キーはクエリパラメータ除去済みのURL、値は出現回数。
+func FindUnknownGrades(ds model.DatedScores, gradeMap map[string]GradeInfo) map[string]int {
 	unknown := make(map[string]int)
 	for _, d := range ds {
-		if d.PlayerScore.ShuffleGradeURL != "" {
-			if _, ok := gradeMap[stripQuery(d.PlayerScore.ShuffleGradeURL)]; !ok {
-				unknown[d.PlayerScore.ShuffleGradeURL]++
+		if u := d.PlayerScore.ShuffleGradeURL; u != "" {
+			stripped := stripQuery(u)
+			if _, ok := gradeMap[stripped]; !ok {
+				unknown[stripped]++
 			}
 		}
-		if d.PlayerScore.TeamGradeURL != "" {
-			if _, ok := gradeMap[stripQuery(d.PlayerScore.TeamGradeURL)]; !ok {
-				unknown[d.PlayerScore.TeamGradeURL]++
+		if u := d.PlayerScore.TeamGradeURL; u != "" {
+			stripped := stripQuery(u)
+			if _, ok := gradeMap[stripped]; !ok {
+				unknown[stripped]++
 			}
 		}
 	}
+	return unknown
+}
+
+// CheckUnknownGrades はgrade_list.jsonに未登録のグレード画像URLをログに出力する
+func CheckUnknownGrades(ds model.DatedScores, gradeMap map[string]GradeInfo) {
+	unknown := FindUnknownGrades(ds, gradeMap)
 	for u, count := range unknown {
 		log.Printf("[ALERT] Unknown grade (appeared %d times): %s", count, u)
 	}
