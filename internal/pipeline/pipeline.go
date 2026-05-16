@@ -360,7 +360,24 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 		return "", fmt.Errorf("failed to generate JSON: %w", err)
 	}
 
+	// Firestoreからタッグ相方情報を読み取り
+	var tagPartnersPath string
+	partners, err := fs.LoadTagPartners(userKey)
+	if err != nil {
+		log.Printf("[WARN] Failed to load tag partners for custom period: %v", err)
+	}
+	if len(partners) > 0 {
+		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
+		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
+			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
+			tagPartnersPath = ""
+		}
+	}
+
 	args := []string{"scripts/analyze.py", jsonPath, "--start", start, "--end", end, "--ms-list", DefaultMSListPath}
+	if tagPartnersPath != "" {
+		args = append(args, "--tag-partners", tagPartnersPath)
+	}
 
 	cmd := exec.Command("python3", args...)
 	cmd.Dir = "/app"
