@@ -4,39 +4,66 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/yuki9431/exvs-analyzer/internal/model"
 )
 
-// scoreDoc はFirestoreに保存するscoresドキュメントの構造体
-type scoreDoc struct {
-	Datetime       time.Time `firestore:"datetime"`
-	PlayerNo       int       `firestore:"player_no"`
-	City           string    `firestore:"city"`
-	Name           string    `firestore:"name"`
-	Win            bool      `firestore:"win"`
-	MsName         string    `firestore:"ms_name"`
-	MsImageURL     string    `firestore:"ms_image_url"`
-	Score          int       `firestore:"score"`
-	Kills          int       `firestore:"kills"`
-	Deaths         int       `firestore:"deaths"`
-	GiveDamage     int       `firestore:"give_damage"`
-	ReceiveDamage  int       `firestore:"receive_damage"`
-	ExDamage       int       `firestore:"ex_damage"`
-	MsProficiency  string    `firestore:"ms_proficiency"`
-	TeamName       string    `firestore:"team_name"`
-	PlayerLevelURL string    `firestore:"player_level_url"`
-	RankBadgeURL   string    `firestore:"rank_badge_url"`
-	ProfileURL     string    `firestore:"profile_url"`
-	ShuffleGradeURL string   `firestore:"shuffle_grade_url"`
-	TeamGradeURL   string    `firestore:"team_grade_url"`
-	ScoreRanking   int       `firestore:"score_ranking"`
-	ArcadeName     string    `firestore:"arcade_name"`
+// matchDoc はFirestoreに保存するmatchesドキュメントの構造体
+type matchDoc struct {
+	Datetime   time.Time   `firestore:"datetime"`
+	GameEndSec float64     `firestore:"game_end_sec"`
+	Players    []playerDoc `firestore:"players"`
 }
 
-// SaveScores はDatedScoresをFirestoreのscoresサブコレクションに書き込む。
+// playerDoc はmatchesドキュメント内のプレイヤー情報
+type playerDoc struct {
+	PlayerNo        int         `firestore:"player_no"`
+	City            string      `firestore:"city"`
+	Name            string      `firestore:"name"`
+	Win             bool        `firestore:"win"`
+	MsName          string      `firestore:"ms_name"`
+	MsImageURL      string      `firestore:"ms_image_url"`
+	Score           int         `firestore:"score"`
+	Kills           int         `firestore:"kills"`
+	Deaths          int         `firestore:"deaths"`
+	GiveDamage      int         `firestore:"give_damage"`
+	ReceiveDamage   int         `firestore:"receive_damage"`
+	ExDamage        int         `firestore:"ex_damage"`
+	MsProficiency   string      `firestore:"ms_proficiency"`
+	TeamName        string      `firestore:"team_name"`
+	PlayerLevelURL  string      `firestore:"player_level_url"`
+	RankBadgeURL    string      `firestore:"rank_badge_url"`
+	ProfileURL      string      `firestore:"profile_url"`
+	ShuffleGradeURL string      `firestore:"shuffle_grade_url"`
+	TeamGradeURL    string      `firestore:"team_grade_url"`
+	ScoreRanking    int         `firestore:"score_ranking"`
+	ArcadeName      string      `firestore:"arcade_name"`
+	Actions         []actionDoc `firestore:"actions"`
+}
+
+// actionDoc はタイムライン内の各アクション
+type actionDoc struct {
+	Action         string  `firestore:"action"`
+	ActionStartSec float64 `firestore:"action_start_sec"`
+	ActionEndSec   float64 `firestore:"action_end_sec"`
+}
+
+// actionMapping はHTMLクラス名からFirestoreのaction値へのマッピング
+var actionMapping = map[string]string{
+	"ex":       "ex_standby",
+	"exbst-f":  "ex_f_using",
+	"exbst-s":  "ex_s_using",
+	"exbst-e":  "ex_e_using",
+	"ov":       "ol_standby",
+	"exbst-ov": "ol_using",
+}
+
+// SaveScores はDatedScoresをFirestoreのmatchesサブコレクションに書き込む。
+// タイムラインデータがある場合は各プレイヤーのactionsとして埋め込む。
 func SaveScores(userKey string, scores model.DatedScores) {
 	c := getClient()
 	if c == nil {
@@ -46,11 +73,8 @@ func SaveScores(userKey string, scores model.DatedScores) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	// Firestoreのバッチは最大500操作
-	const batchLimit = 500
 	userRef := c.Collection("users").Doc(userKey)
 
-	// ユーザードキュメントの作成（存在しなければ）
 	_, err := userRef.Set(ctx, map[string]interface{}{
 		"created_at": firestore.ServerTimestamp,
 	}, firestore.MergeAll)
@@ -59,35 +83,52 @@ func SaveScores(userKey string, scores model.DatedScores) {
 		return
 	}
 
-	scoresCol := userRef.Collection("scores")
+	groups := groupByDatetime(scores)
+	matchesCol := userRef.Collection("matches")
 
-	for i := 0; i < len(scores); i += batchLimit {
-		end := i + batchLimit
-		if end > len(scores) {
-			end = len(scores)
+	const batchLimit = 500
+	var docs []struct {
+		id  string
+		doc matchDoc
+	}
+
+	for key, entries := range groups {
+		if len(entries) != 4 {
+			log.Printf("[WARN] Firestore: match %s has %d players (expected 4), skipping", key, len(entries))
+			continue
 		}
-		chunk := scores[i:end]
+		doc := buildMatchDoc(entries)
+		docs = append(docs, struct {
+			id  string
+			doc matchDoc
+		}{key, doc})
+	}
+
+	for i := 0; i < len(docs); i += batchLimit {
+		end := i + batchLimit
+		if end > len(docs) {
+			end = len(docs)
+		}
 
 		batch := c.Batch()
-		for _, s := range chunk {
-			docID := scoreDocID(s)
-			doc := scoresCol.Doc(docID)
-			batch.Set(doc, toScoreDoc(s))
+		for _, d := range docs[i:end] {
+			batch.Set(matchesCol.Doc(d.id), d.doc)
 		}
 
 		if _, err := batch.Commit(ctx); err != nil {
-			log.Printf("[WARN] Firestore: failed to save scores batch (%d-%d of %d, partial write): %v", i, end, len(scores), err)
+			log.Printf("[WARN] Firestore: failed to save matches batch (%d-%d of %d, partial write): %v", i, end, len(docs), err)
 			return
 		}
 	}
 
-	log.Printf("[INFO] Firestore: saved %d scores for user %s", len(scores), userKey)
+	log.Printf("[INFO] Firestore: saved %d matches for user %s", len(docs), userKey)
 }
 
 // loadScoresTimeout はLoadScores用のタイムアウト（全量読み取りのため長めに設定）
 const loadScoresTimeout = 120 * time.Second
 
-// LoadScores はFirestoreからユーザーの全scoresを読み取り、datetime昇順で返す。
+// LoadScores はFirestoreからユーザーの全matchesを読み取り、datetime昇順のDatedScoresで返す。
+// 各試合のMatchTimelineはPlayerNo==1のDatedScoreにセットされる。
 func LoadScores(userKey string) (model.DatedScores, error) {
 	c := getClient()
 	if c == nil {
@@ -98,26 +139,59 @@ func LoadScores(userKey string) (model.DatedScores, error) {
 	defer cancel()
 
 	userRef := c.Collection("users").Doc(userKey)
-	docs, err := userRef.Collection("scores").OrderBy("datetime", firestore.Asc).Documents(ctx).GetAll()
+	docs, err := userRef.Collection("matches").OrderBy("datetime", firestore.Asc).Documents(ctx).GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("query scores: %w", err)
+		return nil, fmt.Errorf("query matches: %w", err)
 	}
 
-	scores := make(model.DatedScores, 0, len(docs))
+	scores := make(model.DatedScores, 0, len(docs)*4)
 	for _, doc := range docs {
-		var sd scoreDoc
-		if err := doc.DataTo(&sd); err != nil {
-			log.Printf("[WARN] Firestore: failed to parse score doc %s: %v", doc.Ref.ID, err)
+		var md matchDoc
+		if err := doc.DataTo(&md); err != nil {
+			log.Printf("[WARN] Firestore: failed to parse match doc %s: %v", doc.Ref.ID, err)
 			continue
 		}
-		scores = append(scores, fromScoreDoc(sd))
+
+		timeline := reconstructTimeline(md)
+
+		for _, p := range md.Players {
+			ds := model.DatedScore{
+				PlayerNo: p.PlayerNo,
+				Datetime: md.Datetime,
+				PlayerScore: model.PlayerScore{
+					City:            p.City,
+					Name:            p.Name,
+					Win:             p.Win,
+					MsName:          p.MsName,
+					MsImageURL:      p.MsImageURL,
+					Score:           p.Score,
+					Kills:           p.Kills,
+					Deaths:          p.Deaths,
+					GiveDamage:      p.GiveDamage,
+					ReceiveDamage:   p.ReceiveDamage,
+					ExDamage:        p.ExDamage,
+					MsProficiency:   p.MsProficiency,
+					TeamName:        p.TeamName,
+					PlayerLevelURL:  p.PlayerLevelURL,
+					RankBadgeURL:    p.RankBadgeURL,
+					ProfileURL:      p.ProfileURL,
+					ShuffleGradeURL: p.ShuffleGradeURL,
+					TeamGradeURL:    p.TeamGradeURL,
+					ScoreRanking:    p.ScoreRanking,
+					ArcadeName:      p.ArcadeName,
+				},
+			}
+			if p.PlayerNo == 1 && timeline != nil {
+				ds.MatchTimeline = timeline
+			}
+			scores = append(scores, ds)
+		}
 	}
 
 	return scores, nil
 }
 
 // GetLatestDatetime はFirestoreからユーザーの最新試合日時を取得する。
-// データがない場合はゼロ値のtimeを返す。
 func GetLatestDatetime(userKey string) (time.Time, error) {
 	c := getClient()
 	if c == nil {
@@ -128,7 +202,7 @@ func GetLatestDatetime(userKey string) (time.Time, error) {
 	defer cancel()
 
 	userRef := c.Collection("users").Doc(userKey)
-	docs, err := userRef.Collection("scores").OrderBy("datetime", firestore.Desc).Limit(1).Documents(ctx).GetAll()
+	docs, err := userRef.Collection("matches").OrderBy("datetime", firestore.Desc).Limit(1).Documents(ctx).GetAll()
 	if err != nil {
 		return time.Time{}, fmt.Errorf("query latest datetime: %w", err)
 	}
@@ -136,15 +210,14 @@ func GetLatestDatetime(userKey string) (time.Time, error) {
 		return time.Time{}, nil
 	}
 
-	var sd scoreDoc
-	if err := docs[0].DataTo(&sd); err != nil {
-		return time.Time{}, fmt.Errorf("parse latest score: %w", err)
+	var md matchDoc
+	if err := docs[0].DataTo(&md); err != nil {
+		return time.Time{}, fmt.Errorf("parse latest match: %w", err)
 	}
-	return sd.Datetime, nil
+	return md.Datetime, nil
 }
 
-// BackfillDates は直近30日以内でms_proficiencyが空のscoresの日付セットを返す。
-// 日付は "2006/01/02" 形式（スクレイパーのdailyLink.dateと同じ形式）。
+// BackfillDates は直近30日以内でms_proficiencyが空のmatchesの日付セットを返す。
 func BackfillDates(userKey string) map[string]bool {
 	dates := make(map[string]bool)
 
@@ -158,83 +231,216 @@ func BackfillDates(userKey string) map[string]bool {
 
 	cutoff := time.Now().AddDate(0, 0, -30)
 	userRef := c.Collection("users").Doc(userKey)
-	docs, err := userRef.Collection("scores").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
+	docs, err := userRef.Collection("matches").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
 	if err != nil {
 		log.Printf("[WARN] Firestore: failed to get backfill dates: %v", err)
 		return dates
 	}
 
 	for _, doc := range docs {
-		var sd scoreDoc
-		if err := doc.DataTo(&sd); err != nil {
+		var md matchDoc
+		if err := doc.DataTo(&md); err != nil {
 			continue
 		}
-		if sd.MsProficiency == "" {
-			dates[sd.Datetime.Format("2006/01/02")] = true
+		for _, p := range md.Players {
+			if p.MsProficiency == "" {
+				dates[md.Datetime.Format("2006/01/02")] = true
+				break
+			}
 		}
 	}
 	return dates
 }
 
-// fromScoreDoc はFirestoreドキュメントをDatedScoreに変換する。
-func fromScoreDoc(sd scoreDoc) model.DatedScore {
-	return model.DatedScore{
-		PlayerNo: sd.PlayerNo,
-		Datetime: sd.Datetime,
-		PlayerScore: model.PlayerScore{
-			City:            sd.City,
-			Name:            sd.Name,
-			Win:             sd.Win,
-			MsName:          sd.MsName,
-			MsImageURL:      sd.MsImageURL,
-			Score:           sd.Score,
-			Kills:           sd.Kills,
-			Deaths:          sd.Deaths,
-			GiveDamage:      sd.GiveDamage,
-			ReceiveDamage:   sd.ReceiveDamage,
-			ExDamage:        sd.ExDamage,
-			MsProficiency:   sd.MsProficiency,
-			TeamName:        sd.TeamName,
-			PlayerLevelURL:  sd.PlayerLevelURL,
-			RankBadgeURL:    sd.RankBadgeURL,
-			ProfileURL:      sd.ProfileURL,
-			ShuffleGradeURL: sd.ShuffleGradeURL,
-			TeamGradeURL:    sd.TeamGradeURL,
-			ScoreRanking:    sd.ScoreRanking,
-			ArcadeName:      sd.ArcadeName,
-		},
+// groupByDatetime はDatedScoresをdatetimeでグルーピングする。
+func groupByDatetime(scores model.DatedScores) map[string][]model.DatedScore {
+	groups := make(map[string][]model.DatedScore)
+	for _, s := range scores {
+		key := s.Datetime.Format("2006-01-02T1504")
+		groups[key] = append(groups[key], s)
+	}
+	return groups
+}
+
+// buildMatchDoc はグルーピングされたDatedScoresからmatchDocを構築する。
+func buildMatchDoc(entries []model.DatedScore) matchDoc {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].PlayerNo < entries[j].PlayerNo
+	})
+
+	var timeline *model.MatchTimeline
+	for _, e := range entries {
+		if e.MatchTimeline != nil {
+			timeline = e.MatchTimeline
+			break
+		}
+	}
+
+	playerActions := timelineToPlayerActions(timeline)
+
+	players := make([]playerDoc, len(entries))
+	for i, e := range entries {
+		actions := playerActions[e.PlayerNo]
+		if actions == nil {
+			actions = []actionDoc{}
+		}
+		players[i] = playerDoc{
+			PlayerNo:        e.PlayerNo,
+			City:            e.PlayerScore.City,
+			Name:            e.PlayerScore.Name,
+			Win:             e.PlayerScore.Win,
+			MsName:          e.PlayerScore.MsName,
+			MsImageURL:      e.PlayerScore.MsImageURL,
+			Score:           e.PlayerScore.Score,
+			Kills:           e.PlayerScore.Kills,
+			Deaths:          e.PlayerScore.Deaths,
+			GiveDamage:      e.PlayerScore.GiveDamage,
+			ReceiveDamage:   e.PlayerScore.ReceiveDamage,
+			ExDamage:        e.PlayerScore.ExDamage,
+			MsProficiency:   e.PlayerScore.MsProficiency,
+			TeamName:        e.PlayerScore.TeamName,
+			PlayerLevelURL:  e.PlayerScore.PlayerLevelURL,
+			RankBadgeURL:    e.PlayerScore.RankBadgeURL,
+			ProfileURL:      e.PlayerScore.ProfileURL,
+			ShuffleGradeURL: e.PlayerScore.ShuffleGradeURL,
+			TeamGradeURL:    e.PlayerScore.TeamGradeURL,
+			ScoreRanking:    e.PlayerScore.ScoreRanking,
+			ArcadeName:      e.PlayerScore.ArcadeName,
+			Actions:         actions,
+		}
+	}
+
+	var gameEndSec float64
+	if timeline != nil {
+		gameEndSec = timeline.GameEndSec
+	}
+
+	return matchDoc{
+		Datetime:   entries[0].Datetime,
+		GameEndSec: gameEndSec,
+		Players:    players,
 	}
 }
 
-// scoreDocID はscoresドキュメントのIDを生成する（{datetime}_{playerNo}）
-func scoreDocID(s model.DatedScore) string {
-	return fmt.Sprintf("%s_%d", s.Datetime.Format("2006-01-02T1504"), s.PlayerNo)
+// timelineToPlayerActions はMatchTimelineをプレイヤー番号ごとのactionDocに変換する。
+func timelineToPlayerActions(mt *model.MatchTimeline) map[int][]actionDoc {
+	result := make(map[int][]actionDoc)
+	if mt == nil {
+		return result
+	}
+
+	for _, e := range mt.Events {
+		playerNo := groupToPlayerNo(e.Group)
+		if playerNo == 0 {
+			continue
+		}
+
+		action := mapActionName(e.ClassName, e.IsPoint)
+		result[playerNo] = append(result[playerNo], actionDoc{
+			Action:         action,
+			ActionStartSec: e.StartSec,
+			ActionEndSec:   e.EndSec,
+		})
+	}
+	return result
 }
 
-// toScoreDoc はDatedScoreをFirestoreドキュメント用の構造体に変換する
-func toScoreDoc(s model.DatedScore) scoreDoc {
-	return scoreDoc{
-		Datetime:        s.Datetime,
-		PlayerNo:        s.PlayerNo,
-		City:            s.PlayerScore.City,
-		Name:            s.PlayerScore.Name,
-		Win:             s.PlayerScore.Win,
-		MsName:          s.PlayerScore.MsName,
-		MsImageURL:      s.PlayerScore.MsImageURL,
-		Score:           s.PlayerScore.Score,
-		Kills:           s.PlayerScore.Kills,
-		Deaths:          s.PlayerScore.Deaths,
-		GiveDamage:      s.PlayerScore.GiveDamage,
-		ReceiveDamage:   s.PlayerScore.ReceiveDamage,
-		ExDamage:        s.PlayerScore.ExDamage,
-		MsProficiency:   s.PlayerScore.MsProficiency,
-		TeamName:        s.PlayerScore.TeamName,
-		PlayerLevelURL:  s.PlayerScore.PlayerLevelURL,
-		RankBadgeURL:    s.PlayerScore.RankBadgeURL,
-		ProfileURL:      s.PlayerScore.ProfileURL,
-		ShuffleGradeURL: s.PlayerScore.ShuffleGradeURL,
-		TeamGradeURL:    s.PlayerScore.TeamGradeURL,
-		ScoreRanking:    s.PlayerScore.ScoreRanking,
-		ArcadeName:      s.PlayerScore.ArcadeName,
+// reconstructTimeline はmatchDocからMatchTimelineを再構築する。
+func reconstructTimeline(md matchDoc) *model.MatchTimeline {
+	var hasActions bool
+	for _, p := range md.Players {
+		if len(p.Actions) > 0 {
+			hasActions = true
+			break
+		}
 	}
+	if !hasActions && md.GameEndSec == 0 {
+		return nil
+	}
+
+	var events []model.MatchEvent
+	for _, p := range md.Players {
+		group := playerNoToGroup(p.PlayerNo)
+		if group == "" {
+			continue
+		}
+		for _, a := range p.Actions {
+			className, isPoint := reverseActionName(a.Action)
+			events = append(events, model.MatchEvent{
+				Group:     group,
+				StartSec:  a.ActionStartSec,
+				EndSec:    a.ActionEndSec,
+				ClassName: className,
+				IsPoint:   isPoint,
+			})
+		}
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].StartSec < events[j].StartSec
+	})
+
+	return &model.MatchTimeline{
+		Events:     events,
+		GameEndSec: md.GameEndSec,
+	}
+}
+
+// groupToPlayerNo はvis.jsのgroup名をプレイヤー番号に変換する。
+func groupToPlayerNo(group string) int {
+	if !strings.HasPrefix(group, "team") {
+		return 0
+	}
+	switch group {
+	case "team1-1":
+		return 1
+	case "team1-2":
+		return 2
+	case "team2-1":
+		return 3
+	case "team2-2":
+		return 4
+	default:
+		return 0
+	}
+}
+
+// playerNoToGroup はプレイヤー番号をvis.jsのgroup名に変換する。
+func playerNoToGroup(playerNo int) string {
+	switch playerNo {
+	case 1:
+		return "team1-1"
+	case 2:
+		return "team1-2"
+	case 3:
+		return "team2-1"
+	case 4:
+		return "team2-2"
+	default:
+		return ""
+	}
+}
+
+// mapActionName はHTMLクラス名とisPointフラグからaction名を決定する。
+func mapActionName(className string, isPoint bool) string {
+	if isPoint {
+		return "death"
+	}
+	if mapped, ok := actionMapping[className]; ok {
+		return mapped
+	}
+	return className
+}
+
+// reverseActionName はFirestoreのaction名をHTMLクラス名とisPointフラグに変換する。
+func reverseActionName(action string) (className string, isPoint bool) {
+	if action == "death" {
+		return "", true
+	}
+	for k, v := range actionMapping {
+		if v == action {
+			return k, false
+		}
+	}
+	return action, false
 }
