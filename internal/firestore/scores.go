@@ -93,6 +93,10 @@ func SaveScores(userKey string, scores model.DatedScores) {
 	}
 
 	for key, entries := range groups {
+		if len(entries) != 4 {
+			log.Printf("[WARN] Firestore: match %s has %d players (expected 4), skipping", key, len(entries))
+			continue
+		}
 		doc := buildMatchDoc(entries)
 		docs = append(docs, struct {
 			id  string
