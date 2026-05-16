@@ -293,8 +293,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		return
 	}
 
-	// タイムラインデータの保存
-	timelinePath := saveTimelines(datedScores, j.UserKey, tmpDir)
+	// タイムラインJSONを全scoresから生成（matchesコレクションに統合済み）
+	timelinePath := generateTimelineJSON(allScores, tmpDir)
 
 	// タッグ相方名を取得（403途中保存時はセッションが無効なのでキャッシュを使用）
 	var tagPartnersPath string
@@ -364,7 +364,13 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 		return "", fmt.Errorf("failed to generate CSV: %w", err)
 	}
 
-	cmd := exec.Command("python3", "scripts/analyze.py", csvPath, "--start", start, "--end", end)
+	args := []string{"scripts/analyze.py", csvPath, "--start", start, "--end", end}
+	timelinePath := generateTimelineJSON(scores, tmpDir)
+	if timelinePath != "" {
+		args = append(args, "--timeline", timelinePath)
+	}
+
+	cmd := exec.Command("python3", args...)
 	cmd.Dir = "/app"
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -398,16 +404,21 @@ func saveTagPartners(partners []model.TagPartner, path string) error {
 	return os.WriteFile(path, b, 0644)
 }
 
-// saveTimelines はDatedScoresからタイムラインデータを抽出し、Firestoreに保存する
-func saveTimelines(scores model.DatedScores, userKey, tmpDir string) string {
-	// Firestoreにtimelinesを書き込み
-	fs.SaveTimelines(userKey, scores)
+// generateTimelineJSON はDatedScoresからタイムラインJSONを生成する（Python分析用）。
+func generateTimelineJSON(scores model.DatedScores, tmpDir string) string {
+	type timelineEntry struct {
+		Datetime string              `json:"datetime"`
+		Timeline *model.MatchTimeline `json:"timeline"`
+	}
 
-	// Firestoreから全タイムラインを読み取り（Python分析用）
-	entries, err := fs.LoadTimelines(userKey)
-	if err != nil {
-		log.Printf("[WARN] Failed to load timelines from Firestore: %v", err)
-		return ""
+	var entries []timelineEntry
+	for _, s := range scores {
+		if s.MatchTimeline != nil {
+			entries = append(entries, timelineEntry{
+				Datetime: s.Datetime.Format("2006-01-02 15:04"),
+				Timeline: s.MatchTimeline,
+			})
+		}
 	}
 
 	if len(entries) == 0 {
@@ -425,7 +436,7 @@ func saveTimelines(scores model.DatedScores, userKey, tmpDir string) string {
 		return ""
 	}
 
-	log.Printf("[INFO] Loaded %d timelines from Firestore", len(entries))
+	log.Printf("[INFO] Generated %d timelines for analysis", len(entries))
 	return timelinePath
 }
 
