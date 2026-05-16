@@ -10,7 +10,7 @@ import json
 import os
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 def get_season(dt):
@@ -48,7 +48,8 @@ def get_season_half(dt):
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        raw = json.load(f)
+    return [m for m in raw if len(m.get("players", [])) == 4]
 
 
 def detect_player_name(matches):
@@ -1088,12 +1089,12 @@ def build_period_report(all_data, ms_data, tag_partners=None):
 
 
 def filter_by_days(all_data, days):
-    """直近N日分のデータをフィルタする"""
+    """���近N日分（プレイ日基準）のデータをフィルタする"""
     if not all_data:
         return []
-    latest = max(d["datetime"] for d in all_data)
-    cutoff = latest - timedelta(days=days)
-    return [d for d in all_data if d["datetime"] >= cutoff]
+    play_dates = sorted(set(d["datetime"].date() for d in all_data), reverse=True)
+    target_dates = set(play_dates[:days])
+    return [d for d in all_data if d["datetime"].date() in target_dates]
 
 
 def filter_by_datetime_range(all_data, start, end):
@@ -1121,13 +1122,13 @@ def build_json_report(player_name, all_data, ms_data, tag_partners=None):
 
     # プリセット期間
     preset_periods = [
-        ("90d", 90, "90日間"),
-        ("60d", 60, "60日間"),
-        ("30d", 30, "30日間"),
-        ("14d", 14, "14日間"),
-        ("7d", 7, "7日間"),
-        ("3d", 3, "3日間"),
-        ("1d", 1, "1日間"),
+        ("90d", 90, "90日分"),
+        ("60d", 60, "60日分"),
+        ("30d", 30, "30日分"),
+        ("14d", 14, "14日分"),
+        ("7d", 7, "7日分"),
+        ("3d", 3, "3日分"),
+        ("1d", 1, "1日分"),
     ]
     for key, days, label in preset_periods:
         filtered = filter_by_days(all_data, days)
