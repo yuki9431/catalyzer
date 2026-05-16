@@ -9,8 +9,12 @@
 ├── cmd/
 │   ├── server/
 │   │   └── main.go              # エントリポイント（サーバー起動のみ）
-│   └── update-mslist/
-│       └── main.go              # MSリスト更新CLI
+│   ├── update-mslist/
+│   │   └── main.go              # MSリスト更新CLI
+│   ├── delete-recent-scores/
+│   │   └── main.go              # 指定ユーザーの最新N日間の戦績削除CLI
+│   └── extract-grades/
+│       └── main.go              # Firestoreから未登録グレードURL抽出CLI
 ├── internal/
 │   ├── model/
 │   │   └── types.go             # 型定義のみ（PlayerScore, MSInfo等）
@@ -99,6 +103,9 @@ make stop
 
 # Goテスト
 make test
+
+# Firestoreから未登録グレードURLを抽出
+FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 ```
 
 http://localhost:8080 にアクセスしてバンナムIDでログインすると分析レポートが表示されます。
