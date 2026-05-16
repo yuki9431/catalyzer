@@ -59,11 +59,11 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ```
 ブラウザ → POST /analyze → ジョブ作成（pending）
-  → Firestoreから既存scoresを読み取り → 速報レポート生成
+  → Firestoreから既存matchesを読み取り → 速報レポート生成
   → Collyで新規戦績をスクレイピング（状態: scraping）
   → data/ms_list.jsonからMS名・コストを補完
-  → Firestoreにscores/timelines/tag_partners書き込み
-  → Firestoreから全scores読み取り → CSV生成
+  → Firestoreにmatches/tag_partners書き込み（タイムラインはmatchesに埋め込み）
+  → Firestoreから全matches読み取り → CSV生成
   → scripts/analyze.py でCSVを分析（状態: analyzing）
   → JSONレポートを返却（状態: done）
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
@@ -75,13 +75,14 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 - `cmd/server/main.go` — エントリポイント。`internal/server.StartServer()` に委譲
 - `cmd/update-mslist/main.go` — MSリストをスクレイピングして `data/ms_list.json` を更新するCLI
-- `cmd/delete-recent-scores/` — 指定ユーザーの最新N日間の戦績を削除するCLI（ドライラン対応）
+- `cmd/delete-recent-matches/` — 指定ユーザーの最新N日間の戦績を削除するCLI（ドライラン対応）
+- `cmd/migrate-scores/` — 旧scores/timelinesコレクションをmatchesに移行するCLI（ドライラン対応）
 - `cmd/extract-grades/` — Firestoreから全ユーザーの未登録グレードURLを抽出するCLI
 - `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
-- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ scores/timelines/tag_partnersの読み書き
+- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、CSV生成）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
 - `scripts/analyze.py` — Python分析: カテゴリ別アドバイス、勝率、与被ダメ比、固定相方検出、JSON構造化レポート生成

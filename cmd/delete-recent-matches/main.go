@@ -42,7 +42,7 @@ func main() {
 	userRef := client.Collection("users").Doc(*userKey)
 
 	// 最新日時を取得
-	latestDocs, err := userRef.Collection("scores").OrderBy("datetime", firestore.Desc).Limit(1).Documents(ctx).GetAll()
+	latestDocs, err := userRef.Collection("matches").OrderBy("datetime", firestore.Desc).Limit(1).Documents(ctx).GetAll()
 	if err != nil || len(latestDocs) == 0 {
 		log.Fatalf("Failed to get latest datetime: %v", err)
 	}
@@ -54,22 +54,26 @@ func main() {
 	log.Printf("[INFO] Cutoff (deleting >= %s): %d days", cutoff.Format("2006-01-02"), *days)
 
 	// 削除対象を収集
-	scoreDocs, err := userRef.Collection("scores").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
+	matchDocs, err := userRef.Collection("matches").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
 	if err != nil {
-		log.Fatalf("Failed to query scores: %v", err)
-	}
-	timelineDocs, err := userRef.Collection("timelines").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
-	if err != nil {
-		log.Fatalf("Failed to query timelines: %v", err)
+		log.Fatalf("Failed to query matches: %v", err)
 	}
 
-	log.Printf("[INFO] Scores to delete: %d documents", len(scoreDocs))
-	for _, doc := range scoreDocs {
+	log.Printf("[INFO] Matches to delete: %d documents", len(matchDocs))
+	for _, doc := range matchDocs {
 		data := doc.Data()
 		dt := data["datetime"].(time.Time)
-		log.Printf("  - %s player%v %v (doc: %s)", dt.Format("2006-01-02 15:04"), data["player_no"], data["name"], doc.Ref.ID)
+		players, _ := data["players"].([]interface{})
+		var names []string
+		for _, p := range players {
+			if pm, ok := p.(map[string]interface{}); ok {
+				if name, ok := pm["name"].(string); ok {
+					names = append(names, name)
+				}
+			}
+		}
+		log.Printf("  - %s [%d players] %v (doc: %s)", dt.Format("2006-01-02 15:04"), len(names), names, doc.Ref.ID)
 	}
-	log.Printf("[INFO] Timelines to delete: %d documents", len(timelineDocs))
 
 	if !*execute {
 		log.Printf("[DRY RUN] No changes made. Add -execute to delete.")
@@ -77,29 +81,20 @@ func main() {
 	}
 
 	// 削除実行
-	allRefs := make([]*firestore.DocumentRef, 0, len(scoreDocs)+len(timelineDocs))
-	for _, doc := range scoreDocs {
-		allRefs = append(allRefs, doc.Ref)
-	}
-	for _, doc := range timelineDocs {
-		allRefs = append(allRefs, doc.Ref)
-	}
-
 	const batchLimit = 500
-	for i := 0; i < len(allRefs); i += batchLimit {
+	for i := 0; i < len(matchDocs); i += batchLimit {
 		end := i + batchLimit
-		if end > len(allRefs) {
-			end = len(allRefs)
+		if end > len(matchDocs) {
+			end = len(matchDocs)
 		}
 		batch := client.Batch()
-		for _, ref := range allRefs[i:end] {
-			batch.Delete(ref)
+		for _, doc := range matchDocs[i:end] {
+			batch.Delete(doc.Ref)
 		}
 		if _, err := batch.Commit(ctx); err != nil {
 			log.Fatalf("Batch delete failed (%d-%d): %v", i, end, err)
 		}
 	}
 
-	log.Printf("[INFO] Deleted %d scores + %d timelines = %d documents total",
-		len(scoreDocs), len(timelineDocs), len(allRefs))
+	log.Printf("[INFO] Deleted %d matches", len(matchDocs))
 }
