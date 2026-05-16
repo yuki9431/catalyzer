@@ -13,8 +13,6 @@
 │   │   └── main.go              # MSリスト更新CLI
 │   ├── delete-recent-matches/
 │   │   └── main.go              # 指定ユーザーの最新N日間の戦績削除CLI
-│   ├── migrate-scores/
-│   │   └── main.go              # 旧scores/timelines→matches移行CLI
 │   └── extract-grades/
 │       └── main.go              # Firestoreから未登録グレードURL抽出CLI
 ├── internal/
