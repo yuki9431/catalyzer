@@ -54,6 +54,10 @@ func main() {
 	deleteOld := flag.Bool("delete-old", false, "マイグレーション後に旧コレクションを削除する（-execute と併用）")
 	flag.Parse()
 
+	if *deleteOld && !*execute {
+		log.Fatal("--delete-old requires --execute")
+	}
+
 	projectID := os.Getenv("GCP_PROJECT")
 	dbID := os.Getenv("FIRESTORE_DATABASE")
 	if projectID == "" || dbID == "" {
@@ -265,16 +269,16 @@ func migrateUser(ctx context.Context, client *firestore.Client, userKey string, 
 
 	// 旧コレクション削除
 	if deleteOld {
-		deleted := deleteCollection(ctx, client, userRef.Collection("scores"), scoreDocs)
+		deleted := deleteCollection(ctx, client, scoreDocs)
 		log.Printf("  [OK] Deleted %d scores documents", deleted)
-		deleted = deleteCollection(ctx, client, userRef.Collection("timelines"), timelineDocs)
+		deleted = deleteCollection(ctx, client, timelineDocs)
 		log.Printf("  [OK] Deleted %d timelines documents", deleted)
 	}
 
 	return len(scoreDocs), len(timelineDocs), len(matchDocs), skipped
 }
 
-func deleteCollection(ctx context.Context, client *firestore.Client, _ *firestore.CollectionRef, docs []*firestore.DocumentSnapshot) int {
+func deleteCollection(ctx context.Context, client *firestore.Client, docs []*firestore.DocumentSnapshot) int {
 	const batchLimit = 500
 	count := 0
 	for i := 0; i < len(docs); i += batchLimit {
