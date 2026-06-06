@@ -1082,7 +1082,6 @@ def data_fall_order(data_list):
     no_fall = []
     first_fall = []
     second_fall = []
-    same_time = []
 
     for d in data_list:
         my_deaths = get_death_events(d["actions"])
@@ -1094,14 +1093,12 @@ def data_fall_order(data_list):
         else:
             my_first = my_deaths[0]["action_start_sec"]
             partner_first = partner_deaths[0]["action_start_sec"]
-            if my_first < partner_first:
+            if my_first <= partner_first:
                 first_fall.append(d)
-            elif my_first > partner_first:
-                second_fall.append(d)
             else:
-                same_time.append(d)
+                second_fall.append(d)
 
-    total = len(no_fall) + len(first_fall) + len(second_fall) + len(same_time)
+    total = len(no_fall) + len(first_fall) + len(second_fall)
     if total == 0:
         return None
 
@@ -1125,7 +1122,7 @@ def data_fall_order(data_list):
         if abs(diff) >= 5:
             better = "後落ち" if diff > 0 else "先落ち"
             tips.append(f"**{better}**の方が勝率 **{abs(diff):.0f}%** 高い")
-    fall_total = len(first_fall) + len(second_fall) + len(same_time)
+    fall_total = len(first_fall) + len(second_fall)
     if first_fall and fall_total > 0:
         first_rate = len(first_fall) / fall_total * 100
         if first_rate >= 60:
