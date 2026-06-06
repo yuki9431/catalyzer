@@ -1196,6 +1196,111 @@ def data_burst_before_death(data_list):
     }
 
 
+def data_burst_hold_death(data_list):
+    hold_deaths = []
+    no_hold_deaths = []
+
+    for d in data_list:
+        actions = d["actions"]
+        deaths = get_death_events(actions)
+        bursts = get_burst_events(actions)
+        ex_readies = get_ex_ready_events(actions)
+        if not deaths or not ex_readies:
+            continue
+
+        has_hold = False
+        for death in deaths:
+            death_time = death["action_start_sec"]
+            relevant_ex = [e for e in ex_readies if e["action_start_sec"] < death_time]
+            if not relevant_ex:
+                continue
+            last_ex_time = max(e["action_start_sec"] for e in relevant_ex)
+            burst_used = any(
+                b["action_start_sec"] >= last_ex_time
+                for b in bursts
+                if b["action_start_sec"] < death_time
+            )
+            if not burst_used:
+                has_hold = True
+                break
+
+        if has_hold:
+            hold_deaths.append(d)
+        else:
+            no_hold_deaths.append(d)
+
+    total = len(hold_deaths) + len(no_hold_deaths)
+    if total == 0:
+        return None
+
+    hold_wr = win_rate(hold_deaths) if hold_deaths else 0
+    no_hold_wr = win_rate(no_hold_deaths) if no_hold_deaths else 0
+
+    tips = []
+    if hold_deaths:
+        hold_rate = len(hold_deaths) / total * 100
+        tips.append(f"抱え落ちが発生した試合 **{len(hold_deaths)}/{total}戦**（**{hold_rate:.0f}%**）")
+    if hold_deaths and no_hold_deaths:
+        diff = no_hold_wr - hold_wr
+        if diff > 0:
+            tips.append(f"抱え落ちなしの試合の方が勝率 **{diff:.0f}%** 高い")
+
+    return {
+        "total": total,
+        "hold_death": {
+            "count": len(hold_deaths),
+            "rate": round(len(hold_deaths) / total * 100, 1),
+            "win_rate": round(hold_wr, 1),
+        },
+        "no_hold_death": {
+            "count": len(no_hold_deaths),
+            "rate": round(len(no_hold_deaths) / total * 100, 1),
+            "win_rate": round(no_hold_wr, 1),
+        },
+        "tips": tips,
+    }
+
+
+def data_burst_count(data_list):
+    by_count = defaultdict(list)
+
+    for d in data_list:
+        bursts = get_burst_events(d["actions"])
+        if not d["actions"]:
+            continue
+        count = len(bursts)
+        by_count[count].append(d)
+
+    if not by_count:
+        return None
+
+    results = []
+    for count in sorted(by_count.keys()):
+        matches = by_count[count]
+        wr = win_rate(matches)
+        results.append({
+            "count": count,
+            "label": f"{count}回" if count > 0 else "0回（未覚醒）",
+            "matches": len(matches),
+            "win_rate": round(wr, 1),
+        })
+
+    tips = []
+    if 2 in by_count and len(by_count[2]) >= 3:
+        wr_2 = win_rate(by_count[2])
+        others = [d for c, ds in by_count.items() if c < 2 for d in ds]
+        if others:
+            wr_other = win_rate(others)
+            diff = wr_2 - wr_other
+            if diff > 0:
+                tips.append(f"2回覚醒できた試合の勝率が **{diff:.0f}%** 高い → ゲージ管理と耐久管理が重要")
+
+    return {
+        "by_count": results,
+        "tips": tips,
+    }
+
+
 def build_period_report(all_data, ms_data, tag_partners=None):
     """1期間分の分析レポートを生成する"""
     ms_names = [ms for ms in sorted(ms_data.keys(), key=lambda x: -len(ms_data[x])) if len(ms_data[ms]) >= 3]
@@ -1224,6 +1329,8 @@ def build_period_report(all_data, ms_data, tag_partners=None):
 
         "fall_order": data_fall_order(all_data),
         "burst_before_death": data_burst_before_death(all_data),
+        "burst_hold_death": data_burst_hold_death(all_data),
+        "burst_count": data_burst_count(all_data),
 
         "time_of_day": data_time_of_day(all_data),
         "day_of_week": data_day_of_week(all_data),
