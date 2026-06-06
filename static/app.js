@@ -1139,6 +1139,32 @@ function BurstBeforeDeathSection({ burstData }) {
   <//>`;
 }
 
+function BurstHoldDeathSection({ holdData }) {
+  if (!holdData) return null;
+  var hd = holdData.hold_death;
+  var nhd = holdData.no_hold_death;
+  var rows = [
+    ['抱え落ちあり', hd.count + '戦 (' + hd.rate + '%)', colorPct(hd.win_rate)],
+    ['抱え落ちなし', nhd.count + '戦 (' + nhd.rate + '%)', colorPct(nhd.win_rate)],
+  ];
+  return html`<${Section} title="覚醒抱え落ち分析">
+    <p>覚醒ゲージMAX後に発動せず撃墜された試合を検出（対象: ${holdData.total}戦）</p>
+    <${Table} headers=${['パターン', '試合数', '勝率']} rows=${rows} />
+    <${Tips} tips=${holdData.tips} />
+  <//>`;
+}
+
+function BurstCountSection({ countData }) {
+  if (!countData || !countData.by_count || !countData.by_count.length) return null;
+  var rows = countData.by_count.map(function (c) {
+    return [c.label, c.matches + '戦', colorPct(c.win_rate)];
+  });
+  return html`<${Section} title="覚醒回数分析">
+    <${Table} headers=${['覚醒回数', '試合数', '勝率']} rows=${rows} />
+    <${Tips} tips=${countData.tips} />
+  <//>`;
+}
+
 // --- Share area ---
 
 function ShareArea({ shareData }) {
@@ -1208,6 +1234,8 @@ function TableOfContents({ data }) {
         <li><a href="#sec-fixed">固定相方分析</a></li>
         ${data.fall_order && html`<li><a href="#sec-fall-order">先落ち/後落ち分析</a></li>`}
         ${data.burst_before_death && html`<li><a href="#sec-burst-death">覚醒使い切り分析</a></li>`}
+        ${data.burst_hold_death && html`<li><a href="#sec-burst-hold">覚醒抱え落ち分析</a></li>`}
+        ${data.burst_count && html`<li><a href="#sec-burst-count">覚醒回数分析</a></li>`}
         <li><a href="#sec-time">時間帯別の勝率</a></li>
         <li><a href="#sec-dow">曜日別の勝率</a></li>
         <li><a href="#sec-daily">日別勝率</a></li>
@@ -1261,6 +1289,8 @@ function Report({ data, userKey }) {
     <div key="sec-fixed" id="sec-fixed"><${FixedPartnersSection} partners=${pd.fixed_partners} /></div>
     <div key="sec-fall-order" id="sec-fall-order"><${FallOrderSection} fallOrder=${pd.fall_order} /></div>
     <div key="sec-burst-death" id="sec-burst-death"><${BurstBeforeDeathSection} burstData=${pd.burst_before_death} /></div>
+    <div key="sec-burst-hold" id="sec-burst-hold"><${BurstHoldDeathSection} holdData=${pd.burst_hold_death} /></div>
+    <div key="sec-burst-count" id="sec-burst-count"><${BurstCountSection} countData=${pd.burst_count} /></div>
     <div key="sec-time" id="sec-time"><${TimeOfDaySection} time=${pd.time_of_day} /></div>
     <div key="sec-dow" id="sec-dow"><${DayOfWeekSection} dow=${pd.day_of_week} /></div>
     <div key="sec-daily" id="sec-daily"><${DailyTrendSection} daily=${pd.daily_trend} /></div>
