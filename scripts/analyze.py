@@ -1078,6 +1078,126 @@ def build_share_data(all_data, ms_data):
     return items
 
 
+def data_fall_order(data_list):
+    first_fall = []
+    second_fall = []
+    same_time = []
+
+    for d in data_list:
+        my_deaths = get_death_events(d["actions"])
+        partner_deaths = get_death_events(d["partner_actions"])
+        if not my_deaths or not partner_deaths:
+            continue
+        my_first = my_deaths[0]["action_start_sec"]
+        partner_first = partner_deaths[0]["action_start_sec"]
+        if my_first < partner_first:
+            first_fall.append(d)
+        elif my_first > partner_first:
+            second_fall.append(d)
+        else:
+            same_time.append(d)
+
+    total = len(first_fall) + len(second_fall) + len(same_time)
+    if total == 0:
+        return None
+
+    first_wr = win_rate(first_fall) if first_fall else 0
+    second_wr = win_rate(second_fall) if second_fall else 0
+
+    tips = []
+    if first_fall and second_fall:
+        diff = second_wr - first_wr
+        if abs(diff) >= 5:
+            better = "後落ち" if diff > 0 else "先落ち"
+            tips.append(f"**{better}**の方が勝率 **{abs(diff):.0f}%** 高い")
+    if first_fall and total > 0:
+        first_rate = len(first_fall) / total * 100
+        if first_rate >= 60:
+            tips.append(f"先落ち率 **{first_rate:.0f}%** → 前に出すぎている可能性")
+
+    return {
+        "total": total,
+        "first_fall": {
+            "count": len(first_fall),
+            "rate": round(len(first_fall) / total * 100, 1) if total > 0 else 0,
+            "win_rate": round(first_wr, 1),
+            "avg_dmg_given": round(avg([d["dmg_given"] for d in first_fall])) if first_fall else 0,
+            "avg_dmg_taken": round(avg([d["dmg_taken"] for d in first_fall])) if first_fall else 0,
+            "dmg_efficiency": round(dmg_efficiency(first_fall), 3) if first_fall else 0,
+        },
+        "second_fall": {
+            "count": len(second_fall),
+            "rate": round(len(second_fall) / total * 100, 1) if total > 0 else 0,
+            "win_rate": round(second_wr, 1),
+            "avg_dmg_given": round(avg([d["dmg_given"] for d in second_fall])) if second_fall else 0,
+            "avg_dmg_taken": round(avg([d["dmg_taken"] for d in second_fall])) if second_fall else 0,
+            "dmg_efficiency": round(dmg_efficiency(second_fall), 3) if second_fall else 0,
+        },
+        "tips": tips,
+    }
+
+
+def data_burst_before_death(data_list):
+    used_before_death = []
+    held_at_death = []
+
+    for d in data_list:
+        actions = d["actions"]
+        deaths = get_death_events(actions)
+        bursts = get_burst_events(actions)
+        ex_readies = get_ex_ready_events(actions)
+        if not deaths:
+            continue
+
+        for death in deaths:
+            death_time = death["action_start_sec"]
+            burst_used = any(
+                b["action_end_sec"] <= death_time
+                for b in bursts
+                if b["action_start_sec"] < death_time and b["action_end_sec"] > 0
+            )
+            had_gauge = any(
+                e["action_start_sec"] < death_time
+                for e in ex_readies
+            )
+            if not had_gauge:
+                continue
+            if burst_used:
+                used_before_death.append(d)
+            else:
+                held_at_death.append(d)
+
+    total = len(used_before_death) + len(held_at_death)
+    if total == 0:
+        return None
+
+    used_wr = win_rate(used_before_death) if used_before_death else 0
+    held_wr = win_rate(held_at_death) if held_at_death else 0
+
+    tips = []
+    if used_before_death and held_at_death:
+        diff = used_wr - held_wr
+        if diff > 0:
+            tips.append(f"覚醒を使い切ってから落ちた試合の勝率が **{diff:.0f}%** 高い")
+        if len(held_at_death) / total * 100 >= 30:
+            tips.append(f"覚醒を抱えたまま落ちた割合 **{len(held_at_death) / total * 100:.0f}%** → ゲージが溜まったら早めに使おう")
+
+    return {
+        "total": total,
+        "used_before_death": {
+            "count": len(used_before_death),
+            "rate": round(len(used_before_death) / total * 100, 1),
+            "win_rate": round(used_wr, 1),
+        },
+        "held_at_death": {
+            "count": len(held_at_death),
+            "rate": round(len(held_at_death) / total * 100, 1),
+            "win_rate": round(held_wr, 1),
+        },
+        "tips": tips,
+    }
+
+
 def build_period_report(all_data, ms_data, tag_partners=None):
     """1期間分の分析レポートを生成する"""
     ms_names = [ms for ms in sorted(ms_data.keys(), key=lambda x: -len(ms_data[x])) if len(ms_data[ms]) >= 3]
@@ -1103,6 +1223,9 @@ def build_period_report(all_data, ms_data, tag_partners=None):
         "win_loss_pattern": data_win_loss_pattern(all_data),
         "ms_stats": ms_stats,
         "fixed_partners": data_fixed_partners(all_data, tag_partners),
+
+        "fall_order": data_fall_order(all_data),
+        "burst_before_death": data_burst_before_death(all_data),
 
         "time_of_day": data_time_of_day(all_data),
         "day_of_week": data_day_of_week(all_data),
