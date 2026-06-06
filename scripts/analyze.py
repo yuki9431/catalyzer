@@ -1151,18 +1151,16 @@ def data_burst_before_death(data_list):
 
         for death in deaths:
             death_time = death["action_start_sec"]
-            burst_used = any(
-                b["action_end_sec"] <= death_time
-                for b in bursts
-                if b["action_start_sec"] < death_time and b["action_end_sec"] > 0
-            )
-            had_gauge = any(
-                e["action_start_sec"] < death_time
-                for e in ex_readies
-            )
-            if not had_gauge:
+            relevant_ex = [e for e in ex_readies if e["action_start_sec"] < death_time]
+            if not relevant_ex:
                 continue
-            if burst_used:
+            last_ex_time = max(e["action_start_sec"] for e in relevant_ex)
+            burst_after_last_ex = any(
+                b["action_start_sec"] >= last_ex_time and b["action_end_sec"] <= death_time
+                for b in bursts
+                if b["action_end_sec"] > 0
+            )
+            if burst_after_last_ex:
                 used_before_death.append(d)
             else:
                 held_at_death.append(d)
