@@ -860,12 +860,23 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 
 	// まずCSRFトークンを取得
 	var csrfToken string
+	var tokenErr error
 	tokenCollector := colly.NewCollector(colly.AllowedDomains(vsmobile))
 	tokenCollector.SetCookieJar(m.HTTPClient.Jar)
+	tokenCollector.OnError(func(r *colly.Response, err error) {
+		tokenErr = classifyHTTPError(r.StatusCode, mobileMSUsedRate, err)
+	})
 	tokenCollector.OnHTML("input[name=_token]", func(e *colly.HTMLElement) {
 		csrfToken = e.Attr("value")
 	})
 	tokenCollector.Visit(mobileMSUsedRate)
+
+	if tokenErr != nil {
+		return nil, fmt.Errorf("CSRFトークン取得に失敗: %w", tokenErr)
+	}
+	if csrfToken == "" {
+		return nil, fmt.Errorf("CSRFトークンが見つかりません: url=%s", mobileMSUsedRate)
+	}
 
 	// 各コストでPOSTしてMS一覧を取得
 	costs := []int{3000, 2500, 2000, 1500}
@@ -876,6 +887,13 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 			colly.AllowedDomains(vsmobile),
 		)
 		c.SetCookieJar(m.HTTPClient.Jar)
+
+		var costErr error
+		c.OnError(func(r *colly.Response, err error) {
+			if costErr == nil {
+				costErr = classifyHTTPError(r.StatusCode, r.Request.URL.String(), err)
+			}
+		})
 
 		c.OnHTML("li.item div.ds-fx.fx-va-s.fx-hz-s", func(e *colly.HTMLElement) {
 			imageURL := e.ChildAttr("img.item-icon-img", "data-original")
@@ -905,7 +923,28 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 			"cost":     fmt.Sprintf("%d", currentCost),
 			"category": "1",
 		})
+
+		if costErr != nil {
+			return nil, fmt.Errorf("コスト%dのMS一覧取得に失敗: %w", currentCost, costErr)
+		}
 	}
 
 	return msList, nil
+}
+
+// classifyHTTPError はHTTPステータスコードに応じた適切なエラーを返す
+func classifyHTTPError(statusCode int, url string, originalErr error) error {
+	log.Printf("[ERROR] ScrapeMSList: HTTP %d url=%s err=%v", statusCode, url, originalErr)
+	switch {
+	case statusCode == http.StatusUnauthorized:
+		return ErrUnauthorized
+	case statusCode == http.StatusForbidden:
+		return ErrAccessDenied
+	case statusCode == http.StatusNotFound:
+		return ErrNotFound
+	case statusCode >= 500:
+		return fmt.Errorf("%w: HTTP %d url=%s", ErrServerError, statusCode, url)
+	default:
+		return fmt.Errorf("%w: HTTP %d url=%s", ErrHTTPRequestFailed, statusCode, url)
+	}
 }
