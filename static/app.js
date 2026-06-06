@@ -652,6 +652,18 @@ function MsStatsSection({ msStats }) {
       <${SubSection} title="ダメージ貢献率">
         <${DmgContributionSubSection} dmg=${ms.dmg_contribution} />
       <//>
+      ${ms.fall_order && html`<${SubSection} title="先落ち/後落ち分析">
+        <${FallOrderContent} fallOrder=${ms.fall_order} />
+      <//>`}
+      ${ms.burst_before_death && html`<${SubSection} title="覚醒使い切り分析">
+        <${BurstBeforeDeathContent} burstData=${ms.burst_before_death} />
+      <//>`}
+      ${ms.burst_hold_death && html`<${SubSection} title="覚醒抱え落ち分析">
+        <${BurstHoldDeathContent} holdData=${ms.burst_hold_death} />
+      <//>`}
+      ${ms.burst_count && html`<${SubSection} title="覚醒回数分析">
+        <${BurstCountContent} countData=${ms.burst_count} />
+      <//>`}
     <//></div>`;
   });
 }
@@ -1109,22 +1121,26 @@ function SeasonSection({ seasons }) {
 
 // --- Fall order / Burst before death ---
 
-function FallOrderSection({ fallOrder }) {
+function FallOrderContent({ fallOrder }) {
   if (!fallOrder) return null;
+  var n = fallOrder.no_fall;
   var f = fallOrder.first_fall;
   var s = fallOrder.second_fall;
+  var st = fallOrder.same_time;
   var rows = [
+    ['0落ち', n.count + '戦 (' + n.rate + '%)', colorPct(n.win_rate), colorDmgGiven(n.avg_dmg_given), colorDmgTaken(n.avg_dmg_taken), colorDE(n.dmg_efficiency, 3)],
     ['先落ち', f.count + '戦 (' + f.rate + '%)', colorPct(f.win_rate), colorDmgGiven(f.avg_dmg_given), colorDmgTaken(f.avg_dmg_taken), colorDE(f.dmg_efficiency, 3)],
     ['後落ち', s.count + '戦 (' + s.rate + '%)', colorPct(s.win_rate), colorDmgGiven(s.avg_dmg_given), colorDmgTaken(s.avg_dmg_taken), colorDE(s.dmg_efficiency, 3)],
+    ['同時落ち', st.count + '戦 (' + st.rate + '%)', colorPct(st.win_rate), colorDmgGiven(st.avg_dmg_given), colorDmgTaken(st.avg_dmg_taken), colorDE(st.dmg_efficiency, 3)],
   ];
-  return html`<${Section} title="先落ち/後落ち分析">
-    <p>対象: ${fallOrder.total}戦（自分と相方の両方に撃墜データがある試合）</p>
+  return html`<div>
+    <p>対象: ${fallOrder.total}戦</p>
     <${Table} headers=${['パターン', '試合数', '勝率', '与ダメ', '被ダメ', '与被ダメ比']} rows=${rows} />
     <${Tips} tips=${fallOrder.tips} />
-  <//>`;
+  </div>`;
 }
 
-function BurstBeforeDeathSection({ burstData }) {
+function BurstBeforeDeathContent({ burstData }) {
   if (!burstData) return null;
   var u = burstData.used_before_death;
   var h = burstData.held_at_death;
@@ -1132,14 +1148,14 @@ function BurstBeforeDeathSection({ burstData }) {
     ['覚醒使い切り後に落ち', u.count + '回 (' + u.rate + '%)', colorPct(u.win_rate)],
     ['覚醒未使用で落ち', h.count + '回 (' + h.rate + '%)', colorPct(h.win_rate)],
   ];
-  return html`<${Section} title="覚醒使い切り分析">
+  return html`<div>
     <p>覚醒ゲージが溜まった後の撃墜 ${burstData.total}回を分析</p>
     <${Table} headers=${['パターン', '回数', '勝率']} rows=${rows} />
     <${Tips} tips=${burstData.tips} />
-  <//>`;
+  </div>`;
 }
 
-function BurstHoldDeathSection({ holdData }) {
+function BurstHoldDeathContent({ holdData }) {
   if (!holdData) return null;
   var hd = holdData.hold_death;
   var nhd = holdData.no_hold_death;
@@ -1147,22 +1163,22 @@ function BurstHoldDeathSection({ holdData }) {
     ['抱え落ちあり', hd.count + '戦 (' + hd.rate + '%)', colorPct(hd.win_rate)],
     ['抱え落ちなし', nhd.count + '戦 (' + nhd.rate + '%)', colorPct(nhd.win_rate)],
   ];
-  return html`<${Section} title="覚醒抱え落ち分析">
+  return html`<div>
     <p>覚醒ゲージMAX後に発動せず撃墜された試合を検出（対象: ${holdData.total}戦）</p>
     <${Table} headers=${['パターン', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${holdData.tips} />
-  <//>`;
+  </div>`;
 }
 
-function BurstCountSection({ countData }) {
+function BurstCountContent({ countData }) {
   if (!countData || !countData.by_count || !countData.by_count.length) return null;
   var rows = countData.by_count.map(function (c) {
     return [c.label, c.matches + '戦', colorPct(c.win_rate)];
   });
-  return html`<${Section} title="覚醒回数分析">
+  return html`<div>
     <${Table} headers=${['覚醒回数', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${countData.tips} />
-  <//>`;
+  </div>`;
 }
 
 // --- Share area ---
@@ -1232,10 +1248,6 @@ function TableOfContents({ data }) {
           </details>
         </li>`}
         <li><a href="#sec-fixed">固定相方分析</a></li>
-        ${data.fall_order && html`<li><a href="#sec-fall-order">先落ち/後落ち分析</a></li>`}
-        ${data.burst_before_death && html`<li><a href="#sec-burst-death">覚醒使い切り分析</a></li>`}
-        ${data.burst_hold_death && html`<li><a href="#sec-burst-hold">覚醒抱え落ち分析</a></li>`}
-        ${data.burst_count && html`<li><a href="#sec-burst-count">覚醒回数分析</a></li>`}
         <li><a href="#sec-time">時間帯別の勝率</a></li>
         <li><a href="#sec-dow">曜日別の勝率</a></li>
         <li><a href="#sec-daily">日別勝率</a></li>
@@ -1287,10 +1299,6 @@ function Report({ data, userKey }) {
     <//></div>
     <div key="sec-ms"><${MsStatsSection} msStats=${pd.ms_stats} /></div>
     <div key="sec-fixed" id="sec-fixed"><${FixedPartnersSection} partners=${pd.fixed_partners} /></div>
-    <div key="sec-fall-order" id="sec-fall-order"><${FallOrderSection} fallOrder=${pd.fall_order} /></div>
-    <div key="sec-burst-death" id="sec-burst-death"><${BurstBeforeDeathSection} burstData=${pd.burst_before_death} /></div>
-    <div key="sec-burst-hold" id="sec-burst-hold"><${BurstHoldDeathSection} holdData=${pd.burst_hold_death} /></div>
-    <div key="sec-burst-count" id="sec-burst-count"><${BurstCountSection} countData=${pd.burst_count} /></div>
     <div key="sec-time" id="sec-time"><${TimeOfDaySection} time=${pd.time_of_day} /></div>
     <div key="sec-dow" id="sec-dow"><${DayOfWeekSection} dow=${pd.day_of_week} /></div>
     <div key="sec-daily" id="sec-daily"><${DailyTrendSection} daily=${pd.daily_trend} /></div>
