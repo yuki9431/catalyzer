@@ -101,6 +101,26 @@ COST_LABEL = {
 }
 
 
+def get_death_events(actions):
+    return [a for a in actions if a.get("action") == "death"]
+
+
+def get_burst_events(actions):
+    return [a for a in actions if a.get("action") in ("exbst-f", "exbst-s", "exbst-e")]
+
+
+def get_ex_ready_events(actions):
+    return [a for a in actions if a.get("action") == "ex"]
+
+
+def get_overlimit_events(actions):
+    return [a for a in actions if a.get("action") == "exbst-ov"]
+
+
+def get_ov_ready_events(actions):
+    return [a for a in actions if a.get("action") == "ov"]
+
+
 def get_my_data(match, cost_map=None):
     players = match["players"]
     p = players[0]
@@ -135,6 +155,9 @@ def get_my_data(match, cost_map=None):
             players[3]["ms_name"].strip() or "(不明)",
         ],
         "enemy_costs": [lookup_cost(players[2]), lookup_cost(players[3])],
+        "actions": p.get("actions", []),
+        "partner_actions": p2.get("actions", []),
+        "game_end_sec": match.get("game_end_sec", 0),
     }
 
 
