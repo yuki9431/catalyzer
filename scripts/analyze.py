@@ -1079,6 +1079,7 @@ def build_share_data(all_data, ms_data):
 
 
 def data_fall_order(data_list):
+    no_fall = []
     first_fall = []
     second_fall = []
     same_time = []
@@ -1086,21 +1087,35 @@ def data_fall_order(data_list):
     for d in data_list:
         my_deaths = get_death_events(d["actions"])
         partner_deaths = get_death_events(d["partner_actions"])
-        if not my_deaths or not partner_deaths:
-            continue
-        my_first = my_deaths[0]["action_start_sec"]
-        partner_first = partner_deaths[0]["action_start_sec"]
-        if my_first < partner_first:
+        if not my_deaths:
+            no_fall.append(d)
+        elif not partner_deaths:
             first_fall.append(d)
-        elif my_first > partner_first:
-            second_fall.append(d)
         else:
-            same_time.append(d)
+            my_first = my_deaths[0]["action_start_sec"]
+            partner_first = partner_deaths[0]["action_start_sec"]
+            if my_first < partner_first:
+                first_fall.append(d)
+            elif my_first > partner_first:
+                second_fall.append(d)
+            else:
+                same_time.append(d)
 
-    total = len(first_fall) + len(second_fall) + len(same_time)
+    total = len(no_fall) + len(first_fall) + len(second_fall) + len(same_time)
     if total == 0:
         return None
 
+    def build_stats(matches):
+        return {
+            "count": len(matches),
+            "rate": round(len(matches) / total * 100, 1) if total > 0 else 0,
+            "win_rate": round(win_rate(matches), 1) if matches else 0,
+            "avg_dmg_given": round(avg([d["dmg_given"] for d in matches])) if matches else 0,
+            "avg_dmg_taken": round(avg([d["dmg_taken"] for d in matches])) if matches else 0,
+            "dmg_efficiency": round(dmg_efficiency(matches), 3) if matches else 0,
+        }
+
+    no_fall_wr = win_rate(no_fall) if no_fall else 0
     first_wr = win_rate(first_fall) if first_fall else 0
     second_wr = win_rate(second_fall) if second_fall else 0
 
@@ -1110,29 +1125,22 @@ def data_fall_order(data_list):
         if abs(diff) >= 5:
             better = "後落ち" if diff > 0 else "先落ち"
             tips.append(f"**{better}**の方が勝率 **{abs(diff):.0f}%** 高い")
-    if first_fall and total > 0:
-        first_rate = len(first_fall) / total * 100
+    fall_total = len(first_fall) + len(second_fall) + len(same_time)
+    if first_fall and fall_total > 0:
+        first_rate = len(first_fall) / fall_total * 100
         if first_rate >= 60:
             tips.append(f"先落ち率 **{first_rate:.0f}%** → 前に出すぎている可能性")
+    if no_fall and first_fall:
+        diff = no_fall_wr - first_wr
+        if diff >= 10:
+            tips.append(f"0落ちの試合は先落ちより勝率 **{diff:.0f}%** 高い → 耐久管理が重要")
 
     return {
         "total": total,
-        "first_fall": {
-            "count": len(first_fall),
-            "rate": round(len(first_fall) / total * 100, 1) if total > 0 else 0,
-            "win_rate": round(first_wr, 1),
-            "avg_dmg_given": round(avg([d["dmg_given"] for d in first_fall])) if first_fall else 0,
-            "avg_dmg_taken": round(avg([d["dmg_taken"] for d in first_fall])) if first_fall else 0,
-            "dmg_efficiency": round(dmg_efficiency(first_fall), 3) if first_fall else 0,
-        },
-        "second_fall": {
-            "count": len(second_fall),
-            "rate": round(len(second_fall) / total * 100, 1) if total > 0 else 0,
-            "win_rate": round(second_wr, 1),
-            "avg_dmg_given": round(avg([d["dmg_given"] for d in second_fall])) if second_fall else 0,
-            "avg_dmg_taken": round(avg([d["dmg_taken"] for d in second_fall])) if second_fall else 0,
-            "dmg_efficiency": round(dmg_efficiency(second_fall), 3) if second_fall else 0,
-        },
+        "no_fall": build_stats(no_fall),
+        "first_fall": build_stats(first_fall),
+        "second_fall": build_stats(second_fall),
+        "same_time": build_stats(same_time),
         "tips": tips,
     }
 
@@ -1318,6 +1326,10 @@ def build_period_report(all_data, ms_data, tag_partners=None):
             "cost_pair": data_cost_pair(data),
             "dmg_contribution": data_dmg_contribution(data),
             "deaths_impact": data_deaths_impact(data),
+            "fall_order": data_fall_order(data),
+            "burst_before_death": data_burst_before_death(data),
+            "burst_hold_death": data_burst_hold_death(data),
+            "burst_count": data_burst_count(data),
         }
 
     return {
@@ -1326,11 +1338,6 @@ def build_period_report(all_data, ms_data, tag_partners=None):
         "win_loss_pattern": data_win_loss_pattern(all_data),
         "ms_stats": ms_stats,
         "fixed_partners": data_fixed_partners(all_data, tag_partners),
-
-        "fall_order": data_fall_order(all_data),
-        "burst_before_death": data_burst_before_death(all_data),
-        "burst_hold_death": data_burst_hold_death(all_data),
-        "burst_count": data_burst_count(all_data),
 
         "time_of_day": data_time_of_day(all_data),
         "day_of_week": data_day_of_week(all_data),
