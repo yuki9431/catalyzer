@@ -861,10 +861,16 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 	// まずCSRFトークンを取得
 	var csrfToken string
 	var tokenErr error
+	var tokenResponseBody []byte
+	var tokenStatusCode int
 	tokenCollector := colly.NewCollector(colly.AllowedDomains(vsmobile))
 	tokenCollector.SetCookieJar(m.HTTPClient.Jar)
 	tokenCollector.OnError(func(r *colly.Response, err error) {
 		tokenErr = classifyHTTPError(r.StatusCode, mobileMSUsedRate, err)
+	})
+	tokenCollector.OnResponse(func(r *colly.Response) {
+		tokenStatusCode = r.StatusCode
+		tokenResponseBody = r.Body
 	})
 	tokenCollector.OnHTML("input[name=_token]", func(e *colly.HTMLElement) {
 		csrfToken = e.Attr("value")
@@ -875,7 +881,11 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 		return nil, fmt.Errorf("CSRFトークン取得に失敗: %w", tokenErr)
 	}
 	if csrfToken == "" {
-		return nil, fmt.Errorf("CSRFトークンが見つかりません: url=%s", mobileMSUsedRate)
+		body := string(tokenResponseBody)
+		if len(body) > 2000 {
+			body = body[:2000]
+		}
+		return nil, fmt.Errorf("CSRFトークンが見つかりません: url=%s status=%d body=%s", mobileMSUsedRate, tokenStatusCode, body)
 	}
 
 	// 各コストでPOSTしてMS一覧を取得
