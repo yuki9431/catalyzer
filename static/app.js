@@ -655,7 +655,7 @@ function MsStatsSection({ msStats }) {
       ${ms.fall_order && html`<${SubSection} title="先落ち/後落ち分析">
         <${FallOrderContent} fallOrder=${ms.fall_order} />
       <//>`}
-      ${ms.burst_hold_death && html`<${SubSection} title="抱え落ち">
+      ${ms.burst_hold_death && html`<${SubSection} title="覚醒抱え落ち">
         <${BurstHoldDeathContent} holdData=${ms.burst_hold_death} />
       <//>`}
       ${ms.burst_count && html`<${SubSection} title="覚醒回数">
@@ -1141,16 +1141,13 @@ function FallOrderContent({ fallOrder }) {
 
 function BurstHoldDeathContent({ holdData }) {
   if (!holdData) return null;
-  var fh = holdData.first_hold;
-  var sh = holdData.second_hold;
   var nh = holdData.no_hold;
-  var rows = [
-    ['1機目抱え落ち', fh.count + '戦 (' + fh.rate + '%)', colorPct(fh.win_rate)],
-    ['2機目抱え落ち', sh.count + '戦 (' + sh.rate + '%)', colorPct(sh.win_rate)],
-    ['抱え落ちなし', nh.count + '戦 (' + nh.rate + '%)', colorPct(nh.win_rate)],
-  ];
+  var rows = (holdData.by_death || []).filter(function (d) { return d.count > 0; }).map(function (d) {
+    return [d.label, d.count + '戦 (' + d.rate + '%)', colorPct(d.win_rate)];
+  });
+  rows.push(['抱え落ちなし', nh.count + '戦 (' + nh.rate + '%)', colorPct(nh.win_rate)]);
   return html`<div>
-    <p>ゲージが溜まった状態で発動せずに撃墜された試合（対象: ${holdData.total}戦）</p>
+    <p>覚醒ゲージが溜まった状態で発動せずに撃墜された試合（対象: ${holdData.total}戦）</p>
     <${Table} headers=${['パターン', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${holdData.tips} />
   </div>`;

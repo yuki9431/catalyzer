@@ -1146,8 +1146,7 @@ def data_fall_order(data_list):
 
 
 def data_burst_hold_death(data_list):
-    first_hold = []
-    second_hold = []
+    hold_by_death = defaultdict(list)
     no_hold = []
     total = 0
 
@@ -1160,10 +1159,9 @@ def data_burst_hold_death(data_list):
             continue
 
         total += 1
-        has_first_hold = False
-        has_second_hold = False
+        has_any_hold = False
 
-        for i, death in enumerate(deaths[:2]):
+        for i, death in enumerate(deaths):
             death_time = death["action_start_sec"]
             relevant_ex = [e for e in ex_readies if e["action_start_sec"] < death_time]
             if not relevant_ex:
@@ -1175,16 +1173,10 @@ def data_burst_hold_death(data_list):
                 if b["action_start_sec"] < death_time
             )
             if not burst_used:
-                if i == 0:
-                    has_first_hold = True
-                else:
-                    has_second_hold = True
+                hold_by_death[i + 1].append(d)
+                has_any_hold = True
 
-        if has_first_hold:
-            first_hold.append(d)
-        if has_second_hold:
-            second_hold.append(d)
-        if not has_first_hold and not has_second_hold:
+        if not has_any_hold:
             no_hold.append(d)
 
     if total == 0:
@@ -1197,20 +1189,25 @@ def data_burst_hold_death(data_list):
             "win_rate": round(win_rate(matches), 1) if matches else 0,
         }
 
+    by_death = []
+    for nth in sorted(hold_by_death.keys()):
+        matches = hold_by_death[nth]
+        stats = build_stats(matches)
+        stats["label"] = f"{nth}機目に抱え落ち"
+        by_death.append(stats)
+
     tips = []
-    if first_hold and no_hold:
-        diff = win_rate(no_hold) - win_rate(first_hold)
+    if by_death and no_hold:
+        all_hold = [d for matches in hold_by_death.values() for d in matches]
+        seen = set()
+        unique_hold = [d for d in all_hold if id(d) not in seen and not seen.add(id(d))]
+        diff = win_rate(no_hold) - win_rate(unique_hold)
         if diff > 0:
-            tips.append(f"1機目で抱え落ちすると勝率 **{diff:.0f}%** 低下")
-    if second_hold and no_hold:
-        diff = win_rate(no_hold) - win_rate(second_hold)
-        if diff > 0:
-            tips.append(f"2機目で抱え落ちすると勝率 **{diff:.0f}%** 低下")
+            tips.append(f"抱え落ちなしの試合の方が勝率 **{diff:.0f}%** 高い")
 
     return {
         "total": total,
-        "first_hold": build_stats(first_hold),
-        "second_hold": build_stats(second_hold),
+        "by_death": by_death,
         "no_hold": build_stats(no_hold),
         "tips": tips,
     }
