@@ -655,13 +655,10 @@ function MsStatsSection({ msStats }) {
       ${ms.fall_order && html`<${SubSection} title="先落ち/後落ち分析">
         <${FallOrderContent} fallOrder=${ms.fall_order} />
       <//>`}
-      ${ms.burst_before_death && html`<${SubSection} title="覚醒使い切り分析">
-        <${BurstBeforeDeathContent} burstData=${ms.burst_before_death} />
-      <//>`}
-      ${ms.burst_hold_death && html`<${SubSection} title="覚醒抱え落ち分析">
+      ${ms.burst_hold_death && html`<${SubSection} title="抱え落ち">
         <${BurstHoldDeathContent} holdData=${ms.burst_hold_death} />
       <//>`}
-      ${ms.burst_count && html`<${SubSection} title="覚醒回数分析">
+      ${ms.burst_count && html`<${SubSection} title="覚醒回数">
         <${BurstCountContent} countData=${ms.burst_count} />
       <//>`}
     <//></div>`;
@@ -1131,8 +1128,10 @@ function FallOrderContent({ fallOrder }) {
     ['0落ち', n.count + '戦 (' + n.rate + '%)', colorPct(n.win_rate), colorDmgGiven(n.avg_dmg_given), colorDmgTaken(n.avg_dmg_taken), colorDE(n.dmg_efficiency, 3)],
     ['先落ち', f.count + '戦 (' + f.rate + '%)', colorPct(f.win_rate), colorDmgGiven(f.avg_dmg_given), colorDmgTaken(f.avg_dmg_taken), colorDE(f.dmg_efficiency, 3)],
     ['後落ち', s.count + '戦 (' + s.rate + '%)', colorPct(s.win_rate), colorDmgGiven(s.avg_dmg_given), colorDmgTaken(s.avg_dmg_taken), colorDE(s.dmg_efficiency, 3)],
-    ['同時落ち', st.count + '戦 (' + st.rate + '%)', colorPct(st.win_rate), colorDmgGiven(st.avg_dmg_given), colorDmgTaken(st.avg_dmg_taken), colorDE(st.dmg_efficiency, 3)],
   ];
+  if (st.count > 0) {
+    rows.push(['同時落ち', st.count + '戦 (' + st.rate + '%)', colorPct(st.win_rate), colorDmgGiven(st.avg_dmg_given), colorDmgTaken(st.avg_dmg_taken), colorDE(st.dmg_efficiency, 3)]);
+  }
   return html`<div>
     <p>対象: ${fallOrder.total}戦</p>
     <${Table} headers=${['パターン', '試合数', '勝率', '与ダメ', '被ダメ', '与被ダメ比']} rows=${rows} />
@@ -1140,31 +1139,18 @@ function FallOrderContent({ fallOrder }) {
   </div>`;
 }
 
-function BurstBeforeDeathContent({ burstData }) {
-  if (!burstData) return null;
-  var u = burstData.used_before_death;
-  var h = burstData.held_at_death;
-  var rows = [
-    ['覚醒使い切り後に落ち', u.count + '回 (' + u.rate + '%)', colorPct(u.win_rate)],
-    ['覚醒未使用で落ち', h.count + '回 (' + h.rate + '%)', colorPct(h.win_rate)],
-  ];
-  return html`<div>
-    <p>覚醒ゲージが溜まった後の撃墜 ${burstData.total}回を分析</p>
-    <${Table} headers=${['パターン', '回数', '勝率']} rows=${rows} />
-    <${Tips} tips=${burstData.tips} />
-  </div>`;
-}
-
 function BurstHoldDeathContent({ holdData }) {
   if (!holdData) return null;
-  var hd = holdData.hold_death;
-  var nhd = holdData.no_hold_death;
+  var fh = holdData.first_hold;
+  var sh = holdData.second_hold;
+  var nh = holdData.no_hold;
   var rows = [
-    ['抱え落ちあり', hd.count + '戦 (' + hd.rate + '%)', colorPct(hd.win_rate)],
-    ['抱え落ちなし', nhd.count + '戦 (' + nhd.rate + '%)', colorPct(nhd.win_rate)],
+    ['1機目抱え落ち', fh.count + '戦 (' + fh.rate + '%)', colorPct(fh.win_rate)],
+    ['2機目抱え落ち', sh.count + '戦 (' + sh.rate + '%)', colorPct(sh.win_rate)],
+    ['抱え落ちなし', nh.count + '戦 (' + nh.rate + '%)', colorPct(nh.win_rate)],
   ];
   return html`<div>
-    <p>覚醒ゲージMAX後に発動せず撃墜された試合を検出（対象: ${holdData.total}戦）</p>
+    <p>ゲージが溜まった状態で発動せずに撃墜された試合（対象: ${holdData.total}戦）</p>
     <${Table} headers=${['パターン', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${holdData.tips} />
   </div>`;
