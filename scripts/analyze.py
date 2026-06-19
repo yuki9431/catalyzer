@@ -1145,79 +1145,25 @@ def data_fall_order(data_list):
     }
 
 
-def data_burst_before_death(data_list):
-    used_before_death = []
-    held_at_death = []
+def data_burst_hold_death(data_list):
+    first_hold = []
+    second_hold = []
+    no_hold = []
+    total = 0
 
     for d in data_list:
         actions = d["actions"]
-        deaths = get_death_events(actions)
+        deaths = sorted(get_death_events(actions), key=lambda x: x["action_start_sec"])
         bursts = get_burst_events(actions)
         ex_readies = get_ex_ready_events(actions)
         if not deaths:
             continue
 
-        for death in deaths:
-            death_time = death["action_start_sec"]
-            relevant_ex = [e for e in ex_readies if e["action_start_sec"] < death_time]
-            if not relevant_ex:
-                continue
-            last_ex_time = max(e["action_start_sec"] for e in relevant_ex)
-            burst_after_last_ex = any(
-                b["action_start_sec"] >= last_ex_time and b["action_end_sec"] <= death_time
-                for b in bursts
-                if b["action_end_sec"] > 0
-            )
-            if burst_after_last_ex:
-                used_before_death.append(d)
-            else:
-                held_at_death.append(d)
+        total += 1
+        has_first_hold = False
+        has_second_hold = False
 
-    total = len(used_before_death) + len(held_at_death)
-    if total == 0:
-        return None
-
-    used_wr = win_rate(used_before_death) if used_before_death else 0
-    held_wr = win_rate(held_at_death) if held_at_death else 0
-
-    tips = []
-    if used_before_death and held_at_death:
-        diff = used_wr - held_wr
-        if diff > 0:
-            tips.append(f"覚醒を使い切ってから落ちた試合の勝率が **{diff:.0f}%** 高い")
-        if len(held_at_death) / total * 100 >= 30:
-            tips.append(f"覚醒を抱えたまま落ちた割合 **{len(held_at_death) / total * 100:.0f}%** → ゲージが溜まったら早めに使おう")
-
-    return {
-        "total": total,
-        "used_before_death": {
-            "count": len(used_before_death),
-            "rate": round(len(used_before_death) / total * 100, 1),
-            "win_rate": round(used_wr, 1),
-        },
-        "held_at_death": {
-            "count": len(held_at_death),
-            "rate": round(len(held_at_death) / total * 100, 1),
-            "win_rate": round(held_wr, 1),
-        },
-        "tips": tips,
-    }
-
-
-def data_burst_hold_death(data_list):
-    hold_deaths = []
-    no_hold_deaths = []
-
-    for d in data_list:
-        actions = d["actions"]
-        deaths = get_death_events(actions)
-        bursts = get_burst_events(actions)
-        ex_readies = get_ex_ready_events(actions)
-        if not deaths or not ex_readies:
-            continue
-
-        has_hold = False
-        for death in deaths:
+        for i, death in enumerate(deaths[:2]):
             death_time = death["action_start_sec"]
             relevant_ex = [e for e in ex_readies if e["action_start_sec"] < death_time]
             if not relevant_ex:
@@ -1229,42 +1175,43 @@ def data_burst_hold_death(data_list):
                 if b["action_start_sec"] < death_time
             )
             if not burst_used:
-                has_hold = True
-                break
+                if i == 0:
+                    has_first_hold = True
+                else:
+                    has_second_hold = True
 
-        if has_hold:
-            hold_deaths.append(d)
-        else:
-            no_hold_deaths.append(d)
+        if has_first_hold:
+            first_hold.append(d)
+        if has_second_hold:
+            second_hold.append(d)
+        if not has_first_hold and not has_second_hold:
+            no_hold.append(d)
 
-    total = len(hold_deaths) + len(no_hold_deaths)
     if total == 0:
         return None
 
-    hold_wr = win_rate(hold_deaths) if hold_deaths else 0
-    no_hold_wr = win_rate(no_hold_deaths) if no_hold_deaths else 0
+    def build_stats(matches):
+        return {
+            "count": len(matches),
+            "rate": round(len(matches) / total * 100, 1),
+            "win_rate": round(win_rate(matches), 1) if matches else 0,
+        }
 
     tips = []
-    if hold_deaths:
-        hold_rate = len(hold_deaths) / total * 100
-        tips.append(f"抱え落ちが発生した試合 **{len(hold_deaths)}/{total}戦**（**{hold_rate:.0f}%**）")
-    if hold_deaths and no_hold_deaths:
-        diff = no_hold_wr - hold_wr
+    if first_hold and no_hold:
+        diff = win_rate(no_hold) - win_rate(first_hold)
         if diff > 0:
-            tips.append(f"抱え落ちなしの試合の方が勝率 **{diff:.0f}%** 高い")
+            tips.append(f"1機目で抱え落ちすると勝率 **{diff:.0f}%** 低下")
+    if second_hold and no_hold:
+        diff = win_rate(no_hold) - win_rate(second_hold)
+        if diff > 0:
+            tips.append(f"2機目で抱え落ちすると勝率 **{diff:.0f}%** 低下")
 
     return {
         "total": total,
-        "hold_death": {
-            "count": len(hold_deaths),
-            "rate": round(len(hold_deaths) / total * 100, 1),
-            "win_rate": round(hold_wr, 1),
-        },
-        "no_hold_death": {
-            "count": len(no_hold_deaths),
-            "rate": round(len(no_hold_deaths) / total * 100, 1),
-            "win_rate": round(no_hold_wr, 1),
-        },
+        "first_hold": build_stats(first_hold),
+        "second_hold": build_stats(second_hold),
+        "no_hold": build_stats(no_hold),
         "tips": tips,
     }
 
@@ -1327,7 +1274,6 @@ def build_period_report(all_data, ms_data, tag_partners=None):
             "dmg_contribution": data_dmg_contribution(data),
             "deaths_impact": data_deaths_impact(data),
             "fall_order": data_fall_order(data),
-            "burst_before_death": data_burst_before_death(data),
             "burst_hold_death": data_burst_hold_death(data),
             "burst_count": data_burst_count(data),
         }
