@@ -8,7 +8,7 @@ config:
   exvs-app:maxInstances: "1"
   exvs-app:domain: stg.exvs-analyzer.com
   exvs-app:image:
-    secure: v1:b4h6lZkWzRFiYLX1:D9bq0Km++I85U7W/TMsQ+Kz3CvBz5xtmcvq5iJrR3x2GIigSsyt04sYbyMTEbrAQ1k8UZOmZ2XhYW644xwENT04EN63LMiDjkukUkexxv4JxePkvugGeVEQfzS9497Q/bUuFd7iThVCx2UzFxevyKEkIS2HY164Y+Fo96b8Jf4z38OrFizZf9ZCuMm1mFQ==
+    secure: v1:OGu98dRZo+IHeKsO:3GUTEILdlnk08AA3xOyqyhk/2hFZ7KleOusbr9iS9uIWB6CJtmbSeIG/TxbYnJboMB4yLLv8+GLhPcdPT+9ieNs17+S61WUIh9dahHpnaZ5JdC9vQtAN6NLlvyM2mXSCA0rmu8zl06k2dpaGQEYwQcU4GD6VxIynYlSYRECnarxE237Hxc+WYUqapYdjNw==
   exvs-app:gcsBucket:
     secure: v1:ZpepUFqv5KJMeSu1:0iAEyxxqllexQbeTezIhRPKvwR+2/sW5VY9iqpRWtWDeidp+gw==
   exvs-app:sharedStack: organization/exvs-shared/shared
