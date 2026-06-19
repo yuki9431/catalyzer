@@ -1198,7 +1198,7 @@ def data_burst_hold_death(data_list):
 
     tips = []
     if by_death and no_hold:
-        all_hold = [d for ms in hold_by_death.values() for d in ms]
+        all_hold = [d for matches in hold_by_death.values() for d in matches]
         seen = set()
         unique_hold = [d for d in all_hold if id(d) not in seen and not seen.add(id(d))]
         diff = win_rate(no_hold) - win_rate(unique_hold)
