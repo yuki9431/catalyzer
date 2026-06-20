@@ -105,6 +105,18 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	jsonPath := filepath.Join(tmpDir, "scores.json")
 
+	// キャッシュされたレポートがあれば即座に速報レポートとして表示
+	cachedReport, err := fs.LoadReportCache(j.UserKey)
+	if err != nil {
+		log.Printf("[WARN] Failed to load cached report: %v", err)
+	}
+	if cachedReport != "" {
+		jobsMu.Lock()
+		j.PreliminaryReport = cachedReport
+		jobsMu.Unlock()
+		log.Printf("[INFO] Job %s: cached preliminary report ready", j.ID)
+	}
+
 	// Firestoreから既存scoresを読み取り
 	var since time.Time
 	existingScores, err := fs.LoadScores(j.UserKey)
@@ -150,16 +162,18 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			}
 		}
 
-		// 既存データでJSONを生成して速報レポートを作成
-		if err := saveScoresJSON(existingScores, jsonPath); err != nil {
-			log.Printf("[WARN] Failed to generate JSON for preliminary report: %v", err)
-		} else {
-			prelimReport := runAnalysis(jsonPath, tmpDir, cachedTagPartnersPath)
-			if prelimReport != "" {
-				jobsMu.Lock()
-				j.PreliminaryReport = prelimReport
-				jobsMu.Unlock()
-				log.Printf("[INFO] Job %s: preliminary report ready", j.ID)
+		// キャッシュがない場合のみ、既存データから速報レポートを生成
+		if cachedReport == "" {
+			if err := saveScoresJSON(existingScores, jsonPath); err != nil {
+				log.Printf("[WARN] Failed to generate JSON for preliminary report: %v", err)
+			} else {
+				prelimReport := runAnalysis(jsonPath, tmpDir, cachedTagPartnersPath)
+				if prelimReport != "" {
+					jobsMu.Lock()
+					j.PreliminaryReport = prelimReport
+					jobsMu.Unlock()
+					log.Printf("[INFO] Job %s: preliminary report ready", j.ID)
+				}
 			}
 		}
 	}
@@ -250,6 +264,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		j.Report = finalReport
 		j.completedAt = time.Now()
 		jobsMu.Unlock()
+		fs.SaveReportCache(j.UserKey, finalReport)
 		log.Printf("[INFO] Job %s completed (no new data)", j.ID)
 		return
 	}
@@ -276,13 +291,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// Firestoreにscoresを書き込み
 	fs.SaveScores(j.UserKey, datedScores)
 
-	// Firestoreから全scoresを読み取り、Python分析用のJSONを生成
-	allScores, err := fs.LoadScores(j.UserKey)
-	if err != nil {
-		log.Printf("[WARN] Failed to reload scores from Firestore: %v", err)
-		// フォールバック: 既存 + 新規で組み立て
-		allScores = append(existingScores, datedScores...)
-	}
+	// 既存 + 新規をメモリ上でマージ（Firestoreの再読み取りを省略）
+	allScores := mergeScores(existingScores, datedScores)
 
 	if err := os.Remove(jsonPath); err != nil && !os.IsNotExist(err) {
 		log.Printf("[WARN] Failed to remove temp JSON: %v", err)
@@ -330,6 +340,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	j.PartialData = is403WithPartialData
 	j.completedAt = time.Now()
 	jobsMu.Unlock()
+	fs.SaveReportCache(j.UserKey, report)
 	if is403WithPartialData {
 		log.Printf("[INFO] Job %s completed with partial data (403 during scraping)", j.ID)
 	} else {
@@ -625,4 +636,28 @@ func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []actionJSO
 		return []actionJSON{}
 	}
 	return actions
+}
+
+// mergeScores は既存のscoresに新規scoresをマージする。
+// バックフィル時に同じdatetimeのレコードがある場合は新規側で上書きする。
+func mergeScores(existing, newScores model.DatedScores) model.DatedScores {
+	newKeys := make(map[string]bool)
+	for _, s := range newScores {
+		key := s.Datetime.Format("2006-01-02T1504")
+		newKeys[key] = true
+	}
+
+	merged := make(model.DatedScores, 0, len(existing)+len(newScores))
+	for _, s := range existing {
+		key := s.Datetime.Format("2006-01-02T1504")
+		if !newKeys[key] {
+			merged = append(merged, s)
+		}
+	}
+	merged = append(merged, newScores...)
+
+	sort.Slice(merged, func(i, j int) bool {
+		return merged[i].Datetime.Before(merged[j].Datetime)
+	})
+	return merged
 }
