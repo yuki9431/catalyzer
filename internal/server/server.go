@@ -156,6 +156,7 @@ func StartServer() {
 		}
 		if snap.PreliminaryReport != "" {
 			resp["has_preliminary_report"] = true
+			resp["preliminary_version"] = snap.PreliminaryVersion
 		}
 
 		sendJSON(w, http.StatusOK, resp)

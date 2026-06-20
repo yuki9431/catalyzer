@@ -27,6 +27,9 @@ const DefaultMSListPath = "data/ms_list.json"
 // DefaultGradeListPath はデフォルトのグレードリストパス
 const DefaultGradeListPath = "data/grade_list.json"
 
+// prelimBatchSize はスクレイピング中に速報レポートを更新する間隔（試合数）
+const prelimBatchSize = 20
+
 // Job はバックグラウンドジョブの情報
 type Job struct {
 	ID                 string           `json:"id"`
@@ -36,6 +39,7 @@ type Job struct {
 	ProgressTotal      int              `json:"progress_total,omitempty"`
 	Report             string           `json:"report,omitempty"`
 	PreliminaryReport  string           `json:"preliminary_report,omitempty"`
+	PreliminaryVersion int              `json:"preliminary_version,omitempty"`
 	Error              string           `json:"error,omitempty"`
 	PartialData        bool             `json:"partial_data,omitempty"`
 	UserKey            string           `json:"-"`
@@ -73,16 +77,17 @@ func (j *Job) Snapshot() model.JobSnapshot {
 	jobsMu.RLock()
 	defer jobsMu.RUnlock()
 	return model.JobSnapshot{
-		ID:                j.ID,
-		Status:            j.Status,
-		Message:           j.Message,
-		Progress:          j.Progress,
-		ProgressTotal:     j.ProgressTotal,
-		Report:            j.Report,
-		PreliminaryReport: j.PreliminaryReport,
-		Error:             j.Error,
-		PartialData:       j.PartialData,
-		UserKey:           j.UserKey,
+		ID:                 j.ID,
+		Status:             j.Status,
+		Message:            j.Message,
+		Progress:           j.Progress,
+		ProgressTotal:      j.ProgressTotal,
+		Report:             j.Report,
+		PreliminaryReport:  j.PreliminaryReport,
+		PreliminaryVersion: j.PreliminaryVersion,
+		Error:              j.Error,
+		PartialData:        j.PartialData,
+		UserKey:            j.UserKey,
 	}
 }
 
@@ -113,6 +118,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	if cachedReport != "" {
 		jobsMu.Lock()
 		j.PreliminaryReport = cachedReport
+		j.PreliminaryVersion++
 		jobsMu.Unlock()
 		log.Printf("[INFO] Job %s: cached preliminary report ready", j.ID)
 	}
@@ -171,6 +177,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				if prelimReport != "" {
 					jobsMu.Lock()
 					j.PreliminaryReport = prelimReport
+					j.PreliminaryVersion++
 					jobsMu.Unlock()
 					log.Printf("[INFO] Job %s: preliminary report ready", j.ID)
 				}
@@ -188,16 +195,57 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		jobsMu.Unlock()
 	}
 
+	// 20試合ごとに速報レポートを段階的に更新するコールバック
+	var batchAnalysisMu sync.Mutex
+	var batchWg sync.WaitGroup
+	defer batchWg.Wait()
+	onBatchReady := func(batchScores model.DatedScores) {
+		if !batchAnalysisMu.TryLock() {
+			return
+		}
+		batchWg.Add(1)
+		go func() {
+			defer batchAnalysisMu.Unlock()
+			defer batchWg.Done()
+
+			merged := mergeScores(existingScores, batchScores)
+
+			batchDir, err := os.MkdirTemp("", "exvs-batch-*")
+			if err != nil {
+				log.Printf("[WARN] Failed to create batch temp dir: %v", err)
+				return
+			}
+			defer os.RemoveAll(batchDir)
+
+			batchPath := filepath.Join(batchDir, "scores.json")
+			if err := saveScoresJSON(merged, batchPath); err != nil {
+				log.Printf("[WARN] Failed to save batch JSON: %v", err)
+				return
+			}
+
+			report := runAnalysis(batchPath, batchDir, cachedTagPartnersPath)
+			if report != "" {
+				jobsMu.Lock()
+				j.PreliminaryReport = report
+				j.PreliminaryVersion++
+				jobsMu.Unlock()
+				log.Printf("[INFO] Job %s: incremental preliminary report ready (%d scores)", j.ID, len(merged))
+			}
+		}()
+	}
+
+	scrapingOpt := scraper.ScrapingOption{
+		OnProgress:   onProgress,
+		OnBatchReady: onBatchReady,
+		BatchSize:    prelimBatchSize,
+	}
+	if len(backfillDates) > 0 {
+		scrapingOpt.BackfillDates = backfillDates
+	}
+
 	var datedScores model.DatedScores
 	var jar http.CookieJar
-	if len(backfillDates) > 0 {
-		datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scraper.ScrapingOption{
-			OnProgress:    onProgress,
-			BackfillDates: backfillDates,
-		})
-	} else {
-		datedScores, jar, err = scraper.Scraping(username, password, since, onProgress)
-	}
+	datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scrapingOpt)
 	// 403の場合でも途中データがあれば保存・分析を続行する
 	is403WithPartialData := errors.Is(err, scraper.ErrAccessDenied) && len(datedScores) > 0
 	if err != nil && !is403WithPartialData {

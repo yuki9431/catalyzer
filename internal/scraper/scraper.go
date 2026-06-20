@@ -88,6 +88,8 @@ type ProgressFunc func(current, total int)
 type ScrapingOption struct {
 	OnProgress     ProgressFunc
 	BackfillDates  map[string]bool // バックフィル対象日付セット（"2006/01/02"形式）。nilなら全日付対象
+	OnBatchReady   func(scores model.DatedScores) // BatchSize試合ごとに蓄積スコアのスナップショットを通知
+	BatchSize      int                             // OnBatchReady発火間隔（試合数）。0の場合は通知しない
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -150,7 +152,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		streamErr = streamMatchEntries(ctx, cancel, m.HTTPClient.Jar, dailyLinks, since, entryCh)
 	}()
 
-	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, m.HTTPClient.Jar, entryCh, notify)
+	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, m.HTTPClient.Jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize)
 
 	// 403の場合は途中データがあればエラーと一緒に返す（呼び出し元で途中保存できるようにする）
 	if streamErr != nil || detailErr != nil {
@@ -362,7 +364,7 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 
 // fetchDetailPagesStreaming はチャネルから試合エントリを受信しつつ詳細ページを並列取得する
 // HTTPエラーが1件でもあればエラーを返す。403の場合はErrAccessDeniedを返し即座にキャンセルする
-func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, entryCh <-chan matchEntry, notify func(int, int)) (model.DatedScores, error) {
+func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, entryCh <-chan matchEntry, notify func(int, int), onBatch func(model.DatedScores), batchSize int) (model.DatedScores, error) {
 	// まず全エントリを収集してtotalを確定させる（キャンセル時はチャネルが閉じるまで待つ）
 	var entries []matchEntry
 	for entry := range entryCh {
@@ -433,6 +435,12 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 			mu.Lock()
 			scores = append(scores, parsed...)
 			processed++
+			shouldBatch := onBatch != nil && batchSize > 0 && processed%batchSize == 0
+			var snapshot model.DatedScores
+			if shouldBatch {
+				snapshot = make(model.DatedScores, len(scores))
+				copy(snapshot, scores)
+			}
 			if err != nil {
 				errorCount++
 				if errors.Is(err, ErrAccessDenied) {
@@ -444,6 +452,9 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 			mu.Unlock()
 
 			notify(current, total)
+			if shouldBatch {
+				onBatch(snapshot)
+			}
 			time.Sleep(requestDelay)
 		}(entry)
 	}
