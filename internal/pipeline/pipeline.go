@@ -526,7 +526,7 @@ type actionJSON struct {
 func saveScoresJSON(ds model.DatedScores, path string) error {
 	groups := make(map[string][]model.DatedScore)
 	for _, d := range ds {
-		key := d.Datetime.Format("2006-01-02T1504")
+		key := d.Datetime.Format(model.MatchKeyFormat)
 		groups[key] = append(groups[key], d)
 	}
 
@@ -643,13 +643,13 @@ func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []actionJSO
 func mergeScores(existing, newScores model.DatedScores) model.DatedScores {
 	newKeys := make(map[string]bool)
 	for _, s := range newScores {
-		key := s.Datetime.Format("2006-01-02T1504")
+		key := s.Datetime.Format(model.MatchKeyFormat)
 		newKeys[key] = true
 	}
 
 	merged := make(model.DatedScores, 0, len(existing)+len(newScores))
 	for _, s := range existing {
-		key := s.Datetime.Format("2006-01-02T1504")
+		key := s.Datetime.Format(model.MatchKeyFormat)
 		if !newKeys[key] {
 			merged = append(merged, s)
 		}

@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// MatchKeyFormat は試合を一意に識別するためのdatetimeフォーマット
+const MatchKeyFormat = "2006-01-02T1504"
+
 // MSInfo は機体情報（画像URL → 機体名のマッピング）
 type MSInfo struct {
 	Name     string
