@@ -198,6 +198,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// 20試合ごとに速報レポートを段階的に更新するコールバック
 	var batchAnalysisMu sync.Mutex
 	var batchWg sync.WaitGroup
+	defer batchWg.Wait()
 	onBatchReady := func(batchScores model.DatedScores) {
 		if !batchAnalysisMu.TryLock() {
 			return
@@ -273,9 +274,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			on403[0](model.UserKey(username))
 		}
 	}
-	// バッチ分析が実行中なら完了を待つ
-	batchWg.Wait()
-
 	if len(datedScores) == 0 && !exists {
 		setError(j, "戦績データが見つかりませんでした", "no scores found")
 		return
