@@ -256,7 +256,7 @@ func BackfillDates(userKey string) map[string]bool {
 func groupByDatetime(scores model.DatedScores) map[string][]model.DatedScore {
 	groups := make(map[string][]model.DatedScore)
 	for _, s := range scores {
-		key := s.Datetime.Format("2006-01-02T1504")
+		key := s.Datetime.Format(model.MatchKeyFormat)
 		groups[key] = append(groups[key], s)
 	}
 	return groups
