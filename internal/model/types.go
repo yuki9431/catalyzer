@@ -82,16 +82,17 @@ const (
 
 // JobSnapshot はジョブ状態のスナップショット
 type JobSnapshot struct {
-	ID                string
-	Status            JobStatus
-	Message           string
-	Progress          int
-	ProgressTotal     int
-	Report            string
-	PreliminaryReport string
-	Error             string
-	PartialData       bool
-	UserKey           string
+	ID                 string
+	Status             JobStatus
+	Message            string
+	Progress           int
+	ProgressTotal      int
+	Report             string
+	PreliminaryReport  string
+	PreliminaryVersion int
+	Error              string
+	PartialData        bool
+	UserKey            string
 }
 
 // DatedScores は日付付きスコアのリスト

@@ -1324,7 +1324,7 @@ async function analyze() {
   render(null, reportEl);
 
   document.getElementById('loginForm').style.display = 'none';
-  var preliminaryShown = false;
+  var lastPreliminaryVersion = 0;
 
   try {
     var res = await fetch('/analyze', {
@@ -1363,13 +1363,13 @@ async function analyze() {
         progressWrap.style.display = 'none';
       }
 
-      if (statusData.has_preliminary_report && !preliminaryShown) {
+      if (statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
         if (prelimData.report && prelimData.preliminary) {
           renderReport(prelimData.report, prelimData.user_key);
           statusText.textContent = '最新データを取得中...';
-          preliminaryShown = true;
+          lastPreliminaryVersion = statusData.preliminary_version;
         }
       }
 
