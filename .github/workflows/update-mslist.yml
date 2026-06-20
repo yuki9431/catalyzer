@@ -57,7 +57,7 @@ jobs:
 
       - name: Create PR
         id: create-pr
-        if: steps.diff.outputs.changed == 'true'
+        if: steps.existing-pr.outputs.skip == 'false' && steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -77,8 +77,8 @@ jobs:
         if: steps.create-pr.outputs.pr_url
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
-          PR_URL="${{ steps.create-pr.outputs.pr_url }}"
           # CIチェックが登録されるまでポーリング（最大5分）
           CI_DETECTED=false
           for i in $(seq 1 30); do
@@ -102,10 +102,11 @@ jobs:
         if: steps.create-pr.outputs.pr_url
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           # push to main で stg build（build.yml）は自動トリガーされる
           # stg build 完了を待ってから deploy-prod.yml で本番昇格
-          MERGE_SHA=$(gh pr view "${{ steps.create-pr.outputs.pr_url }}" --json mergeCommit --jq '.mergeCommit.oid')
+          MERGE_SHA=$(gh pr view "$PR_URL" --json mergeCommit --jq '.mergeCommit.oid')
           for i in $(seq 1 30); do
             STG_RUN_ID=$(gh run list --workflow=build.yml --branch=main --commit="$MERGE_SHA" --limit=1 --json databaseId --jq '.[0].databaseId' 2>/dev/null)
             if [ -n "$STG_RUN_ID" ] && [ "$STG_RUN_ID" != "null" ]; then
