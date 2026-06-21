@@ -82,6 +82,8 @@ function colorDeaths(n) { return colorVal(n, 1.0, 1.5, 1.5, 2.5, false, 2); }
 function colorKD(n) { return colorVal(n, 1.5, 1.0, 1.0, 0.6, true, 2); }
 // EXダメ: ≥200=great, ≥160=good, <160=bad, ≤100=terrible
 function colorExDmg(n) { return colorVal(n, 200, 160, 160, 100, true, 0); }
+// 覚醒回数(最大3程度): ≥2.0=great, ≥1.5=good, <1.5=bad, ≤1.0=terrible
+function colorBursts(n) { return colorVal(n, 2.0, 1.5, 1.5, 1.0, true, 2); }
 // 差分: 色なし
 function colorDiff(n, d) {
   if (n == null) return '-';
@@ -446,36 +448,15 @@ function formatMsAdvice(text) {
   return boldText(text);
 }
 
-function SummarySection({ summary }) {
-  if (!summary || !summary.categories || !summary.categories.length) return null;
-  return html`<${Section} title="総合アドバイス" open>
-    ${summary.categories.map(function (cat) {
-      var isMsCat = cat.key === 'ms';
-      return html`<div>
-        <strong>${esc(cat.title)}</strong>
-        <ul>${cat.items.map(function (item) {
-          var text = typeof item === 'string' ? item : item.text;
-          var details = typeof item === 'object' && item.details ? item.details : null;
-          var display = isMsCat ? formatMsAdvice(text) : boldText(text);
-          return html`<li>
-            ${display}
-            ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}
-          </li>`;
-        })}</ul>
-      </div>`;
-    })}
-  <//>`;
-}
-
 // 各指標を0-100に正規化するための定義
 // { min, max, invert } invert=trueは値が小さいほど良い
+// 勝敗レーダーと配置を統一: 左側(左上=与ダメ・左下=EXダメ)を攻撃出力、右下=被ダメに固定
 var RADAR_AXES = [
   { key: 'win_rate', label: '勝率', min: 30, max: 70 },
-  { key: 'avg_dmg_given', label: '与ダメ', min: 600, max: 1200 },
-  { key: 'avg_dmg_taken', label: '被ダメ', min: 600, max: 1200, invert: true },
   { key: 'kd_ratio', label: 'K/D比', min: 0.5, max: 2.0 },
-  { key: 'dmg_efficiency', label: '与被ダメ比', min: 0.6, max: 1.6 },
+  { key: 'avg_dmg_taken', label: '被ダメ', min: 600, max: 1200, invert: true },
   { key: 'avg_ex_dmg', label: 'EXダメ', min: 80, max: 250 },
+  { key: 'avg_dmg_given', label: '与ダメ', min: 600, max: 1200 },
 ];
 
 function normalizeRadar(stats) {
@@ -576,8 +557,10 @@ function BasicStatsSection({ stats }) {
 function WinLossPatternSection({ pattern }) {
   if (!pattern) return null;
   var colorFns = {
-    '与ダメージ': colorDmgGiven, '被ダメージ': colorDmgTaken,
-    '撃墜数': colorKills, '被撃墜数': colorDeaths
+    '平均与ダメージ': colorDmgGiven, '平均被ダメージ': colorDmgTaken,
+    '与被ダメ比': function (n) { return colorDE(n, 3); },
+    '平均撃墜': colorKills, '平均被撃墜': colorDeaths,
+    'K/D比': colorKD, '平均EXダメージ': colorExDmg
   };
   var rows = (pattern.metrics || []).map(function (m) {
     var fn = colorFns[m.label] || function (n) { return num(n, 1); };
@@ -589,7 +572,7 @@ function WinLossPatternSection({ pattern }) {
   </div>`;
 }
 
-function EnemyMatchupSection({ matchup, msName }) {
+function EnemyMatchupSection({ matchup }) {
   if (!matchup) return null;
   var headers = ['機体名', '試合', '勝率', '与被ダメ比', '与ダメ', '被ダメ'];
   function matchupRows(list) {
@@ -605,7 +588,7 @@ function EnemyMatchupSection({ matchup, msName }) {
   </div>`;
 }
 
-function PartnerSection({ partners, msName }) {
+function PartnerSection({ partners }) {
   if (!partners || !partners.length) return null;
   var rows = partners.map(function (p) {
     return [esc(p.ms), p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
@@ -615,8 +598,43 @@ function PartnerSection({ partners, msName }) {
   </div>`;
 }
 
-function msAnchorId(msName, idx) {
-  return 'sec-ms-' + idx;
+function MsStatsDetail({ ms }) {
+  if (!ms) return null;
+  return html`<div>
+    <${SubSection} title="基本データ" open>
+      <${BasicStatsSection} stats=${ms.basic_stats} />
+    <//>
+    <${SubSection} title="被撃墜数と勝率">
+      <${DeathsImpactSubSection} deaths=${ms.deaths_impact} />
+    <//>
+    <${SubSection} title="勝利時/敗北時の傾向">
+      <${WinLossPatternSection} pattern=${ms.win_loss_pattern} />
+    <//>
+    <${SubSection} title="敵機体との相性">
+      <${EnemyMatchupSection} matchup=${ms.enemy_matchup} />
+    <//>
+    <${SubSection} title="相方機体との相性">
+      <${PartnerSection} partners=${ms.partner} />
+    <//>
+    <${SubSection} title="編成別勝率">
+      <${MsPairSubSection} msPair=${ms.ms_pair} />
+    <//>
+    <${SubSection} title="コスト編成別勝率">
+      <${CostPairSubSection} costPair=${ms.cost_pair} />
+    <//>
+    <${SubSection} title="ダメージ貢献率">
+      <${DmgContributionSubSection} dmg=${ms.dmg_contribution} />
+    <//>
+    ${ms.fall_order && html`<${SubSection} title="先落ち/後落ち分析">
+      <${FallOrderContent} fallOrder=${ms.fall_order} />
+    <//>`}
+    ${ms.burst_hold_death && html`<${SubSection} title="覚醒抱え落ち">
+      <${BurstHoldDeathContent} holdData=${ms.burst_hold_death} />
+    <//>`}
+    ${ms.burst_count && html`<${SubSection} title="覚醒回数">
+      <${BurstCountContent} countData=${ms.burst_count} />
+    <//>`}
+  </div>`;
 }
 
 function MsStatsSection({ msStats }) {
@@ -625,44 +643,20 @@ function MsStatsSection({ msStats }) {
     return msStats[b].matches - msStats[a].matches;
   });
   if (!entries.length) return null;
-  return entries.map(function (msName, idx) {
-    var ms = msStats[msName];
-    return html`<div id=${msAnchorId(msName, idx)}><${Section} title=${'機体別分析: ' + msName}>
-      <${SubSection} title="基本データ" open>
-        <${BasicStatsSection} stats=${ms.basic_stats} />
-      <//>
-      <${SubSection} title="被撃墜数と勝率">
-        <${DeathsImpactSubSection} deaths=${ms.deaths_impact} />
-      <//>
-      <${SubSection} title="勝利時/敗北時のダメージ傾向">
-        <${WinLossPatternSection} pattern=${ms.win_loss_pattern} />
-      <//>
-      <${SubSection} title="敵機体との相性">
-        <${EnemyMatchupSection} matchup=${ms.enemy_matchup} msName=${msName} />
-      <//>
-      <${SubSection} title="相方機体との相性">
-        <${PartnerSection} partners=${ms.partner} msName=${msName} />
-      <//>
-      <${SubSection} title="編成別勝率">
-        <${MsPairSubSection} msPair=${ms.ms_pair} />
-      <//>
-      <${SubSection} title="コスト編成別勝率">
-        <${CostPairSubSection} costPair=${ms.cost_pair} />
-      <//>
-      <${SubSection} title="ダメージ貢献率">
-        <${DmgContributionSubSection} dmg=${ms.dmg_contribution} />
-      <//>
-      ${ms.fall_order && html`<${SubSection} title="先落ち/後落ち分析">
-        <${FallOrderContent} fallOrder=${ms.fall_order} />
-      <//>`}
-      ${ms.burst_hold_death && html`<${SubSection} title="覚醒抱え落ち">
-        <${BurstHoldDeathContent} holdData=${ms.burst_hold_death} />
-      <//>`}
-      ${ms.burst_count && html`<${SubSection} title="覚醒回数">
-        <${BurstCountContent} countData=${ms.burst_count} />
-      <//>`}
-    <//></div>`;
-  });
+  var selRef = useState(entries[0]);
+  var sel = selRef[0], setSel = selRef[1];
+  // 期間切替などで選択中の機体が消えても先頭(最多使用)にフォールバック
+  var current = msStats[sel] ? sel : entries[0];
+  return html`<${Panel} title="機体別分析">
+    <div class="ms-select-wrap">
+      <select class="ms-select" value=${current} onChange=${function (e) { setSel(e.target.value); }}>
+        ${entries.map(function (name) {
+          return html`<option value=${name}>${esc(name)}</option>`;
+        })}
+      </select>
+    </div>
+    <${MsStatsDetail} ms=${msStats[current]} />
+  <//>`;
 }
 
 function MsPairSubSection({ msPair }) {
@@ -702,43 +696,6 @@ function DmgContributionSubSection({ dmg }) {
   return html`<div>
     <${Table} headers=${['試合数', '平均貢献率', '勝利時', '敗北時', '差分']} rows=${rows} />
   </div>`;
-}
-
-function FixedPartnersSection({ partners }) {
-  if (!partners) return null;
-  var list = partners.partners || partners;
-  if (Array.isArray(list) && !list.length) {
-    if (partners.notice) {
-      return html`<${Section} title="固定相方分析">
-        <p class="notice">${esc(partners.notice)}</p>
-      <//>`;
-    }
-    return null;
-  }
-  var items = Array.isArray(list) ? list : [];
-  return html`<${Section} title="固定相方分析">
-    ${partners.notice && html`<p class="notice">${esc(partners.notice)}</p>`}
-    ${items.map(function (p) {
-      var statsRows = [
-        ['平均与ダメージ', colorDmgGiven(p.my_stats.avg_dmg_given), colorDmgGiven(p.partner_stats.avg_dmg_given)],
-        ['平均被ダメージ', colorDmgTaken(p.my_stats.avg_dmg_taken), colorDmgTaken(p.partner_stats.avg_dmg_taken)],
-        ['与被ダメ比', colorDE(p.my_stats.dmg_efficiency, 3), colorDE(p.partner_stats.dmg_efficiency, 3)],
-        ['平均撃墜', colorKills(p.my_stats.avg_kills), colorKills(p.partner_stats.avg_kills)],
-        ['平均被撃墜', colorDeaths(p.my_stats.avg_deaths), colorDeaths(p.partner_stats.avg_deaths)],
-      ];
-      var msRows = (p.partner_ms_breakdown || []).map(function (m) {
-        return [esc(m.ms), m.matches, colorPct(m.win_rate)];
-      });
-      var title = p.team_name ? esc(p.partner_name) + '【' + esc(p.team_name) + '】' : esc(p.partner_name);
-      return html`<div>
-        <h3>${title}</h3>
-        <p>${p.matches}戦${p.wins}勝 (勝率 ${cellDisplay(colorPct(p.win_rate))})</p>
-        <${Table} headers=${['項目', '自分', '相方']} rows=${statsRows} />
-        ${msRows.length > 0 && html`<p><strong>相方の使用機体:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
-        <${Tips} tips=${p.tips} />
-      </div>`;
-    })}
-  <//>`;
 }
 
 function DeathsImpactSubSection({ deaths }) {
@@ -873,20 +830,6 @@ function TimeOfDayChart({ hours }) {
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
-function TimeOfDaySection({ time }) {
-  if (!time || !time.hours || !time.hours.length) return null;
-  var rows = time.hours.map(function (h) {
-    return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
-  });
-  return html`<${Section} title="時間帯別の勝率">
-    <${TimeOfDayChart} hours=${time.hours} />
-    <${Tips} tips=${time.tips} />
-    <${SubSection} title="テーブルで詳細を見る">
-      <${SortableTable} headers=${['時間帯', '試合', '勝率', '与被ダメ比']} rows=${rows} />
-    <//>
-  <//>`;
-}
-
 function DayOfWeekChart({ days }) {
   var containerRef = useRef(null);
   var canvasRef = useRef(null);
@@ -961,31 +904,6 @@ function DayOfWeekChart({ days }) {
   }, [days, inView]);
 
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
-}
-
-function DayOfWeekSection({ dow }) {
-  if (!dow) return null;
-  var summaryRows = [];
-  if (dow.weekday) summaryRows.push(['平日', dow.weekday.matches, colorPct(dow.weekday.win_rate), colorDE(dow.weekday.dmg_efficiency, 3)]);
-  if (dow.weekend) summaryRows.push(['土日', dow.weekend.matches, colorPct(dow.weekend.win_rate), colorDE(dow.weekend.dmg_efficiency, 3)]);
-  var dayRows = (dow.days || []).map(function (d) {
-    return [d.name + '曜', d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
-  });
-  var headers = ['曜日', '試合', '勝率', '与被ダメ比'];
-  return html`<${Section} title="曜日別の勝率">
-    <${DayOfWeekChart} days=${dow.days} />
-    <${Tips} tips=${dow.tips} />
-    <${SubSection} title="テーブルで詳細を見る">
-      ${summaryRows.length > 0 && html`<div>
-        <h3>平日 vs 土日</h3>
-        <${Table} headers=${headers} rows=${summaryRows} />
-      </div>`}
-      ${dayRows.length > 0 && html`<div>
-        <h3>曜日別</h3>
-        <${Table} headers=${headers} rows=${dayRows} />
-      </div>`}
-    <//>
-  <//>`;
 }
 
 function DailyTrendChart({ days }) {
@@ -1086,34 +1004,95 @@ function DailyTrendChart({ days }) {
   </div>`;
 }
 
-function DailyTrendSection({ daily }) {
-  if (!daily || !daily.days || !daily.days.length) return null;
-  var rows = daily.days.map(function (d) {
-    return [{ sortValue: d.date, display: d.date + ' (' + d.dow_name + ')' }, d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
-  });
-  return html`<${Section} title="日別勝率">
-    <${DailyTrendChart} days=${daily.days} />
-    <${Tips} tips=${daily.tips} />
-    <${SubSection} title="テーブルで詳細を見る">
-      <${SortableTable} headers=${['日付', '試合', '勝率', '与被ダメ比']} rows=${rows} />
-    <//>
-  <//>`;
-}
+// シーズンごとの勝率(棒)と試合数(折れ線)の推移（時間帯/曜日グラフと同デザイン）
+function SeasonChart({ seasons }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
 
-function SeasonSection({ seasons }) {
-  if (!seasons || !seasons.length) return null;
-  return html`<${Section} title="シーズン別分析">
-    ${seasons.map(function (s) {
-      var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
-      if (s.first_half) rows.push(['前半', s.first_half.matches, colorPct(s.first_half.win_rate), colorDE(s.first_half.dmg_efficiency, 3)]);
-      if (s.second_half) rows.push(['後半', s.second_half.matches, colorPct(s.second_half.win_rate), colorDE(s.second_half.dmg_efficiency, 3)]);
-      return html`<div>
-        <h3>${esc(s.name)}</h3>
-        <${Table} headers=${['期間', '試合', '勝率', '与被ダメ比']} rows=${rows} />
-        <${Tips} tips=${s.tips} />
-      </div>`;
-    })}
-  <//>`;
+  useEffect(function () {
+    if (!inView || !canvasRef.current || !seasons || !seasons.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    // 年が変わった時だけ年を表示する（例: 2026年4-5月 → 6-7月 → 8-9月）
+    // 斜め表示を避けるため、年を含む長いラベルは「年」の位置で2行に分割する
+    var prevYear = null;
+    var labels = seasons.map(function (s) {
+      var m = s.name.match(/^(\d{4})年/);
+      var label = (m && m[1] === prevYear) ? s.name.replace(/^\d{4}年/, '') : s.name;
+      if (m) prevYear = m[1];
+      var yi = label.indexOf('年');
+      return yi === -1 ? label : [label.slice(0, yi + 1), label.slice(yi + 1)];
+    });
+    var winRates = seasons.map(function (s) { return s.win_rate; });
+    var matches = seasons.map(function (s) { return s.matches; });
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: '勝率 (%)',
+            data: winRates,
+            backgroundColor: winRates.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.3)'; }),
+            borderWidth: 0,
+            yAxisID: 'y',
+          },
+          {
+            label: '試合数',
+            data: matches,
+            type: 'line',
+            borderColor: '#81d4fa',
+            backgroundColor: 'rgba(129, 212, 250, 0.1)',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#aaa', font: { size: 12 }, usePointStyle: true, generateLabels: function (chart) { return chart.data.datasets.map(function (ds, i) { var meta = chart.getDatasetMeta(i); var ps; if (ds.type === 'line') { var c = document.createElement('canvas'); c.width = 24; c.height = 12; var cx = c.getContext('2d'); var color = ds.borderColor; cx.strokeStyle = color; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(4, 6); cx.lineTo(20, 6); cx.stroke(); cx.fillStyle = color; cx.beginPath(); cx.arc(4, 6, 3, 0, Math.PI * 2); cx.fill(); cx.beginPath(); cx.arc(20, 6, 3, 0, Math.PI * 2); cx.fill(); ps = c; } else { ps = 'rectRounded'; } return { text: ds.label, fontColor: '#aaa', fillStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor), strokeStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor), lineWidth: ds.type === 'line' ? 0 : 1, pointStyle: ps, hidden: meta.hidden, datasetIndex: i }; }); } } },
+          tooltip: {
+            callbacks: {
+              title: function (items) { return seasons[items[0].dataIndex].name; },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#888', maxRotation: 0, minRotation: 0, font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          y: {
+            position: 'left',
+            min: 0,
+            max: 100,
+            ticks: { color: '#aaa', callback: function (v) { return v + '%'; } },
+            grid: { color: 'rgba(255,255,255,0.08)' },
+          },
+          y1: {
+            position: 'right',
+            min: 0,
+            ticks: { color: '#aaa', stepSize: 1 },
+            grid: { display: false },
+          },
+        },
+      },
+      plugins: [winRate50Plugin],
+    });
+
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [seasons, inView]);
+
+  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
 // --- Fall order / Burst before death ---
@@ -1196,56 +1175,371 @@ function ShareArea({ shareData }) {
   </div>`;
 }
 
-// --- Table of Contents ---
+// --- Dashboard building blocks ---
 
-function TableOfContents({ data }) {
-  function toggleAll(open) {
-    var details = document.querySelectorAll('#report details');
-    for (var i = 0; i < details.length; i++) {
-      details[i].open = open;
-    }
-  }
+// 値を min..max の範囲で 0-100 に正規化（レーダー用）
+function clampN(v, min, max) {
+  if (v == null) return 0;
+  return Math.max(0, Math.min(100, (v - min) / (max - min) * 100));
+}
 
-  var msEntries = [];
-  if (data.ms_stats) {
-    msEntries = Object.keys(data.ms_stats).sort(function (a, b) {
-      return data.ms_stats[b].matches - data.ms_stats[a].matches;
+// KPIカードの色クラス。higher=trueは大きいほど良い
+function kpiClass(n, great, good, terrible, higher) {
+  if (n == null) return '';
+  if (higher) return n >= great ? 'great' : n >= good ? 'good' : n <= terrible ? 'terrible' : 'bad';
+  return n <= great ? 'great' : n <= good ? 'good' : n >= terrible ? 'terrible' : 'bad';
+}
+
+function Panel({ title, children }) {
+  return html`<div class="panel">
+    ${title && html`<h2><span class="dot" />${title}</h2>`}
+    ${children}
+  </div>`;
+}
+
+function KpiGrid({ stats }) {
+  if (!stats) return null;
+  var cards = [
+    { label: '対戦数', value: stats.matches, cls: '', sub: stats.wins + '勝 ' + stats.losses + '敗' },
+    { label: '勝率', value: pct(stats.win_rate), cls: kpiClass(stats.win_rate, 60, 50, 40, true), sub: '' },
+    { label: '平均与ダメージ', value: num(stats.avg_dmg_given), cls: kpiClass(stats.avg_dmg_given, 1100, 900, 700, true), sub: '' },
+    { label: '平均被ダメージ', value: num(stats.avg_dmg_taken), cls: kpiClass(stats.avg_dmg_taken, 700, 800, 900, false), sub: '' },
+    { label: '平均EXダメージ', value: num(stats.avg_ex_dmg), cls: kpiClass(stats.avg_ex_dmg, 200, 160, 100, true), sub: '' },
+    { label: '与被ダメ比', value: num(stats.dmg_efficiency, 2), cls: kpiClass(stats.dmg_efficiency, 1.2, 1.0, 0.8, true), sub: '' },
+  ];
+  return html`<div class="kpi-grid">${cards.map(function (c) {
+    return html`<div class="kpi">
+      <div class="kpi-label">${c.label}</div>
+      <div class=${'kpi-value ' + c.cls}>${c.value}</div>
+      ${c.sub && html`<div class="kpi-sub">${c.sub}</div>`}
+    </div>`;
+  })}</div>`;
+}
+
+// 2系列を重ねたレーダー（series: [{label, color, bg, data[]}]）
+function CompareRadar({ labels, series, showLegend }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'radar',
+      data: {
+        labels: labels,
+        datasets: series.map(function (s) {
+          return {
+            label: s.label, data: s.data, hidden: !!s.hidden,
+            backgroundColor: s.bg, borderColor: s.color,
+            pointBackgroundColor: s.color, borderWidth: 2,
+          };
+        }),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: showLegend === false ? { display: false } : { labels: { color: '#8aa0b3' } } },
+        scales: {
+          r: {
+            min: 0, max: 100, ticks: { display: false, stepSize: 25 },
+            grid: { color: 'rgba(255,255,255,0.1)' }, angleLines: { color: 'rgba(255,255,255,0.1)' },
+            pointLabels: { color: '#aaa', font: { size: 12 } },
+          },
+        },
+      },
     });
-  }
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [labels, series, inView, showLegend]);
 
-  return html`<div class="toc-area">
-    <details open>
-      <summary><strong>目次</strong></summary>
-      <ol>
-        <li><a href="#sec-summary">総合アドバイス</a></li>
-        <li><a href="#sec-basic">基本データ</a></li>
-        <li><a href="#sec-winloss">勝利時/敗北時のダメージ傾向</a></li>
-        ${msEntries.length > 0 && html`<li><a href=${'#' + msAnchorId(msEntries[0], 0)}>機体別分析</a>
-          <details class="toc-ms-details">
-            <summary>機体一覧</summary>
-            <ul class="toc-ms-list">
-              ${msEntries.map(function (msName, idx) {
-                return html`<li><a href=${'#' + msAnchorId(msName, idx)}>${esc(msName)}</a></li>`;
-              })}
-            </ul>
-          </details>
-        </li>`}
-        <li><a href="#sec-fixed">固定相方分析</a></li>
-        <li><a href="#sec-time">時間帯別の勝率</a></li>
-        <li><a href="#sec-dow">曜日別の勝率</a></li>
-        <li><a href="#sec-daily">日別勝率</a></li>
-        <li><a href="#sec-season">シーズン別分析</a></li>
-      </ol>
-    </details>
-    <div class="toggle-all">
-      <button class="toggle-btn" onClick=${function () { toggleAll(true); }}>すべて開く</button>
-      <button class="toggle-btn" onClick=${function () { toggleAll(false); }}>すべて閉じる</button>
+  return html`<div class="chart-container chart-radar" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
+// 全体・勝利時・敗北時を下のボタンで単一選択し、レーダーとテーブルを連動して切り替える
+// 軸はK/D比(頂点)→被ダメ(右)→EXダメ(下)→与ダメ(左)。勝率は分割で無意味なため含めない
+function BasicLensSection({ basic, pattern }) {
+  var lensRef = useState('all');
+  var lens = lensRef[0], setLens = lensRef[1];
+  if (!basic) return null;
+  var metrics = (pattern && pattern.metrics) || [];
+  function wm(label) {
+    return metrics.find(function (m) { return m.label === label; }) || { win_avg: 0, loss_avg: 0 };
+  }
+  // 攻めを上半分・守りを下半分に固めつつ3ペアを対極配置: 与ダメ↔被ダメ, 撃墜↔被撃墜, EXダメ↔覚醒回数
+  // 軸順(idx): 0=与ダメ(上), 1=撃墜(右上), 2=覚醒回数(右下), 3=被ダメ(下), 4=被撃墜(左下), 5=EXダメ(左上)
+  // 覚醒回数は2回で上等だが3回まで伸びる特殊キャラもいるため0〜2.5でクランプ
+  function vec(dgv, kv, bv, dtv, dthv, exv) {
+    return [clampN(dgv, 600, 1200), clampN(kv, 0.5, 2.5), clampN(bv, 0, 2.5), clampN(dtv, 600, 1200), clampN(dthv, 0.5, 2.5), clampN(exv, 80, 250)];
+  }
+  var seriesByLens = {
+    all: { label: '全体', color: '#81d4fa', bg: 'rgba(129,212,250,.2)', data: vec(basic.avg_dmg_given, basic.avg_kills, basic.avg_bursts, basic.avg_dmg_taken, basic.avg_deaths, basic.avg_ex_dmg) },
+    win: { label: '勝利時', color: '#69f0ae', bg: 'rgba(105,240,174,.2)', data: vec(wm('平均与ダメージ').win_avg, wm('平均撃墜').win_avg, wm('平均覚醒回数').win_avg, wm('平均被ダメージ').win_avg, wm('平均被撃墜').win_avg, wm('平均EXダメージ').win_avg) },
+    loss: { label: '敗北時', color: '#ef5350', bg: 'rgba(239,83,80,.18)', data: vec(wm('平均与ダメージ').loss_avg, wm('平均撃墜').loss_avg, wm('平均覚醒回数').loss_avg, wm('平均被ダメージ').loss_avg, wm('平均被撃墜').loss_avg, wm('平均EXダメージ').loss_avg) },
+  };
+
+  // [ラベル, 全体値, 色関数]。勝敗時はwin_loss_patternの同名metricから値を引く
+  var specs = [
+    ['平均与ダメージ', basic.avg_dmg_given, colorDmgGiven],
+    ['平均被ダメージ', basic.avg_dmg_taken, colorDmgTaken],
+    ['与被ダメ比', basic.dmg_efficiency, function (n) { return colorDE(n, 3); }],
+    ['平均撃墜', basic.avg_kills, colorKills],
+    ['平均被撃墜', basic.avg_deaths, colorDeaths],
+    ['K/D比', basic.kd_ratio, colorKD],
+    ['平均EXダメージ', basic.avg_ex_dmg, colorExDmg],
+    ['平均覚醒回数', basic.avg_bursts, colorBursts],
+  ];
+  function valFor(label, allVal) {
+    if (lens === 'all') return allVal;
+    var m = wm(label);
+    return lens === 'win' ? m.win_avg : m.loss_avg;
+  }
+  var matchesLabel = lens === 'all' ? '試合数' : lens === 'win' ? '勝利数' : '敗北数';
+  var matchesVal = lens === 'all' ? (basic.matches + '戦')
+    : lens === 'win' ? (basic.wins + '戦') : (basic.losses + '戦');
+  // 勝率は勝敗で割ると100%/0%の同語反復になるため、勝敗時は「ー」で行だけ維持
+  var rows = [
+    [matchesLabel, matchesVal],
+    ['勝率', lens === 'all' ? colorPct(basic.win_rate) : '-'],
+  ].concat(specs.map(function (s) {
+    return [s[0], s[2](valFor(s[0], s[1]))];
+  }));
+
+  var lensLabel = seriesByLens[lens].label;
+  var opts = [['win', '勝利時'], ['all', '全体'], ['loss', '敗北時']];
+  return html`<div class="two-col">
+    <div>
+      <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[seriesByLens[lens]]} showLegend=${false} />
+      <div class="lens-tabs">${opts.map(function (o) {
+        return html`<button class=${'tab' + (lens === o[0] ? ' active' : '')} onClick=${function () { setLens(o[0]); }}>${o[1]}</button>`;
+      })}</div>
     </div>
-    <hr />
+    <div class="lens-table">
+      <${Table} headers=${['項目', lensLabel]} rows=${rows} />
+      <${Tips} tips=${basic.tips} />
+    </div>
+  </div>`;
+}
+
+// 横棒の内側に名前（左）と勝率（右）を描くプラグイン
+var inBarLabel = {
+  id: 'inBarLabel',
+  afterDatasetsDraw: function (chart) {
+    var ctx = chart.ctx;
+    var meta = chart.getDatasetMeta(0);
+    var x0 = chart.scales.x.getPixelForValue(0);
+    var areaRight = chart.chartArea.right;
+    ctx.save();
+    ctx.font = '700 12px system-ui, -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#e6edf3';
+    var ellipsize = function (text, maxWidth) {
+      if (maxWidth <= 0 || ctx.measureText(text).width <= maxWidth) return text;
+      var t = text;
+      while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+      return t + '…';
+    };
+    meta.data.forEach(function (bar, i) {
+      var pct = chart.data.datasets[0].data[i].toFixed(1) + '%';
+      var pctWidth = ctx.measureText(pct).width;
+      // 描画領域から勝率ぶんの幅を確保した上で、収まらない機体名は省略（…）する
+      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12);
+      ctx.textAlign = 'left';
+      ctx.fillText(name, x0 + 8, bar.y);
+      var nameRight = x0 + 8 + ctx.measureText(name).width;
+      // 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
+      if (bar.x - 8 - pctWidth > nameRight + 6) {
+        ctx.textAlign = 'right';
+        ctx.fillText(pct, bar.x - 8, bar.y);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText(pct, Math.max(bar.x + 6, nameRight + 6), bar.y);
+      }
+    });
+    ctx.restore();
+  },
+};
+
+// 機体別の勝率を横棒で比較（棒の内側に機体名と勝率）
+function MsCompareChart({ entries }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current || !entries.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+    var values = entries.map(function (e) { return e.winRate; });
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels: entries.map(function (e) { return e.name; }),
+        datasets: [{
+          data: values,
+          backgroundColor: values.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.35)'; }),
+          borderWidth: 0,
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        layout: { padding: { right: 4 } },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { min: 0, max: 100, ticks: { color: '#888', font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { display: false }, grid: { display: false } },
+        },
+      },
+      plugins: [inBarLabel],
+    });
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [entries, inView]);
+
+  var h = Math.max(160, entries.length * 46);
+  return html`<div class="chart-container" style=${'height:' + h + 'px'} ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
+// --- Tab panes ---
+
+function OverviewPane({ pd }) {
+  var seasons = pd.season || [];
+
+  return html`<div class="tabpane">
+    ${pd.basic_stats && html`<${Panel} title="基本データ">
+      <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} />
+    <//>`}
+    ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
+      ${seasons.length > 1 && html`<${SeasonChart} seasons=${seasons} />`}
+      ${seasons.map(function (s) {
+        var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
+        if (s.first_half) rows.push(['前半', s.first_half.matches, colorPct(s.first_half.win_rate), colorDE(s.first_half.dmg_efficiency, 3)]);
+        if (s.second_half) rows.push(['後半', s.second_half.matches, colorPct(s.second_half.win_rate), colorDE(s.second_half.dmg_efficiency, 3)]);
+        return html`<${SubSection} title=${esc(s.name)}>
+          <${Table} headers=${['期間', '試合', '勝率', '与被ダメ比']} rows=${rows} />
+          <${Tips} tips=${s.tips} />
+        <//>`;
+      })}
+    <//>`}
+  </div>`;
+}
+
+function MsPane({ pd }) {
+  var msStats = pd.ms_stats || {};
+  var entries = Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; });
+  if (!entries.length) return html`<div class="tabpane"><${Panel}><p>機体別データがありません。</p><//></div>`;
+  var compareEntries = entries.map(function (name) {
+    return { name: name, winRate: (msStats[name].basic_stats && msStats[name].basic_stats.win_rate) || 0 };
+  });
+  return html`<div class="tabpane">
+    <${Panel} title="機体別の勝率比較">
+      <${MsCompareChart} entries=${compareEntries} />
+    <//>
+    <${MsStatsSection} msStats=${msStats} />
+  </div>`;
+}
+
+function TimePane({ pd }) {
+  var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend;
+  var timeRows = time && time.hours ? time.hours.map(function (h) {
+    return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
+  }) : [];
+  var dowSummary = [];
+  if (dow && dow.weekday) dowSummary.push(['平日', dow.weekday.matches, colorPct(dow.weekday.win_rate), colorDE(dow.weekday.dmg_efficiency, 3)]);
+  if (dow && dow.weekend) dowSummary.push(['土日', dow.weekend.matches, colorPct(dow.weekend.win_rate), colorDE(dow.weekend.dmg_efficiency, 3)]);
+  var dowDays = (dow && dow.days || []).map(function (d) {
+    return [d.name + '曜', d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
+  });
+  var dailyRows = (daily && daily.days || []).map(function (d) {
+    return [{ sortValue: d.date, display: d.date + ' (' + d.dow_name + ')' }, d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
+  });
+
+  return html`<div class="tabpane">
+    ${time && time.hours && time.hours.length > 0 && html`<${Panel} title="時間帯別の勝率">
+      <${TimeOfDayChart} hours=${time.hours} />
+      <${Tips} tips=${time.tips} />
+      <${SubSection} title="テーブルで詳細を見る">
+        <${SortableTable} headers=${['時間帯', '試合', '勝率', '与被ダメ比']} rows=${timeRows} />
+      <//>
+    <//>`}
+    ${dow && dow.days && dow.days.length > 0 && html`<${Panel} title="曜日別の勝率">
+      <${DayOfWeekChart} days=${dow.days} />
+      <${Tips} tips=${dow.tips} />
+      <${SubSection} title="テーブルで詳細を見る">
+        ${dowSummary.length > 0 && html`<h3>平日 vs 土日</h3><${Table} headers=${['区分', '試合', '勝率', '与被ダメ比']} rows=${dowSummary} />`}
+        ${dowDays.length > 0 && html`<h3>曜日別</h3><${Table} headers=${['曜日', '試合', '勝率', '与被ダメ比']} rows=${dowDays} />`}
+      <//>
+    <//>`}
+    ${daily && daily.days && daily.days.length > 0 && html`<${Panel} title="日別勝率">
+      <${DailyTrendChart} days=${daily.days} />
+      <${Tips} tips=${daily.tips} />
+      <${SubSection} title="テーブルで詳細を見る">
+        <${SortableTable} headers=${['日付', '試合', '勝率', '与被ダメ比']} rows=${dailyRows} />
+      <//>
+    <//>`}
+  </div>`;
+}
+
+function PartnerPane({ pd }) {
+  var fp = pd.fixed_partners;
+  var list = fp ? (fp.partners || fp) : [];
+  var items = Array.isArray(list) ? list : [];
+  if (!items.length) {
+    return html`<div class="tabpane"><${Panel} title="固定相方分析">
+      <p>${esc(fp && fp.notice ? fp.notice : '固定相方として集計できる組み合わせがありませんでした。')}</p>
+    <//></div>`;
+  }
+  function pVec(s) {
+    return [clampN(s.avg_dmg_given, 600, 1200), clampN(1200 - s.avg_dmg_taken, 200, 600), clampN(s.dmg_efficiency, 0.6, 1.4)];
+  }
+  return html`<div class="tabpane">
+    ${fp.notice && html`<${Panel}><p>${esc(fp.notice)}</p><//>`}
+    ${items.map(function (p) {
+      var statsRows = [
+        ['平均与ダメージ', colorDmgGiven(p.my_stats.avg_dmg_given), colorDmgGiven(p.partner_stats.avg_dmg_given)],
+        ['平均被ダメージ', colorDmgTaken(p.my_stats.avg_dmg_taken), colorDmgTaken(p.partner_stats.avg_dmg_taken)],
+        ['与被ダメ比', colorDE(p.my_stats.dmg_efficiency, 3), colorDE(p.partner_stats.dmg_efficiency, 3)],
+        ['平均撃墜', colorKills(p.my_stats.avg_kills), colorKills(p.partner_stats.avg_kills)],
+        ['平均被撃墜', colorDeaths(p.my_stats.avg_deaths), colorDeaths(p.partner_stats.avg_deaths)],
+      ];
+      var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [esc(m.ms), m.matches, colorPct(m.win_rate)]; });
+      return html`<${Panel}>
+        <div class="ms-head">
+          <span class="name">${esc(p.partner_name)}${p.team_name ? html` <span class="meta">【${esc(p.team_name)}】</span>` : ''}</span>
+          <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
+        </div>
+        <${CompareRadar} labels=${['与ダメ', '被ダメ耐性', '与被ダメ比']} series=${[
+          { label: '自分', color: '#4fc3f7', bg: 'rgba(79,195,247,.2)', data: pVec(p.my_stats) },
+          { label: '相方', color: '#ff8a65', bg: 'rgba(255,138,101,.18)', data: pVec(p.partner_stats) },
+        ]} />
+        <${Table} headers=${['項目', '自分', '相方']} rows=${statsRows} />
+        ${msRows.length > 0 && html`<p><strong>相方の使用機体:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
+        <${Tips} tips=${p.tips} />
+      <//>`;
+    })}
   </div>`;
 }
 
 // --- Main report ---
+
+var TAB_DEFS = [
+  ['overview', '総合'],
+  ['ms', '機体別'],
+  ['time', '時間帯・曜日'],
+  ['partner', '固定相方'],
+];
+
+function reAnalyze() {
+  var rep = document.getElementById('report');
+  if (rep) rep.style.display = 'none';
+  var lf = document.getElementById('loginForm');
+  if (lf) lf.style.display = 'block';
+  var t = document.getElementById('pageTitle');
+  if (t) t.style.display = '';
+  var st = document.getElementById('pageSubtitle');
+  if (st) st.style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function Report({ data, userKey }) {
   if (!data) return null;
@@ -1253,40 +1547,66 @@ function Report({ data, userKey }) {
   var selectedPeriod = periodRef[0], setSelectedPeriod = periodRef[1];
   var customDataRef = useState(null);
   var customData = customDataRef[0], setCustomData = customDataRef[1];
+  var tabRef = useState('overview');
+  var activeTab = tabRef[0], setActiveTab = tabRef[1];
 
   var periods = data.periods || {};
-  // カスタム期間データがある場合はマージ
   var allPeriods = customData ? Object.assign({}, periods, { custom: customData.periods.custom }) : periods;
   var pd = allPeriods[selectedPeriod] || allPeriods['all'];
   if (!pd) return null;
 
   var shareData = selectedPeriod === 'custom' && customData ? customData.share_data : data.share_data;
+  var summary = pd.summary;
 
   function handleCustomReport(report) {
     setCustomData(report);
     setSelectedPeriod('custom');
   }
 
+  // アクティブなタブのみレンダリング（非表示canvasの0サイズ描画を回避）
+  var pane = activeTab === 'ms' ? html`<${MsPane} pd=${pd} />`
+    : activeTab === 'time' ? html`<${TimePane} pd=${pd} />`
+    : activeTab === 'partner' ? html`<${PartnerPane} pd=${pd} />`
+    : html`<${OverviewPane} pd=${pd} />`;
+
   return html`
-    <h1>${esc(data.player_name)} - 戦績分析レポート</h1>
-    <${ShareArea} shareData=${shareData} />
-    <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
-      userKey=${userKey} onCustomReport=${handleCustomReport} />
-    <${TableOfContents} data=${pd} />
-    <div key="sec-summary" id="sec-summary"><${SummarySection} summary=${pd.summary} /></div>
-    <div key="sec-basic" id="sec-basic"><${Section} title="基本データ">
-      <${BasicStatsSection} stats=${pd.basic_stats} />
-    <//></div>
-    <div key="sec-winloss" id="sec-winloss"><${Section} title="勝利時/敗北時のダメージ傾向">
-      <${WinLossPatternSection} pattern=${pd.win_loss_pattern} />
-    <//></div>
-    <div key="sec-ms"><${MsStatsSection} msStats=${pd.ms_stats} /></div>
-    <div key="sec-fixed" id="sec-fixed"><${FixedPartnersSection} partners=${pd.fixed_partners} /></div>
-    <div key="sec-time" id="sec-time"><${TimeOfDaySection} time=${pd.time_of_day} /></div>
-    <div key="sec-dow" id="sec-dow"><${DayOfWeekSection} dow=${pd.day_of_week} /></div>
-    <div key="sec-daily" id="sec-daily"><${DailyTrendSection} daily=${pd.daily_trend} /></div>
-    <div key="sec-season" id="sec-season"><${SeasonSection} seasons=${pd.season} /></div>
-    <${ShareArea} shareData=${shareData} />
+    <div class="topbar">
+      <div class="brand">EXVS2IB 戦績分析<small>${esc(data.player_name)}</small></div>
+      <div class="spacer" />
+      <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
+        userKey=${userKey} onCustomReport=${handleCustomReport} />
+      <button class="pill" onClick=${reAnalyze}>再分析</button>
+    </div>
+
+    <${KpiGrid} stats=${pd.basic_stats} />
+
+    <div class="tabs">${TAB_DEFS.map(function (t) {
+      return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
+        onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
+    })}</div>
+
+    ${pane}
+
+    ${summary && summary.categories && summary.categories.length > 0 && html`<${Panel} title="アドバイス">
+      ${summary.categories.map(function (cat) {
+        var isMs = cat.key === 'ms';
+        return html`<div class="advice-cat">
+          <div class="cat-title">${esc(cat.title)}</div>
+          ${cat.items.map(function (item) {
+            var text = typeof item === 'string' ? item : item.text;
+            var details = typeof item === 'object' && item.details ? item.details : null;
+            var display = isMs ? formatMsAdvice(text) : boldText(text);
+            return html`<div class="advice-item">${display}
+              ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}
+            </div>`;
+          })}
+        </div>`;
+      })}
+    <//>`}
+
+    <${Panel}>
+      <${ShareArea} shareData=${shareData} />
+    <//>
   `;
 }
 
@@ -1295,6 +1615,11 @@ function Report({ data, userKey }) {
 function renderReport(data, userKey) {
   var reportEl = document.getElementById('report');
   reportEl.style.display = 'block';
+  // ダッシュボードのtopbarがブランド表示を担うため、静的な見出しは隠す
+  var pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) pageTitle.style.display = 'none';
+  var pageSubtitle = document.getElementById('pageSubtitle');
+  if (pageSubtitle) pageSubtitle.style.display = 'none';
   render(html`<${Report} data=${data} userKey=${userKey} />`, reportEl);
 }
 
@@ -1322,6 +1647,11 @@ async function analyze() {
   error.style.color = '';
   reportEl.style.display = 'none';
   render(null, reportEl);
+
+  var pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) pageTitle.style.display = '';
+  var pageSubtitle = document.getElementById('pageSubtitle');
+  if (pageSubtitle) pageSubtitle.style.display = '';
 
   document.getElementById('loginForm').style.display = 'none';
   var lastPreliminaryVersion = 0;

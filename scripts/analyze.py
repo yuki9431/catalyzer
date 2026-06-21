@@ -192,6 +192,12 @@ def avg(values):
     return sum(values) / len(values) if values else 0
 
 
+def avg_bursts(rows):
+    # タイムライン(actions)がある試合のみ対象。データが無ければNone
+    counts = [len(get_burst_events(d["actions"])) for d in rows if d.get("actions")]
+    return avg(counts) if counts else None
+
+
 def dmg_efficiency(data_list):
     total_given = sum(d["dmg_given"] for d in data_list)
     total_taken = sum(d["dmg_taken"] for d in data_list)
@@ -220,6 +226,7 @@ def data_basic_stats(data_list):
     total_deaths = sum(d["deaths"] for d in data_list)
     kd = total_kills / total_deaths if total_deaths > 0 else 0
     eff = dmg_efficiency(data_list)
+    ab = avg_bursts(data_list)
 
     tips = []
     if eff < 1.0:
@@ -241,6 +248,7 @@ def data_basic_stats(data_list):
         "avg_deaths": round(avg([d["deaths"] for d in data_list]), 2),
         "kd_ratio": round(kd, 2),
         "avg_ex_dmg": round(avg([d["ex_dmg"] for d in data_list])),
+        "avg_bursts": round(ab, 2) if ab is not None else None,
         "tips": tips,
     }
 
@@ -249,26 +257,35 @@ def data_win_loss_pattern(data_list):
     wins = [d for d in data_list if d["win"]]
     losses = [d for d in data_list if not d["win"]]
 
+    def kd_of(rows):
+        tk = sum(d["kills"] for d in rows)
+        td = sum(d["deaths"] for d in rows)
+        return tk / td if td > 0 else 0
+
+    def avg_of(key, rows):
+        return avg([d[key] for d in rows]) if rows else 0
+
     metrics = []
-    for label, key in [("与ダメージ", "dmg_given"), ("被ダメージ", "dmg_taken"),
-                        ("撃墜", "kills"), ("被撃墜", "deaths")]:
-        w_avg = avg([d[key] for d in wins]) if wins else 0
-        l_avg = avg([d[key] for d in losses]) if losses else 0
+
+    def add_metric(label, w, l, nd):
         metrics.append({
             "label": label,
-            "win_avg": round(w_avg, 1),
-            "loss_avg": round(l_avg, 1),
-            "diff": round(w_avg - l_avg, 1),
+            "win_avg": round(w, nd),
+            "loss_avg": round(l, nd),
+            "diff": round(w - l, nd),
         })
 
-    w_eff = dmg_efficiency(wins) if wins else 0
-    l_eff = dmg_efficiency(losses) if losses else 0
-    metrics.append({
-        "label": "与被ダメ比",
-        "win_avg": round(w_eff, 3),
-        "loss_avg": round(l_eff, 3),
-        "diff": round(w_eff - l_eff, 3),
-    })
+    # 基本データと同じ項目・順序（勝敗で分割できない試合数・勝率は除く）
+    add_metric("平均与ダメージ", avg_of("dmg_given", wins), avg_of("dmg_given", losses), 1)
+    add_metric("平均被ダメージ", avg_of("dmg_taken", wins), avg_of("dmg_taken", losses), 1)
+    add_metric("与被ダメ比",
+               dmg_efficiency(wins) if wins else 0,
+               dmg_efficiency(losses) if losses else 0, 3)
+    add_metric("平均撃墜", avg_of("kills", wins), avg_of("kills", losses), 2)
+    add_metric("平均被撃墜", avg_of("deaths", wins), avg_of("deaths", losses), 2)
+    add_metric("K/D比", kd_of(wins) if wins else 0, kd_of(losses) if losses else 0, 2)
+    add_metric("平均EXダメージ", avg_of("ex_dmg", wins), avg_of("ex_dmg", losses), 1)
+    add_metric("平均覚醒回数", avg_bursts(wins) or 0, avg_bursts(losses) or 0, 2)
 
     tips = []
     w_deaths = avg([d["deaths"] for d in wins]) if wins else 0
