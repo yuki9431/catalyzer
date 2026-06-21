@@ -560,7 +560,7 @@ function WinLossPatternSection({ pattern }) {
     '平均与ダメージ': colorDmgGiven, '平均被ダメージ': colorDmgTaken,
     '与被ダメ比': function (n) { return colorDE(n, 3); },
     '平均撃墜': colorKills, '平均被撃墜': colorDeaths,
-    'K/D比': colorKD, '平均EXダメージ': colorExDmg
+    'K/D比': colorKD, '平均EXダメージ': colorExDmg, '平均覚醒回数': colorBursts
   };
   var rows = (pattern.metrics || []).map(function (m) {
     var fn = colorFns[m.label] || function (n) { return num(n, 1); };
