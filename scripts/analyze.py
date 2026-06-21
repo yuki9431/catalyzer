@@ -267,12 +267,13 @@ def data_win_loss_pattern(data_list):
 
     metrics = []
 
+    # 覚醒回数はタイムライン欠損時にNoneになりうるため、Noneは丸めずそのまま渡す
     def add_metric(label, w, l, nd):
         metrics.append({
             "label": label,
-            "win_avg": round(w, nd),
-            "loss_avg": round(l, nd),
-            "diff": round(w - l, nd),
+            "win_avg": round(w, nd) if w is not None else None,
+            "loss_avg": round(l, nd) if l is not None else None,
+            "diff": round(w - l, nd) if w is not None and l is not None else None,
         })
 
     # 基本データと同じ項目・順序（勝敗で分割できない試合数・勝率は除く）
@@ -285,7 +286,7 @@ def data_win_loss_pattern(data_list):
     add_metric("平均被撃墜", avg_of("deaths", wins), avg_of("deaths", losses), 2)
     add_metric("K/D比", kd_of(wins) if wins else 0, kd_of(losses) if losses else 0, 2)
     add_metric("平均EXダメージ", avg_of("ex_dmg", wins), avg_of("ex_dmg", losses), 1)
-    add_metric("平均覚醒回数", avg_bursts(wins) or 0, avg_bursts(losses) or 0, 2)
+    add_metric("平均覚醒回数", avg_bursts(wins), avg_bursts(losses), 2)
 
     tips = []
     w_deaths = avg([d["deaths"] for d in wins]) if wins else 0
