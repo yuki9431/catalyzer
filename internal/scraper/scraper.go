@@ -401,6 +401,10 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 
 	sem := make(chan struct{}, maxParallelism)
 
+	// 計装: 時間窓型レート検知の窓W・閾値N実測用。各リクエスト送信の相対時刻(ms)を記録し403時にダンプする
+	detailStart := time.Now()
+	var reqTimesMs []int64
+
 	for _, entry := range entries {
 		// キャンセル済みなら新規リクエストを発行しない
 		select {
@@ -431,10 +435,12 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 				return
 			}
 
+			sentMs := time.Since(detailStart).Milliseconds()
 			parsed, err := fetchSingleDetail(ctx, jar, e)
 			mu.Lock()
 			scores = append(scores, parsed...)
 			processed++
+			reqTimesMs = append(reqTimesMs, sentMs)
 			shouldBatch := onBatch != nil && batchSize > 0 && processed%batchSize == 0
 			var snapshot model.DatedScores
 			if shouldBatch {
@@ -463,6 +469,7 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 
 	if has403 {
 		log.Printf("[WARN] 403 detected during detail fetch: %d/%d pages completed, returning partial data", processed, total)
+		log.Printf("[METRIC] 403 rate dump: 各リクエスト送信の相対ms (n=%d): %v", len(reqTimesMs), reqTimesMs)
 		return scores, ErrAccessDenied
 	}
 	if errorCount > 0 {
