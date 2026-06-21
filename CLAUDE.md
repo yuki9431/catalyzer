@@ -4,7 +4,7 @@
 
 ## プロジェクト概要
 
-EXVS Analyzer は、EXVS2IB（機動戦士ガンダム エクストリームバーサス2 インフィニットブースト）の戦績分析Webアプリ。公式サイトから対戦データをスクレイピングし、GCSにCSVとして保存、Python分析を実行してJSONレポートを返す。
+EXVS Analyzer は、EXVS2IB（機動戦士ガンダム エクストリームバーサス2 インフィニットブースト）の戦績分析Webアプリ。公式サイトから対戦データをスクレイピングし、Firestoreに保存、Python分析を実行してJSONレポートを返す。
 
 ## ビルド・開発コマンド
 
@@ -38,18 +38,18 @@ python3 scripts/analyze.py /tmp/scores.csv
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
-# Pulumiコマンド（Docker経由）
-PULUMI_CONFIG_PASSPHRASE=<passphrase> make pulumi-shared-preview            # shared プレビュー
-PULUMI_CONFIG_PASSPHRASE=<passphrase> STACK=prod make pulumi-app-preview    # app(本番) プレビュー
-PULUMI_CONFIG_PASSPHRASE=<passphrase> STACK=stg make pulumi-app-preview # app(検証) プレビュー
-PULUMI_CONFIG_PASSPHRASE=<passphrase> make pulumi-shared-shell              # shared シェル（pulumi upはここで）
-PULUMI_CONFIG_PASSPHRASE=<passphrase> STACK=prod make pulumi-app-shell      # app(本番) シェル
-PULUMI_CONFIG_PASSPHRASE=<passphrase> STACK=stg make pulumi-app-shell   # app(検証) シェル
+# Pulumiコマンド（Docker経由。secretはGCP KMSで暗号化するためパスフレーズ不要、ADCで復号）
+make pulumi-shared-preview            # shared プレビュー
+STACK=prod make pulumi-app-preview    # app(本番) プレビュー
+STACK=stg make pulumi-app-preview     # app(検証) プレビュー
+make pulumi-shared-shell              # shared シェル（pulumi upはここで）
+STACK=prod make pulumi-app-shell      # app(本番) シェル
+STACK=stg make pulumi-app-shell       # app(検証) シェル
 ```
 
 http://localhost:8080 でアクセス可能。
 
-**ローカル環境にGoはインストール済み。Python/Pulumiはインストールされていない。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。Pulumi操作時は `infra/.envrc`（direnv）から `PULUMI_CONFIG_PASSPHRASE` が自動で読み込まれる。**worktreeで作業する場合は、`.envrc` がgitignore対象のため元リポジトリからコピーすること。**
+**ローカル環境にGoはインストール済み。Python/Pulumiはインストールされていない。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。Pulumi のsecretは GCP KMS で暗号化しており（各スタックの `secretsprovider: gcpkms://...`）、`gcloud auth application-default login` 済みのADCで復号する。パスフレーズは不要。
 
 CIでは `go vet`、`go build`、`py_compile` を実行。ラベル `skip-ci` でスキップ可能。
 
@@ -119,7 +119,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **Go 1.26**、Webフレームワーク不使用（標準 `net/http`）
 - **Python 3.11** で分析（pip依存なし）
 - **Pulumi (TypeScript)** でインフラ管理
-- GCSバケットは環境変数 `GCS_BUCKET` で指定、ユーザーキーは SHA256(email)[:8] の16進数
+- ストレージはFirestore（環境変数 `FIRESTORE_DATABASE` で指定）、ユーザーキーは SHA256(email)[:8] の16進数
 - Cloud Runデプロイ、`PORT` 環境変数（デフォルト 8080）
 
 ## Goコーディング規約

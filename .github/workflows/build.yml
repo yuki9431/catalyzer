@@ -95,8 +95,6 @@ jobs:
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
           pulumi stack select stg
           pulumi config set exvs-app:image "$IMAGE" --secret
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
 
       - name: Commit updated Pulumi config
         run: |

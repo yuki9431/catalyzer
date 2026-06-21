@@ -40,8 +40,6 @@ jobs:
 
           pulumi stack select prod
           pulumi config set exvs-app:image "$IMAGE" --secret
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
 
       - name: Commit updated Pulumi config
         run: |

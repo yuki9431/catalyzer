@@ -1,16 +1,14 @@
+secretsprovider: gcpkms://projects/exvs2ib-analyzer/locations/asia-northeast1/keyRings/pulumi-secrets/cryptoKeys/pulumi-state
+encryptedkey: CiQAll9D5eDQTWUGot9QBNaAp0izroIFuFTdE4qYrByGGPxzZegSSQDTCZ+AwaQwWNCA5m1E21p9ntkmIebidXYcIBRWAMY+Hs1XQtL1r94xDEUUk+IN7NnrEvKDgv6Q62vQb8NwjXFpWtE2dHXicwE=
 config:
-  gcp:project:
-    secure: v1:ZNRhblgzjExwl3oi:jCZSB3rnlQbA4BQScwj+0FLexKyrfkNErex5lkvAkYk=
+  gcp:project: exvs2ib-analyzer
   gcp:region: asia-northeast1
   exvs-app:serviceName: exvs-analyzer
   exvs-app:cpu: "2"
-  exvs-app:memory: "1Gi"
+  exvs-app:memory: 1Gi
   exvs-app:maxInstances: "3"
   exvs-app:domain: www.exvs-analyzer.com
-  exvs-app:gcsBucket:
-    secure: v1:/zqLjVBPrsfEzVcl:NiJy0Q5GyfXBNnaUDXoVF49BCgQK/tIF2No0PMCrMOy2ousY2A==
-  exvs-app:image:
-    secure: v1:g2BGMZspS2+ZDsE4:0A3iWGqRrKCl6/nLXrAP96Pe94E1b60VLeIPr6m9zQZ8f8F+aB16tCiGMZ+YnxCYnz2h9iOj8BXg1Oqv2qYIHfw6FS90QV+oGXjg6KpZmcKkHggFsyc59u4RGjQ7fWSnmmPaIVDjMpc7D3PBQB2EqBAv0qiDttbitUuxN/fZJMm9Rsph7F8SOvB6UJVUpw==
-  exvs-app:sharedStack: organization/exvs-shared/shared
   exvs-app:firestoreDatabase: exvs-analyzer
-encryptionsalt: v1:ToX9TGUsy/w=:v1:i/etZsivSPrFlstj:Ext0d7LnzlUd5QqVkA9H3ECUQuMZzQ==
+  exvs-app:sharedStack: organization/exvs-shared/shared
+  exvs-app:image:
+    secure: v1:PRNQhsUK1id6Rvgb:t6ZPt7ROS932fxfrSPd6D5k27l2xAw4yIqHU10m2OMw524A5YEcoAIfY5VGPdg+Da8m3NHjYjOxD177dQEgatZQBJwTrUn+eu/hMWujMwTV6UmXLqA3lKz7+QnHI1THNOC2Mqhzd122z0fw2yFAbizM4SwAvCocpGW+Smhcf0lc1Q4LAXaW58jeEoiAc5w==
