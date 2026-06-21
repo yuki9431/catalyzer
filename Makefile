@@ -47,7 +47,6 @@ PULUMI_SHARED_RUN = docker run --rm --entrypoint "" \
 	-v "$(CURDIR)/infra/shared":/infra \
 	-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 	-w /infra \
-	-e PULUMI_CONFIG_PASSPHRASE \
 	-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
 	-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 	$(PULUMI_IMAGE)
@@ -58,7 +57,6 @@ PULUMI_APP_RUN = docker run --rm --entrypoint "" \
 	-v "$(CURDIR)/infra/app":/infra \
 	-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 	-w /infra \
-	-e PULUMI_CONFIG_PASSPHRASE \
 	-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
 	-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 	$(PULUMI_IMAGE)
@@ -83,7 +81,6 @@ pulumi-shared-shell:
 		-v "$(CURDIR)/infra/shared":/infra \
 		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 		-w /infra \
-		-e PULUMI_CONFIG_PASSPHRASE \
 		-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		$(PULUMI_IMAGE) \
@@ -109,7 +106,6 @@ pulumi-app-shell:
 		-v "$(CURDIR)/infra/app":/infra \
 		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 		-w /infra \
-		-e PULUMI_CONFIG_PASSPHRASE \
 		-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		$(PULUMI_IMAGE) \

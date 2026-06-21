@@ -8,7 +8,6 @@ const memory = config.require("memory");
 const maxInstances = config.requireNumber("maxInstances");
 const image = config.requireSecret("image");
 const domain = config.require("domain");
-const gcsBucket = config.requireSecret("gcsBucket");
 const firestoreDatabase = config.require("firestoreDatabase");
 
 // shared スタックからDNSゾーン名を取得
@@ -33,10 +32,6 @@ export const service = new gcp.cloudrunv2.Service(
           image: image,
           ports: { containerPort: 8080, name: "http1" },
           envs: [
-            {
-              name: "GCS_BUCKET",
-              value: gcsBucket,
-            },
             {
               name: "FIRESTORE_DATABASE",
               value: firestoreDatabase,
@@ -107,6 +102,9 @@ export const domainMapping = new gcp.cloudrun.DomainMapping(
     spec: {
       routeName: service.name,
     },
+  },
+  {
+    ignoreChanges: ["metadata"],
   }
 );
 

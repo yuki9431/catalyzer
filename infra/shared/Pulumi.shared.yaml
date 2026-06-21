@@ -1,22 +1,14 @@
+secretsprovider: gcpkms://projects/exvs2ib-analyzer/locations/asia-northeast1/keyRings/pulumi-secrets/cryptoKeys/pulumi-state
+encryptedkey: CiQAll9D5e8qX9+YB1YJWlG7Sx5gRytgZk6xsNkSCAM2TC127HMSSQDTCZ+Abqa0CzlRadaj0QBEyS0L2XbZYdhSc4XKczuRqQ02Macz76n97o7n8oe7hXl8C96eNSJw2P/OdNOuhpic95NhftczFlo=
 config:
-  gcp:project:
-    secure: v1:5mlc0YqYBrP6+JnY:9wJLfHMP7NFoVGpxCyE1Wf3w+86SnUR+MsLuUEb3riA=
-  gcp:region: asia-northeast1
+  gcp:project: exvs2ib-analyzer
   exvs-shared:artifactRegistryRepo:
-    secure: v1:VbIvYzqs1EqP7mCq:io649d9teYZX/UhwbKWuf0KnPDhpCAUhgeljnRF0o6Pe1jZMsAWL
-  exvs-shared:gcsBucket:
-    secure: v1:FDni+wlqiUoc5S06:jWGmpPtpG1hSG40torNMBIivfq2iHNP/vlBCENX+i8GcYnBPUA==
-  exvs-shared:billingAccount:
-    secure: v1:5/TgN98t8hdG1qav:hLSkhcVrBNxj6Q69yM1rd9P3LCuqLr4alWp13Lti2fFBts9b
-  exvs-shared:budgetAmount:
-    secure: v1:qrKhhc7um2Ek9eFw:y/87HFSHHTHoRGfeHV75GubkNwo=
+    secure: v1:KP2sO7T7aUvq0Uex:LtJwI4sZC0i9/AmxTqobS45IlHWkPIymtaLnCfgzth3XhcU+FHuy
   exvs-shared:pulumiStateBucket:
-    secure: v1:Du/axuJkvq/wtqd/:EIsWkGiOhurIvwVomvsdiXa+lqgmP8yIoJV0fC96pll4wwVh8nYxTfihJ5Rt
-  exvs-shared:githubRepo: yuki9431/catalyzer
+    secure: v1:p4DDsOtBMQ6T8oSn:FlYZdExZluaVJ//IUrrlPHfeyrOYTewZY6gVbKe9YBku4OoKfcBOIjvu2kHD
   exvs-shared:computeSa:
-    secure: v1:LbTz4LuCxUSGA8es:fhlSyWN8rwdbNbJ8pjHD7AWCpFlf/7euPR9VzUST3AI234w1DhU9NroG7KZJ8UeaxIWMNfmKBmtTcjx7BralkAY3
-  exvs-shared:ownerEmail:
-    secure: v1:uzvrdYQSitlnOdvZ:POlAg8alvfoFJgKnN+a7HExEL7eh9EmGo8cLBijhCXUeV2uB
-  exvs-shared:domainVerificationTxt: google-site-verification=TAXKxm2PncupGRZkk0mBxIxslp_7aZj-w9dxPAi-ObE
+    secure: v1:pSwvWq5Btyn4T9xU:ME8U55HKMzSLOp8qAElz0UggboMQ0nysjkEl7D43vuEXWxU4O9AwGMoBN5SrLcWrl7XHZ66UPLX58EbkU596ZDja
   exvs-shared:domain: exvs-analyzer.com
-encryptionsalt: v1:LhK5YSaq0ug=:v1:dh0WNpFPQMm4olnx:5RwQ7+f6ti1RGXxRrpTPTfDUnpYN7A==
+  exvs-shared:domainVerificationTxt: google-site-verification=TAXKxm2PncupGRZkk0mBxIxslp_7aZj-w9dxPAi-ObE
+  exvs-shared:githubRepo: yuki9431/catalyzer
+  gcp:region: asia-northeast1

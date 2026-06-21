@@ -1,7 +1,7 @@
 import { services } from "./apis";
 import { repository } from "./artifact-registry";
 import { dnsZone, nameServers } from "./dns";
-import { stateBucket, dataBucket } from "./storage";
+import { stateBucket } from "./storage";
 import { githubActionsSa, wifPool, wifProvider } from "./iam";
 import { firestoreDb } from "./firestore";
 // TODO: budget importはBilling Budget APIのquota project設定後に対応
@@ -10,7 +10,6 @@ import { firestoreDb } from "./firestore";
 // app スタックから StackReference で参照される出力
 export const dnsZoneName = dnsZone.name;
 export const dnsNameServers = nameServers;
-export const appDataBucketName = dataBucket.name;
 
 // 情報表示用
 export const enabledApis = services.map((s) => s.service);

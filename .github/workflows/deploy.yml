@@ -84,5 +84,3 @@ jobs:
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
           pulumi stack select "${{ matrix.environment }}"
           pulumi up --yes
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}

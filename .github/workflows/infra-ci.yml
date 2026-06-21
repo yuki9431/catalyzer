@@ -62,8 +62,6 @@ jobs:
           fi
           echo "### shared" > /tmp/pulumi-preview.txt
           pulumi preview 2>&1 | tee -a /tmp/pulumi-preview.txt
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
 
       - name: Pulumi preview (app/prod)
         if: steps.check-secrets.outputs.skip != 'true'
@@ -76,8 +74,6 @@ jobs:
           fi
           echo "### app (prod)" >> /tmp/pulumi-preview.txt
           pulumi preview 2>&1 | tee -a /tmp/pulumi-preview.txt
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
 
       - name: Pulumi preview (app/stg)
         if: steps.check-secrets.outputs.skip != 'true'
@@ -89,8 +85,6 @@ jobs:
           fi
           echo "### app (stg)" >> /tmp/pulumi-preview.txt
           pulumi preview 2>&1 | tee -a /tmp/pulumi-preview.txt
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
 
       - name: Comment preview on PR
         if: steps.check-secrets.outputs.skip != 'true' && always()

@@ -29,7 +29,6 @@ make pulumi-shared-init
 make pulumi-shared-shell
 pulumi config set gcp:project <PROJECT_ID> --secret
 pulumi config set exvs-shared:artifactRegistryRepo <REPO_NAME> --secret
-pulumi config set exvs-shared:gcsBucket <BUCKET_NAME> --secret
 # ... 他の secret も同様
 
 # 3. app スタック初期化（prod / staging）
@@ -41,7 +40,6 @@ STACK=stg make pulumi-app-init
 STACK=prod make pulumi-app-shell
 pulumi config set gcp:project <PROJECT_ID> --secret
 pulumi config set exvs-app:image <IMAGE_URI> --secret
-pulumi config set exvs-app:gcsBucket <BUCKET_NAME> --secret
 ```
 
 ## 日常操作
@@ -101,7 +99,10 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | Secret | 説明 |
 |--------|------|
 | `PULUMI_STATE_BUCKET` | Pulumiステート保存用GCSバケット名 |
-| `PULUMI_CONFIG_PASSPHRASE` | Pulumiスタックの暗号化パスフレーズ |
 | `IMAGE_URI` | コンテナイメージURIベース |
 | `WIF_PROVIDER` | Workload Identity Provider |
 | `WIF_SERVICE_ACCOUNT` | GitHub Actions用サービスアカウント |
+
+## シークレットの暗号化
+
+Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した `github-actions@` SA が KMS 鍵（`pulumi-secrets/pulumi-state`、ロール `cloudkms.cryptoKeyEncrypterDecrypter`）で復号する。

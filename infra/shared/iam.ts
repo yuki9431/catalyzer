@@ -1,12 +1,11 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { stateBucket, dataBucket } from "./storage";
+import { stateBucket } from "./storage";
 import { services } from "./apis";
 
 const config = new pulumi.Config();
 const githubRepo = config.require("githubRepo");
 const computeSa = config.requireSecret("computeSa");
-const ownerEmail = config.requireSecret("ownerEmail");
 
 // GitHub Actions用サービスアカウント
 export const githubActionsSa = new gcp.serviceaccount.Account(
@@ -97,16 +96,6 @@ export const stateBucketBinding = new gcp.storage.BucketIAMMember(
   }
 );
 
-// データバケットへの管理権限（GitHub Actions SA）
-export const dataBucketBinding = new gcp.storage.BucketIAMMember(
-  "github-actions-data-bucket",
-  {
-    bucket: dataBucket.name,
-    role: "roles/storage.objectAdmin",
-    member: githubActionsSa.member,
-  }
-);
-
 // Cloud Buildバケットへのストレージ権限（gcloud builds submitのソースアップロード用）
 export const cloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
   "github-actions-cloudbuild-bucket",
@@ -114,26 +103,6 @@ export const cloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
     bucket: `${gcp.config.project}_cloudbuild`,
     role: "roles/storage.objectUser",
     member: githubActionsSa.member,
-  }
-);
-
-// オーナーアカウントにデータバケットの管理権限を付与
-export const dataBucketOwnerIam = new gcp.storage.BucketIAMMember(
-  "app-data-owner",
-  {
-    bucket: dataBucket.name,
-    role: "roles/storage.admin",
-    member: pulumi.interpolate`user:${ownerEmail}`,
-  }
-);
-
-// Cloud Runデフォルトcompute SAにデータバケットへの最低限の権限を付与
-export const dataBucketComputeSaIam = new gcp.storage.BucketIAMMember(
-  "app-data-compute-sa",
-  {
-    bucket: dataBucket.name,
-    role: "roles/storage.objectUser",
-    member: pulumi.interpolate`serviceAccount:${computeSa}`,
   }
 );
 
