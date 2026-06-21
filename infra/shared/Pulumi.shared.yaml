@@ -12,7 +12,7 @@ config:
     secure: v1:qrKhhc7um2Ek9eFw:y/87HFSHHTHoRGfeHV75GubkNwo=
   exvs-shared:pulumiStateBucket:
     secure: v1:Du/axuJkvq/wtqd/:EIsWkGiOhurIvwVomvsdiXa+lqgmP8yIoJV0fC96pll4wwVh8nYxTfihJ5Rt
-  exvs-shared:githubRepo: yuki9431/exvs-analyzer
+  exvs-shared:githubRepo: yuki9431/catalyzer
   exvs-shared:computeSa:
     secure: v1:LbTz4LuCxUSGA8es:fhlSyWN8rwdbNbJ8pjHD7AWCpFlf/7euPR9VzUST3AI234w1DhU9NroG7KZJ8UeaxIWMNfmKBmtTcjx7BralkAY3
   exvs-shared:ownerEmail:

@@ -1,4 +1,4 @@
-module github.com/yuki9431/exvs-analyzer
+module github.com/yuki9431/catalyzer
 
 go 1.26
 

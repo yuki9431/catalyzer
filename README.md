@@ -1,4 +1,4 @@
-# EXVS2IB 戦績分析ツール (exvs-analyzer)
+# catalyzer — EXVS2IB 戦績分析ツール
 
 機動戦士ガンダム EXTREME VS.2 INFINITE BOOST の戦績をスクレイピングし、分析レポートを生成するWebアプリケーション。
 

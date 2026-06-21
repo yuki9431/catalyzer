@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/yuki9431/exvs-analyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // tagPartnerDoc はFirestoreに保存するtag_partnersドキュメントの構造体

@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/yuki9431/exvs-analyzer/internal/mslist"
-	"github.com/yuki9431/exvs-analyzer/internal/scraper"
+	"github.com/yuki9431/catalyzer/internal/mslist"
+	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
 func main() {
