@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	fs "github.com/yuki9431/exvs-analyzer/internal/firestore"
-	"github.com/yuki9431/exvs-analyzer/internal/gradelist"
-	"github.com/yuki9431/exvs-analyzer/internal/model"
-	"github.com/yuki9431/exvs-analyzer/internal/mslist"
-	"github.com/yuki9431/exvs-analyzer/internal/scraper"
+	fs "github.com/yuki9431/catalyzer/internal/firestore"
+	"github.com/yuki9431/catalyzer/internal/gradelist"
+	"github.com/yuki9431/catalyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/mslist"
+	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
 // DefaultMSListPath はデフォルトのMSリストパス

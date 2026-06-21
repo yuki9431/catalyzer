@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/yuki9431/exvs-analyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // GradeInfo は階級画像URLと階級名のマッピング

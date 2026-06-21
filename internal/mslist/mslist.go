@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/yuki9431/exvs-analyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // stripQuery はURLからクエリパラメータを除去する

@@ -15,7 +15,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly/v2"
-	"github.com/yuki9431/exvs-analyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 const (

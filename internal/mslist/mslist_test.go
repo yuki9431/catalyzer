@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuki9431/exvs-analyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 func TestBuildMSNameMap(t *testing.T) {

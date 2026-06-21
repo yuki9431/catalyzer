@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/yuki9431/exvs-analyzer/internal/firestore"
-	"github.com/yuki9431/exvs-analyzer/internal/model"
-	"github.com/yuki9431/exvs-analyzer/internal/pipeline"
+	"github.com/yuki9431/catalyzer/internal/firestore"
+	"github.com/yuki9431/catalyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/pipeline"
 	"golang.org/x/time/rate"
 )
 

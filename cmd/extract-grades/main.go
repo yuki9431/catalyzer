@@ -8,8 +8,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/yuki9431/exvs-analyzer/internal/firestore"
-	"github.com/yuki9431/exvs-analyzer/internal/gradelist"
+	"github.com/yuki9431/catalyzer/internal/firestore"
+	"github.com/yuki9431/catalyzer/internal/gradelist"
 )
 
 func main() {

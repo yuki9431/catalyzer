@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"github.com/yuki9431/exvs-analyzer/internal/model"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // matchDoc はFirestoreに保存するmatchesドキュメントの構造体
