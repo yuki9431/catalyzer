@@ -1536,8 +1536,6 @@ function reAnalyze() {
   if (lf) lf.style.display = 'block';
   var t = document.getElementById('pageTitle');
   if (t) t.style.display = '';
-  var st = document.getElementById('pageSubtitle');
-  if (st) st.style.display = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1618,8 +1616,6 @@ function renderReport(data, userKey) {
   // ダッシュボードのtopbarがブランド表示を担うため、静的な見出しは隠す
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = 'none';
-  var pageSubtitle = document.getElementById('pageSubtitle');
-  if (pageSubtitle) pageSubtitle.style.display = 'none';
   render(html`<${Report} data=${data} userKey=${userKey} />`, reportEl);
 }
 
@@ -1650,8 +1646,6 @@ async function analyze() {
 
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = '';
-  var pageSubtitle = document.getElementById('pageSubtitle');
-  if (pageSubtitle) pageSubtitle.style.display = '';
 
   document.getElementById('loginForm').style.display = 'none';
   var lastPreliminaryVersion = 0;
