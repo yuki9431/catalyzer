@@ -11,4 +11,4 @@ config:
   exvs-app:firestoreDatabase: exvs-analyzer
   exvs-app:sharedStack: organization/exvs-shared/shared
   exvs-app:image:
-    secure: v1:2KkSUE/CbengJlAj:/95m31YPSQ0s+UXOAZE/czTtGVCJVkrH423zFI/AxOGsjOaylR92vlWKD1apF6vVqXVF+LUPkypSCY2ClAIzk5nI0uJYEdcr3qrOkmpvqzozIt9ifTJOMD0U97PBLhT/BaJ27OvmqEP7sLZnkbmkuuWhNC5eMlGVJ4KE9rH4uEMwpGak0IThHYUq4+ndOA==
+    secure: v1:zRW5nWc/x5y/pIgb:wfROvpQk4pRoeDvfzWaR5gB2+AxRtUF3K/kgFNvIV81wLblAzeftiCf9m3y8kKBpKAtM3OBVVxMW0j5F8wirmJy2mPO1llDzDPN+/KQhsx9Hn3fKCRZ3dYg0HKnibFoYuR52GY/NTaLExrZqGOG7Jq09U3B/gxPB7QPC5PDMjfMUvQSYUyq5AsP0VeJl9w==
