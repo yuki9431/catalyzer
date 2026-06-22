@@ -119,6 +119,14 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	jobsMu.Lock()
 	j.UserKey = model.UserKey(username)
 	jobsMu.Unlock()
+
+	// 開発用モード: DEV_SAMPLE_DATA が設定されていれば実スクレイピング・Firestoreを
+	// 介さず、同梱のダミー試合データJSONをそのまま分析して返す（ローカル動作確認用）。
+	if samplePath := os.Getenv("DEV_SAMPLE_DATA"); samplePath != "" {
+		runSample(j, samplePath)
+		return
+	}
+
 	updateStatus(j, model.StatusScraping)
 
 	tmpDir, err := os.MkdirTemp("", "exvs-*")
@@ -425,6 +433,46 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	} else {
 		log.Printf("[INFO] Job %s completed", j.ID)
 	}
+}
+
+// runSample は開発用モード(DEV_SAMPLE_DATA)でサンプル試合データを分析する。
+// 実スクレイピング・Firestoreを介さず、ダミーJSONをそのまま analyze.py に通して
+// done まで進める。バックエンド込みのローカル動作確認に使う。
+func runSample(j *Job, samplePath string) {
+	log.Printf("[INFO] DEV mode: analyzing sample data %s (no scraping/Firestore)", samplePath)
+	updateStatus(j, model.StatusScraping)
+
+	tmpDir, err := os.MkdirTemp("", "exvs-dev-*")
+	if err != nil {
+		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to create temp dir: %v", err))
+		return
+	}
+	defer os.RemoveAll(tmpDir)
+
+	data, err := os.ReadFile(samplePath)
+	if err != nil {
+		setError(j, "サンプルデータの読み込みに失敗しました", fmt.Sprintf("read sample data %s: %v", samplePath, err))
+		return
+	}
+	jsonPath := filepath.Join(tmpDir, "scores.json")
+	if err := os.WriteFile(jsonPath, data, 0644); err != nil {
+		setError(j, "内部エラーが発生しました", fmt.Sprintf("write sample json: %v", err))
+		return
+	}
+
+	updateStatus(j, model.StatusAnalyzing)
+	report := runAnalysis(jsonPath, tmpDir, "")
+	if report == "" {
+		setError(j, "分析処理に失敗しました", "analysis returned empty report")
+		return
+	}
+
+	jobsMu.Lock()
+	j.Status = model.StatusDone
+	j.Report = report
+	j.completedAt = time.Now()
+	jobsMu.Unlock()
+	log.Printf("[INFO] Job %s completed (dev sample mode)", j.ID)
 }
 
 // RunCustomPeriod はカスタム日時範囲で再分析を実行してJSON文字列を返す

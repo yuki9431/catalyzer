@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1620">
+  <title>catalyzer (preview)</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body>
+  <!--
+    ローカルのフロント確認用プレビュー。サーバー(Go/分析)不要で、ダミーレポート
+    (sample_report.json)を renderReport に渡して描画する。
+    スタイル/DOMの二重管理を避けるため index.html を丸ごと流用する。
+    `make preview` で静的配信して http://localhost:8888/preview.html を開く。
+  -->
+  <script type="module">
+    (async () => {
+      // index.html から <style> と body を流用（スタイルの二重管理を避ける）
+      const ixHtml = await (await fetch('index.html')).text();
+      const doc = new DOMParser().parseFromString(ixHtml, 'text/html');
+      const style = doc.querySelector('style');
+      if (style) document.head.appendChild(style.cloneNode(true));
+      doc.body.querySelectorAll('script').forEach((s) => s.remove());
+      document.body.innerHTML = doc.body.innerHTML;
+
+      // Chart.js（グローバル Chart）を app.js より先に読み込む
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'chart.umd.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.body.appendChild(s);
+      });
+
+      // app.js を読み込んで window.renderReport を取得
+      await import('./app.js');
+
+      // ログインフォーム・注意書きを隠してサンプルレポートを描画
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) loginForm.style.display = 'none';
+
+      try {
+        const data = await (await fetch('sample_report.json')).json();
+        window.renderReport(data, 'preview-user');
+      } catch (e) {
+        const err = document.getElementById('error');
+        if (err) {
+          err.style.display = 'block';
+          err.textContent = 'sample_report.json の読み込みに失敗しました。`make sample` で生成してください: ' + e.message;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

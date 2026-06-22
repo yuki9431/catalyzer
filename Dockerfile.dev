@@ -1,0 +1,17 @@
+# ローカル開発用イメージ。Go と Python(analyze.py用) を同梱し、ソースは
+# docker run 時に bind mount する（本番用 Dockerfile はビルド済みバイナリを使う別物）。
+# 依存だけ先に取得してレイヤーキャッシュを効かせ、コード変更時のフルビルドを避ける。
+FROM golang:1.26-alpine
+
+# analyze.py 実行用（pip依存なし）
+RUN apk add --no-cache python3
+
+WORKDIR /app
+
+# go.mod/go.sum だけ先にコピーして依存を取得（ソース変更ではこのレイヤーが再利用される）
+COPY go.mod go.sum ./
+RUN go mod download
+
+# ソースは `docker run -v "$(PWD)":/app` で実行時にマウントする。
+# DEV_SAMPLE_DATA を設定するとスクレイピングせずダミーデータで分析する（Makefile参照）。
+CMD ["go", "run", "./cmd/server"]

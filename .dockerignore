@@ -1,0 +1,8 @@
+# 本番イメージに不要な開発専用ファイル
+Dockerfile.dev
+testdata/
+static/preview.html
+static/sample_report.json
+node_modules/
+tmp/
+.git/

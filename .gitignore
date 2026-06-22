@@ -14,9 +14,14 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Preview files
-static/preview.html
+# Generated sample report (analyze.py の中間出力。testdata/sample_matches.json と
+# static/sample_report.json は管理対象なので除外しない)
+testdata/report.json
 static/sample_report.md
+
+# Python
+__pycache__/
+*.pyc
 
 # Node.js
 node_modules/

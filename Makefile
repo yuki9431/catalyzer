@@ -1,18 +1,43 @@
 IMAGE_NAME := exvs-analyzer
+DEV_IMAGE := exvs-analyzer-dev
 PORT ?= 8080
+SAMPLE_DATA := testdata/sample_matches.json
 
-.PHONY: build run restart stop dev test test-local extract-grades \
+.PHONY: build run restart stop dev dev-build sample preview test extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
 
-## ローカルで直接起動（go run。Docker不要で高速。localhost:$(PORT)）
-## Firestoreはエミュレータ推奨: FIRESTORE_EMULATOR_HOST と FIRESTORE_DATABASE を設定する。
-## 未設定ならFirestore無効で起動（スクレイピング結果はメモリ上のみ）。
-## Python分析にはローカルに python3 が必要。
-dev:
-	PORT=$(PORT) go run ./cmd/server
+## 開発用Dockerイメージをビルド（Go+Python同梱。初回・go.mod変更時のみ）
+dev-build:
+	docker build -f Dockerfile.dev -t $(DEV_IMAGE) .
 
-## Docker イメージをビルド（キャッシュなし）
+## ダミーデータでローカル起動（Docker。ホストにGo/Python不要）。localhost:$(PORT)
+## DEV_SAMPLE_DATA によりスクレイピング(バンナムログイン)をスキップし、同梱の
+## ダミー試合データで /analyze→/result の実フローを確認できる。ソースはbind mountするので
+## コード変更はコンテナ再起動で反映（go build/modキャッシュは名前付きvolumeで永続化）。
+dev: dev-build
+	docker run --rm -it -p $(PORT):8080 \
+		-v "$(CURDIR)":/app -w /app \
+		-v exvs-go-build-cache:/root/.cache/go-build \
+		-v exvs-go-mod-cache:/go/pkg/mod \
+		-e PORT=8080 \
+		-e DEV_SAMPLE_DATA=$(SAMPLE_DATA) \
+		$(DEV_IMAGE)
+
+## ダミー試合データとサンプルレポートを再生成（Docker python経由、ホスト非依存）
+sample:
+	docker run --rm -v "$(CURDIR)":/app -w /app python:3.11-alpine sh -c "\
+		python3 scripts/gen_sample.py && \
+		python3 scripts/analyze.py $(SAMPLE_DATA) --ms-list data/ms_list.json && \
+		cp testdata/report.json static/sample_report.json"
+
+## フロント単体プレビュー（サーバー不要。ダミーレポートを静的配信）
+## → http://localhost:8888/preview.html
+preview:
+	docker run --rm -p 8888:8888 -v "$(CURDIR)/static":/static -w /static \
+		python:3.11-alpine python3 -m http.server 8888
+
+## Docker イメージをビルド（キャッシュなし・本番相当）
 build:
 	docker build --no-cache -t $(IMAGE_NAME) .
 
@@ -34,10 +59,6 @@ stop:
 ## Go テストを実行（Docker経由）
 test:
 	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
-
-## Go テストをローカルで直接実行（Docker不要・高速）
-test-local:
-	go test ./internal/...
 
 ## Firestoreから未登録グレードURLを抽出
 extract-grades:
