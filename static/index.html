@@ -66,13 +66,27 @@
     /* ===== Report container (dashboard) ===== */
     .report { line-height: 1.7; padding-bottom: 40px; }
 
+    /* ===== Skeleton (loading placeholder) ===== */
+    .skel {
+      background: linear-gradient(90deg, var(--panel-2) 25%, var(--line) 37%, var(--panel-2) 63%);
+      background-size: 400% 100%; border-radius: 8px; animation: skel-shimmer 1.4s ease infinite;
+    }
+    @keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+    .skel-pill { width: 120px; height: 38px; border-radius: 999px; }
+
     /* ===== Topbar ===== */
     .topbar {
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; gap: 12px;
       padding: calc(12px + env(safe-area-inset-top)) 16px 12px; margin: 0 -16px 16px;
-      background: rgba(13,22,32,.82); backdrop-filter: blur(10px);
+      background: rgba(13,22,32,.82);
       border-bottom: 1px solid var(--line);
+    }
+    /* blurはtopbar自身ではなく擬似要素に持たせる。backdrop-filterは子孫のposition:fixedの包含ブロックを生成するため、
+       topbarに直接付けるとモバイルのボトムシート(.period-dropdown)がビューポートではなくtopbar基準になり画面上部へはみ出す */
+    .topbar::before {
+      content: ''; position: absolute; inset: 0; z-index: -1;
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
     }
     .brand { font-size: 1.05em; font-weight: 800; color: var(--accent); white-space: nowrap; }
     .brand small { display: block; font-size: .62em; font-weight: 500; color: var(--muted); letter-spacing: .04em; }

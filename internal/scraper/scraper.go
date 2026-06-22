@@ -133,6 +133,7 @@ type ScrapingOption struct {
 	OnBatchReady   func(scores model.DatedScores) // BatchSize試合ごとに蓄積スコアのスナップショットを通知
 	BatchSize      int                             // OnBatchReady発火間隔（試合数）。0の場合は通知しない
 	FirstBatchSize int                             // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
+	OnLoginSuccess func()                          // ログイン成功直後に1度だけ呼ばれる
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -161,6 +162,9 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 	m := NewClient(username, password)
 	if err := m.Login(); err != nil {
 		return nil, nil, fmt.Errorf("ログインに失敗: %w", err)
+	}
+	if opt.OnLoginSuccess != nil {
+		opt.OnLoginSuccess()
 	}
 
 	// Phase 1: rankpageから日別ページURLを収集
