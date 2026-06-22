@@ -30,6 +30,10 @@ const DefaultGradeListPath = "data/grade_list.json"
 // prelimBatchSize はスクレイピング中に速報レポートを更新する間隔（試合数）
 const prelimBatchSize = 20
 
+// prelimFirstBatchSize は初回速報レポートを発火する試合数。
+// 初回だけ早く画面を表示し、以降はprelimBatchSize間隔で更新する（分析の頻発を避ける）
+const prelimFirstBatchSize = 5
+
 // Job はバックグラウンドジョブの情報
 type Job struct {
 	ID                 string           `json:"id"`
@@ -245,9 +249,10 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	scrapingOpt := scraper.ScrapingOption{
-		OnProgress:   onProgress,
-		OnBatchReady: onBatchReady,
-		BatchSize:    prelimBatchSize,
+		OnProgress:     onProgress,
+		OnBatchReady:   onBatchReady,
+		BatchSize:      prelimBatchSize,
+		FirstBatchSize: prelimFirstBatchSize,
 		OnLoginSuccess: func() {
 			jobsMu.Lock()
 			j.LoggedIn = true
