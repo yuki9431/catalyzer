@@ -66,6 +66,14 @@
     /* ===== Report container (dashboard) ===== */
     .report { line-height: 1.7; padding-bottom: 40px; }
 
+    /* ===== Skeleton (loading placeholder) ===== */
+    .skel {
+      background: linear-gradient(90deg, var(--panel-2) 25%, var(--line) 37%, var(--panel-2) 63%);
+      background-size: 400% 100%; border-radius: 8px; animation: skel-shimmer 1.4s ease infinite;
+    }
+    @keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+    .skel-pill { width: 120px; height: 38px; border-radius: 999px; }
+
     /* ===== Topbar ===== */
     .topbar {
       position: sticky; top: 0; z-index: 50;

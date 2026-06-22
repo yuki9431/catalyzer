@@ -1569,7 +1569,6 @@ function Report({ data, userKey }) {
 
   return html`
     <div class="topbar">
-      <div class="brand">EXVS2IB 戦績分析<small>${esc(data.player_name)}</small></div>
       <div class="spacer" />
       <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
         userKey=${userKey} onCustomReport=${handleCustomReport} />
@@ -1610,6 +1609,39 @@ function Report({ data, userKey }) {
 
 // --- Main app logic ---
 
+// ログイン成功後、データ到着までのダッシュボード骨組み表示
+function Skeleton() {
+  function bar(w, h, mb) {
+    return html`<div class="skel" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
+  }
+  return html`
+    <div class="topbar">
+      <div class="spacer" />
+      <div class="skel skel-pill"></div>
+    </div>
+    <div class="kpi-grid">
+      ${[0, 1, 2, 3, 4, 5].map(function () {
+        return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
+      })}
+    </div>
+    <div class="panel">
+      ${bar('30%', 16, 14)}${bar('100%', 220)}
+    </div>
+    <div class="panel">
+      ${bar('24%', 16, 14)}
+      ${[0, 1, 2, 3].map(function () { return bar('100%', 14, 10); })}
+    </div>
+  `;
+}
+
+function showSkeleton() {
+  var reportEl = document.getElementById('report');
+  reportEl.style.display = 'block';
+  var pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) pageTitle.style.display = 'none';
+  render(html`<${Skeleton} />`, reportEl);
+}
+
 function renderReport(data, userKey) {
   var reportEl = document.getElementById('report');
   reportEl.style.display = 'block';
@@ -1649,6 +1681,8 @@ async function analyze() {
 
   document.getElementById('loginForm').style.display = 'none';
   var lastPreliminaryVersion = 0;
+  var switched = false;
+  var renderedReal = false;
 
   try {
     var res = await fetch('/analyze', {
@@ -1687,11 +1721,19 @@ async function analyze() {
         progressWrap.style.display = 'none';
       }
 
-      if (statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
+      // ログイン成功を確認した瞬間に結果画面（スケルトン）へ切り替える
+      if (!switched && statusData.logged_in) {
+        switched = true;
+        showSkeleton();
+      }
+
+      // 速報レポートは結果画面へ切り替えた後にのみ反映する
+      if (switched && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
         if (prelimData.report && prelimData.preliminary) {
           renderReport(prelimData.report, prelimData.user_key);
+          renderedReal = true;
           statusText.textContent = '最新データを取得中...';
           lastPreliminaryVersion = statusData.preliminary_version;
         }
@@ -1710,6 +1752,7 @@ async function analyze() {
         }
 
         renderReport(resultData.report, resultData.user_key);
+        renderedReal = true;
         if (resultData.partial) {
           var warning = document.getElementById('error');
           warning.style.display = 'block';
@@ -1724,6 +1767,12 @@ async function analyze() {
   } catch (e) {
     error.style.display = 'block';
     error.textContent = e.message;
+    // まだ実データを描画していない（ログイン中 or スケルトン表示中）なら結果画面を畳んでログイン画面へ戻す
+    if (!renderedReal) {
+      render(null, reportEl);
+      reportEl.style.display = 'none';
+      if (pageTitle) pageTitle.style.display = '';
+    }
     document.getElementById('loginForm').style.display = 'block';
   } finally {
     btn.disabled = false;

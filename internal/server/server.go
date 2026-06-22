@@ -154,6 +154,9 @@ func StartServer() {
 		if snap.Error != "" {
 			resp["error"] = snap.Error
 		}
+		if snap.LoggedIn {
+			resp["logged_in"] = true
+		}
 		if snap.PreliminaryReport != "" {
 			resp["has_preliminary_report"] = true
 			resp["preliminary_version"] = snap.PreliminaryVersion

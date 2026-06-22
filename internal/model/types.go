@@ -92,6 +92,7 @@ type JobSnapshot struct {
 	PreliminaryVersion int
 	Error              string
 	PartialData        bool
+	LoggedIn           bool
 	UserKey            string
 }
 

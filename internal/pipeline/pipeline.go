@@ -42,6 +42,7 @@ type Job struct {
 	PreliminaryVersion int              `json:"preliminary_version,omitempty"`
 	Error              string           `json:"error,omitempty"`
 	PartialData        bool             `json:"partial_data,omitempty"`
+	LoggedIn           bool             `json:"logged_in,omitempty"`
 	UserKey            string           `json:"-"`
 	completedAt        time.Time
 }
@@ -87,6 +88,7 @@ func (j *Job) Snapshot() model.JobSnapshot {
 		PreliminaryVersion: j.PreliminaryVersion,
 		Error:              j.Error,
 		PartialData:        j.PartialData,
+		LoggedIn:           j.LoggedIn,
 		UserKey:            j.UserKey,
 	}
 }
@@ -238,6 +240,12 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		OnProgress:   onProgress,
 		OnBatchReady: onBatchReady,
 		BatchSize:    prelimBatchSize,
+		OnLoginSuccess: func() {
+			jobsMu.Lock()
+			j.LoggedIn = true
+			jobsMu.Unlock()
+			log.Printf("[INFO] Job %s: login succeeded", j.ID)
+		},
 	}
 	if len(backfillDates) > 0 {
 		scrapingOpt.BackfillDates = backfillDates
