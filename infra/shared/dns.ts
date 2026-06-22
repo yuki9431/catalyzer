@@ -12,7 +12,7 @@ export const dnsZone = new gcp.dns.ManagedZone(
   {
     name: "exvs-analyzer",
     dnsName: domain + ".",
-    description: "EXVS Analyzer DNS zone",
+    description: "catalyzer DNS zone",
     dnssecConfig: {
       state: "on",
     },

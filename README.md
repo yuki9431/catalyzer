@@ -1,6 +1,11 @@
-# catalyzer — EXVS2IB 戦績分析ツール
+<p align="center">
+  <img src="static/logo.svg" alt="catalyzer" width="400">
+</p>
 
-機動戦士ガンダム EXTREME VS.2 INFINITE BOOST の戦績をスクレイピングし、分析レポートを生成するWebアプリケーション。
+<p align="center">
+  機動戦士ガンダム EXTREME VS.2 INFINITE BOOST の戦績を分析するWebアプリケーション。<br>
+  公式サイトから対戦データをスクレイピングし、多角的な分析レポートを生成します。
+</p>
 
 ## プロジェクト構成
 
