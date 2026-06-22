@@ -3,8 +3,7 @@
 </p>
 
 <p align="center">
-  機動戦士ガンダム EXTREME VS.2 INFINITE BOOST の戦績を分析するWebアプリケーション。<br>
-  公式サイトから対戦データをスクレイピングし、多角的な分析レポートを生成します。
+  機動戦士ガンダム EXTREME VS.2 INFINITE BOOST の戦績を多角的に分析するWebアプリケーション。
 </p>
 
 ## プロジェクト構成
@@ -13,60 +12,70 @@
 .
 ├── cmd/
 │   ├── server/
-│   │   └── main.go              # エントリポイント（サーバー起動のみ）
+│   │   └── main.go                # エントリポイント（サーバー起動のみ）
 │   ├── update-mslist/
-│   │   └── main.go              # MSリスト更新CLI
+│   │   └── main.go                # MSリスト更新CLI
 │   ├── delete-recent-matches/
-│   │   └── main.go              # 指定ユーザーの最新N日間の戦績削除CLI
+│   │   └── main.go                # 指定ユーザーの最新N日間の戦績削除CLI
 │   └── extract-grades/
-│       └── main.go              # Firestoreから未登録グレードURL抽出CLI
+│       └── main.go                # Firestoreから未登録グレードURL抽出CLI
 ├── internal/
 │   ├── model/
-│   │   └── types.go             # 型定義のみ（PlayerScore, MSInfo等）
+│   │   └── types.go               # 型定義のみ（PlayerScore, MSInfo等）
 │   ├── mslist/
-│   │   └── mslist.go            # MSリストの読み書き・マージ
+│   │   └── mslist.go              # MSリストの読み書き・マージ
 │   ├── gradelist/
-│   │   └── gradelist.go         # グレードリストの読み込み・未知URL検出
+│   │   └── gradelist.go           # グレードリストの読み込み・未知URL検出
 │   ├── scraper/
-│   │   ├── scraper.go           # スクレイピング処理
-│   │   └── login.go             # バンダイナムコIDログイン
+│   │   ├── scraper.go             # スクレイピング処理
+│   │   └── login.go               # バンダイナムコIDログイン
+│   ├── firestore/
+│   │   ├── client.go              # Firestoreクライアント初期化
+│   │   ├── scores.go              # 戦績（matches）の読み書き
+│   │   ├── tag_partners.go        # 固定相方データの読み書き
+│   │   ├── users.go               # ユーザーデータの読み書き
+│   │   └── report_cache.go        # レポートキャッシュ
 │   ├── pipeline/
-│   │   └── pipeline.go          # 分析パイプライン（Job管理・実行・CSV生成）
+│   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
 │   └── server/
-│       ├── server.go            # HTTPサーバー・API
-│       ├── ratelimit.go         # IPベースレート制限
-│       ├── basicauth.go         # Basic認証ミドルウェア
-│       └── block403.go          # 403時の一時ブロック管理
+│       ├── server.go              # HTTPサーバー・API
+│       ├── ratelimit.go           # IPベースレート制限
+│       ├── basicauth.go           # Basic認証ミドルウェア
+│       └── block403.go            # 403時の一時ブロック管理
 ├── scripts/
-│   └── analyze.py               # Python分析スクリプト
+│   └── analyze.py                 # Python分析スクリプト
 ├── static/
-│   ├── index.html               # フロントエンド
-│   ├── app.js                   # フロントエンドJS（CSP対応で外部化）
-│   ├── htm-preact-standalone.js # htm + Preactライブラリ
-│   └── chart.umd.min.js        # Chart.jsライブラリ
+│   ├── index.html                 # フロントエンド
+│   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
+│   ├── logo.svg                   # ロゴ
+│   ├── favicon.svg                # ファビコン（SVG）
+│   ├── htm-preact-standalone.js   # htm + Preactライブラリ
+│   └── chart.umd.min.js          # Chart.jsライブラリ
 ├── data/
-│   ├── ms_list.json             # 機体名・コストマッピング
-│   └── grade_list.json          # 階級画像URL→階級名・グレードマッピング
+│   ├── ms_list.json               # 機体名・コストマッピング
+│   └── grade_list.json            # 階級画像URL→階級名・グレードマッピング
 ├── infra/
-│   ├── shared/                  # 共有リソース（環境非依存）
-│   │   ├── index.ts             # エントリポイント
-│   │   ├── apis.ts              # Google API有効化
-│   │   ├── artifact-registry.ts # Artifact Registry定義
-│   │   ├── storage.ts           # Cloud Storageバケット定義
-│   │   ├── dns.ts               # Cloud DNS定義
-│   │   ├── iam.ts               # サービスアカウント・Workload Identity
-│   │   └── budget.ts            # 予算アラート定義
-│   └── app/                     # 環境別リソース（prod/stg）
-│       └── index.ts             # Cloud Run・ドメインマッピング
+│   ├── shared/                    # 共有リソース（環境非依存）
+│   │   ├── index.ts               # エントリポイント
+│   │   ├── apis.ts                # Google API有効化
+│   │   ├── artifact-registry.ts   # Artifact Registry定義
+│   │   ├── storage.ts             # Cloud Storageバケット定義
+│   │   ├── firestore.ts           # Firestore定義
+│   │   ├── dns.ts                 # Cloud DNS定義
+│   │   ├── iam.ts                 # サービスアカウント・Workload Identity
+│   │   └── budget.ts              # 予算アラート定義
+│   └── app/                       # 環境別リソース（prod/stg）
+│       └── index.ts               # Cloud Run・ドメインマッピング
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml               # CI（Docker build, Go vet, Python構文チェック）
-│       ├── build.yml            # ビルド&プッシュ（mainマージ時）
-│       ├── deploy.yml           # デプロイ（Pulumi up）
-│       ├── infra-ci.yml         # インフラCI（Pulumi preview）
-│       └── update-mslist.yml    # MSリスト自動更新
-├── Makefile                     # ビルド・起動・インフラコマンド
-├── Dockerfile                   # マルチステージビルド
+│       ├── ci.yml                 # CI（Docker build, Go vet, Python構文チェック）
+│       ├── build.yml              # ビルド&プッシュ（mainマージ時）
+│       ├── deploy.yml             # デプロイ（Pulumi up）
+│       ├── deploy-prod.yml        # 本番デプロイ（手動実行）
+│       ├── infra-ci.yml           # インフラCI（Pulumi preview）
+│       └── update-mslist.yml      # MSリスト自動更新
+├── Makefile                       # ビルド・起動・インフラコマンド
+├── Dockerfile                     # マルチステージビルド
 ├── go.mod
 ├── go.sum
 ├── LICENSE
