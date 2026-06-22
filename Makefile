@@ -1,9 +1,16 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test extract-grades \
+.PHONY: build run restart stop dev test test-local extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
+
+## ローカルで直接起動（go run。Docker不要で高速。localhost:$(PORT)）
+## Firestoreはエミュレータ推奨: FIRESTORE_EMULATOR_HOST と FIRESTORE_DATABASE を設定する。
+## 未設定ならFirestore無効で起動（スクレイピング結果はメモリ上のみ）。
+## Python分析にはローカルに python3 が必要。
+dev:
+	PORT=$(PORT) go run ./cmd/server
 
 ## Docker イメージをビルド（キャッシュなし）
 build:
@@ -24,9 +31,13 @@ restart: build run
 stop:
 	docker stop $(IMAGE_NAME)
 
-## Go テストを実行
+## Go テストを実行（Docker経由）
 test:
 	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
+
+## Go テストをローカルで直接実行（Docker不要・高速）
+test-local:
+	go test ./internal/...
 
 ## Firestoreから未登録グレードURLを抽出
 extract-grades:

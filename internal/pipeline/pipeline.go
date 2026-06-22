@@ -24,6 +24,20 @@ import (
 // DefaultMSListPath はデフォルトのMSリストパス
 const DefaultMSListPath = "data/ms_list.json"
 
+// appWorkDir はPython分析スクリプトを実行する作業ディレクトリを返す。
+// Dockerコンテナでは /app、ローカル実行ではプロジェクトルート（カレントディレクトリ）を想定する。
+// APP_DIR 環境変数で明示指定もできる。
+func appWorkDir() string {
+	if dir := os.Getenv("APP_DIR"); dir != "" {
+		return dir
+	}
+	if _, err := os.Stat("/app/scripts/analyze.py"); err == nil {
+		return "/app"
+	}
+	// 空文字の場合、exec.Command は呼び出し元プロセスのカレントディレクトリで実行する
+	return ""
+}
+
 // DefaultGradeListPath はデフォルトのグレードリストパス
 const DefaultGradeListPath = "data/grade_list.json"
 
@@ -456,7 +470,7 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 	}
 
 	cmd := exec.Command("python3", args...)
-	cmd.Dir = "/app"
+	cmd.Dir = appWorkDir()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("analysis failed: %v\n%s", err, string(output))
@@ -496,7 +510,7 @@ func runAnalysis(jsonPath, tmpDir, tagPartnersPath string) string {
 		args = append(args, "--tag-partners", tagPartnersPath)
 	}
 	cmd := exec.Command("python3", args...)
-	cmd.Dir = "/app"
+	cmd.Dir = appWorkDir()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("[WARN] Analysis failed: %v\n%s", err, string(output))

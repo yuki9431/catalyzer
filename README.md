@@ -129,6 +129,9 @@
 ## 使い方
 
 ```bash
+# ローカルで直接起動（go run。Docker不要で高速・開発向け）
+make dev
+
 # ビルド＆起動（初回・コード変更時）
 make restart
 
@@ -141,8 +144,11 @@ make run
 # コンテナ停止
 make stop
 
-# Goテスト
+# Goテスト（Docker経由）
 make test
+
+# Goテスト（ローカル直接実行・高速）
+make test-local
 
 # Firestoreから未登録グレードURLを抽出
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
@@ -150,7 +156,25 @@ FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
 http://localhost:8080 にアクセスしてログインすると分析レポートが表示されます。
 
-ポートを変更したい場合は `PORT=3000 make run` のように指定できます。
+ポートを変更したい場合は `PORT=3000 make run`（または `PORT=3000 make dev`）のように指定できます。
+
+### ローカル開発
+
+`make dev` は Docker を使わず `go run ./cmd/server` でサーバーを直接起動します。フルビルドを挟まないため、コード変更後の起動が高速です。Python 分析を動かすにはローカルに **Python 3.11**（pip依存なし）が必要です。
+
+Firestore の接続先は環境変数で制御します。
+
+| 環境変数 | 説明 |
+| --- | --- |
+| `FIRESTORE_DATABASE` | 接続先データベースID。未設定なら Firestore 無効で起動（取得結果は永続化されません） |
+| `FIRESTORE_EMULATOR_HOST` | 設定するとエミュレータに接続（例: `localhost:8081`）。本番DBを誤って操作しないよう、ローカルではエミュレータ利用を推奨します |
+| `GCP_PROJECT` / `GOOGLE_CLOUD_PROJECT` | プロジェクトID。メタデータサーバーの無いローカルではこの値を使います（エミュレータ利用時はダミー値で可） |
+
+```bash
+# Firestoreエミュレータを使う安全なローカル起動
+gcloud emulators firestore start --host-port=localhost:8081
+FIRESTORE_EMULATOR_HOST=localhost:8081 FIRESTORE_DATABASE=exvs-analyzer GCP_PROJECT=local-dev make dev
+```
 
 ### スクレイパーのペーシング設定
 
