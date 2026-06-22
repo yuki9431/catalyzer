@@ -7,7 +7,7 @@ const budgetAmount = config.requireSecret("budgetAmount");
 
 export const budget = new gcp.billing.Budget("monthly-budget", {
   billingAccount: billingAccount,
-  displayName: "EXVS Analyzer Monthly Budget",
+  displayName: "catalyzer Monthly Budget",
   amount: {
     specifiedAmount: {
       currencyCode: "JPY",
