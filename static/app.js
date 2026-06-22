@@ -1530,6 +1530,13 @@ var TAB_DEFS = [
 ];
 
 function reAnalyze() {
+  var u = document.getElementById('username');
+  var p = document.getElementById('password');
+  if (u && p && u.value && p.value) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    analyze();
+    return;
+  }
   var rep = document.getElementById('report');
   if (rep) rep.style.display = 'none';
   var lf = document.getElementById('loginForm');
@@ -1666,6 +1673,8 @@ async function analyze() {
     return;
   }
 
+  try { sessionStorage.setItem('catalyzer_cred', JSON.stringify({ u: username, p: password })); } catch (e) {}
+
   btn.disabled = true;
   status.style.display = 'block';
   statusText.textContent = STATUS_MESSAGES.pending;
@@ -1787,11 +1796,19 @@ async function analyze() {
   }
 }
 
-if (document.getElementById('analyzeBtn')) {
-  document.getElementById('analyzeBtn').addEventListener('click', analyze);
-  document.getElementById('password').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') analyze();
+var loginForm = document.getElementById('loginForm');
+if (loginForm) {
+  loginForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    analyze();
   });
+  try {
+    var cred = JSON.parse(sessionStorage.getItem('catalyzer_cred'));
+    if (cred) {
+      document.getElementById('username').value = cred.u;
+      document.getElementById('password').value = cred.p;
+    }
+  } catch (e) {}
 }
 
 // preview.html用: windowにrenderReportを公開
