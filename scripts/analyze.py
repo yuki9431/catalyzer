@@ -578,7 +578,7 @@ def data_fixed_partners(all_data, tag_partners=None):
         p_total_kills = sum(d["partner_kills"] for d in data)
         p_total_deaths = sum(d["partner_deaths"] for d in data)
         p_kd = p_total_kills / p_total_deaths if p_total_deaths > 0 else 0
-        p_avg_ex = avg([d.get("partner_ex_dmg", 0) for d in data])
+        p_avg_ex = avg([d["partner_ex_dmg"] for d in data])
         p_burst_counts = [len(get_burst_events(d["partner_actions"])) for d in data if d.get("partner_actions")]
         p_bursts = avg(p_burst_counts) if p_burst_counts else None
 

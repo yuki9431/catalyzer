@@ -1102,65 +1102,6 @@ function WinRateBarChart({ items }) {
 }
 
 // 勝利時/敗北時のメトリクスを並べたグループ棒グラフ
-function WinLossPatternChart({ metrics }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !metrics || !metrics.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-    var labels = metrics.map(function (m) { return m.label; });
-    var diffs = metrics.map(function (m) {
-      var base = Math.max(Math.abs(m.win_avg), Math.abs(m.loss_avg), 0.001);
-      return +((m.win_avg - m.loss_avg) / base * 100).toFixed(1);
-    });
-    var colors = diffs.map(function (d) {
-      if (d > 0) return 'rgba(105, 240, 174, 0.7)';
-      if (d < 0) return 'rgba(239, 83, 80, 0.7)';
-      return 'rgba(136, 160, 179, 0.5)';
-    });
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: '勝利時 vs 敗北時（差分%）',
-          data: diffs,
-          backgroundColor: colors,
-          borderWidth: 0,
-        }],
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function (ctx) {
-                var m = metrics[ctx.dataIndex];
-                return '勝利: ' + m.win_avg + ' / 敗北: ' + m.loss_avg + ' (差: ' + ctx.parsed.x.toFixed(1) + '%)';
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: '#aaa', callback: function (v) { return v + '%'; } },
-            grid: { color: 'rgba(255,255,255,0.08)' },
-          },
-          y: { ticks: { color: '#888', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-        },
-      },
-    });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [metrics, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
-}
-
 // ダメージ貢献率チャート（全体/勝利時/敗北時）
 function DmgContributionChart({ dmg }) {
   var containerRef = useRef(null);

@@ -84,9 +84,9 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
-- `scripts/analyze.py` — Python分析: カテゴリ別アドバイス、勝率、与被ダメ比、固定相方検出、JSON構造化レポート生成
-- `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応）
-- `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）
+- `scripts/analyze.py` — Python分析: 勝率、与被ダメ比、固定相方検出（K/D・EXダメ・覚醒回数・勝敗パターン付き）、JSON構造化レポート生成
+- `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
+- `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Report（状態管理）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、FixedPartnerPanel（レンズ対応6軸レーダー）、各種Chart/集計関数
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
