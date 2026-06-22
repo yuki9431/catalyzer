@@ -150,6 +150,7 @@ def get_my_data(match, cost_map=None):
         "partner_deaths": p2["deaths"],
         "partner_dmg_given": p2["give_damage"],
         "partner_dmg_taken": p2["receive_damage"],
+        "partner_ex_dmg": p2["ex_damage"],
         "enemy_ms": [
             players[2]["ms_name"].strip() or "(不明)",
             players[3]["ms_name"].strip() or "(不明)",
@@ -561,6 +562,11 @@ def data_fixed_partners(all_data, tag_partners=None):
         my_eff = dmg_efficiency(data)
         my_avg_given = avg([d["dmg_given"] for d in data])
         my_avg_taken = avg([d["dmg_taken"] for d in data])
+        my_total_kills = sum(d["kills"] for d in data)
+        my_total_deaths = sum(d["deaths"] for d in data)
+        my_kd = my_total_kills / my_total_deaths if my_total_deaths > 0 else 0
+        my_avg_ex = avg([d["ex_dmg"] for d in data])
+        my_bursts = avg_bursts(data)
 
         p_avg_given = avg([d["partner_dmg_given"] for d in data])
         p_avg_taken = avg([d["partner_dmg_taken"] for d in data])
@@ -569,6 +575,12 @@ def data_fixed_partners(all_data, tag_partners=None):
         p_eff = p_total_given / p_total_taken if p_total_taken > 0 else 0
         p_avg_kills = avg([d["partner_kills"] for d in data])
         p_avg_deaths = avg([d["partner_deaths"] for d in data])
+        p_total_kills = sum(d["partner_kills"] for d in data)
+        p_total_deaths = sum(d["partner_deaths"] for d in data)
+        p_kd = p_total_kills / p_total_deaths if p_total_deaths > 0 else 0
+        p_avg_ex = avg([d.get("partner_ex_dmg", 0) for d in data])
+        p_burst_counts = [len(get_burst_events(d["partner_actions"])) for d in data if d.get("partner_actions")]
+        p_bursts = avg(p_burst_counts) if p_burst_counts else None
 
         # 相方の使用機体別
         partner_ms_stats = defaultdict(list)
@@ -589,6 +601,48 @@ def data_fixed_partners(all_data, tag_partners=None):
                     "win_rate": round(ms_wr, 1),
                     "partner_dmg_efficiency": round(ms_p_eff, 3),
                 })
+
+        win_data = [d for d in data if d["win"]]
+        loss_data = [d for d in data if not d["win"]]
+
+        def _avg_of(key, rows):
+            return avg([d[key] for d in rows]) if rows else 0
+
+        def _kd_of(k_key, d_key, rows):
+            tk = sum(d[k_key] for d in rows)
+            td = sum(d[d_key] for d in rows)
+            return tk / td if td > 0 else 0
+
+        def _eff_of(g_key, t_key, rows):
+            tg = sum(d[g_key] for d in rows)
+            tt = sum(d[t_key] for d in rows)
+            return tg / tt if tt > 0 else 0
+
+        def _bursts_of(action_key, rows):
+            counts = [len(get_burst_events(d[action_key])) for d in rows if d.get(action_key)]
+            return avg(counts) if counts else None
+
+        def _rnd(v, nd):
+            return round(v, nd) if v is not None else None
+
+        def _make_wl_metrics(g_key, t_key, k_key, d_key, ex_key, act_key):
+            metrics = []
+
+            def add(label, w, l, nd):
+                metrics.append({"label": label, "win_avg": _rnd(w, nd), "loss_avg": _rnd(l, nd)})
+
+            add("平均与ダメージ", _avg_of(g_key, win_data), _avg_of(g_key, loss_data), 1)
+            add("平均被ダメージ", _avg_of(t_key, win_data), _avg_of(t_key, loss_data), 1)
+            add("与被ダメ比", _eff_of(g_key, t_key, win_data), _eff_of(g_key, t_key, loss_data), 3)
+            add("平均撃墜", _avg_of(k_key, win_data), _avg_of(k_key, loss_data), 2)
+            add("平均被撃墜", _avg_of(d_key, win_data), _avg_of(d_key, loss_data), 2)
+            add("K/D比", _kd_of(k_key, d_key, win_data), _kd_of(k_key, d_key, loss_data), 2)
+            add("平均EXダメージ", _avg_of(ex_key, win_data), _avg_of(ex_key, loss_data), 1)
+            add("平均覚醒回数", _bursts_of(act_key, win_data), _bursts_of(act_key, loss_data), 2)
+            return {"metrics": metrics}
+
+        my_wl = _make_wl_metrics("dmg_given", "dmg_taken", "kills", "deaths", "ex_dmg", "actions")
+        partner_wl = _make_wl_metrics("partner_dmg_given", "partner_dmg_taken", "partner_kills", "partner_deaths", "partner_ex_dmg", "partner_actions")
 
         tips = []
         if p_eff < 0.8:
@@ -617,6 +671,9 @@ def data_fixed_partners(all_data, tag_partners=None):
                 "dmg_efficiency": round(my_eff, 3),
                 "avg_kills": round(avg([d["kills"] for d in data]), 2),
                 "avg_deaths": round(avg([d["deaths"] for d in data]), 2),
+                "kd_ratio": round(my_kd, 2),
+                "avg_ex_dmg": round(my_avg_ex),
+                "avg_bursts": round(my_bursts, 2) if my_bursts is not None else None,
             },
             "partner_stats": {
                 "avg_dmg_given": round(p_avg_given),
@@ -624,7 +681,12 @@ def data_fixed_partners(all_data, tag_partners=None):
                 "dmg_efficiency": round(p_eff, 3),
                 "avg_kills": round(p_avg_kills, 2),
                 "avg_deaths": round(p_avg_deaths, 2),
+                "kd_ratio": round(p_kd, 2),
+                "avg_ex_dmg": round(p_avg_ex),
+                "avg_bursts": round(p_bursts, 2) if p_bursts is not None else None,
             },
+            "my_win_loss_pattern": my_wl,
+            "partner_win_loss_pattern": partner_wl,
             "partner_ms_breakdown": ms_breakdown,
             "tips": tips,
         }

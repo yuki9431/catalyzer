@@ -224,10 +224,12 @@ function SubSection({ title, open, children }) {
 
 var DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
-function CalendarPicker({ selectedDate, onSelect }) {
-  var now = selectedDate ? new Date(selectedDate) : new Date();
-  var viewRef = useState({ year: now.getFullYear(), month: now.getMonth() });
+function RangeCalendar({ startDate, endDate, onSelectStart, onSelectEnd }) {
+  var init = startDate ? new Date(startDate) : new Date();
+  var viewRef = useState({ year: init.getFullYear(), month: init.getMonth() });
   var view = viewRef[0], setView = viewRef[1];
+  var phaseRef = useState(startDate ? (endDate ? 'done' : 'end') : 'start');
+  var phase = phaseRef[0], setPhase = phaseRef[1];
 
   function prevMonth() {
     setView(function (v) {
@@ -250,33 +252,51 @@ function CalendarPicker({ selectedDate, onSelect }) {
   for (var d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length < 42) cells.push(null);
 
-  var selStr = selectedDate || '';
-
-  function isSelected(day) {
-    if (!day || !selStr) return false;
-    var m = String(view.month + 1).padStart(2, '0');
-    var dd = String(day).padStart(2, '0');
-    return selStr === view.year + '-' + m + '-' + dd;
+  function toStr(day) {
+    return view.year + '-' + String(view.month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
   }
 
   function handleClick(day) {
     if (!day) return;
-    var m = String(view.month + 1).padStart(2, '0');
-    var dd = String(day).padStart(2, '0');
-    onSelect(view.year + '-' + m + '-' + dd);
+    var s = toStr(day);
+    if (phase === 'start' || phase === 'done') {
+      onSelectStart(s);
+      onSelectEnd('');
+      setPhase('end');
+    } else {
+      if (s < startDate) {
+        onSelectStart(s);
+        onSelectEnd('');
+      } else {
+        onSelectEnd(s);
+        setPhase('done');
+      }
+    }
   }
+
+  function dayClass(day) {
+    if (!day) return '';
+    var s = toStr(day);
+    var cls = 'cal-day';
+    if (s === startDate || s === endDate) cls += ' selected';
+    else if (startDate && endDate && s > startDate && s < endDate) cls += ' in-range';
+    return cls;
+  }
+
+  var hint = phase === 'start' || phase === 'done' ? '▶ 開始日を選択' : '▶ 終了日を選択';
 
   return html`<div class="cal">
     <div class="cal-header">
-      <button class="cal-nav" onClick=${prevMonth}>\u25C0</button>
+      <button class="cal-nav" onClick=${prevMonth}>◀</button>
       <span class="cal-title">${view.year}年${view.month + 1}月</span>
-      <button class="cal-nav" onClick=${nextMonth}>\u25B6</button>
+      <button class="cal-nav" onClick=${nextMonth}>▶</button>
     </div>
+    <div style="text-align:center;font-size:0.8em;color:var(--accent);margin-bottom:4px">${hint}</div>
     <div class="cal-grid">
       ${DOW_LABELS.map(function (d) { return html`<span class="cal-dow">${d}</span>`; })}
       ${cells.map(function (day) {
         if (!day) return html`<span class="cal-empty" />`;
-        return html`<button class=${'cal-day' + (isSelected(day) ? ' selected' : '')}
+        return html`<button class=${dayClass(day)}
           onClick=${function () { handleClick(day); }}>${day}</button>`;
       })}
     </div>
@@ -414,20 +434,25 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
       ${showCustom && html`<div class="period-custom">
         <div class="period-custom-range">
           <div class="period-custom-col">
-            <span class="period-custom-title">開始</span>
-            <span class="period-custom-value">${startDate || '日付を選択'}${showTime ? ' ' + String(startHour).padStart(2, '0') + ':' + String(startMin).padStart(2, '0') : ''}</span>
-            <${CalendarPicker} selectedDate=${startDate} onSelect=${setStartDate} />
-            ${showTime && html`<${TimeSelector} hour=${startHour} minute=${startMin}
-              onChangeHour=${setStartHour} onChangeMinute=${setStartMin} />`}
+            <span class="period-custom-title">開始: ${startDate || '未選択'}${showTime ? ' ' + String(startHour).padStart(2, '0') + ':' + String(startMin).padStart(2, '0') : ''}</span>
           </div>
           <div class="period-custom-col">
-            <span class="period-custom-title">終了</span>
-            <span class="period-custom-value">${endDate || '日付を選択'}${showTime ? ' ' + String(endHour).padStart(2, '0') + ':' + String(endMin).padStart(2, '0') : ''}</span>
-            <${CalendarPicker} selectedDate=${endDate} onSelect=${setEndDate} />
-            ${showTime && html`<${TimeSelector} hour=${endHour} minute=${endMin}
-              onChangeHour=${setEndHour} onChangeMinute=${setEndMin} isEnd />`}
+            <span class="period-custom-title">終了: ${endDate || '未選択'}${showTime ? ' ' + String(endHour).padStart(2, '0') + ':' + String(endMin).padStart(2, '0') : ''}</span>
           </div>
         </div>
+        <${RangeCalendar} startDate=${startDate} endDate=${endDate} onSelectStart=${setStartDate} onSelectEnd=${setEndDate} />
+        ${showTime && html`<div class="period-custom-range" style="margin-top:8px">
+          <div class="period-custom-col">
+            <span style="font-size:0.8em;color:var(--muted)">開始時刻</span>
+            <${TimeSelector} hour=${startHour} minute=${startMin}
+              onChangeHour=${setStartHour} onChangeMinute=${setStartMin} />
+          </div>
+          <div class="period-custom-col">
+            <span style="font-size:0.8em;color:var(--muted)">終了時刻</span>
+            <${TimeSelector} hour=${endHour} minute=${endMin}
+              onChangeHour=${setEndHour} onChangeMinute=${setEndMin} isEnd />
+          </div>
+        </div>`}
         <button class="period-time-toggle" onClick=${function () { setShowTime(!showTime); }}>
           ${showTime ? '時刻指定を解除' : '時刻を指定'}</button>
         <button class="period-custom-apply" onClick=${handleCustomApply} disabled=${isLoading}>
@@ -598,66 +623,6 @@ function PartnerSection({ partners }) {
   </div>`;
 }
 
-function MsStatsDetail({ ms }) {
-  if (!ms) return null;
-  return html`<div>
-    <${SubSection} title="基本データ" open>
-      <${BasicStatsSection} stats=${ms.basic_stats} />
-    <//>
-    <${SubSection} title="被撃墜数と勝率">
-      <${DeathsImpactSubSection} deaths=${ms.deaths_impact} />
-    <//>
-    <${SubSection} title="勝利時/敗北時の傾向">
-      <${WinLossPatternSection} pattern=${ms.win_loss_pattern} />
-    <//>
-    <${SubSection} title="敵機体との相性">
-      <${EnemyMatchupSection} matchup=${ms.enemy_matchup} />
-    <//>
-    <${SubSection} title="相方機体との相性">
-      <${PartnerSection} partners=${ms.partner} />
-    <//>
-    <${SubSection} title="編成別勝率">
-      <${MsPairSubSection} msPair=${ms.ms_pair} />
-    <//>
-    <${SubSection} title="コスト編成別勝率">
-      <${CostPairSubSection} costPair=${ms.cost_pair} />
-    <//>
-    <${SubSection} title="ダメージ貢献率">
-      <${DmgContributionSubSection} dmg=${ms.dmg_contribution} />
-    <//>
-    ${ms.fall_order && html`<${SubSection} title="先落ち/後落ち分析">
-      <${FallOrderContent} fallOrder=${ms.fall_order} />
-    <//>`}
-    ${ms.burst_hold_death && html`<${SubSection} title="覚醒抱え落ち">
-      <${BurstHoldDeathContent} holdData=${ms.burst_hold_death} />
-    <//>`}
-    ${ms.burst_count && html`<${SubSection} title="覚醒回数">
-      <${BurstCountContent} countData=${ms.burst_count} />
-    <//>`}
-  </div>`;
-}
-
-function MsStatsSection({ msStats }) {
-  if (!msStats) return null;
-  var entries = Object.keys(msStats).sort(function (a, b) {
-    return msStats[b].matches - msStats[a].matches;
-  });
-  if (!entries.length) return null;
-  var selRef = useState(entries[0]);
-  var sel = selRef[0], setSel = selRef[1];
-  // 期間切替などで選択中の機体が消えても先頭(最多使用)にフォールバック
-  var current = msStats[sel] ? sel : entries[0];
-  return html`<${Panel} title="機体別分析">
-    <div class="ms-select-wrap">
-      <select class="ms-select" value=${current} onChange=${function (e) { setSel(e.target.value); }}>
-        ${entries.map(function (name) {
-          return html`<option value=${name}>${esc(name)}</option>`;
-        })}
-      </select>
-    </div>
-    <${MsStatsDetail} ms=${msStats[current]} />
-  <//>`;
-}
 
 function MsPairSubSection({ msPair }) {
   if (!msPair) return null;
@@ -1095,6 +1060,139 @@ function SeasonChart({ seasons }) {
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
+// --- Reusable win-rate bar chart (categories + win rate + match count) ---
+
+function WinRateBarChart({ items }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current || !items || !items.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+    var labels = items.map(function (i) { return i.label; });
+    var rates = items.map(function (i) { return i.win_rate; });
+    var counts = items.map(function (i) { return i.matches; });
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: '勝率 (%)', data: rates, backgroundColor: rates.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.3)'; }), borderWidth: 0, yAxisID: 'y' },
+          { label: '試合数', data: counts, type: 'line', borderColor: '#81d4fa', fill: false, tension: 0.3, pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y1' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: '#aaa', font: { size: 12 } } } },
+        scales: {
+          x: { ticks: { color: '#888', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { position: 'left', min: 0, max: 100, ticks: { color: '#aaa', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.08)' } },
+          y1: { position: 'right', min: 0, ticks: { color: '#aaa', stepSize: 1 }, grid: { display: false } },
+        },
+      },
+      plugins: [winRate50Plugin],
+    });
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [items, inView]);
+
+  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
+// 勝利時/敗北時のメトリクスを並べたグループ棒グラフ
+function WinLossPatternChart({ metrics }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current || !metrics || !metrics.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+    var labels = metrics.map(function (m) { return m.label; });
+    var diffs = metrics.map(function (m) {
+      var base = Math.max(Math.abs(m.win_avg), Math.abs(m.loss_avg), 0.001);
+      return +((m.win_avg - m.loss_avg) / base * 100).toFixed(1);
+    });
+    var colors = diffs.map(function (d) {
+      if (d > 0) return 'rgba(105, 240, 174, 0.7)';
+      if (d < 0) return 'rgba(239, 83, 80, 0.7)';
+      return 'rgba(136, 160, 179, 0.5)';
+    });
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '勝利時 vs 敗北時（差分%）',
+          data: diffs,
+          backgroundColor: colors,
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                var m = metrics[ctx.dataIndex];
+                return '勝利: ' + m.win_avg + ' / 敗北: ' + m.loss_avg + ' (差: ' + ctx.parsed.x.toFixed(1) + '%)';
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#aaa', callback: function (v) { return v + '%'; } },
+            grid: { color: 'rgba(255,255,255,0.08)' },
+          },
+          y: { ticks: { color: '#888', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        },
+      },
+    });
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [metrics, inView]);
+
+  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
+// ダメージ貢献率チャート（全体/勝利時/敗北時）
+function DmgContributionChart({ dmg }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current || !dmg || !dmg.by_cost || !dmg.by_cost.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+    var c = dmg.by_cost[0];
+    var labels = ['全体', '勝利時', '敗北時'];
+    var values = [c.avg_contribution || 0, c.avg_win_contribution || 0, c.avg_lose_contribution || 0];
+    var colors = ['rgba(129, 212, 250, 0.5)', 'rgba(105, 240, 174, 0.6)', 'rgba(239, 83, 80, 0.6)'];
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: '貢献率 (%)', data: values, backgroundColor: colors, borderWidth: 0 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return '貢献率: ' + ctx.parsed.y.toFixed(1) + '%'; } } } },
+        scales: {
+          x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { min: 0, max: 100, ticks: { color: '#aaa', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.08)' } },
+        },
+      },
+    });
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [dmg, inView]);
+
+  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
 // --- Fall order / Burst before death ---
 
 function FallOrderContent({ fallOrder }) {
@@ -1143,6 +1241,161 @@ function BurstCountContent({ countData }) {
   </div>`;
 }
 
+// --- Aggregation helpers (for 全機体 view) ---
+
+function aggregateDeathsImpact(msStats) {
+  var bucketMap = {};
+  Object.keys(msStats).forEach(function (ms) {
+    var di = msStats[ms].deaths_impact;
+    if (!di) return;
+    di.forEach(function (d) {
+      (d.buckets || []).forEach(function (b) {
+        if (!bucketMap[b.label]) bucketMap[b.label] = { label: b.label, matches: 0, wins: 0 };
+        bucketMap[b.label].matches += b.matches;
+        bucketMap[b.label].wins += Math.round(b.win_rate / 100 * b.matches);
+      });
+    });
+  });
+  var buckets = Object.values(bucketMap).map(function (b) {
+    return { label: b.label, matches: b.matches, win_rate: b.matches > 0 ? b.wins / b.matches * 100 : 0 };
+  });
+  if (!buckets.length) return null;
+  return [{ buckets: buckets }];
+}
+
+function aggregateFallOrder(msStats) {
+  var total = 0;
+  var cats = { no_fall: { count: 0, wins: 0 }, first_fall: { count: 0, wins: 0 }, second_fall: { count: 0, wins: 0 }, same_time: { count: 0, wins: 0 } };
+  Object.keys(msStats).forEach(function (ms) {
+    var fo = msStats[ms].fall_order;
+    if (!fo) return;
+    total += fo.total || 0;
+    ['no_fall', 'first_fall', 'second_fall', 'same_time'].forEach(function (k) {
+      if (fo[k]) {
+        cats[k].count += fo[k].count || 0;
+        cats[k].wins += Math.round((fo[k].win_rate || 0) / 100 * (fo[k].count || 0));
+      }
+    });
+  });
+  if (total === 0) return null;
+  function mkCat(c) {
+    return { count: c.count, rate: total > 0 ? (c.count / total * 100).toFixed(1) : '0.0', win_rate: c.count > 0 ? c.wins / c.count * 100 : 0, avg_dmg_given: null, avg_dmg_taken: null, dmg_efficiency: null };
+  }
+  return { total: total, no_fall: mkCat(cats.no_fall), first_fall: mkCat(cats.first_fall), second_fall: mkCat(cats.second_fall), same_time: mkCat(cats.same_time) };
+}
+
+function aggregateDmgContribution(msStats) {
+  var totalMatches = 0, totalContrib = 0, totalWinContrib = 0, totalWinMatches = 0, totalLoseContrib = 0, totalLoseMatches = 0;
+  Object.keys(msStats).forEach(function (ms) {
+    var dc = msStats[ms].dmg_contribution;
+    if (!dc || !dc.by_cost) return;
+    dc.by_cost.forEach(function (c) {
+      var bs = msStats[ms].basic_stats;
+      var wr = bs ? bs.win_rate / 100 : 0.5;
+      var wm = Math.round(c.matches * wr);
+      totalMatches += c.matches;
+      totalContrib += (c.avg_contribution || 0) * c.matches;
+      if (c.avg_win_contribution != null) {
+        totalWinContrib += c.avg_win_contribution * wm;
+        totalWinMatches += wm;
+      }
+      if (c.avg_lose_contribution != null) {
+        totalLoseContrib += c.avg_lose_contribution * (c.matches - wm);
+        totalLoseMatches += c.matches - wm;
+      }
+    });
+  });
+  if (totalMatches === 0) return null;
+  return { by_cost: [{ matches: totalMatches, avg_contribution: totalContrib / totalMatches, avg_win_contribution: totalWinMatches > 0 ? totalWinContrib / totalWinMatches : null, avg_lose_contribution: totalLoseMatches > 0 ? totalLoseContrib / totalLoseMatches : null }] };
+}
+
+function aggregateBurstCount(msStats) {
+  var countMap = {};
+  Object.keys(msStats).forEach(function (ms) {
+    var bc = msStats[ms].burst_count;
+    if (!bc || !bc.by_count) return;
+    bc.by_count.forEach(function (c) {
+      if (!countMap[c.label]) countMap[c.label] = { label: c.label, matches: 0, wins: 0 };
+      countMap[c.label].matches += c.matches;
+      countMap[c.label].wins += Math.round(c.win_rate / 100 * c.matches);
+    });
+  });
+  var byCount = Object.values(countMap).map(function (c) {
+    return { label: c.label, matches: c.matches, win_rate: c.matches > 0 ? c.wins / c.matches * 100 : 0 };
+  });
+  if (!byCount.length) return null;
+  return { by_count: byCount };
+}
+
+function aggregateBurstHoldDeath(msStats) {
+  var deathMap = {};
+  var noHoldWins = 0, noHoldTotal = 0, total = 0;
+  Object.keys(msStats).forEach(function (ms) {
+    var bh = msStats[ms].burst_hold_death;
+    if (!bh) return;
+    total += bh.total || 0;
+    if (bh.no_hold) {
+      noHoldTotal += bh.no_hold.count || 0;
+      noHoldWins += Math.round((bh.no_hold.win_rate || 0) / 100 * (bh.no_hold.count || 0));
+    }
+    (bh.by_death || []).forEach(function (d) {
+      if (!deathMap[d.label]) deathMap[d.label] = { label: d.label, count: 0, wins: 0 };
+      deathMap[d.label].count += d.count;
+      deathMap[d.label].wins += Math.round(d.win_rate / 100 * d.count);
+    });
+  });
+  if (total === 0) return null;
+  var byDeath = Object.values(deathMap).map(function (d) {
+    return { label: d.label, count: d.count, rate: (d.count / total * 100).toFixed(1), win_rate: d.count > 0 ? d.wins / d.count * 100 : 0 };
+  });
+  return { total: total, by_death: byDeath, no_hold: { count: noHoldTotal, rate: (noHoldTotal / total * 100).toFixed(1), win_rate: noHoldTotal > 0 ? noHoldWins / noHoldTotal * 100 : 0 } };
+}
+
+function aggregateEnemyMatchup(msStats) {
+  var enemyMap = {};
+  Object.keys(msStats).forEach(function (ms) {
+    var em = msStats[ms].enemy_matchup;
+    if (!em) return;
+    ['strong', 'weak', 'even'].forEach(function (cat) {
+      (em[cat] || []).forEach(function (e) {
+        if (!enemyMap[e.ms]) enemyMap[e.ms] = { ms: e.ms, matches: 0, wins: 0, dmgGiven: 0, dmgTaken: 0 };
+        enemyMap[e.ms].matches += e.matches;
+        enemyMap[e.ms].wins += Math.round(e.win_rate / 100 * e.matches);
+        enemyMap[e.ms].dmgGiven += (e.avg_dmg_given || 0) * e.matches;
+        enemyMap[e.ms].dmgTaken += (e.avg_dmg_taken || 0) * e.matches;
+      });
+    });
+  });
+  var all = Object.values(enemyMap).map(function (e) {
+    var wr = e.matches > 0 ? e.wins / e.matches * 100 : 0;
+    var dg = e.matches > 0 ? e.dmgGiven / e.matches : 0;
+    var dt = e.matches > 0 ? e.dmgTaken / e.matches : 0;
+    return { ms: e.ms, matches: e.matches, win_rate: wr, avg_dmg_given: dg, avg_dmg_taken: dt, dmg_efficiency: dt > 0 ? dg / dt : 0 };
+  });
+  return {
+    strong: all.filter(function (e) { return e.win_rate >= 60; }).sort(function (a, b) { return b.matches - a.matches; }),
+    weak: all.filter(function (e) { return e.win_rate <= 40; }).sort(function (a, b) { return b.matches - a.matches; }),
+    even: all.filter(function (e) { return e.win_rate > 40 && e.win_rate < 60; }).sort(function (a, b) { return b.matches - a.matches; }),
+  };
+}
+
+function aggregatePartner(msStats) {
+  var partnerMap = {};
+  Object.keys(msStats).forEach(function (ms) {
+    var partners = msStats[ms].partner;
+    if (!partners) return;
+    partners.forEach(function (p) {
+      if (!partnerMap[p.ms]) partnerMap[p.ms] = { ms: p.ms, matches: 0, wins: 0, de: 0 };
+      partnerMap[p.ms].matches += p.matches;
+      partnerMap[p.ms].wins += Math.round(p.win_rate / 100 * p.matches);
+      partnerMap[p.ms].de += (p.dmg_efficiency || 0) * p.matches;
+    });
+  });
+  return Object.values(partnerMap).map(function (p) {
+    return { ms: p.ms, matches: p.matches, win_rate: p.matches > 0 ? p.wins / p.matches * 100 : 0, dmg_efficiency: p.matches > 0 ? p.de / p.matches : 0 };
+  }).sort(function (a, b) { return b.matches - a.matches; });
+}
+
 // --- Share area ---
 
 function ShareArea({ shareData }) {
@@ -1172,6 +1425,71 @@ function ShareArea({ shareData }) {
     <a href=${bskyUrl} target="_blank" rel="noopener noreferrer" class="share-btn share-bsky" aria-label="Blueskyで共有" dangerouslySetInnerHTML=${{ __html: SVG_BSKY }} />
     <a href=${lineUrl} target="_blank" rel="noopener noreferrer" class="share-btn share-line" aria-label="LINEで共有" dangerouslySetInnerHTML=${{ __html: SVG_LINE }} />
     <${CopyButton} />
+  </div>`;
+}
+
+// --- Hamburger menu & topbar controls ---
+
+function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze }) {
+  useEffect(function () {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return function () { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+  return html`<div>
+    <div class="menu-backdrop" onClick=${onClose} />
+    <div class=${'menu-drawer' + (isOpen ? ' open' : '')}>
+      <div class="menu-header">catalyzer</div>
+      <div class="menu-body">
+        <button class="menu-item" onClick=${function () { onClose(); onReAnalyze(); }}>再分析</button>
+        <div class="menu-divider" />
+        <div style="padding: 8px 16px;">
+          <${ShareArea} shareData=${shareData} />
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function MsSelector({ entries, selected, onSelect }) {
+  var ref = useState(false);
+  var isOpen = ref[0], setIsOpen = ref[1];
+  var containerRef = useRef(null);
+  useEffect(function () {
+    if (!isOpen) return;
+    function handleClick(e) { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); }
+    document.addEventListener('click', handleClick, true);
+    return function () { document.removeEventListener('click', handleClick, true); };
+  }, [isOpen]);
+  var label = selected || '全機体';
+  return html`<div class="ms-topbar-wrap" ref=${containerRef}>
+    <button class="ms-topbar-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+      ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
+    </button>
+    ${isOpen && html`<div class="ms-topbar-backdrop" onClick=${function () { setIsOpen(false); }} />`}
+    ${isOpen && html`<div class="ms-topbar-dropdown">
+      <button class=${'ms-topbar-item' + (!selected ? ' active' : '')}
+        onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
+      ${entries.map(function (e) {
+        return html`<button class=${'ms-topbar-item' + (selected === e.name ? ' active' : '')}
+          onClick=${function () { onSelect(e.name); setIsOpen(false); }}>${esc(e.name)} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
+      })}
+    </div>`}
+  </div>`;
+}
+
+function LensToggle({ lens, onSelect }) {
+  var opts = [['all', '全体'], ['win', '勝利'], ['loss', '敗北']];
+  return html`<div class="lens-toggle">
+    ${opts.map(function (o) {
+      return html`<button class=${'lens-btn' + (lens === o[0] ? ' active' : '')}
+        onClick=${function () { onSelect(o[0]); }}>${o[1]}</button>`;
+    })}
   </div>`;
 }
 
@@ -1258,10 +1576,9 @@ function CompareRadar({ labels, series, showLegend }) {
 
 // 全体・勝利時・敗北時を下のボタンで単一選択し、レーダーとテーブルを連動して切り替える
 // 軸はK/D比(頂点)→被ダメ(右)→EXダメ(下)→与ダメ(左)。勝率は分割で無意味なため含めない
-function BasicLensSection({ basic, pattern }) {
-  var lensRef = useState('all');
-  var lens = lensRef[0], setLens = lensRef[1];
+function BasicLensSection({ basic, pattern, lens }) {
   if (!basic) return null;
+  if (!lens) lens = 'all';
   var metrics = (pattern && pattern.metrics) || [];
   function wm(label) {
     return metrics.find(function (m) { return m.label === label; }) || { win_avg: 0, loss_avg: 0 };
@@ -1306,13 +1623,9 @@ function BasicLensSection({ basic, pattern }) {
   }));
 
   var lensLabel = seriesByLens[lens].label;
-  var opts = [['win', '勝利時'], ['all', '全体'], ['loss', '敗北時']];
   return html`<div class="two-col">
     <div>
       <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[seriesByLens[lens]]} showLegend=${false} />
-      <div class="lens-tabs">${opts.map(function (o) {
-        return html`<button class=${'tab' + (lens === o[0] ? ' active' : '')} onClick=${function () { setLens(o[0]); }}>${o[1]}</button>`;
-      })}</div>
     </div>
     <div class="lens-table">
       <${Table} headers=${['項目', lensLabel]} rows=${rows} />
@@ -1400,16 +1713,125 @@ function MsCompareChart({ entries }) {
   return html`<div class="chart-container" style=${'height:' + h + 'px'} ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
+function PartnerDropdown({ items, idx, onSelect }) {
+  var ref = useState(false);
+  var isOpen = ref[0], setIsOpen = ref[1];
+  var containerRef = useRef(null);
+  useEffect(function () {
+    if (!isOpen) return;
+    function handleClick(e) { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); }
+    document.addEventListener('click', handleClick, true);
+    return function () { document.removeEventListener('click', handleClick, true); };
+  }, [isOpen]);
+  var current = items[idx];
+  var label = current.partner_name + (current.team_name ? ' 【' + current.team_name + '】' : '');
+  return html`<div class="panel-select-wrap" ref=${containerRef}>
+    <button class="panel-select-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+      ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
+    </button>
+    ${isOpen && html`<div class="panel-select-backdrop" onClick=${function () { setIsOpen(false); }} />`}
+    ${isOpen && html`<div class="panel-select-dropdown">
+      ${items.map(function (item, i) {
+        var itemLabel = item.partner_name + (item.team_name ? ' 【' + item.team_name + '】' : '');
+        return html`<button class=${'panel-select-item' + (i === idx ? ' active' : '')}
+          onClick=${function () { onSelect(i); setIsOpen(false); }}>${esc(itemLabel)}</button>`;
+      })}
+    </div>`}
+  </div>`;
+}
+
+function FixedPartnerPanel({ fp, fpItems, lens }) {
+  var idxRef = useState(0);
+  var idx = idxRef[0], setIdx = idxRef[1];
+  var p = fpItems[idx];
+  if (!p) return null;
+  if (!lens) lens = 'all';
+
+  var myWl = (p.my_win_loss_pattern && p.my_win_loss_pattern.metrics) || [];
+  var partnerWl = (p.partner_win_loss_pattern && p.partner_win_loss_pattern.metrics) || [];
+  function wm(metrics, label) {
+    return metrics.find(function (m) { return m.label === label; }) || { win_avg: 0, loss_avg: 0 };
+  }
+  function valFor(metrics, label, allVal) {
+    if (lens === 'all') return allVal;
+    var m = wm(metrics, label);
+    return lens === 'win' ? m.win_avg : m.loss_avg;
+  }
+
+  var specs = [
+    ['平均与ダメージ', p.my_stats.avg_dmg_given, p.partner_stats.avg_dmg_given, colorDmgGiven],
+    ['平均被ダメージ', p.my_stats.avg_dmg_taken, p.partner_stats.avg_dmg_taken, colorDmgTaken],
+    ['与被ダメ比', p.my_stats.dmg_efficiency, p.partner_stats.dmg_efficiency, function (n) { return colorDE(n, 3); }],
+    ['平均撃墜', p.my_stats.avg_kills, p.partner_stats.avg_kills, colorKills],
+    ['平均被撃墜', p.my_stats.avg_deaths, p.partner_stats.avg_deaths, colorDeaths],
+    ['K/D比', p.my_stats.kd_ratio, p.partner_stats.kd_ratio, colorKD],
+    ['平均EXダメージ', p.my_stats.avg_ex_dmg, p.partner_stats.avg_ex_dmg, colorExDmg],
+    ['平均覚醒回数', p.my_stats.avg_bursts, p.partner_stats.avg_bursts, colorBursts],
+  ];
+  var statsRows = specs.map(function (s) {
+    return [s[0], s[3](valFor(myWl, s[0], s[1])), s[3](valFor(partnerWl, s[0], s[2]))];
+  });
+
+  function pVec(stats, wlMetrics) {
+    function v(label, allVal) { return valFor(wlMetrics, label, allVal); }
+    return [
+      clampN(v('平均与ダメージ', stats.avg_dmg_given), 600, 1200),
+      clampN(v('平均撃墜', stats.avg_kills), 0.5, 2.5),
+      clampN(v('平均覚醒回数', stats.avg_bursts), 0, 2.5),
+      clampN(v('平均被ダメージ', stats.avg_dmg_taken), 600, 1200),
+      clampN(v('平均被撃墜', stats.avg_deaths), 0.5, 2.5),
+      clampN(v('平均EXダメージ', stats.avg_ex_dmg), 80, 250),
+    ];
+  }
+
+  var matchesLabel = lens === 'all' ? '試合数' : lens === 'win' ? '勝利数' : '敗北数';
+  var matchesVal = lens === 'all' ? (p.matches + '戦')
+    : lens === 'win' ? (p.wins + '戦') : (p.losses + '戦');
+  var lensLabel = lens === 'all' ? '全体' : lens === 'win' ? '勝利時' : '敗北時';
+
+  var headerRows = [
+    [matchesLabel, matchesVal, '-'],
+    ['勝率', lens === 'all' ? colorPct(p.win_rate) : '-', '-'],
+  ];
+
+  var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [esc(m.ms), m.matches, colorPct(m.win_rate)]; });
+
+  return html`<${Panel} title="固定相方">
+    ${fp.notice && html`<p style="margin-bottom: 12px; color: var(--muted); font-size: 0.9em;">${esc(fp.notice)}</p>`}
+    ${fpItems.length > 1 ? html`<${PartnerDropdown} items=${fpItems} idx=${idx} onSelect=${setIdx} />` : html`<div class="ms-head">
+      <span class="name">${esc(p.partner_name)}${p.team_name ? html` <span class="meta">【${esc(p.team_name)}】</span>` : ''}</span>
+      <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
+    </div>`}
+    <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[
+      { label: '自分 (' + lensLabel + ')', color: '#4fc3f7', bg: 'rgba(79,195,247,.2)', data: pVec(p.my_stats, myWl) },
+      { label: '相方 (' + lensLabel + ')', color: '#ff8a65', bg: 'rgba(255,138,101,.18)', data: pVec(p.partner_stats, partnerWl) },
+    ]} />
+    <${Table} headers=${['項目 (' + lensLabel + ')', '自分', '相方']} rows=${headerRows.concat(statsRows)} />
+    ${msRows.length > 0 && html`<p><strong>相方の使用機体:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
+    <${Tips} tips=${p.tips} />
+  <//>`;
+}
+
 // --- Tab panes ---
 
-function OverviewPane({ pd }) {
-  var seasons = pd.season || [];
+function OverviewPane({ pd, selectedMs, lens, allPd }) {
+  var seasons = allPd.season || [];
+  var msStats = allPd.ms_stats || {};
+  var msEntries = Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; });
+  var compareEntries = msEntries.map(function (name) {
+    return { name: name, winRate: (msStats[name].basic_stats && msStats[name].basic_stats.win_rate) || 0 };
+  });
+
+  var fp = allPd.fixed_partners;
+  var fpList = fp ? (fp.partners || fp) : [];
+  var fpItems = Array.isArray(fpList) ? fpList : [];
 
   return html`<div class="tabpane">
     ${pd.basic_stats && html`<${Panel} title="基本データ">
-      <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} />
+      <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
     <//>`}
-    ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
+
+    ${!selectedMs && seasons.length > 0 && html`<${Panel} title="シーズン別分析">
       ${seasons.length > 1 && html`<${SeasonChart} seasons=${seasons} />`}
       ${seasons.map(function (s) {
         var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
@@ -1421,25 +1843,20 @@ function OverviewPane({ pd }) {
         <//>`;
       })}
     <//>`}
-  </div>`;
-}
 
-function MsPane({ pd }) {
-  var msStats = pd.ms_stats || {};
-  var entries = Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; });
-  if (!entries.length) return html`<div class="tabpane"><${Panel}><p>機体別データがありません。</p><//></div>`;
-  var compareEntries = entries.map(function (name) {
-    return { name: name, winRate: (msStats[name].basic_stats && msStats[name].basic_stats.win_rate) || 0 };
-  });
-  return html`<div class="tabpane">
-    <${Panel} title="機体別の勝率比較">
+    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title="機体別の勝率比較">
       <${MsCompareChart} entries=${compareEntries} />
-    <//>
-    <${MsStatsSection} msStats=${msStats} />
+    <//>`}
+
+    ${fpItems.length > 0 && html`<${FixedPartnerPanel} fp=${fp} fpItems=${fpItems} lens=${lens} />`}
+
+    ${!fpItems.length && fp && fp.notice && html`<${Panel} title="固定相方">
+      <p>${esc(fp.notice)}</p>
+    <//>`}
   </div>`;
 }
 
-function TimePane({ pd }) {
+function TimePane({ pd, selectedMs }) {
   var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend;
   var timeRows = time && time.hours ? time.hours.map(function (h) {
     return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
@@ -1455,6 +1872,7 @@ function TimePane({ pd }) {
   });
 
   return html`<div class="tabpane">
+    ${selectedMs && html`<div class="info-note">※ 時間帯データは全機体の集計です（機体別の時間帯分析は今後対応予定）</div>`}
     ${time && time.hours && time.hours.length > 0 && html`<${Panel} title="時間帯別の勝率">
       <${TimeOfDayChart} hours=${time.hours} />
       <${Tips} tips=${time.tips} />
@@ -1480,43 +1898,145 @@ function TimePane({ pd }) {
   </div>`;
 }
 
-function PartnerPane({ pd }) {
-  var fp = pd.fixed_partners;
-  var list = fp ? (fp.partners || fp) : [];
-  var items = Array.isArray(list) ? list : [];
-  if (!items.length) {
-    return html`<div class="tabpane"><${Panel} title="固定相方分析">
-      <p>${esc(fp && fp.notice ? fp.notice : '固定相方として集計できる組み合わせがありませんでした。')}</p>
-    <//></div>`;
+// --- New tab panes ---
+
+function PlaystylePane({ msStats, selectedMs }) {
+  var deaths, fallOrder, dmg;
+  if (selectedMs && msStats[selectedMs]) {
+    var ms = msStats[selectedMs];
+    deaths = ms.deaths_impact;
+    fallOrder = ms.fall_order;
+    dmg = ms.dmg_contribution;
+  } else {
+    deaths = aggregateDeathsImpact(msStats);
+    fallOrder = aggregateFallOrder(msStats);
+    dmg = aggregateDmgContribution(msStats);
   }
-  function pVec(s) {
-    return [clampN(s.avg_dmg_given, 600, 1200), clampN(1200 - s.avg_dmg_taken, 200, 600), clampN(s.dmg_efficiency, 0.6, 1.4)];
+
+  var deathItems = [];
+  if (deaths) {
+    deaths.forEach(function (d) {
+      (d.buckets || []).forEach(function (b) { deathItems.push(b); });
+    });
   }
+
+  var fallItems = [];
+  if (fallOrder) {
+    ['no_fall', 'first_fall', 'second_fall', 'same_time'].forEach(function (k) {
+      if (fallOrder[k] && fallOrder[k].count > 0) {
+        var labels = { no_fall: '0落ち', first_fall: '先落ち', second_fall: '後落ち', same_time: '同時落ち' };
+        fallItems.push({ name: labels[k], winRate: fallOrder[k].win_rate });
+      }
+    });
+  }
+
   return html`<div class="tabpane">
-    ${fp.notice && html`<${Panel}><p>${esc(fp.notice)}</p><//>`}
-    ${items.map(function (p) {
-      var statsRows = [
-        ['平均与ダメージ', colorDmgGiven(p.my_stats.avg_dmg_given), colorDmgGiven(p.partner_stats.avg_dmg_given)],
-        ['平均被ダメージ', colorDmgTaken(p.my_stats.avg_dmg_taken), colorDmgTaken(p.partner_stats.avg_dmg_taken)],
-        ['与被ダメ比', colorDE(p.my_stats.dmg_efficiency, 3), colorDE(p.partner_stats.dmg_efficiency, 3)],
-        ['平均撃墜', colorKills(p.my_stats.avg_kills), colorKills(p.partner_stats.avg_kills)],
-        ['平均被撃墜', colorDeaths(p.my_stats.avg_deaths), colorDeaths(p.partner_stats.avg_deaths)],
-      ];
-      var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [esc(m.ms), m.matches, colorPct(m.win_rate)]; });
-      return html`<${Panel}>
-        <div class="ms-head">
-          <span class="name">${esc(p.partner_name)}${p.team_name ? html` <span class="meta">【${esc(p.team_name)}】</span>` : ''}</span>
-          <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
-        </div>
-        <${CompareRadar} labels=${['与ダメ', '被ダメ耐性', '与被ダメ比']} series=${[
-          { label: '自分', color: '#4fc3f7', bg: 'rgba(79,195,247,.2)', data: pVec(p.my_stats) },
-          { label: '相方', color: '#ff8a65', bg: 'rgba(255,138,101,.18)', data: pVec(p.partner_stats) },
-        ]} />
-        <${Table} headers=${['項目', '自分', '相方']} rows=${statsRows} />
-        ${msRows.length > 0 && html`<p><strong>相方の使用機体:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
-        <${Tips} tips=${p.tips} />
-      <//>`;
-    })}
+    ${deaths && deathItems.length > 0 && html`<${Panel} title="被撃墜数と勝率">
+      <${WinRateBarChart} items=${deathItems} />
+      <${DeathsImpactSubSection} deaths=${deaths} />
+    <//>`}
+
+    ${fallOrder && html`<${Panel} title="先落ち/後落ち分析">
+      ${fallItems.length > 0 && html`<${MsCompareChart} entries=${fallItems} />`}
+      <${FallOrderContent} fallOrder=${fallOrder} />
+    <//>`}
+
+    ${dmg && html`<${Panel} title="ダメージ貢献率">
+      <${DmgContributionChart} dmg=${dmg} />
+      <${DmgContributionSubSection} dmg=${dmg} />
+    <//>`}
+
+    ${!deaths && !fallOrder && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
+  </div>`;
+}
+
+function BurstPane({ msStats, selectedMs }) {
+  var burstCount, burstHold;
+  if (selectedMs && msStats[selectedMs]) {
+    var ms = msStats[selectedMs];
+    burstCount = ms.burst_count;
+    burstHold = ms.burst_hold_death;
+  } else {
+    burstCount = aggregateBurstCount(msStats);
+    burstHold = aggregateBurstHoldDeath(msStats);
+  }
+
+  var countItems = burstCount && burstCount.by_count ? burstCount.by_count : [];
+  var holdItems = [];
+  if (burstHold) {
+    (burstHold.by_death || []).filter(function (d) { return d.count > 0; }).forEach(function (d) {
+      holdItems.push({ label: d.label, matches: d.count, win_rate: d.win_rate });
+    });
+    if (burstHold.no_hold && burstHold.no_hold.count > 0) {
+      holdItems.push({ label: '抱え落ちなし', matches: burstHold.no_hold.count, win_rate: burstHold.no_hold.win_rate });
+    }
+  }
+
+  return html`<div class="tabpane">
+    ${countItems.length > 0 && html`<${Panel} title="覚醒回数と勝率">
+      <${WinRateBarChart} items=${countItems} />
+      <${BurstCountContent} countData=${burstCount} />
+    <//>`}
+
+    ${holdItems.length > 0 && html`<${Panel} title="覚醒抱え落ち">
+      <${WinRateBarChart} items=${holdItems} />
+      <${BurstHoldDeathContent} holdData=${burstHold} />
+    <//>`}
+
+    ${!countItems.length && !holdItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
+  </div>`;
+}
+
+function MatchupPane({ msStats, selectedMs }) {
+  if (selectedMs && msStats[selectedMs]) {
+    var ms = msStats[selectedMs];
+    var enemyStrong = (ms.enemy_matchup && ms.enemy_matchup.strong || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
+    var enemyWeak = (ms.enemy_matchup && ms.enemy_matchup.weak || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
+    var partnerEntries = (ms.partner || []).slice(0, 10).map(function (p) { return { name: p.ms, winRate: p.win_rate }; });
+    var msPairEntries = (ms.ms_pair && ms.ms_pair.by_matches || []).slice(0, 10).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
+    var costPairEntries = (ms.cost_pair || []).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
+
+    return html`<div class="tabpane">
+      ${ms.enemy_matchup && html`<${Panel} title="敵機体との相性">
+        ${enemyStrong.length > 0 && html`<h3>得意な相手</h3><${MsCompareChart} entries=${enemyStrong} />`}
+        ${enemyWeak.length > 0 && html`<h3>苦手な相手</h3><${MsCompareChart} entries=${enemyWeak} />`}
+        <${EnemyMatchupSection} matchup=${ms.enemy_matchup} />
+      <//>`}
+
+      ${ms.partner && ms.partner.length > 0 && html`<${Panel} title="相方機体との相性">
+        <${MsCompareChart} entries=${partnerEntries} />
+        <${PartnerSection} partners=${ms.partner} />
+      <//>`}
+
+      ${ms.ms_pair && html`<${Panel} title="編成別勝率">
+        ${msPairEntries.length > 0 && html`<${MsCompareChart} entries=${msPairEntries} />`}
+        <${MsPairSubSection} msPair=${ms.ms_pair} />
+      <//>`}
+
+      ${ms.cost_pair && ms.cost_pair.length > 0 && html`<${Panel} title="コスト編成別勝率">
+        <${MsCompareChart} entries=${costPairEntries} />
+        <${CostPairSubSection} costPair=${ms.cost_pair} />
+      <//>`}
+    </div>`;
+  }
+
+  var agg = aggregateEnemyMatchup(msStats);
+  var aggPartner = aggregatePartner(msStats);
+  var aggStrong = (agg.strong || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
+  var aggWeak = (agg.weak || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
+  var aggPartnerEntries = aggPartner.slice(0, 10).map(function (p) { return { name: p.ms, winRate: p.win_rate }; });
+
+  return html`<div class="tabpane">
+    <${Panel} title="敵機体との相性（全機体集計）">
+      ${aggStrong.length > 0 && html`<h3>得意な相手</h3><${MsCompareChart} entries=${aggStrong} />`}
+      ${aggWeak.length > 0 && html`<h3>苦手な相手</h3><${MsCompareChart} entries=${aggWeak} />`}
+      <${EnemyMatchupSection} matchup=${agg} />
+    <//>
+
+    ${aggPartnerEntries.length > 0 && html`<${Panel} title="相方機体との相性（全機体集計）">
+      <${MsCompareChart} entries=${aggPartnerEntries} />
+      <${PartnerSection} partners=${aggPartner} />
+    <//>`}
   </div>`;
 }
 
@@ -1524,9 +2044,10 @@ function PartnerPane({ pd }) {
 
 var TAB_DEFS = [
   ['overview', '総合'],
-  ['ms', '機体別'],
-  ['time', '時間帯・曜日'],
-  ['partner', '固定相方'],
+  ['playstyle', '立ち回り'],
+  ['burst', '覚醒'],
+  ['matchup', '機体相性'],
+  ['time', '時間帯'],
 ];
 
 function reAnalyze() {
@@ -1547,11 +2068,34 @@ function Report({ data, userKey }) {
   var customData = customDataRef[0], setCustomData = customDataRef[1];
   var tabRef = useState('overview');
   var activeTab = tabRef[0], setActiveTab = tabRef[1];
+  var msRef = useState(null);
+  var selectedMs = msRef[0], setSelectedMs = msRef[1];
+  var lensRef = useState('all');
+  var lens = lensRef[0], setLens = lensRef[1];
+  var menuRef = useState(false);
+  var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
 
   var periods = data.periods || {};
   var allPeriods = customData ? Object.assign({}, periods, { custom: customData.periods.custom }) : periods;
   var pd = allPeriods[selectedPeriod] || allPeriods['all'];
   if (!pd) return null;
+
+  var msStats = pd.ms_stats || {};
+  var msEntries = useMemo(function () {
+    return Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; }).map(function (name) {
+      return { name: name, matches: msStats[name].matches };
+    });
+  }, [msStats]);
+
+  useEffect(function () {
+    if (selectedMs && !msStats[selectedMs]) setSelectedMs(null);
+  }, [pd]);
+
+  var effectivePd = useMemo(function () {
+    if (!selectedMs || !msStats[selectedMs]) return pd;
+    var ms = msStats[selectedMs];
+    return { basic_stats: ms.basic_stats, win_loss_pattern: ms.win_loss_pattern };
+  }, [pd, selectedMs]);
 
   var shareData = selectedPeriod === 'custom' && customData ? customData.share_data : data.share_data;
   var summary = pd.summary;
@@ -1561,21 +2105,34 @@ function Report({ data, userKey }) {
     setSelectedPeriod('custom');
   }
 
-  // アクティブなタブのみレンダリング（非表示canvasの0サイズ描画を回避）
-  var pane = activeTab === 'ms' ? html`<${MsPane} pd=${pd} />`
-    : activeTab === 'time' ? html`<${TimePane} pd=${pd} />`
-    : activeTab === 'partner' ? html`<${PartnerPane} pd=${pd} />`
-    : html`<${OverviewPane} pd=${pd} />`;
+  var pane;
+  if (activeTab === 'playstyle') {
+    pane = html`<${PlaystylePane} msStats=${msStats} selectedMs=${selectedMs} />`;
+  } else if (activeTab === 'burst') {
+    pane = html`<${BurstPane} msStats=${msStats} selectedMs=${selectedMs} />`;
+  } else if (activeTab === 'matchup') {
+    pane = html`<${MatchupPane} msStats=${msStats} selectedMs=${selectedMs} />`;
+  } else if (activeTab === 'time') {
+    pane = html`<${TimePane} pd=${pd} selectedMs=${selectedMs} />`;
+  } else {
+    pane = html`<${OverviewPane} pd=${effectivePd} selectedMs=${selectedMs} lens=${lens} allPd=${pd} />`;
+  }
 
   return html`
     <div class="topbar">
+      <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+      <span class="brand">catalyzer<small>EXVS2IB Stats</small></span>
       <div class="spacer" />
+      <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
+      <${LensToggle} lens=${lens} onSelect=${setLens} />
       <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
         userKey=${userKey} onCustomReport=${handleCustomReport} />
-      <button class="pill" onClick=${reAnalyze}>再分析</button>
     </div>
 
-    <${KpiGrid} stats=${pd.basic_stats} />
+    <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
+      shareData=${shareData} onReAnalyze=${reAnalyze} />
+
+    <${KpiGrid} stats=${effectivePd.basic_stats} />
 
     <div class="tabs">${TAB_DEFS.map(function (t) {
       return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
@@ -1584,26 +2141,6 @@ function Report({ data, userKey }) {
 
     ${pane}
 
-    ${summary && summary.categories && summary.categories.length > 0 && html`<${Panel} title="アドバイス">
-      ${summary.categories.map(function (cat) {
-        var isMs = cat.key === 'ms';
-        return html`<div class="advice-cat">
-          <div class="cat-title">${esc(cat.title)}</div>
-          ${cat.items.map(function (item) {
-            var text = typeof item === 'string' ? item : item.text;
-            var details = typeof item === 'object' && item.details ? item.details : null;
-            var display = isMs ? formatMsAdvice(text) : boldText(text);
-            return html`<div class="advice-item">${display}
-              ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}
-            </div>`;
-          })}
-        </div>`;
-      })}
-    <//>`}
-
-    <${Panel}>
-      <${ShareArea} shareData=${shareData} />
-    <//>
   `;
 }
 
@@ -1616,13 +2153,20 @@ function Skeleton() {
   }
   return html`
     <div class="topbar">
+      <div class="skel" style=${{ width: '28px', height: '28px', borderRadius: '6px' }}></div>
+      <span class="brand">catalyzer<small>EXVS2IB Stats</small></span>
       <div class="spacer" />
+      <div class="skel skel-pill"></div>
+      <div class="skel skel-pill" style=${{ width: '160px' }}></div>
       <div class="skel skel-pill"></div>
     </div>
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
       })}
+    </div>
+    <div class="tabs">
+      ${TAB_DEFS.map(function (t) { return html`<div class="skel" style=${{ width: '60px', height: '32px', borderRadius: '10px' }}></div>`; })}
     </div>
     <div class="panel">
       ${bar('30%', 16, 14)}${bar('100%', 220)}
