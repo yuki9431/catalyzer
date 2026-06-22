@@ -121,6 +121,11 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **Pulumi (TypeScript)** でインフラ管理
 - ストレージはFirestore（環境変数 `FIRESTORE_DATABASE` で指定）、ユーザーキーは SHA256(email)[:8] の16進数
 - Cloud Runデプロイ、`PORT` 環境変数（デフォルト 8080）
+- スクレイパーのペーシングは環境変数で調整可能（未設定時は既定値）。サーバー負荷やレート制限への対応に使う:
+  - `SCRAPER_PARALLELISM`: 詳細ページの最大同時リクエスト数（既定 3）
+  - `SCRAPER_REQUEST_DELAY_MS`: 各リクエスト完了後の待機ms（既定 300）
+  - `SCRAPER_MAX_DETAIL`: 詳細取得件数の上限。0または未設定で無制限（既定 0）
+  - 例（低レート・件数制限）: `SCRAPER_PARALLELISM=1 SCRAPER_REQUEST_DELAY_MS=0 SCRAPER_MAX_DETAIL=400`
 
 ## Goコーディング規約
 
