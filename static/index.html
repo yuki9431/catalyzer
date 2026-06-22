@@ -53,6 +53,11 @@
     }
     button:hover { background: var(--accent-2); }
     button:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .save-credentials { display: inline-flex; align-items: center; gap: 8px; margin: -8px 0 0; color: #aaa; font-size: 0.85em; cursor: pointer; user-select: none; }
+    .save-credentials input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    .save-credentials .check-icon { position: relative; width: 16px; height: 16px; border: 1.5px solid #444; border-radius: 3px; background: transparent; flex-shrink: 0; transition: background .15s, border-color .15s; }
+    .save-credentials input:checked + .check-icon { background: var(--accent); border-color: var(--accent); }
+    .save-credentials input:checked + .check-icon::after { content: ''; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px; border: solid #062536; border-width: 0 2px 2px 0; transform: rotate(45deg); }
     .security-note { margin: 16px 0; padding: 12px; font-size: 0.8em; color: #aaa; line-height: 1.6; background: #162029; border-radius: 8px; border-left: 3px solid var(--accent); }
     .note { margin-top: 16px; font-size: 0.8em; color: #777; line-height: 1.6; }
     .status { text-align: center; margin: 20px 0; color: #aaa; }
@@ -306,6 +311,7 @@
         <label for="password">パスワード</label>
         <input type="password" id="password" placeholder="パスワード">
       </div>
+      <label class="save-credentials"><input type="checkbox" id="saveCredentials"><span class="check-icon"></span>ログイン情報を保存する</label>
       <p class="security-note">パスワードはガンダムモバイルへのログインにのみ使用し、サーバーには保存しません。通信はHTTPSで暗号化されています。</p>
       <button id="analyzeBtn">分析開始</button>
       <p class="note">公式サイトから直近30日分の戦績を取得して分析します。初回は全データを取得するため5〜10分ほどかかりますが、2回目以降は前回からの差分のみ取得するため短時間で完了します。</p>
