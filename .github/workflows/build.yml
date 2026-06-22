@@ -114,6 +114,7 @@ jobs:
         if: env.CHANGED == 'true'
         run: |
           gh workflow run deploy.yml \
+            --ref "${{ github.ref_name }}" \
             -f environment="stg"
         env:
           GH_TOKEN: ${{ github.token }}
