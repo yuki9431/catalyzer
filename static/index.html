@@ -94,14 +94,6 @@
     .brand { font-size: 1.05em; font-weight: 800; color: var(--accent); white-space: nowrap; }
     .brand small { display: block; font-size: .62em; font-weight: 500; color: var(--muted); letter-spacing: .04em; }
     .topbar .spacer { flex: 1; }
-    .pill {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px;
-      background: var(--accent); color: #062536; font-size: .85em; font-weight: 700; cursor: pointer;
-      width: auto; transition: background .2s;
-    }
-    .pill:hover { background: var(--accent-2); }
-
     /* ===== KPI cards ===== */
     .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
     .kpi {
@@ -144,7 +136,6 @@
     }
     .tab:hover { color: var(--text); background: var(--panel-2); }
     .tab.active { color: #062536; background: var(--accent); }
-    .lens-tabs { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
     .tabpane { animation: fade .25s ease; }
     @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -158,12 +149,6 @@
     .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .72em; font-weight: 700; }
     .badge.win { background: rgba(105,240,174,.15); color: var(--great); }
     .badge.lose { background: rgba(239,83,80,.15); color: var(--terrible); }
-
-    /* ===== Advice ===== */
-    .advice-cat { margin-bottom: 14px; }
-    .advice-cat .cat-title { font-size: .92em; color: var(--accent-2); font-weight: 700; margin-bottom: 6px; }
-    .advice-item { padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: .9em; line-height: 1.7; }
-    .advice-item:last-child { border-bottom: none; }
 
     /* ===== Report tables / sections (reused leaf components) ===== */
     .report h1 { font-size: 1.5em; margin: 20px 0 10px; text-align: left; }
@@ -286,7 +271,6 @@
     .ms-topbar-wrap { position: relative; }
     .ms-topbar-trigger { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text); font-size: 0.85em; cursor: pointer; transition: all 0.2s; width: auto; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ms-topbar-trigger:hover { border-color: var(--accent); }
-    .ms-topbar-backdrop { display: none; }
     .ms-topbar-dropdown { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 100; min-width: 240px; max-height: 60vh; overflow-y: auto; }
     .ms-topbar-item { display: block; width: 100%; padding: 10px 16px; border: none; background: none; color: var(--text); font-size: 0.9em; cursor: pointer; text-align: left; transition: all 0.15s; }
     .ms-topbar-item:hover { background: var(--panel-2); }
@@ -302,7 +286,6 @@
     .panel-select-wrap { position: relative; margin-bottom: 14px; }
     .panel-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text); font-size: 0.95em; cursor: pointer; transition: all 0.2s; text-align: left; }
     .panel-select-trigger:hover { border-color: var(--accent); }
-    .panel-select-backdrop { display: none; }
     .panel-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 100; max-height: 60vh; overflow-y: auto; }
     .panel-select-item { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 12px 16px; border: none; background: none; color: var(--text); font-size: 0.9em; cursor: pointer; text-align: left; transition: all 0.15s; }
     .panel-select-item:hover { background: var(--panel-2); }
