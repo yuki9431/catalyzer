@@ -1681,7 +1681,6 @@ async function analyze() {
 
   document.getElementById('loginForm').style.display = 'none';
   var lastPreliminaryVersion = 0;
-  var switched = false;
   var renderedReal = false;
 
   try {
@@ -1697,6 +1696,9 @@ async function analyze() {
     }
 
     var jobId = data.id;
+
+    // スケルトンは即表示する（実データではないので遷移待ち不要）
+    showSkeleton();
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
@@ -1721,14 +1723,8 @@ async function analyze() {
         progressWrap.style.display = 'none';
       }
 
-      // ログイン成功を確認した瞬間に結果画面（スケルトン）へ切り替える
-      if (!switched && statusData.logged_in) {
-        switched = true;
-        showSkeleton();
-      }
-
-      // 速報レポートは結果画面へ切り替えた後にのみ反映する
-      if (switched && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
+      // 速報レポート（キャッシュ含む実データ）はログイン成功確認後にのみ反映する
+      if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
         if (prelimData.report && prelimData.preliminary) {
