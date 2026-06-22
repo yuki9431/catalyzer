@@ -25,27 +25,44 @@ const (
 	mobileTagPage    = "https://web.vsmobile.jp/exvs2ib/results/classmatch/tag"
 	mobileMSUsedRate = "https://web.vsmobile.jp/exvs2ib/ranking/ms_used_rate"
 
-	// defaultMaxParallelism は最大同時リクエスト数の既定値
-	defaultMaxParallelism = 3
+	// 詳細取得は二段ペーシング: 先頭のバースト区間を並列・無遅延で高速取得し、
+	// 速報レポートを早く表示する。以降はスロットル区間として直列＋待機でレート制限(403)を回避する。
 
-	// defaultRequestDelay はリクエスト完了後の待機時間の既定値（サーバー負荷軽減用）
-	defaultRequestDelay = 300 * time.Millisecond
+	// defaultBurstCount はバースト区間で高速取得する先頭リクエスト数の既定値
+	defaultBurstCount = 100
+
+	// defaultBurstParallelism はバースト区間の最大同時リクエスト数の既定値
+	defaultBurstParallelism = 3
+
+	// defaultThrottleDelay はスロットル区間でのリクエスト完了後の待機時間の既定値
+	defaultThrottleDelay = 900 * time.Millisecond
+
+	// entryRequestDelay は日別ページ収集フェーズでのリクエスト完了後の待機時間
+	entryRequestDelay = 300 * time.Millisecond
 )
 
-// maxParallelism は env SCRAPER_PARALLELISM で上書き可能な最大同時リクエスト数
-func maxParallelism() int {
-	if v, err := strconv.Atoi(os.Getenv("SCRAPER_PARALLELISM")); err == nil && v > 0 {
+// burstCount は env SCRAPER_BURST_COUNT で上書き可能なバースト区間の件数（0でバースト無効）
+func burstCount() int {
+	if v, err := strconv.Atoi(os.Getenv("SCRAPER_BURST_COUNT")); err == nil && v >= 0 {
 		return v
 	}
-	return defaultMaxParallelism
+	return defaultBurstCount
 }
 
-// requestDelay は env SCRAPER_REQUEST_DELAY_MS で上書き可能な完了後待機時間
-func requestDelay() time.Duration {
-	if v, err := strconv.Atoi(os.Getenv("SCRAPER_REQUEST_DELAY_MS")); err == nil && v >= 0 {
+// burstParallelism は env SCRAPER_BURST_PARALLELISM で上書き可能なバースト区間の最大同時リクエスト数
+func burstParallelism() int {
+	if v, err := strconv.Atoi(os.Getenv("SCRAPER_BURST_PARALLELISM")); err == nil && v > 0 {
+		return v
+	}
+	return defaultBurstParallelism
+}
+
+// throttleDelay は env SCRAPER_THROTTLE_DELAY_MS で上書き可能なスロットル区間の完了後待機時間
+func throttleDelay() time.Duration {
+	if v, err := strconv.Atoi(os.Getenv("SCRAPER_THROTTLE_DELAY_MS")); err == nil && v >= 0 {
 		return time.Duration(v) * time.Millisecond
 	}
-	return defaultRequestDelay
+	return defaultThrottleDelay
 }
 
 // maxDetail は env SCRAPER_MAX_DETAIL で指定する詳細取得件数の上限（0=無制限）
@@ -115,6 +132,7 @@ type ScrapingOption struct {
 	BackfillDates  map[string]bool // バックフィル対象日付セット（"2006/01/02"形式）。nilなら全日付対象
 	OnBatchReady   func(scores model.DatedScores) // BatchSize試合ごとに蓄積スコアのスナップショットを通知
 	BatchSize      int                             // OnBatchReady発火間隔（試合数）。0の場合は通知しない
+	FirstBatchSize int                             // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -177,7 +195,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		streamErr = streamMatchEntries(ctx, cancel, m.HTTPClient.Jar, dailyLinks, since, entryCh)
 	}()
 
-	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, m.HTTPClient.Jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize)
+	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, m.HTTPClient.Jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
 
 	// 403の場合は途中データがあればエラーと一緒に返す（呼び出し元で途中保存できるようにする）
 	if streamErr != nil || detailErr != nil {
@@ -251,7 +269,7 @@ func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http
 		return nil
 	}
 
-	sem := make(chan struct{}, maxParallelism())
+	sem := make(chan struct{}, burstParallelism())
 	var (
 		wg         sync.WaitGroup
 		mu         sync.Mutex
@@ -301,7 +319,7 @@ func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http
 				case out <- e:
 				}
 			}
-			time.Sleep(requestDelay())
+			time.Sleep(entryRequestDelay)
 		}(dl)
 	}
 
@@ -389,7 +407,7 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 
 // fetchDetailPagesStreaming はチャネルから試合エントリを受信しつつ詳細ページを並列取得する
 // HTTPエラーが1件でもあればエラーを返す。403の場合はErrAccessDeniedを返し即座にキャンセルする
-func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, entryCh <-chan matchEntry, notify func(int, int), onBatch func(model.DatedScores), batchSize int) (model.DatedScores, error) {
+func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, entryCh <-chan matchEntry, notify func(int, int), onBatch func(model.DatedScores), batchSize, firstBatch int) (model.DatedScores, error) {
 	// まず全エントリを収集してtotalを確定させる（キャンセル時はチャネルが閉じるまで待つ）
 	var entries []matchEntry
 	for entry := range entryCh {
@@ -430,13 +448,22 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 		has403     bool
 	)
 
-	sem := make(chan struct{}, maxParallelism())
+	burst := burstCount()
+	td := throttleDelay()
+	sem := make(chan struct{}, burstParallelism())
+	throttleSem := make(chan struct{}, 1) // スロットル区間を直列化してレート制限を回避する
+
+	// 初回速報の発火件数。0ならbatchSizeと同じ。初回だけ早く出し、以降はbatchSize間隔で発火する
+	firstFire := firstBatch
+	if firstFire <= 0 {
+		firstFire = batchSize
+	}
 
 	// 計装: 時間窓型レート検知の窓W・閾値N実測用。各リクエスト送信の相対時刻(ms)を記録し403時にダンプする
 	detailStart := time.Now()
 	var reqTimesMs []int64
 
-	for _, entry := range entries {
+	for i, entry := range entries {
 		// キャンセル済みなら新規リクエストを発行しない
 		select {
 		case <-ctx.Done():
@@ -456,10 +483,19 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 			break
 		}
 
+		// バースト区間(先頭burst件)は並列・無遅延で高速取得。以降はスロットル区間
+		throttled := burst > 0 && i >= burst
+
 		wg.Add(1)
-		go func(e matchEntry) {
+		go func(e matchEntry, throttled bool) {
 			defer wg.Done()
 			defer func() { <-sem }()
+
+			// スロットル区間は直列化し、完了後に待機を入れてレートを落とす
+			if throttled {
+				throttleSem <- struct{}{}
+				defer func() { <-throttleSem }()
+			}
 
 			// キャンセル済みならスキップ
 			if ctx.Err() != nil {
@@ -472,7 +508,7 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 			scores = append(scores, parsed...)
 			processed++
 			reqTimesMs = append(reqTimesMs, sentMs)
-			shouldBatch := onBatch != nil && batchSize > 0 && processed%batchSize == 0
+			shouldBatch := onBatch != nil && batchSize > 0 && processed >= firstFire && (processed-firstFire)%batchSize == 0
 			var snapshot model.DatedScores
 			if shouldBatch {
 				snapshot = make(model.DatedScores, len(scores))
@@ -492,8 +528,10 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 			if shouldBatch {
 				onBatch(snapshot)
 			}
-			time.Sleep(requestDelay())
-		}(entry)
+			if throttled {
+				time.Sleep(td)
+			}
+		}(entry, throttled)
 	}
 
 	wg.Wait()

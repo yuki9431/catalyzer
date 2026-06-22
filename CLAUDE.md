@@ -121,11 +121,13 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **Pulumi (TypeScript)** でインフラ管理
 - ストレージはFirestore（環境変数 `FIRESTORE_DATABASE` で指定）、ユーザーキーは SHA256(email)[:8] の16進数
 - Cloud Runデプロイ、`PORT` 環境変数（デフォルト 8080）
-- スクレイパーのペーシングは環境変数で調整可能（未設定時は既定値）。サーバー負荷やレート制限への対応に使う:
-  - `SCRAPER_PARALLELISM`: 詳細ページの最大同時リクエスト数（既定 3）
-  - `SCRAPER_REQUEST_DELAY_MS`: 各リクエスト完了後の待機ms（既定 300）
+- 詳細ページ取得は**二段ペーシング**。先頭のバースト区間を並列・無遅延で取得し速報を早く表示、以降のスロットル区間は同時リクエスト数1で直列＋待機しレート制限(403)を回避する。環境変数で調整可能（未設定時は既定値）:
+  - `SCRAPER_BURST_COUNT`: バースト区間の件数。0でバースト無効（既定 100）
+  - `SCRAPER_BURST_PARALLELISM`: バースト区間の最大同時リクエスト数（既定 3）
+  - `SCRAPER_THROTTLE_DELAY_MS`: スロットル区間の各リクエスト完了後の待機ms（既定 900）
   - `SCRAPER_MAX_DETAIL`: 詳細取得件数の上限。0または未設定で無制限（既定 0）
-  - 例（低レート・件数制限）: `SCRAPER_PARALLELISM=1 SCRAPER_REQUEST_DELAY_MS=0 SCRAPER_MAX_DETAIL=400`
+  - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
+- 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
 
 ## Goコーディング規約
 
