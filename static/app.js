@@ -1713,13 +1713,24 @@ async function analyze() {
       statusText.textContent = statusData.message || STATUS_MESSAGES[statusData.status] || statusData.status;
 
       var progressWrap = document.getElementById('progressWrap');
+      var progressFill = document.getElementById('progressFill');
+      var isScraping = statusData.status === 'scraping';
       if (statusData.progress_total > 0) {
+        // 総数確定: 処理済み/総数の正確なバー
         var p = Math.round(100 * statusData.progress / statusData.progress_total);
-        document.getElementById('progressFill').style.width = p + '%';
+        progressFill.classList.remove('indeterminate');
+        progressFill.style.width = p + '%';
         document.getElementById('progressPct').textContent = p + '%';
         document.getElementById('progressCount').textContent = statusData.progress + '/' + statusData.progress_total + '件';
         progressWrap.style.display = 'block';
+      } else if (isScraping) {
+        // 総数未確定(Phase2)中: 不定アニメーション + 取得済み件数
+        progressFill.classList.add('indeterminate');
+        document.getElementById('progressPct').textContent = '戦歴を検索中…';
+        document.getElementById('progressCount').textContent = statusData.progress ? statusData.progress + '件' : '';
+        progressWrap.style.display = 'block';
       } else {
+        progressFill.classList.remove('indeterminate');
         progressWrap.style.display = 'none';
       }
 

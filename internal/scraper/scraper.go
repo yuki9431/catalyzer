@@ -419,6 +419,8 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 		processed  int
 		errorCount int
 		has403     bool
+		// エントリ収集(Phase2)完了までは総数不明=0。確定後にディスパッチ総数を入れ進捗バーの分母にする
+		knownTotal int
 	)
 
 	burst := burstCount()
@@ -496,10 +498,11 @@ collectLoop:
 				cancel()
 			}
 			current := processed
+			total := knownTotal
 			mu.Unlock()
 
-			// totalは不明なため0を渡す。app.js側はtotal=0で進捗バーを非表示にする
-			notify(current, 0)
+			// total=0(Phase2未完=不定表示) → 確定後は処理済み/総数の正確なバー
+			notify(current, total)
 			if shouldBatch {
 				onBatch(snapshot)
 			}
@@ -512,6 +515,13 @@ collectLoop:
 	// チャネルに残ったエントリを排出し、streamMatchEntries側のブロックを解く
 	for range entryCh {
 	}
+
+	// Phase2完了=総試合数確定。以降のnotifyで正確な分母を出す
+	mu.Lock()
+	knownTotal = dispatched
+	last := processed
+	mu.Unlock()
+	notify(last, dispatched)
 
 	wg.Wait()
 

@@ -147,8 +147,11 @@ func StartServer() {
 		if snap.Message != "" {
 			resp["message"] = snap.Message
 		}
-		if snap.ProgressTotal > 0 {
+		if snap.Progress > 0 {
 			resp["progress"] = snap.Progress
+		}
+		// 総数はPhase2確定後のみ。0の間はフロントが不定表示にする
+		if snap.ProgressTotal > 0 {
 			resp["progress_total"] = snap.ProgressTotal
 		}
 		if snap.Error != "" {
