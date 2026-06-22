@@ -42,6 +42,7 @@ type Job struct {
 	PreliminaryVersion int              `json:"preliminary_version,omitempty"`
 	Error              string           `json:"error,omitempty"`
 	PartialData        bool             `json:"partial_data,omitempty"`
+	LoggedIn           bool             `json:"logged_in,omitempty"`
 	UserKey            string           `json:"-"`
 	completedAt        time.Time
 }
@@ -87,6 +88,7 @@ func (j *Job) Snapshot() model.JobSnapshot {
 		PreliminaryVersion: j.PreliminaryVersion,
 		Error:              j.Error,
 		PartialData:        j.PartialData,
+		LoggedIn:           j.LoggedIn,
 		UserKey:            j.UserKey,
 	}
 }
@@ -195,6 +197,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		jobsMu.Unlock()
 	}
 
+	// 同梱のMSリストから機体名マッピングを読み込み（速報・最終レポート両方で使用）
+	msList, err := mslist.LoadMSList(DefaultMSListPath)
+	if err != nil {
+		log.Printf("[WARN] MS list not found, MS names will be empty")
+	}
+	msMap := mslist.BuildMSNameMap(msList)
+
 	// 20試合ごとに速報レポートを段階的に更新するコールバック
 	var batchAnalysisMu sync.Mutex
 	var batchWg sync.WaitGroup
@@ -208,6 +217,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			defer batchAnalysisMu.Unlock()
 			defer batchWg.Done()
 
+			mslist.FillMsNames(batchScores, msMap)
 			merged := mergeScores(existingScores, batchScores)
 
 			batchDir, err := os.MkdirTemp("", "exvs-batch-*")
@@ -238,6 +248,12 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		OnProgress:   onProgress,
 		OnBatchReady: onBatchReady,
 		BatchSize:    prelimBatchSize,
+		OnLoginSuccess: func() {
+			jobsMu.Lock()
+			j.LoggedIn = true
+			jobsMu.Unlock()
+			log.Printf("[INFO] Job %s: login succeeded", j.ID)
+		},
 	}
 	if len(backfillDates) > 0 {
 		scrapingOpt.BackfillDates = backfillDates
@@ -317,13 +333,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		return
 	}
 
-	// 同梱のMSリストから機体名マッピングを読み込み
-	msList, err := mslist.LoadMSList(DefaultMSListPath)
-	if err != nil {
-		log.Printf("[WARN] MS list not found, MS names will be empty")
-	}
-
-	msMap := mslist.BuildMSNameMap(msList)
 	mslist.FillMsNames(datedScores, msMap)
 	mslist.CheckUnknownMS(datedScores)
 

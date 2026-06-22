@@ -90,6 +90,7 @@ type ScrapingOption struct {
 	BackfillDates  map[string]bool // バックフィル対象日付セット（"2006/01/02"形式）。nilなら全日付対象
 	OnBatchReady   func(scores model.DatedScores) // BatchSize試合ごとに蓄積スコアのスナップショットを通知
 	BatchSize      int                             // OnBatchReady発火間隔（試合数）。0の場合は通知しない
+	OnLoginSuccess func()                          // ログイン成功直後に1度だけ呼ばれる
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -118,6 +119,9 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 	m := NewClient(username, password)
 	if err := m.Login(); err != nil {
 		return nil, nil, fmt.Errorf("ログインに失敗: %w", err)
+	}
+	if opt.OnLoginSuccess != nil {
+		opt.OnLoginSuccess()
 	}
 
 	// Phase 1: rankpageから日別ページURLを収集
