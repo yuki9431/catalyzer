@@ -1683,6 +1683,9 @@ async function analyze() {
   var lastPreliminaryVersion = 0;
   var renderedReal = false;
 
+  // スケルトンはPOSTの応答を待たず即表示する（実データではないので遷移待ち不要）
+  showSkeleton();
+
   try {
     var res = await fetch('/analyze', {
       method: 'POST',
@@ -1696,9 +1699,6 @@ async function analyze() {
     }
 
     var jobId = data.id;
-
-    // スケルトンは即表示する（実データではないので遷移待ち不要）
-    showSkeleton();
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
