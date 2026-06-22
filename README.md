@@ -28,7 +28,7 @@
 │   │   └── gradelist.go           # グレードリストの読み込み・未知URL検出
 │   ├── scraper/
 │   │   ├── scraper.go             # スクレイピング処理
-│   │   └── login.go               # バンダイナムコIDログイン
+│   │   └── login.go               # ログイン処理
 │   ├── firestore/
 │   │   ├── client.go              # Firestoreクライアント初期化
 │   │   ├── scores.go              # 戦績（matches）の読み書き
@@ -122,7 +122,7 @@ make test
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 ```
 
-http://localhost:8080 にアクセスしてバンナムIDでログインすると分析レポートが表示されます。
+http://localhost:8080 にアクセスしてログインすると分析レポートが表示されます。
 
 ポートを変更したい場合は `PORT=3000 make run` のように指定できます。
 
