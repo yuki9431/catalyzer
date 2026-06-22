@@ -197,7 +197,10 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		jobsMu.Lock()
 		j.Message = "戦歴データを取得中"
 		j.Progress = current
-		j.ProgressTotal = total
+		// totalは単調増加のみ反映。Phase2の遅延ゴルーチンがtotal=0を投げてもバーをちらつかせない
+		if total > j.ProgressTotal {
+			j.ProgressTotal = total
+		}
 		jobsMu.Unlock()
 	}
 
