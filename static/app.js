@@ -11,57 +11,6 @@ var STATUS_MESSAGES = {
 
 var PERIOD_KEYS = ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d'];
 
-// --- IndexedDB credential storage ---
-var CREDENTIALS_DB = 'catalyzer';
-var CREDENTIALS_STORE = 'credentials';
-var CREDENTIALS_KEY = 'default';
-
-function openCredentialsDB() {
-  return new Promise(function (resolve, reject) {
-    var req = indexedDB.open(CREDENTIALS_DB, 1);
-    req.onupgradeneeded = function () {
-      if (!req.result.objectStoreNames.contains(CREDENTIALS_STORE)) {
-        req.result.createObjectStore(CREDENTIALS_STORE);
-      }
-    };
-    req.onsuccess = function () { resolve(req.result); };
-    req.onerror = function () { reject(req.error); };
-  });
-}
-
-function saveCredentials(username, password) {
-  return openCredentialsDB().then(function (db) {
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(CREDENTIALS_STORE, 'readwrite');
-      tx.objectStore(CREDENTIALS_STORE).put({ username: username, password: password }, CREDENTIALS_KEY);
-      tx.oncomplete = function () { resolve(); };
-      tx.onerror = function () { reject(tx.error); };
-    });
-  });
-}
-
-function loadCredentials() {
-  return openCredentialsDB().then(function (db) {
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(CREDENTIALS_STORE, 'readonly');
-      var req = tx.objectStore(CREDENTIALS_STORE).get(CREDENTIALS_KEY);
-      req.onsuccess = function () { resolve(req.result || null); };
-      req.onerror = function () { reject(req.error); };
-    });
-  });
-}
-
-function deleteCredentials() {
-  return openCredentialsDB().then(function (db) {
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(CREDENTIALS_STORE, 'readwrite');
-      tx.objectStore(CREDENTIALS_STORE).delete(CREDENTIALS_KEY);
-      tx.oncomplete = function () { resolve(); };
-      tx.onerror = function () { reject(tx.error); };
-    });
-  });
-}
-
 // --- Utility ---
 function esc(s) {
   if (s == null) return '';
@@ -1724,12 +1673,7 @@ async function analyze() {
     return;
   }
 
-  var saveCheck = document.getElementById('saveCredentials');
-  if (saveCheck && saveCheck.checked) {
-    saveCredentials(username, password).catch(function () {});
-  } else {
-    deleteCredentials().catch(function () {});
-  }
+  try { sessionStorage.setItem('catalyzer_cred', JSON.stringify({ u: username, p: password })); } catch (e) {}
 
   btn.disabled = true;
   status.style.display = 'block';
@@ -1852,18 +1796,19 @@ async function analyze() {
   }
 }
 
-if (document.getElementById('analyzeBtn')) {
-  document.getElementById('analyzeBtn').addEventListener('click', analyze);
-  document.getElementById('password').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') analyze();
+var loginForm = document.getElementById('loginForm');
+if (loginForm) {
+  loginForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    analyze();
   });
-  loadCredentials().then(function (cred) {
-    if (!cred) return;
-    document.getElementById('username').value = cred.username;
-    document.getElementById('password').value = cred.password;
-    var saveCheck = document.getElementById('saveCredentials');
-    if (saveCheck) saveCheck.checked = true;
-  }).catch(function () {});
+  try {
+    var cred = JSON.parse(sessionStorage.getItem('catalyzer_cred'));
+    if (cred) {
+      document.getElementById('username').value = cred.u;
+      document.getElementById('password').value = cred.p;
+    }
+  } catch (e) {}
 }
 
 // preview.html用: windowにrenderReportを公開
