@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -24,12 +25,36 @@ const (
 	mobileTagPage    = "https://web.vsmobile.jp/exvs2ib/results/classmatch/tag"
 	mobileMSUsedRate = "https://web.vsmobile.jp/exvs2ib/ranking/ms_used_rate"
 
-	// maxParallelism はバンナムサーバーへの最大同時リクエスト数
-	maxParallelism = 3
+	// defaultMaxParallelism は最大同時リクエスト数の既定値
+	defaultMaxParallelism = 3
 
-	// requestDelay はリクエスト完了後の待機時間（サーバー負荷軽減用）
-	requestDelay = 300 * time.Millisecond
+	// defaultRequestDelay はリクエスト完了後の待機時間の既定値（サーバー負荷軽減用）
+	defaultRequestDelay = 300 * time.Millisecond
 )
+
+// maxParallelism は env SCRAPER_PARALLELISM で上書き可能な最大同時リクエスト数
+func maxParallelism() int {
+	if v, err := strconv.Atoi(os.Getenv("SCRAPER_PARALLELISM")); err == nil && v > 0 {
+		return v
+	}
+	return defaultMaxParallelism
+}
+
+// requestDelay は env SCRAPER_REQUEST_DELAY_MS で上書き可能な完了後待機時間
+func requestDelay() time.Duration {
+	if v, err := strconv.Atoi(os.Getenv("SCRAPER_REQUEST_DELAY_MS")); err == nil && v >= 0 {
+		return time.Duration(v) * time.Millisecond
+	}
+	return defaultRequestDelay
+}
+
+// maxDetail は env SCRAPER_MAX_DETAIL で指定する詳細取得件数の上限（0=無制限）
+func maxDetail() int {
+	if v, err := strconv.Atoi(os.Getenv("SCRAPER_MAX_DETAIL")); err == nil && v > 0 {
+		return v
+	}
+	return 0
+}
 
 // ErrAccessDenied はサーバーからアクセス拒否(403)された場合のエラー
 var ErrAccessDenied = errors.New("サーバーからアクセスが拒否されました")
@@ -226,7 +251,7 @@ func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http
 		return nil
 	}
 
-	sem := make(chan struct{}, maxParallelism)
+	sem := make(chan struct{}, maxParallelism())
 	var (
 		wg         sync.WaitGroup
 		mu         sync.Mutex
@@ -276,7 +301,7 @@ func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http
 				case out <- e:
 				}
 			}
-			time.Sleep(requestDelay)
+			time.Sleep(requestDelay())
 		}(dl)
 	}
 
@@ -385,6 +410,12 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 		return nil, ErrAccessDenied
 	}
 
+	// SCRAPER_MAX_DETAIL指定時は詳細取得件数を上限で打ち切る
+	if limit := maxDetail(); limit > 0 && len(entries) > limit {
+		log.Printf("[INFO] SCRAPER_MAX_DETAIL=%d: %d件中%d件に制限", limit, len(entries), limit)
+		entries = entries[:limit]
+	}
+
 	total := len(entries)
 	if total == 0 {
 		return nil, nil
@@ -399,7 +430,7 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 		has403     bool
 	)
 
-	sem := make(chan struct{}, maxParallelism)
+	sem := make(chan struct{}, maxParallelism())
 
 	// 計装: 時間窓型レート検知の窓W・閾値N実測用。各リクエスト送信の相対時刻(ms)を記録し403時にダンプする
 	detailStart := time.Now()
@@ -461,7 +492,7 @@ func fetchDetailPagesStreaming(ctx context.Context, cancel context.CancelFunc, j
 			if shouldBatch {
 				onBatch(snapshot)
 			}
-			time.Sleep(requestDelay)
+			time.Sleep(requestDelay())
 		}(entry)
 	}
 
