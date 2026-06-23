@@ -1910,6 +1910,12 @@ function Report({ data, userKey }) {
         row.style.paddingTop = '0';
         row.style.overflow = 'hidden';
         row.style.pointerEvents = 'none';
+      } else {
+        row.style.maxHeight = '';
+        row.style.opacity = '';
+        row.style.paddingTop = '';
+        row.style.overflow = '';
+        row.style.pointerEvents = '';
       }
     }
     window.addEventListener('scroll', onScroll, { passive: true });
