@@ -1388,19 +1388,20 @@ function BasicLensSection({ basic, pattern, lens }) {
   if (!basic) return null;
   if (!lens) lens = 'all';
   var metrics = (pattern && pattern.metrics) || [];
-  function wm(label) {
-    return metrics.find(function (m) { return m.label === label; }) || { win_avg: 0, loss_avg: 0 };
+  function wmVal(label) {
+    var m = metrics.find(function (m) { return m.label === label; });
+    if (!m) return null;
+    return lens === 'win' ? m.win_avg : m.loss_avg;
   }
   // 攻めを上半分・守りを下半分に固めつつ3ペアを対極配置: 与ダメ↔被ダメ, 撃墜↔被撃墜, EXダメ↔覚醒回数
   // 軸順(idx): 0=与ダメ(上), 1=撃墜(右上), 2=覚醒回数(右下), 3=被ダメ(下), 4=被撃墜(左下), 5=EXダメ(左上)
-  // 覚醒回数は2回で上等だが3回まで伸びる特殊キャラもいるため0〜2.5でクランプ
   function vec(dgv, kv, bv, dtv, dthv, exv) {
-    return [clampN(dgv, 600, 1200), clampN(kv, 0.5, 2.5), clampN(bv, 0, 2.5), clampN(dtv, 600, 1200), clampN(dthv, 0.5, 2.5), clampN(exv, 80, 250)];
+    return [clampN(dgv, 600, 1200), clampN(kv, 0.5, 2.5), clampN(bv, 0, 2.5), clampN(dtv, 1200, 600), clampN(dthv, 2.5, 0.5), clampN(exv, 80, 250)];
   }
   var seriesByLens = {
     all: { label: '全体', color: '#81d4fa', bg: 'rgba(129,212,250,.2)', data: vec(basic.avg_dmg_given, basic.avg_kills, basic.avg_bursts, basic.avg_dmg_taken, basic.avg_deaths, basic.avg_ex_dmg) },
-    win: { label: '勝利時', color: '#69f0ae', bg: 'rgba(105,240,174,.2)', data: vec(wm('平均与ダメージ').win_avg, wm('平均撃墜').win_avg, wm('平均覚醒回数').win_avg, wm('平均被ダメージ').win_avg, wm('平均被撃墜').win_avg, wm('平均EXダメージ').win_avg) },
-    loss: { label: '敗北時', color: '#ef5350', bg: 'rgba(239,83,80,.18)', data: vec(wm('平均与ダメージ').loss_avg, wm('平均撃墜').loss_avg, wm('平均覚醒回数').loss_avg, wm('平均被ダメージ').loss_avg, wm('平均被撃墜').loss_avg, wm('平均EXダメージ').loss_avg) },
+    win: { label: '勝利時', color: '#69f0ae', bg: 'rgba(105,240,174,.2)', data: vec(wmVal('平均与ダメージ'), wmVal('平均撃墜'), wmVal('平均覚醒回数'), wmVal('平均被ダメージ'), wmVal('平均被撃墜'), wmVal('平均EXダメージ')) },
+    loss: { label: '敗北時', color: '#ef5350', bg: 'rgba(239,83,80,.18)', data: vec(wmVal('平均与ダメージ'), wmVal('平均撃墜'), wmVal('平均覚醒回数'), wmVal('平均被ダメージ'), wmVal('平均被撃墜'), wmVal('平均EXダメージ')) },
   };
 
   // [ラベル, 全体値, 色関数]。勝敗時はwin_loss_patternの同名metricから値を引く
@@ -1416,8 +1417,7 @@ function BasicLensSection({ basic, pattern, lens }) {
   ];
   function valFor(label, allVal) {
     if (lens === 'all') return allVal;
-    var m = wm(label);
-    return lens === 'win' ? m.win_avg : m.loss_avg;
+    return wmVal(label);
   }
   var matchesLabel = lens === 'all' ? '試合数' : lens === 'win' ? '勝利数' : '敗北数';
   var matchesVal = lens === 'all' ? (basic.matches + '戦')
@@ -1583,8 +1583,8 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
       clampN(v('平均与ダメージ', stats.avg_dmg_given), 600, 1200),
       clampN(v('平均撃墜', stats.avg_kills), 0.5, 2.5),
       clampN(v('平均覚醒回数', stats.avg_bursts), 0, 2.5),
-      clampN(v('平均被ダメージ', stats.avg_dmg_taken), 600, 1200),
-      clampN(v('平均被撃墜', stats.avg_deaths), 0.5, 2.5),
+      clampN(v('平均被ダメージ', stats.avg_dmg_taken), 1200, 600),
+      clampN(v('平均被撃墜', stats.avg_deaths), 2.5, 0.5),
       clampN(v('平均EXダメージ', stats.avg_ex_dmg), 80, 250),
     ];
   }
