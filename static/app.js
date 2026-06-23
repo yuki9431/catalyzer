@@ -1966,7 +1966,6 @@ function Skeleton() {
     <div class="topbar">
       <div class="skel" style=${{ width: '28px', height: '28px', borderRadius: '6px' }}></div>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-      <div class="spacer" />
       <div class="skel skel-pill" style=${{ marginLeft: 'auto' }}></div>
       <div class="skel skel-pill" style=${{ width: '160px' }}></div>
       <div class="skel skel-pill"></div>
