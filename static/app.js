@@ -1901,16 +1901,16 @@ function Report({ data, userKey }) {
   var topbarRef = useRef(null);
 
   useEffect(function () {
-    var lastY = window.scrollY;
+    var row = topbarRef.current && topbarRef.current.querySelector('.controls-row');
+    if (!row) return;
     function onScroll() {
-      if (!topbarRef.current) return;
-      var y = window.scrollY;
-      if (y > lastY && y > 80) {
-        topbarRef.current.classList.add('scrolled-down');
-      } else if (y < lastY) {
-        topbarRef.current.classList.remove('scrolled-down');
+      if (window.scrollY > 50) {
+        row.style.maxHeight = '0';
+        row.style.opacity = '0';
+        row.style.paddingTop = '0';
+        row.style.overflow = 'hidden';
+        row.style.pointerEvents = 'none';
       }
-      lastY = y;
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     return function () { window.removeEventListener('scroll', onScroll); };

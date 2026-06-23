@@ -95,10 +95,8 @@
     .topbar .brand img { height: 24px; width: auto; display: block; }
     .controls-row {
       display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-basis: 100%;
-      padding-top: 4px; max-height: 60px;
-      transition: max-height .3s ease, padding-top .3s ease, opacity .3s ease; opacity: 1;
+      padding-top: 4px; max-height: 60px; opacity: 1;
     }
-    .topbar.scrolled-down .controls-row { max-height: 0; padding-top: 0; opacity: 0; overflow: hidden; pointer-events: none; }
     /* ===== KPI cards ===== */
     .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
     .kpi {
