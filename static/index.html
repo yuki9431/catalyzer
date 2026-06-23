@@ -277,6 +277,7 @@
     .ms-topbar-trigger { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text); font-size: 0.85em; cursor: pointer; transition: all 0.2s; width: auto; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ms-topbar-trigger:hover { border-color: var(--accent); }
     .ms-topbar-trigger.selected { border-color: var(--accent); color: var(--accent); }
+    .ms-topbar-backdrop { display: none; }
     .ms-topbar-dropdown { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 100; min-width: 240px; max-height: 60vh; overflow-y: auto; }
     .ms-topbar-item { display: block; width: 100%; padding: 10px 16px; border: none; background: none; color: var(--text); font-size: 0.9em; cursor: pointer; text-align: left; transition: all 0.15s; }
     .ms-topbar-item:hover { background: var(--panel-2); }
@@ -310,6 +311,7 @@
       .period-dropdown { min-width: 0; position: fixed; left: 0; right: 0; width: 100%; border-radius: 0 0 8px 8px; margin: 0; }
       .period-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
       .ms-topbar-trigger { max-width: 50vw; }
+      .ms-topbar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
       .ms-topbar-dropdown { min-width: 0; position: fixed; left: 0; right: 0; width: 100%; border-radius: 0 0 8px 8px; margin: 0; }
     }
     @media (max-width: 600px) {

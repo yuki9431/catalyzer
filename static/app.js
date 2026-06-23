@@ -377,10 +377,9 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
     return function () { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  var dropTop = 0;
-  if (isOpen && triggerRef.current) {
-    var rect = triggerRef.current.getBoundingClientRect();
-    dropTop = rect.bottom + 4;
+  var dropStyle = {};
+  if (isOpen && triggerRef.current && window.innerWidth <= 720) {
+    dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
   }
 
   var currentLabel = selected === 'custom'
@@ -428,7 +427,7 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
       ${currentLabel} <span class="period-arrow">${isOpen ? '\u25B2' : '\u25BC'}</span>
     </button>
     ${isOpen && html`<div class="period-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="period-dropdown" style=${{ top: dropTop + 'px' }}>
+    ${isOpen && html`<div class="period-dropdown" style=${dropStyle}>
       <div class="period-dropdown-list">
         ${keys.map(function (k) {
           return html`<button class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
@@ -1284,16 +1283,16 @@ function MsSelector({ entries, selected, onSelect }) {
   var label = selected ? '1機選択' : '全機体';
   var isSelected = !!selected;
   var triggerRef = useRef(null);
-  var dropTop = 0;
-  if (isOpen && triggerRef.current) {
-    var rect = triggerRef.current.getBoundingClientRect();
-    dropTop = rect.bottom + 4;
+  var dropStyle = {};
+  if (isOpen && triggerRef.current && window.innerWidth <= 720) {
+    dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
   }
   return html`<div class="ms-topbar-wrap" ref=${containerRef}>
     <button class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="ms-topbar-dropdown" style=${{ top: dropTop + 'px' }}>
+    ${isOpen && html`<div class="ms-topbar-backdrop" onClick=${function () { setIsOpen(false); }} />`}
+    ${isOpen && html`<div class="ms-topbar-dropdown" style=${dropStyle}>
       <button class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
       ${entries.map(function (e) {
