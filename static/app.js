@@ -1934,7 +1934,7 @@ function Report({ data, userKey }) {
   return html`
     <div class="topbar">
       <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
-      <span class="brand">catalyzer<small>EXVS2IB Stats</small></span>
+      <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
       <div class="spacer" />
       <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
       <${LensToggle} lens=${lens} onSelect=${setLens} />
@@ -1967,9 +1967,9 @@ function Skeleton() {
   return html`
     <div class="topbar">
       <div class="skel" style=${{ width: '28px', height: '28px', borderRadius: '6px' }}></div>
-      <span class="brand">catalyzer<small>EXVS2IB Stats</small></span>
+      <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
       <div class="spacer" />
-      <div class="skel skel-pill"></div>
+      <div class="skel skel-pill" style=${{ marginLeft: 'auto' }}></div>
       <div class="skel skel-pill" style=${{ width: '160px' }}></div>
       <div class="skel skel-pill"></div>
     </div>
