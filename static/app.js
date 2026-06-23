@@ -1886,6 +1886,23 @@ function Report({ data, userKey }) {
   var lens = lensRef[0], setLens = lensRef[1];
   var menuRef = useState(false);
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
+  var topbarRef = useRef(null);
+
+  useEffect(function () {
+    var lastY = window.scrollY;
+    function onScroll() {
+      if (!topbarRef.current) return;
+      var y = window.scrollY;
+      if (y > lastY && y > 80) {
+        topbarRef.current.classList.add('scrolled-down');
+      } else if (y < lastY) {
+        topbarRef.current.classList.remove('scrolled-down');
+      }
+      lastY = y;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return function () { window.removeEventListener('scroll', onScroll); };
+  }, []);
 
   var periods = data.periods || {};
   var allPeriods = customData ? Object.assign({}, periods, { custom: customData.periods.custom }) : periods;
@@ -1930,14 +1947,15 @@ function Report({ data, userKey }) {
   }
 
   return html`
-    <div class="topbar">
+    <div class="topbar" ref=${topbarRef}>
       <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-      <div class="spacer" />
-      <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
-      <${LensToggle} lens=${lens} onSelect=${setLens} />
-      <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
-        userKey=${userKey} onCustomReport=${handleCustomReport} />
+      <div class="controls-row">
+        <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
+          userKey=${userKey} onCustomReport=${handleCustomReport} />
+        <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
+        <${LensToggle} lens=${lens} onSelect=${setLens} />
+      </div>
     </div>
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
@@ -1966,9 +1984,11 @@ function Skeleton() {
     <div class="topbar">
       <div class="skel" style=${{ width: '28px', height: '28px', borderRadius: '6px' }}></div>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-      <div class="skel skel-pill" style=${{ marginLeft: 'auto' }}></div>
-      <div class="skel skel-pill" style=${{ width: '160px' }}></div>
-      <div class="skel skel-pill"></div>
+      <div class="controls-row">
+        <div class="skel skel-pill"></div>
+        <div class="skel skel-pill" style=${{ width: '160px' }}></div>
+        <div class="skel skel-pill"></div>
+      </div>
     </div>
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
