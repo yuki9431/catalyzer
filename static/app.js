@@ -465,14 +465,6 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
 
 // --- Report sections ---
 
-function formatMsAdvice(text) {
-  var m = text.match(/^(.+?)([:：] | の)/);
-  if (m) {
-    return html`<strong class="ms-name">${m[1]}</strong>${boldText(text.slice(m[1].length))}`;
-  }
-  return boldText(text);
-}
-
 function EnemyMatchupSection({ matchup }) {
   if (!matchup) return null;
   var headers = ['機体名', '試合', '勝率', '与被ダメ比', '与ダメ', '被ダメ'];
@@ -1288,7 +1280,6 @@ function MsSelector({ entries, selected, onSelect }) {
     <button class="ms-topbar-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="ms-topbar-backdrop" onClick=${function () { setIsOpen(false); }} />`}
     ${isOpen && html`<div class="ms-topbar-dropdown">
       <button class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
@@ -1546,7 +1537,6 @@ function PartnerDropdown({ items, idx, onSelect }) {
     <button class="panel-select-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-backdrop" onClick=${function () { setIsOpen(false); }} />`}
     ${isOpen && html`<div class="panel-select-dropdown">
       ${items.map(function (item, i) {
         var itemLabel = item.partner_name + (item.team_name ? ' 【' + item.team_name + '】' : '');
@@ -1922,7 +1912,6 @@ function Report({ data, userKey }) {
   }, [pd, selectedMs]);
 
   var shareData = selectedPeriod === 'custom' && customData ? customData.share_data : data.share_data;
-  var summary = pd.summary;
 
   function handleCustomReport(report) {
     setCustomData(report);
