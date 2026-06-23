@@ -303,8 +303,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		return
 	}
 
-	// 新規データがない場合はタッグ情報を付与して最終レポートにする
-	// jsonPathには速報レポート用に生成したJSONが残っており、ここでそのまま再利用する
+	// 新規データがない場合はタッグ情報を付与して再分析する
 	if len(datedScores) == 0 && j.PreliminaryReport != "" {
 		var tagPartnersPath string
 		tagPartners := scraper.ScrapeTagPartners(jar)
@@ -315,20 +314,24 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				tagPartnersPath = ""
 			} else {
 				log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
-				// Firestoreにtag_partnersを書き込み
 				fs.SaveTagPartners(j.UserKey, tagPartners)
 			}
 		} else {
-			log.Printf("[INFO] No tag partners found (no new data path)")
+			log.Printf("[INFO] No tag partners found (no new data path), using cached")
+			tagPartnersPath = cachedTagPartnersPath
 		}
 
-		// タッグ情報がある場合は再分析、なければ速報レポートをそのまま使う
-		finalReport := j.PreliminaryReport
-		if tagPartnersPath != "" {
-			report := runAnalysis(jsonPath, tmpDir, tagPartnersPath)
-			if report != "" {
-				finalReport = report
+		// キャッシュ利用時はjsonPathが未生成なので既存データから生成
+		if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
+			if err := saveScoresJSON(existingScores, jsonPath); err != nil {
+				log.Printf("[WARN] Failed to save scores JSON for re-analysis: %v", err)
 			}
+		}
+
+		finalReport := j.PreliminaryReport
+		report := runAnalysis(jsonPath, tmpDir, tagPartnersPath)
+		if report != "" {
+			finalReport = report
 		}
 
 		jobsMu.Lock()
