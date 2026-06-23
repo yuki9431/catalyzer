@@ -1259,7 +1259,7 @@ function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze }) {
   return html`<div>
     <div class="menu-backdrop" onClick=${onClose} />
     <div class=${'menu-drawer' + (isOpen ? ' open' : '')}>
-      <div class="menu-header">catalyzer</div>
+      <div class="menu-header"><img src="logo.svg" alt="catalyzer" style="height:24px;width:auto;" /></div>
       <div class="menu-body">
         <button class="menu-item" onClick=${function () { onClose(); onReAnalyze(); }}>再分析</button>
         <div class="menu-divider" />
