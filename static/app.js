@@ -1556,12 +1556,10 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 
   var myWl = (p.my_win_loss_pattern && p.my_win_loss_pattern.metrics) || [];
   var partnerWl = (p.partner_win_loss_pattern && p.partner_win_loss_pattern.metrics) || [];
-  function wm(metrics, label) {
-    return metrics.find(function (m) { return m.label === label; }) || { win_avg: 0, loss_avg: 0 };
-  }
   function valFor(metrics, label, allVal) {
     if (lens === 'all') return allVal;
-    var m = wm(metrics, label);
+    var m = metrics.find(function (m) { return m.label === label; });
+    if (!m) return null;
     return lens === 'win' ? m.win_avg : m.loss_avg;
   }
 
