@@ -356,6 +356,7 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   var showTime = timeRef[0], setShowTime = timeRef[1];
 
   var containerRef = useRef(null);
+  var triggerRef = useRef(null);
 
   useEffect(function () {
     function handleClick(e) {
@@ -367,15 +368,20 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
     return function () { document.removeEventListener('mousedown', handleClick); };
   }, []);
 
-  // スマホでドロップダウン表示中はbodyスクロールを止める
   useEffect(function () {
-    if (isOpen && window.innerWidth <= 600) {
+    if (isOpen && window.innerWidth <= 720) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return function () { document.body.style.overflow = ''; };
   }, [isOpen]);
+
+  var dropTop = 0;
+  if (isOpen && triggerRef.current) {
+    var rect = triggerRef.current.getBoundingClientRect();
+    dropTop = rect.bottom + 4;
+  }
 
   var currentLabel = selected === 'custom'
     ? (periods.custom ? periods.custom.label : '日付指定')
@@ -418,11 +424,11 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   }
 
   return html`<div class="period-selector" ref=${containerRef}>
-    <button class="period-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+    <button class="period-trigger" ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${currentLabel} <span class="period-arrow">${isOpen ? '\u25B2' : '\u25BC'}</span>
     </button>
     ${isOpen && html`<div class="period-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="period-dropdown">
+    ${isOpen && html`<div class="period-dropdown" style=${{ top: dropTop + 'px' }}>
       <div class="period-dropdown-list">
         ${keys.map(function (k) {
           return html`<button class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
@@ -1275,12 +1281,19 @@ function MsSelector({ entries, selected, onSelect }) {
     document.addEventListener('click', handleClick, true);
     return function () { document.removeEventListener('click', handleClick, true); };
   }, [isOpen]);
-  var label = selected || '全機体';
+  var label = selected ? '1機選択' : '全機体';
+  var isSelected = !!selected;
+  var triggerRef = useRef(null);
+  var dropTop = 0;
+  if (isOpen && triggerRef.current) {
+    var rect = triggerRef.current.getBoundingClientRect();
+    dropTop = rect.bottom + 4;
+  }
   return html`<div class="ms-topbar-wrap" ref=${containerRef}>
-    <button class="ms-topbar-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+    <button class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="ms-topbar-dropdown">
+    ${isOpen && html`<div class="ms-topbar-dropdown" style=${{ top: dropTop + 'px' }}>
       <button class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
       ${entries.map(function (e) {
@@ -1956,17 +1969,16 @@ function Report({ data, userKey }) {
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
       </div>
+      <div class="tabs">${TAB_DEFS.map(function (t) {
+        return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
+          onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
+      })}</div>
     </div>
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
       shareData=${shareData} onReAnalyze=${reAnalyze} />
 
     <${KpiGrid} stats=${effectivePd.basic_stats} />
-
-    <div class="tabs">${TAB_DEFS.map(function (t) {
-      return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
-        onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
-    })}</div>
 
     ${pane}
 
@@ -1977,26 +1989,32 @@ function Report({ data, userKey }) {
 
 // ログイン成功後、データ到着までのダッシュボード骨組み表示
 function Skeleton() {
+  var menuRef = useState(false);
+  var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
   function bar(w, h, mb) {
     return html`<div class="skel" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
   return html`
     <div class="topbar">
-      <div class="skel" style=${{ width: '28px', height: '28px', borderRadius: '6px' }}></div>
+      <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-      <div class="controls-row">
-        <div class="skel skel-pill"></div>
-        <div class="skel skel-pill" style=${{ width: '160px' }}></div>
-        <div class="skel skel-pill"></div>
+      <div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+        <button class="period-trigger" disabled>全データ <span class="period-arrow">▼</span></button>
+        <button class="ms-topbar-trigger" disabled>全機体 <span class="period-arrow">▼</span></button>
+        <${LensToggle} lens=${'all'} onSelect=${function () {}} />
+      </div>
+      <div class="tabs" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+        ${TAB_DEFS.map(function (t) {
+          return html`<button class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
+        })}
       </div>
     </div>
+    <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
+      shareData=${null} onReAnalyze=${function () {}} />
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
       })}
-    </div>
-    <div class="tabs">
-      ${TAB_DEFS.map(function (t) { return html`<div class="skel" style=${{ width: '60px', height: '32px', borderRadius: '10px' }}></div>`; })}
     </div>
     <div class="panel">
       ${bar('30%', 16, 14)}${bar('100%', 220)}

@@ -33,7 +33,13 @@ func StartServer() {
 
 	// Firestore初期化（FIRESTORE_DATABASE未設定時はスキップ）
 	if os.Getenv("FIRESTORE_DATABASE") != "" {
-		if err := firestore.Init(context.Background()); err != nil {
+		var err error
+		if p := os.Getenv("GOOGLE_CLOUD_PROJECT"); p != "" {
+			err = firestore.InitWithProjectID(context.Background(), p)
+		} else {
+			err = firestore.Init(context.Background())
+		}
+		if err != nil {
 			log.Printf("[WARN] Firestore initialization failed, continuing without Firestore: %v", err)
 		} else {
 			defer firestore.Close()
