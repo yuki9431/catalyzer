@@ -69,7 +69,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
 ```
 
-**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /result/{id}/period`, `GET /period`, `GET /health`, `GET /`（静的UI）
+**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /result/{id}/period`, `GET /period`, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
 
 ## コード構成
 
@@ -81,9 +81,10 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
-- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）
-- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成）
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）
+- `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
+- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
+- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、セッション永続化）
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `scripts/analyze.py` — Python分析: 勝率、与被ダメ比、固定相方検出（K/D・EXダメ・覚醒回数・勝敗パターン付き）、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
 - `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Report（状態管理）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、FixedPartnerPanel（レンズ対応6軸レーダー）、各種Chart/集計関数
@@ -128,6 +129,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   - `SCRAPER_MAX_DETAIL`: 詳細取得件数の上限。0または未設定で無制限（既定 0）
   - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
+- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。user_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。レポートはlocalStorageにもキャッシュし即時表示
 
 ## Goコーディング規約
 

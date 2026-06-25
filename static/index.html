@@ -299,6 +299,23 @@
     /* ===== Info note ===== */
     .info-note { padding: 10px 14px; margin-bottom: 12px; font-size: 0.85em; color: var(--muted); background: rgba(79,195,247,0.06); border-radius: 8px; border-left: 3px solid var(--accent); }
 
+    /* ===== Remember checkbox ===== */
+    .remember-group { margin-bottom: 16px; }
+    .remember-label { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 0.9em; cursor: pointer; }
+    .remember-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+    .info-icon { background: none; border: none; color: var(--accent); font-size: 1.1em; cursor: pointer; padding: 0 4px; line-height: 1; width: auto; }
+    .info-icon:hover { color: var(--accent-2); }
+
+    /* ===== Modal ===== */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; max-width: 400px; margin: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+    .modal-content p { color: var(--text); font-size: 0.9em; line-height: 1.7; margin-bottom: 10px; }
+    .modal-close { margin-top: 12px; padding: 10px 24px; border: none; border-radius: 8px; background: var(--accent); color: #062536; font-size: 0.95em; font-weight: bold; cursor: pointer; }
+    .modal-close:hover { background: var(--accent-2); }
+
+    /* ===== Session expired banner ===== */
+    .session-expired-banner { background: #4a3800; border: 1px solid #d4a017; border-radius: 8px; padding: 12px; margin-bottom: 16px; color: #ffd54f; font-size: 0.9em; text-align: center; }
+
     .disclaimer { margin-top: 30px; padding: 16px 0; border-top: 1px solid var(--line); text-align: center; font-size: 0.72em; color: #5a6b7a; line-height: 1.8; }
 
     @media (max-width: 720px) {
@@ -344,6 +361,13 @@
         <label for="password">パスワード</label>
         <input type="password" id="password" name="password" autocomplete="current-password" placeholder="パスワード">
       </div>
+      <div class="form-group remember-group">
+        <label class="remember-label">
+          <input type="checkbox" id="remember" name="remember">
+          <span>ログイン状態を保持する</span>
+          <button type="button" class="info-icon" id="rememberInfoBtn" aria-label="詳細情報">ⓘ</button>
+        </label>
+      </div>
       <p class="security-note">パスワードはガンダムモバイルへのログインにのみ使用し、サーバーには保存しません。通信はHTTPSで暗号化されています。</p>
       <button type="submit" id="analyzeBtn">分析開始</button>
       <p class="note">公式サイトから直近30日分の戦績を取得して分析します。初回は全データを取得するため5〜10分ほどかかりますが、2回目以降は前回からの差分のみ取得するため短時間で完了します。</p>
@@ -360,6 +384,17 @@
 
     <div class="error" id="error" style="display:none;"></div>
     <div class="report" id="report" style="display:none;"></div>
+
+    <!-- セッション保持の説明モーダル -->
+    <div class="modal-backdrop" id="rememberModal" style="display:none;">
+      <div class="modal-content">
+        <p>サーバーにセッション情報を暗号化して保存します。パスワードは保存されません。</p>
+        <p>次回アクセス時にログインなしでデータを取得できます。</p>
+        <p>セッションの有効期限が切れた場合は再ログインが必要です。</p>
+        <p>セッション情報はいつでも削除できます。</p>
+        <button class="modal-close" id="rememberModalClose">閉じる</button>
+      </div>
+    </div>
 
     <footer class="disclaimer">
       <p>本サービスは非公式のファンツールです。<br>サンライズ、バンダイナムコエクスペリエンス、バンダイナムコエンターテインメントとは一切関係ありません。</p>

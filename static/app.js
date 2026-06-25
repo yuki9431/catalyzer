@@ -1239,7 +1239,7 @@ function ShareArea({ shareData }) {
 
 // --- Hamburger menu & topbar controls ---
 
-function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze }) {
+function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze, hasSession, onLogout }) {
   useEffect(function () {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -1256,6 +1256,10 @@ function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze }) {
       <div class="menu-header">catalyzer</div>
       <div class="menu-body">
         <button class="menu-item" onClick=${function () { onClose(); onReAnalyze(); }}>再分析</button>
+        ${hasSession ? [
+          html`<div class="menu-divider" />`,
+          html`<button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>`
+        ] : null}
         <div class="menu-divider" />
         <div style="padding: 8px 16px;">
           <${ShareArea} shareData=${shareData} />
@@ -1856,6 +1860,12 @@ var TAB_DEFS = [
 ];
 
 function reAnalyze() {
+  // セッション保持中はパスワード不要で再分析
+  if (localStorage.getItem('catalyzer_user_key')) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    reanalyzeWithSession();
+    return;
+  }
   var u = document.getElementById('username');
   var p = document.getElementById('password');
   if (u && p && u.value && p.value) {
@@ -1865,6 +1875,122 @@ function reAnalyze() {
   }
   var rep = document.getElementById('report');
   if (rep) rep.style.display = 'none';
+  var lf = document.getElementById('loginForm');
+  if (lf) lf.style.display = 'block';
+  var t = document.getElementById('pageTitle');
+  if (t) t.style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function reanalyzeWithSession() {
+  var status = document.getElementById('status');
+  var statusText = document.getElementById('statusText');
+  var error = document.getElementById('error');
+
+  status.style.display = 'block';
+  statusText.textContent = STATUS_MESSAGES.pending;
+  error.style.display = 'none';
+
+  var lastPreliminaryVersion = 0;
+
+  try {
+    var res = await fetch('/reanalyze', { method: 'POST' });
+    var data = await res.json();
+
+    if (data.error) {
+      // セッション失効
+      if (res.status === 401) {
+        localStorage.removeItem('catalyzer_user_key');
+        var lf = document.getElementById('loginForm');
+        if (lf) lf.style.display = 'block';
+        error.style.display = 'block';
+        error.textContent = data.error;
+        status.style.display = 'none';
+        return;
+      }
+      throw new Error(data.error);
+    }
+
+    var jobId = data.id;
+
+    while (true) {
+      await new Promise(function (r) { setTimeout(r, 3000); });
+
+      var statusRes = await fetch('/status/' + jobId);
+      var statusData = await statusRes.json();
+
+      if (statusData.error && statusData.status !== 'error') {
+        throw new Error(statusData.error);
+      }
+
+      statusText.textContent = statusData.message || STATUS_MESSAGES[statusData.status] || statusData.status;
+
+      var progressWrap = document.getElementById('progressWrap');
+      var progressFill = document.getElementById('progressFill');
+      if (statusData.progress_total > 0) {
+        var p = Math.round(100 * statusData.progress / statusData.progress_total);
+        progressFill.classList.remove('indeterminate');
+        progressFill.style.width = p + '%';
+        document.getElementById('progressPct').textContent = p + '%';
+        document.getElementById('progressCount').textContent = statusData.progress + '/' + statusData.progress_total + '件';
+        progressWrap.style.display = 'block';
+      } else if (statusData.status === 'scraping') {
+        progressFill.classList.add('indeterminate');
+        document.getElementById('progressPct').textContent = '戦歴を検索中…';
+        document.getElementById('progressCount').textContent = statusData.progress ? statusData.progress + '件' : '';
+        progressWrap.style.display = 'block';
+      } else {
+        progressFill.classList.remove('indeterminate');
+        progressWrap.style.display = 'none';
+      }
+
+      if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
+        var prelimRes = await fetch('/result/' + jobId);
+        var prelimData = await prelimRes.json();
+        if (prelimData.report && prelimData.preliminary) {
+          renderReport(prelimData.report, prelimData.user_key);
+          statusText.textContent = '最新データを取得中...';
+          lastPreliminaryVersion = statusData.preliminary_version;
+        }
+      }
+
+      if (statusData.status === 'error') {
+        // セッション失効エラーの場合はログイン画面を表示
+        if (statusData.error && statusData.error.indexOf('セッション') >= 0) {
+          localStorage.removeItem('catalyzer_user_key');
+          var lf = document.getElementById('loginForm');
+          if (lf) lf.style.display = 'block';
+        }
+        throw new Error(statusData.error || '分析に失敗しました');
+      }
+
+      if (statusData.status === 'done') {
+        var resultRes = await fetch('/result/' + jobId);
+        var resultData = await resultRes.json();
+        if (resultData.error) throw new Error(resultData.error);
+        renderReport(resultData.report, resultData.user_key);
+        break;
+      }
+    }
+  } catch (e) {
+    error.style.display = 'block';
+    error.textContent = e.message;
+  } finally {
+    status.style.display = 'none';
+  }
+}
+
+async function logout() {
+  try {
+    await fetch('/session', { method: 'DELETE' });
+  } catch (e) {}
+  localStorage.removeItem('catalyzer_report');
+  localStorage.removeItem('catalyzer_user_key');
+  localStorage.removeItem('catalyzer_has_session');
+  try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
+
+  var rep = document.getElementById('report');
+  if (rep) { render(null, rep); rep.style.display = 'none'; }
   var lf = document.getElementById('loginForm');
   if (lf) lf.style.display = 'block';
   var t = document.getElementById('pageTitle');
@@ -1959,7 +2085,9 @@ function Report({ data, userKey }) {
     </div>
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
-      shareData=${shareData} onReAnalyze=${reAnalyze} />
+      shareData=${shareData} onReAnalyze=${reAnalyze}
+      hasSession=${!!localStorage.getItem('catalyzer_user_key')}
+      onLogout=${logout} />
 
     <${KpiGrid} stats=${effectivePd.basic_stats} />
 
@@ -2019,10 +2147,15 @@ function showSkeleton() {
 function renderReport(data, userKey) {
   var reportEl = document.getElementById('report');
   reportEl.style.display = 'block';
-  // ダッシュボードのtopbarがブランド表示を担うため、静的な見出しは隠す
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = 'none';
   render(html`<${Report} data=${data} userKey=${userKey} />`, reportEl);
+
+  // レポートをlocalStorageにキャッシュ（次回アクセス時の即時表示用）
+  try {
+    localStorage.setItem('catalyzer_report', JSON.stringify(data));
+    if (userKey) localStorage.setItem('catalyzer_user_key', userKey);
+  } catch (e) {}
 }
 
 async function analyze() {
@@ -2063,10 +2196,13 @@ async function analyze() {
   showSkeleton();
 
   try {
+    var rememberEl = document.getElementById('remember');
+    var remember = rememberEl ? rememberEl.checked : false;
+
     var res = await fetch('/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username, password: password }),
+      body: JSON.stringify({ username: username, password: password, remember: remember }),
     });
 
     var data = await res.json();
@@ -2136,6 +2272,10 @@ async function analyze() {
 
         renderReport(resultData.report, resultData.user_key);
         renderedReal = true;
+        // remember=trueで分析成功 → セッションフラグをセット
+        if (remember) {
+          try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
+        }
         if (resultData.partial) {
           var warning = document.getElementById('error');
           warning.style.display = 'block';
@@ -2177,6 +2317,66 @@ if (loginForm) {
     }
   } catch (e) {}
 }
+
+// セッション保持の説明モーダル
+var rememberInfoBtn = document.getElementById('rememberInfoBtn');
+var rememberModal = document.getElementById('rememberModal');
+var rememberModalClose = document.getElementById('rememberModalClose');
+if (rememberInfoBtn && rememberModal) {
+  rememberInfoBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    rememberModal.style.display = 'flex';
+  });
+  rememberModal.addEventListener('click', function (e) {
+    if (e.target === rememberModal) rememberModal.style.display = 'none';
+  });
+  if (rememberModalClose) {
+    rememberModalClose.addEventListener('click', function () {
+      rememberModal.style.display = 'none';
+    });
+  }
+}
+
+// ページロード時: localStorageにキャッシュレポートがあれば即時表示
+(function initSession() {
+  var cachedReport = null;
+  var cachedUserKey = null;
+  var hasSession = false;
+  try {
+    var reportStr = localStorage.getItem('catalyzer_report');
+    cachedUserKey = localStorage.getItem('catalyzer_user_key');
+    hasSession = !!localStorage.getItem('catalyzer_has_session');
+    if (reportStr) cachedReport = JSON.parse(reportStr);
+  } catch (e) {}
+
+  // キャッシュレポートがあれば即時表示
+  if (cachedReport && cachedUserKey) {
+    renderReport(cachedReport, cachedUserKey);
+  }
+
+  if (hasSession) {
+    // セッション保持ユーザー: ログインフォームを隠し、バックグラウンドでセッション確認
+    if (loginForm) loginForm.style.display = 'none';
+
+    fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.valid) {
+        // セッション失効
+        localStorage.removeItem('catalyzer_has_session');
+        if (loginForm) loginForm.style.display = 'block';
+        // レポートキャッシュがない場合はサーバーのレポートキャッシュなしで通常ログインへ
+      } else if (!cachedReport && data.report) {
+        // localStorageにレポートがないがサーバーにはある場合
+        renderReport(data.report, data.user_key);
+        if (loginForm) loginForm.style.display = 'none';
+        try { localStorage.setItem('catalyzer_report', JSON.stringify(data.report)); } catch (e) {}
+      }
+    }).catch(function () {
+      // ネットワークエラー: ログインフォームを表示
+      if (loginForm) loginForm.style.display = 'block';
+    });
+  }
+  // セッションなし + キャッシュありの場合: レポートは表示済み、ログインフォームも表示（デフォルト）
+})();
 
 // preview.html用: windowにrenderReportを公開
 window.renderReport = renderReport;

@@ -11,15 +11,21 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/yuki9431/catalyzer/internal/firestore"
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/pipeline"
+	"github.com/yuki9431/catalyzer/internal/session"
 	"golang.org/x/time/rate"
 )
+
+const sessionCookieName = "catalyzer_session"
+const sessionMaxAge = 30 * 24 * 60 * 60 // 30 days
 
 type analyzeRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Remember bool   `json:"remember"`
 }
 
 var requestLimiter = make(chan struct{}, 3)
@@ -120,6 +126,12 @@ func StartServer() {
 		// ジョブ作成
 		j := pipeline.NewJob()
 
+		// remember=true かつセッション暗号化が有効な場合、セッショントークンを生成
+		if req.Remember && session.Enabled() {
+			j.Remember = true
+			j.SessionToken = uuid.New().String()
+		}
+
 		// バックグラウンドで実行
 		go func() {
 			defer func() { <-requestLimiter }()
@@ -189,6 +201,27 @@ func StartServer() {
 		handlePeriod(w, r)
 	})
 
+	// GET /session → セッションの有効性チェック（キャッシュレポート付き）
+	http.HandleFunc("/session", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleSessionCheck(w, r)
+		case http.MethodDelete:
+			handleSessionDelete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// POST /reanalyze → 保存済みセッションで再分析
+	http.HandleFunc("/reanalyze", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handleReanalyze(w, r, rl)
+	})
+
 	// 静的ファイル（フロントエンド）
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/", fs)
@@ -221,6 +254,11 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	if snap.Status == model.StatusError {
 		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": snap.Error})
 		return
+	}
+
+	// remember=true でジョブ完了時、セッションCookieを発行
+	if j.Remember && j.SessionToken != "" {
+		setSessionCookie(w, j.SessionToken)
 	}
 
 	sendRawReport(w, http.StatusOK, snap.Report, "", snap.UserKey, false, snap.PartialData)
@@ -340,4 +378,163 @@ func sendRawReport(w http.ResponseWriter, code int, reportJSON, status, userKey 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(resp)
+}
+
+func setSessionCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   sessionMaxAge,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func getSessionToken(r *http.Request) string {
+	c, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return ""
+	}
+	return c.Value
+}
+
+// handleSessionCheck はセッションの有効性を確認し、キャッシュ済みレポートを返す
+func handleSessionCheck(w http.ResponseWriter, r *http.Request) {
+	token := getSessionToken(r)
+	if token == "" {
+		sendJSON(w, http.StatusOK, map[string]interface{}{"valid": false})
+		return
+	}
+
+	userKey, encJar, err := firestore.LoadSession(token)
+	if err != nil {
+		log.Printf("[WARN] Failed to load session: %v", err)
+		sendJSON(w, http.StatusOK, map[string]interface{}{"valid": false})
+		return
+	}
+	if userKey == "" || encJar == nil {
+		sendJSON(w, http.StatusOK, map[string]interface{}{"valid": false})
+		return
+	}
+
+	resp := map[string]interface{}{
+		"valid":    true,
+		"user_key": userKey,
+	}
+
+	// キャッシュ済みレポートがあれば返す（localStorage消失時のフォールバック）
+	cachedReport, err := firestore.LoadReportCache(userKey)
+	if err == nil && cachedReport != "" {
+		resp["report"] = json.RawMessage(cachedReport)
+	}
+
+	sendJSON(w, http.StatusOK, resp)
+}
+
+// handleSessionDelete はセッションを削除する（ログアウト）
+func handleSessionDelete(w http.ResponseWriter, r *http.Request) {
+	token := getSessionToken(r)
+	if token == "" {
+		sendJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+		return
+	}
+
+	if err := firestore.DeleteSession(token); err != nil {
+		log.Printf("[WARN] Failed to delete session: %v", err)
+	}
+
+	clearSessionCookie(w)
+	sendJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+// handleReanalyze は保存済みセッションを使って再分析を実行する
+func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter) {
+	token := getSessionToken(r)
+	if token == "" {
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "セッションが見つかりません。再度ログインしてください。"})
+		return
+	}
+
+	// レート制限チェック
+	if rl != nil {
+		ip := clientIP(r)
+		if !rl.getLimiter(ip).Allow() {
+			sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "リクエスト回数の上限に達しました。しばらく時間をおいてから再度お試しください"})
+			return
+		}
+	}
+
+	// Firestoreからセッションを読み込み
+	userKey, encJar, err := firestore.LoadSession(token)
+	if err != nil {
+		log.Printf("[WARN] Failed to load session for reanalyze: %v", err)
+		clearSessionCookie(w)
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "セッションの読み込みに失敗しました。再度ログインしてください。"})
+		return
+	}
+	if userKey == "" || encJar == nil {
+		clearSessionCookie(w)
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "セッションの有効期限が切れました。再度ログインしてください。"})
+		return
+	}
+
+	// CookieJarを復号
+	jarData, err := session.Decrypt(encJar)
+	if err != nil {
+		log.Printf("[WARN] Failed to decrypt session jar: %v", err)
+		_ = firestore.DeleteSession(token)
+		clearSessionCookie(w)
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "セッションの復号に失敗しました。再度ログインしてください。"})
+		return
+	}
+
+	jar, err := session.DeserializeJar(jarData)
+	if err != nil {
+		log.Printf("[WARN] Failed to deserialize session jar: %v", err)
+		_ = firestore.DeleteSession(token)
+		clearSessionCookie(w)
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "セッションの復元に失敗しました。再度ログインしてください。"})
+		return
+	}
+
+	// 403ブロックチェック
+	if forbidden403.IsBlocked(userKey) {
+		sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "対戦履歴ページへのアクセスが拒否されました。しばらく時間をおいてから再度お試しください。"})
+		return
+	}
+
+	// 同時実行数制限
+	select {
+	case requestLimiter <- struct{}{}:
+	default:
+		sendJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Server is busy, please try again later"})
+		return
+	}
+
+	j := pipeline.NewJob()
+	j.UserKey = userKey
+	j.SavedJar = jar
+	j.SessionToken = token
+	j.Remember = true
+
+	go func() {
+		defer func() { <-requestLimiter }()
+		pipeline.Run(j, "", "", forbidden403.Block)
+	}()
+
+	sendJSON(w, http.StatusAccepted, map[string]string{"id": j.ID})
 }

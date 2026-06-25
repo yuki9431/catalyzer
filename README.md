@@ -118,9 +118,10 @@
 | `internal/mslist/` | MSリストの読み書き・マージ |
 | `internal/gradelist/` | グレードリストの読み込み・未知URL検出 |
 | `internal/scraper/` | スクレイピング・ログイン処理 |
-| `internal/firestore/` | Firestoreクライアント・データの読み書き |
-| `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・CSV生成） |
-| `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック |
+| `internal/session/` | セッション暗号化（AES-256-GCM）・CookieJarシリアライズ |
+| `internal/firestore/` | Firestoreクライアント・データの読み書き・セッション保存 |
+| `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・CSV生成・セッション永続化） |
+| `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
 | `scripts/` | Go以外のスクリプト（Python分析等） |
 | `static/` | フロントエンドHTML/JS/CSS |
 | `data/` | 静的データファイル（MSリスト等） |
