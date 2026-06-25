@@ -404,6 +404,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			}
 		} else {
 			log.Printf("[INFO] No tag partners found")
+			finalTagPartners = cachedPartners
 		}
 	}
 
