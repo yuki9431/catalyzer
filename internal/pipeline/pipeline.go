@@ -49,6 +49,8 @@ type Job struct {
 	LoggedIn           bool             `json:"logged_in,omitempty"`
 	UserKey            string           `json:"-"`
 	completedAt        time.Time
+	cachedScores       model.DatedScores
+	cachedTagPartners  []model.TagPartner
 }
 
 // ジョブストア（インメモリ）
@@ -334,9 +336,17 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			finalReport = report
 		}
 
+		// カスタム期間分析用にscoresとtag_partnersをキャッシュ
+		finalPartners := tagPartners
+		if len(finalPartners) == 0 {
+			finalPartners = cachedPartners
+		}
+
 		jobsMu.Lock()
 		j.Status = model.StatusDone
 		j.Report = finalReport
+		j.cachedScores = existingScores
+		j.cachedTagPartners = finalPartners
 		j.completedAt = time.Now()
 		jobsMu.Unlock()
 		fs.SaveReportCache(j.UserKey, finalReport)
@@ -372,9 +382,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	// タッグ相方名を取得（403途中保存時はセッションが無効なのでキャッシュを使用）
 	var tagPartnersPath string
+	var finalTagPartners []model.TagPartner
 	if is403WithPartialData {
 		if cachedTagPartnersPath != "" {
 			tagPartnersPath = cachedTagPartnersPath
+			finalTagPartners = cachedPartners
 			log.Printf("[INFO] Using cached tag partners (403 partial save)")
 		}
 	} else {
@@ -388,9 +400,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				log.Printf("[INFO] Found %d tag partners", len(tagPartners))
 				// Firestoreにtag_partnersを書き込み
 				fs.SaveTagPartners(j.UserKey, tagPartners)
+				finalTagPartners = tagPartners
 			}
 		} else {
 			log.Printf("[INFO] No tag partners found")
+			finalTagPartners = cachedPartners
 		}
 	}
 
@@ -402,10 +416,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		return
 	}
 
+	// カスタム期間分析用にscoresとtag_partnersをキャッシュ
 	jobsMu.Lock()
 	j.Status = model.StatusDone
 	j.Report = report
 	j.PartialData = is403WithPartialData
+	j.cachedScores = allScores
+	j.cachedTagPartners = finalTagPartners
 	j.completedAt = time.Now()
 	jobsMu.Unlock()
 	fs.SaveReportCache(j.UserKey, report)
@@ -445,6 +462,59 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 	if err != nil {
 		log.Printf("[WARN] Failed to load tag partners for custom period: %v", err)
 	}
+	if len(partners) > 0 {
+		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
+		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
+			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
+			tagPartnersPath = ""
+		}
+	}
+
+	args := []string{"scripts/analyze.py", jsonPath, "--start", start, "--end", end, "--ms-list", DefaultMSListPath}
+	if tagPartnersPath != "" {
+		args = append(args, "--tag-partners", tagPartnersPath)
+	}
+
+	cmd := exec.Command("python3", args...)
+	cmd.Dir = "/app"
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("analysis failed: %v\n%s", err, string(output))
+	}
+
+	reportPath := filepath.Join(tmpDir, "report.json")
+	report, err := os.ReadFile(reportPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read report: %w", err)
+	}
+	return string(report), nil
+}
+
+// RunCustomPeriodFromJob はジョブにキャッシュされたscoresを使ってカスタム日時範囲の再分析を実行する。
+// キャッシュがない場合はFirestoreから読み直すRunCustomPeriodにフォールバックする。
+func RunCustomPeriodFromJob(j *Job, start, end string) (string, error) {
+	jobsMu.RLock()
+	scores := j.cachedScores
+	partners := j.cachedTagPartners
+	userKey := j.UserKey
+	jobsMu.RUnlock()
+
+	if len(scores) == 0 {
+		return RunCustomPeriod(userKey, start, end)
+	}
+
+	tmpDir, err := os.MkdirTemp("", "exvs-period-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	jsonPath := filepath.Join(tmpDir, "scores.json")
+	if err := saveScoresJSON(scores, jsonPath); err != nil {
+		return "", fmt.Errorf("failed to generate JSON: %w", err)
+	}
+
+	var tagPartnersPath string
 	if len(partners) > 0 {
 		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
 		if err := saveTagPartners(partners, tagPartnersPath); err != nil {

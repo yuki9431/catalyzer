@@ -273,7 +273,7 @@ func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
-	report, err := pipeline.RunCustomPeriod(snap.UserKey, start, end)
+	report, err := pipeline.RunCustomPeriodFromJob(j, start, end)
 	if err != nil {
 		log.Printf("[ERROR] Custom period analysis failed: %v", err)
 		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "カスタム期間の分析に失敗しました"})
