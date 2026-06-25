@@ -195,6 +195,11 @@ func StartServer() {
 		handlePeriod(w, r)
 	})
 
+	// GET /matches?user_key=...&after=... → 試合データ配信（IndexedDBキャッシュ用）
+	http.HandleFunc("/matches", func(w http.ResponseWriter, r *http.Request) {
+		handleMatches(w, r)
+	})
+
 	// 静的ファイル（フロントエンド）
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/", fs)
@@ -306,6 +311,37 @@ func handlePeriod(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendRawReport(w, http.StatusOK, report, "", userKey, false)
+}
+
+func handleMatches(w http.ResponseWriter, r *http.Request) {
+	userKey := r.URL.Query().Get("user_key")
+	if userKey == "" {
+		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "user_key parameter is required"})
+		return
+	}
+
+	var after time.Time
+	if afterStr := r.URL.Query().Get("after"); afterStr != "" {
+		const layout = "2006-01-02 15:04"
+		var err error
+		after, err = time.Parse(layout, afterStr)
+		if err != nil {
+			sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid after datetime format (expected: YYYY-MM-DD HH:MM)"})
+			return
+		}
+	}
+
+	matches, err := pipeline.GetMatchData(userKey, after)
+	if err != nil {
+		log.Printf("[ERROR] Failed to get match data: %v", err)
+		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "試合データの取得に失敗しました"})
+		return
+	}
+
+	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"matches": matches,
+		"total":   len(matches),
+	})
 }
 
 // securityHeaders は全レスポンスにセキュリティヘッダーを付与する

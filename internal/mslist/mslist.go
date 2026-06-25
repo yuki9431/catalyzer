@@ -10,8 +10,8 @@ import (
 	"github.com/yuki9431/catalyzer/internal/model"
 )
 
-// stripQuery はURLからクエリパラメータを除去する
-func stripQuery(rawURL string) string {
+// StripQuery はURLからクエリパラメータを除去する
+func StripQuery(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return rawURL
@@ -24,7 +24,18 @@ func stripQuery(rawURL string) string {
 func BuildMSNameMap(msList []model.MSInfo) map[string]string {
 	m := make(map[string]string, len(msList))
 	for _, ms := range msList {
-		m[stripQuery(ms.ImageURL)] = ms.Name
+		m[StripQuery(ms.ImageURL)] = ms.Name
+	}
+	return m
+}
+
+// BuildMSCostMap はMSInfoリストから画像URL→コストのマップを生成する（クエリパラメータを除去してマッチ）
+func BuildMSCostMap(msList []model.MSInfo) map[string]int {
+	m := make(map[string]int, len(msList))
+	for _, ms := range msList {
+		if ms.Cost > 0 {
+			m[StripQuery(ms.ImageURL)] = ms.Cost
+		}
 	}
 	return m
 }
@@ -32,7 +43,7 @@ func BuildMSNameMap(msList []model.MSInfo) map[string]string {
 // FillMsNames はDatedScoresの各スコアにMsNameをセットする（クエリパラメータを除去してマッチ）
 func FillMsNames(ds model.DatedScores, msMap map[string]string) {
 	for i := range ds {
-		if name, ok := msMap[stripQuery(ds[i].PlayerScore.MsImageURL)]; ok {
+		if name, ok := msMap[StripQuery(ds[i].PlayerScore.MsImageURL)]; ok {
 			ds[i].PlayerScore.MsName = name
 		}
 	}
@@ -68,7 +79,7 @@ func MergeMSList(scraped, existing []model.MSInfo) []model.MSInfo {
 	seen := make(map[string]bool)
 	var merged []model.MSInfo
 	for _, ms := range scraped {
-		key := stripQuery(ms.ImageURL)
+		key := StripQuery(ms.ImageURL)
 		if !seen[key] {
 			seen[key] = true
 			ms.ImageURL = key
@@ -76,7 +87,7 @@ func MergeMSList(scraped, existing []model.MSInfo) []model.MSInfo {
 		}
 	}
 	for _, ms := range existing {
-		key := stripQuery(ms.ImageURL)
+		key := StripQuery(ms.ImageURL)
 		if !seen[key] {
 			seen[key] = true
 			ms.ImageURL = key
