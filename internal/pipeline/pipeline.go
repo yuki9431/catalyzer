@@ -37,21 +37,21 @@ const prelimFirstBatchSize = 5
 
 // Job はバックグラウンドジョブの情報
 type Job struct {
-	ID                 string           `json:"id"`
-	Status             model.JobStatus  `json:"status"`
-	Message            string           `json:"message,omitempty"`
-	Progress           int              `json:"progress,omitempty"`
-	ProgressTotal      int              `json:"progress_total,omitempty"`
-	Report             string           `json:"report,omitempty"`
-	PreliminaryReport  string           `json:"preliminary_report,omitempty"`
-	PreliminaryVersion int              `json:"preliminary_version,omitempty"`
-	Error              string           `json:"error,omitempty"`
-	PartialData        bool             `json:"partial_data,omitempty"`
-	LoggedIn           bool             `json:"logged_in,omitempty"`
-	UserKey            string           `json:"-"`
-	Remember           bool             `json:"-"`
-	SessionToken       string           `json:"-"`
-	SavedJar           http.CookieJar   `json:"-"`
+	ID                 string          `json:"id"`
+	Status             model.JobStatus `json:"status"`
+	Message            string          `json:"message,omitempty"`
+	Progress           int             `json:"progress,omitempty"`
+	ProgressTotal      int             `json:"progress_total,omitempty"`
+	Report             string          `json:"report,omitempty"`
+	PreliminaryReport  string          `json:"preliminary_report,omitempty"`
+	PreliminaryVersion int             `json:"preliminary_version,omitempty"`
+	Error              string          `json:"error,omitempty"`
+	PartialData        bool            `json:"partial_data,omitempty"`
+	LoggedIn           bool            `json:"logged_in,omitempty"`
+	UserKey            string          `json:"-"`
+	Remember           bool            `json:"-"`
+	SessionToken       string          `json:"-"`
+	SavedJar           http.CookieJar  `json:"-"`
 	completedAt        time.Time
 	cachedScores       model.DatedScores
 	cachedTagPartners  []model.TagPartner
@@ -692,14 +692,7 @@ type playerJSON struct {
 	TeamGradeURL    string       `json:"team_grade_url"`
 	ScoreRanking    int          `json:"score_ranking"`
 	ArcadeName      string       `json:"arcade_name"`
-	Actions         []actionJSON `json:"actions"`
-}
-
-// actionJSON はタイムラインアクション
-type actionJSON struct {
-	Action         string  `json:"action"`
-	ActionStartSec float64 `json:"action_start_sec"`
-	ActionEndSec   float64 `json:"action_end_sec"`
+	Actions         []ActionJSON `json:"actions"`
 }
 
 // saveScoresJSON はDatedScoresを試合単位JSONファイルに保存する（Python分析用）。
@@ -780,11 +773,7 @@ func saveScoresJSON(ds model.DatedScores, path string) error {
 }
 
 // buildPlayerActions はMatchTimelineから特定プレイヤーのアクションを抽出する。
-func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []actionJSON {
-	if timeline == nil {
-		return []actionJSON{}
-	}
-
+func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []ActionJSON {
 	groupName := ""
 	switch playerNo {
 	case 1:
@@ -796,26 +785,7 @@ func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []actionJSO
 	case 4:
 		groupName = "team2-2"
 	}
-
-	var actions []actionJSON
-	for _, e := range timeline.Events {
-		if e.Group != groupName {
-			continue
-		}
-		action := e.ClassName
-		if e.IsPoint {
-			action = "death"
-		}
-		actions = append(actions, actionJSON{
-			Action:         action,
-			ActionStartSec: e.StartSec,
-			ActionEndSec:   e.EndSec,
-		})
-	}
-	if actions == nil {
-		return []actionJSON{}
-	}
-	return actions
+	return buildActions(timeline, groupName)
 }
 
 // mergeScores は既存のscoresに新規scoresをマージする。
