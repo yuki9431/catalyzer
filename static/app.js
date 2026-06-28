@@ -99,6 +99,131 @@ function fetchAndCacheMatches(userKey) {
   }).catch(function () {});
 }
 
+// --- Frontend Aggregation Helpers ---
+var PERIOD_DAYS = { '90d': 90, '60d': 60, '30d': 30, '14d': 14, '7d': 7, '3d': 3, '1d': 1 };
+
+function jsWinRate(matches) {
+  if (!matches.length) return 0;
+  var w = 0;
+  for (var i = 0; i < matches.length; i++) { if (matches[i].win) w++; }
+  return w / matches.length * 100;
+}
+
+function jsDmgEfficiency(matches) {
+  if (!matches.length) return 0;
+  var g = 0, t = 0;
+  for (var i = 0; i < matches.length; i++) { g += matches[i].dmg_given; t += matches[i].dmg_taken; }
+  return t > 0 ? g / t : 0;
+}
+
+function round1(n) { return Math.round(n * 10) / 10; }
+function round3(n) { return Math.round(n * 1000) / 1000; }
+
+function filterByPlayDays(matches, days) {
+  if (!matches.length) return [];
+  var dateSet = {};
+  for (var i = 0; i < matches.length; i++) {
+    dateSet[matches[i].date.substring(0, 10)] = true;
+  }
+  var playDates = Object.keys(dateSet).sort().reverse();
+  var targetDates = {};
+  for (var i = 0; i < Math.min(days, playDates.length); i++) {
+    targetDates[playDates[i]] = true;
+  }
+  return matches.filter(function (m) { return targetDates[m.date.substring(0, 10)]; });
+}
+
+function computeTimeOfDay(matches) {
+  var hourly = {};
+  for (var i = 0; i < matches.length; i++) {
+    var hour = parseInt(matches[i].date.substring(11, 13), 10);
+    if (!hourly[hour]) hourly[hour] = [];
+    hourly[hour].push(matches[i]);
+  }
+  var hours = [];
+  for (var h = 0; h < 24; h++) {
+    if (!hourly[h]) continue;
+    var ms = hourly[h];
+    var wr = jsWinRate(ms);
+    hours.push({ hour: h, matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 40 ? 'bad' : '' });
+  }
+  var tips = [];
+  var good = [], bad = [];
+  for (var h in hourly) {
+    if (hourly[h].length >= 5) {
+      var wr = jsWinRate(hourly[h]);
+      if (wr >= 70) good.push(Number(h));
+      if (wr <= 40) bad.push(Number(h));
+    }
+  }
+  good.sort(function (a, b) { return a - b; });
+  bad.sort(function (a, b) { return a - b; });
+  if (good.length) tips.push('好調 → **' + good.map(function (h) { return h + '時台'; }).join('、') + '**');
+  if (bad.length) tips.push('不調 → **' + bad.map(function (h) { return h + '時台'; }).join('、') + '**（強豪が多い or 疲労の影響）');
+  return { hours: hours, tips: tips };
+}
+
+function computeDayOfWeek(matches) {
+  var DOW_NAMES = ['月', '火', '水', '木', '金', '土', '日'];
+  var daily = {};
+  var weekdayData = [], weekendData = [];
+  for (var i = 0; i < matches.length; i++) {
+    var m = matches[i];
+    var d = new Date(m.date.replace(' ', 'T'));
+    var dow = (d.getDay() + 6) % 7;
+    if (!daily[dow]) daily[dow] = [];
+    daily[dow].push(m);
+    if (dow < 5) weekdayData.push(m); else weekendData.push(m);
+  }
+  var days = [];
+  for (var dow = 0; dow < 7; dow++) {
+    if (daily[dow]) {
+      days.push({ dow: dow, name: DOW_NAMES[dow], matches: daily[dow].length, win_rate: round1(jsWinRate(daily[dow])), dmg_efficiency: round3(jsDmgEfficiency(daily[dow])) });
+    }
+  }
+  var wdWr = weekdayData.length ? jsWinRate(weekdayData) : 0;
+  var weWr = weekendData.length ? jsWinRate(weekendData) : 0;
+  var diff = Math.abs(wdWr - weWr);
+  var tips = [];
+  if (diff >= 10) {
+    var better = wdWr > weWr ? '平日' : '土日';
+    var worse = wdWr > weWr ? '土日' : '平日';
+    tips.push('**' + better + '**が' + worse + 'より勝率 **' + Math.round(diff) + '%** 高い');
+  }
+  return {
+    weekday: weekdayData.length ? { matches: weekdayData.length, win_rate: round1(wdWr), dmg_efficiency: round3(jsDmgEfficiency(weekdayData)) } : { matches: 0, win_rate: 0, dmg_efficiency: 0 },
+    weekend: weekendData.length ? { matches: weekendData.length, win_rate: round1(weWr), dmg_efficiency: round3(jsDmgEfficiency(weekendData)) } : { matches: 0, win_rate: 0, dmg_efficiency: 0 },
+    days: days,
+    tips: tips,
+  };
+}
+
+function computeDailyTrend(matches) {
+  var DOW_NAMES = ['月', '火', '水', '木', '金', '土', '日'];
+  var daily = {};
+  var dateOrder = {};
+  for (var i = 0; i < matches.length; i++) {
+    var m = matches[i];
+    var dateKey = m.date.substring(5, 10).replace('-', '/');
+    if (!daily[dateKey]) { daily[dateKey] = []; dateOrder[dateKey] = m.date.substring(0, 10); }
+    daily[dateKey].push(m);
+  }
+  var sortedKeys = Object.keys(daily).sort(function (a, b) {
+    return dateOrder[a] < dateOrder[b] ? -1 : dateOrder[a] > dateOrder[b] ? 1 : 0;
+  });
+  var results = sortedKeys.map(function (dateStr) {
+    var ms = daily[dateStr];
+    var wr = jsWinRate(ms);
+    var d = new Date(ms[0].date.replace(' ', 'T'));
+    var dow = (d.getDay() + 6) % 7;
+    return { date: dateStr, dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 45 ? 'bad' : '' };
+  });
+  var tips = [];
+  var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; });
+  if (badDays.length) tips.push('不調日（勝率40%以下）→ **' + badDays.join(', ') + '**。早めの切り上げが有効');
+  return { days: results, tips: tips };
+}
+
 // --- Utility ---
 function esc(s) {
   if (s == null) return '';
@@ -1765,7 +1890,7 @@ function OverviewPane({ pd, selectedMs, lens, allPd }) {
   </div>`;
 }
 
-function TimePane({ pd, selectedMs }) {
+function TimePane({ pd, selectedMs, usingFrontend }) {
   var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend;
   var timeRows = time && time.hours ? time.hours.map(function (h) {
     return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
@@ -1781,7 +1906,7 @@ function TimePane({ pd, selectedMs }) {
   });
 
   return html`<div class="tabpane">
-    ${selectedMs && html`<div class="info-note">※ 時間帯データは全機体の集計です（機体別の時間帯分析は今後対応予定）</div>`}
+    ${selectedMs && !usingFrontend && html`<div class="info-note">※ 時間帯データは全機体の集計です（機体別の時間帯分析は今後対応予定）</div>`}
     ${time && time.hours && time.hours.length > 0 && html`<${Panel} title="時間帯別の勝率">
       <${TimeOfDayChart} hours=${time.hours} />
       <${Tips} tips=${time.tips} />
@@ -2117,7 +2242,16 @@ function Report({ data, userKey }) {
   var lens = lensRef[0], setLens = lensRef[1];
   var menuRef = useState(false);
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
+  var matchesRef = useState(null);
+  var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var topbarRef = useRef(null);
+
+  useEffect(function () {
+    if (!userKey) return;
+    loadMatchesFromDB(userKey).then(function (matches) {
+      if (matches && matches.length > 0) setAllMatches(matches);
+    }).catch(function () {});
+  }, [userKey]);
 
   useEffect(function () {
     var row = topbarRef.current && topbarRef.current.querySelector('.controls-row');
@@ -2163,6 +2297,21 @@ function Report({ data, userKey }) {
     return { basic_stats: ms.basic_stats, win_loss_pattern: ms.win_loss_pattern };
   }, [pd, selectedMs]);
 
+  var frontendTimeData = useMemo(function () {
+    if (!allMatches || !allMatches.length) return null;
+    if (selectedPeriod === 'custom') return null;
+    var filtered = allMatches;
+    var days = PERIOD_DAYS[selectedPeriod];
+    if (days) filtered = filterByPlayDays(allMatches, days);
+    if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
+    if (!filtered.length) return null;
+    return {
+      time_of_day: computeTimeOfDay(filtered),
+      day_of_week: computeDayOfWeek(filtered),
+      daily_trend: computeDailyTrend(filtered),
+    };
+  }, [allMatches, selectedPeriod, selectedMs]);
+
   var shareData = selectedPeriod === 'custom' && customData ? customData.share_data : data.share_data;
 
   function handleCustomReport(report) {
@@ -2178,7 +2327,8 @@ function Report({ data, userKey }) {
   } else if (activeTab === 'matchup') {
     pane = html`<${MatchupPane} msStats=${msStats} selectedMs=${selectedMs} />`;
   } else if (activeTab === 'time') {
-    pane = html`<${TimePane} pd=${pd} selectedMs=${selectedMs} />`;
+    var timePd = frontendTimeData ? { time_of_day: frontendTimeData.time_of_day, day_of_week: frontendTimeData.day_of_week, daily_trend: frontendTimeData.daily_trend } : pd;
+    pane = html`<${TimePane} pd=${timePd} selectedMs=${selectedMs} usingFrontend=${!!frontendTimeData} />`;
   } else {
     pane = html`<${OverviewPane} pd=${effectivePd} selectedMs=${selectedMs} lens=${lens} allPd=${pd} />`;
   }
