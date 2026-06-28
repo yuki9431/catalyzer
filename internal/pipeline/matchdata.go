@@ -12,32 +12,32 @@ import (
 
 // MatchData はフロントエンド向けの試合データ（プレイヤー視点）
 type MatchData struct {
-	Date          string  `json:"date"`
-	MS            string  `json:"ms"`
-	MSCost        int     `json:"ms_cost,omitempty"`
-	PartnerMS     string  `json:"partner_ms"`
-	PartnerCost   int     `json:"partner_cost,omitempty"`
-	Opponent1MS   string  `json:"opponent1_ms"`
-	Opponent1Cost int     `json:"opponent1_cost,omitempty"`
-	Opponent2MS   string  `json:"opponent2_ms"`
-	Opponent2Cost int     `json:"opponent2_cost,omitempty"`
-	Win           bool    `json:"win"`
-	Score         int     `json:"score"`
-	Kills         int     `json:"kills"`
-	Deaths        int     `json:"deaths"`
-	DmgGiven      int     `json:"dmg_given"`
-	DmgTaken      int     `json:"dmg_taken"`
-	ExDmg         int     `json:"ex_dmg"`
-	PartnerName   string  `json:"partner_name"`
-	PartnerScore  int     `json:"partner_score"`
-	PartnerKills  int     `json:"partner_kills"`
-	PartnerDeaths int     `json:"partner_deaths"`
-	PartnerDmgGiven int  `json:"partner_dmg_given"`
-	PartnerDmgTaken int  `json:"partner_dmg_taken"`
-	PartnerExDmg  int     `json:"partner_ex_dmg"`
-	Bursts        int     `json:"bursts"`
-	PartnerBursts int     `json:"partner_bursts"`
-	GameEndSec    float64 `json:"game_end_sec,omitempty"`
+	Date            string  `json:"date"`
+	MS              string  `json:"ms"`
+	MSCost          int     `json:"ms_cost,omitempty"`
+	PartnerMS       string  `json:"partner_ms"`
+	PartnerCost     int     `json:"partner_cost,omitempty"`
+	Opponent1MS     string  `json:"opponent1_ms"`
+	Opponent1Cost   int     `json:"opponent1_cost,omitempty"`
+	Opponent2MS     string  `json:"opponent2_ms"`
+	Opponent2Cost   int     `json:"opponent2_cost,omitempty"`
+	Win             bool    `json:"win"`
+	Score           int     `json:"score"`
+	Kills           int     `json:"kills"`
+	Deaths          int     `json:"deaths"`
+	DmgGiven        int     `json:"dmg_given"`
+	DmgTaken        int     `json:"dmg_taken"`
+	ExDmg           int     `json:"ex_dmg"`
+	PartnerName     string  `json:"partner_name"`
+	PartnerScore    int     `json:"partner_score"`
+	PartnerKills    int     `json:"partner_kills"`
+	PartnerDeaths   int     `json:"partner_deaths"`
+	PartnerDmgGiven int     `json:"partner_dmg_given"`
+	PartnerDmgTaken int     `json:"partner_dmg_taken"`
+	PartnerExDmg    int     `json:"partner_ex_dmg"`
+	Bursts          int     `json:"bursts"`
+	PartnerBursts   int     `json:"partner_bursts"`
+	GameEndSec      float64 `json:"game_end_sec,omitempty"`
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
@@ -82,10 +82,10 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			return entries[i].PlayerNo < entries[j].PlayerNo
 		})
 
-		me := entries[0].PlayerScore    // PlayerNo 1
+		me := entries[0].PlayerScore      // PlayerNo 1
 		partner := entries[1].PlayerScore // PlayerNo 2
-		opp1 := entries[2].PlayerScore   // PlayerNo 3
-		opp2 := entries[3].PlayerScore   // PlayerNo 4
+		opp1 := entries[2].PlayerScore    // PlayerNo 3
+		opp2 := entries[3].PlayerScore    // PlayerNo 4
 
 		var gameEndSec float64
 		var timeline *model.MatchTimeline
