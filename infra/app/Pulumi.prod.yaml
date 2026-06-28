@@ -12,3 +12,5 @@ config:
   exvs-app:sharedStack: organization/exvs-shared/shared
   gcp:project: exvs2ib-analyzer
   gcp:region: asia-northeast1
+  exvs-app:sessionEncryptionKey:
+    secure: v1:ay3DXBLUnNZxg2tO:rv3t+K6ITd6nu3MXxCOo0Y5f4tlBSRVAlSJEe2Tj2PxDN0Cm7D6CgI0IvGAcFqQPPz1MpoM/K8JAKmoeMdK75/waKpfrTQiWtFGKgBNnnZ0=
