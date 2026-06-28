@@ -3,6 +3,7 @@ import { html, render, useState, useMemo, useCallback, useEffect, useRef } from 
 // --- Constants ---
 var STATUS_MESSAGES = {
   pending: '準備中...',
+  refreshing: '最新データを取得中...',
   scraping: '戦績を取得中...（数分かかります）',
   analyzing: '分析中...',
   done: '完了',
@@ -1987,8 +1988,15 @@ async function reanalyzeWithSession() {
   var statusText = document.getElementById('statusText');
   var error = document.getElementById('error');
 
+  // localStorageにキャッシュがあれば即時表示
+  try {
+    var cachedStr = localStorage.getItem('catalyzer_report');
+    var cachedKey = localStorage.getItem('catalyzer_user_key');
+    if (cachedStr && cachedKey) renderReport(JSON.parse(cachedStr), cachedKey);
+  } catch (e) {}
+
   status.style.display = 'block';
-  statusText.textContent = STATUS_MESSAGES.pending;
+  statusText.textContent = STATUS_MESSAGES.refreshing;
   error.style.display = 'none';
 
   var lastPreliminaryVersion = 0;
@@ -2050,7 +2058,7 @@ async function reanalyzeWithSession() {
         var prelimData = await prelimRes.json();
         if (prelimData.report && prelimData.preliminary) {
           renderReport(prelimData.report, prelimData.user_key);
-          statusText.textContent = '最新データを取得中...';
+          statusText.textContent = STATUS_MESSAGES.refreshing;
           lastPreliminaryVersion = statusData.preliminary_version;
         }
       }
@@ -2308,8 +2316,18 @@ async function analyze() {
   var lastPreliminaryVersion = 0;
   var renderedReal = false;
 
-  // スケルトンはPOSTの応答を待たず即表示する（実データではないので遷移待ち不要）
-  showSkeleton();
+  // localStorageにキャッシュがあれば即時表示、なければスケルトン
+  var usedCache = false;
+  try {
+    var cachedStr = localStorage.getItem('catalyzer_report');
+    var cachedKey = localStorage.getItem('catalyzer_user_key');
+    if (cachedStr && cachedKey) {
+      renderReport(JSON.parse(cachedStr), cachedKey);
+      statusText.textContent = STATUS_MESSAGES.refreshing;
+      usedCache = true;
+    }
+  } catch (e) {}
+  if (!usedCache) showSkeleton();
 
   try {
     var rememberEl = document.getElementById('remember');
@@ -2369,7 +2387,7 @@ async function analyze() {
         if (prelimData.report && prelimData.preliminary) {
           renderReport(prelimData.report, prelimData.user_key);
           renderedReal = true;
-          statusText.textContent = '最新データを取得中...';
+          statusText.textContent = STATUS_MESSAGES.refreshing;
           lastPreliminaryVersion = statusData.preliminary_version;
         }
       }
