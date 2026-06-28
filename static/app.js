@@ -2071,6 +2071,9 @@ async function reanalyzeWithSession() {
         var resultData = await resultRes.json();
         if (resultData.error) throw new Error(resultData.error);
         renderReport(resultData.report, resultData.user_key);
+        if (resultData.user_key) {
+          fetchAndCacheMatches(resultData.user_key);
+        }
         break;
       }
     }
