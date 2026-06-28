@@ -11,6 +11,94 @@ var STATUS_MESSAGES = {
 
 var PERIOD_KEYS = ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d'];
 
+// --- IndexedDB Match Cache ---
+var MATCH_DB_NAME = 'catalyzer';
+var MATCH_DB_VERSION = 1;
+var MATCH_STORE = 'matches';
+
+function openMatchDB() {
+  return new Promise(function (resolve, reject) {
+    var req = indexedDB.open(MATCH_DB_NAME, MATCH_DB_VERSION);
+    req.onupgradeneeded = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains(MATCH_STORE)) {
+        var store = db.createObjectStore(MATCH_STORE, { keyPath: 'id' });
+        store.createIndex('userKey', 'user_key', { unique: false });
+        store.createIndex('date', 'date', { unique: false });
+        store.createIndex('ms', 'ms', { unique: false });
+        store.createIndex('userKey_date', ['user_key', 'date'], { unique: false });
+      }
+    };
+    req.onsuccess = function (e) { resolve(e.target.result); };
+    req.onerror = function (e) { reject(e.target.error); };
+  });
+}
+
+function saveMatchesToDB(userKey, matches) {
+  return openMatchDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(MATCH_STORE, 'readwrite');
+      var store = tx.objectStore(MATCH_STORE);
+      for (var i = 0; i < matches.length; i++) {
+        var m = Object.assign({}, matches[i], {
+          id: userKey + '_' + matches[i].date,
+          user_key: userKey
+        });
+        store.put(m);
+      }
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function (e) { reject(e.target.error); };
+    });
+  });
+}
+
+function loadMatchesFromDB(userKey) {
+  return openMatchDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(MATCH_STORE, 'readonly');
+      var store = tx.objectStore(MATCH_STORE);
+      var index = store.index('userKey');
+      var req = index.getAll(userKey);
+      req.onsuccess = function (e) { resolve(e.target.result || []); };
+      req.onerror = function (e) { reject(e.target.error); };
+    });
+  });
+}
+
+function getLatestMatchDate(userKey) {
+  return openMatchDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(MATCH_STORE, 'readonly');
+      var store = tx.objectStore(MATCH_STORE);
+      var index = store.index('userKey_date');
+      var range = IDBKeyRange.bound([userKey, ''], [userKey, '￿']);
+      var req = index.openCursor(range, 'prev');
+      req.onsuccess = function (e) {
+        var cursor = e.target.result;
+        resolve(cursor ? cursor.value.date : null);
+      };
+      req.onerror = function (e) { reject(e.target.error); };
+    });
+  });
+}
+
+function fetchAndCacheMatches(userKey) {
+  getLatestMatchDate(userKey).then(function (latestDate) {
+    var url = '/matches?user_key=' + encodeURIComponent(userKey);
+    if (latestDate) {
+      url += '&after=' + encodeURIComponent(latestDate);
+    }
+    return fetch(url);
+  }).then(function (res) {
+    if (!res.ok) throw new Error('fetch failed');
+    return res.json();
+  }).then(function (data) {
+    if (data.matches && data.matches.length > 0) {
+      return saveMatchesToDB(userKey, data.matches);
+    }
+  }).catch(function () {});
+}
+
 // --- Utility ---
 function esc(s) {
   if (s == null) return '';
@@ -356,6 +444,7 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   var showTime = timeRef[0], setShowTime = timeRef[1];
 
   var containerRef = useRef(null);
+  var triggerRef = useRef(null);
 
   useEffect(function () {
     function handleClick(e) {
@@ -367,15 +456,19 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
     return function () { document.removeEventListener('mousedown', handleClick); };
   }, []);
 
-  // スマホでドロップダウン表示中はbodyスクロールを止める
   useEffect(function () {
-    if (isOpen && window.innerWidth <= 600) {
+    if (isOpen && window.innerWidth <= 720) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return function () { document.body.style.overflow = ''; };
   }, [isOpen]);
+
+  var dropStyle = {};
+  if (isOpen && triggerRef.current && window.innerWidth <= 720) {
+    dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
+  }
 
   var currentLabel = selected === 'custom'
     ? (periods.custom ? periods.custom.label : '日付指定')
@@ -418,11 +511,11 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   }
 
   return html`<div class="period-selector" ref=${containerRef}>
-    <button class="period-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+    <button class="period-trigger" ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${currentLabel} <span class="period-arrow">${isOpen ? '\u25B2' : '\u25BC'}</span>
     </button>
     ${isOpen && html`<div class="period-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="period-dropdown">
+    ${isOpen && html`<div class="period-dropdown" style=${dropStyle}>
       <div class="period-dropdown-list">
         ${keys.map(function (k) {
           return html`<button class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
@@ -1253,7 +1346,7 @@ function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze, hasSession, on
   return html`<div>
     <div class="menu-backdrop" onClick=${onClose} />
     <div class=${'menu-drawer' + (isOpen ? ' open' : '')}>
-      <div class="menu-header">catalyzer</div>
+      <div class="menu-header"><img src="logo.svg" alt="catalyzer" style="height:24px;width:auto;" /></div>
       <div class="menu-body">
         <button class="menu-item" onClick=${function () { onClose(); onReAnalyze(); }}>再分析</button>
         ${hasSession ? [
@@ -1279,12 +1372,19 @@ function MsSelector({ entries, selected, onSelect }) {
     document.addEventListener('click', handleClick, true);
     return function () { document.removeEventListener('click', handleClick, true); };
   }, [isOpen]);
-  var label = selected || '全機体';
+  var label = selected ? '1機選択' : '全機体';
+  var isSelected = !!selected;
+  var triggerRef = useRef(null);
+  var dropStyle = {};
+  if (isOpen && triggerRef.current && window.innerWidth <= 720) {
+    dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
+  }
   return html`<div class="ms-topbar-wrap" ref=${containerRef}>
-    <button class="ms-topbar-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+    <button class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="ms-topbar-dropdown">
+    ${isOpen && html`<div class="ms-topbar-backdrop" onClick=${function () { setIsOpen(false); }} />`}
+    ${isOpen && html`<div class="ms-topbar-dropdown" style=${dropStyle}>
       <button class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
       ${entries.map(function (e) {
@@ -1861,7 +1961,7 @@ var TAB_DEFS = [
 
 function reAnalyze() {
   // セッション保持中はパスワード不要で再分析
-  if (localStorage.getItem('catalyzer_user_key')) {
+  if (localStorage.getItem('catalyzer_has_session')) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     reanalyzeWithSession();
     return;
@@ -1901,6 +2001,7 @@ async function reanalyzeWithSession() {
       // セッション失効
       if (res.status === 401) {
         localStorage.removeItem('catalyzer_user_key');
+        localStorage.removeItem('catalyzer_has_session');
         var lf = document.getElementById('loginForm');
         if (lf) lf.style.display = 'block';
         error.style.display = 'block';
@@ -1958,6 +2059,7 @@ async function reanalyzeWithSession() {
         // セッション失効エラーの場合はログイン画面を表示
         if (statusData.error && statusData.error.indexOf('セッション') >= 0) {
           localStorage.removeItem('catalyzer_user_key');
+          localStorage.removeItem('catalyzer_has_session');
           var lf = document.getElementById('loginForm');
           if (lf) lf.style.display = 'block';
         }
@@ -2015,16 +2117,22 @@ function Report({ data, userKey }) {
   var topbarRef = useRef(null);
 
   useEffect(function () {
-    var lastY = window.scrollY;
+    var row = topbarRef.current && topbarRef.current.querySelector('.controls-row');
+    if (!row) return;
     function onScroll() {
-      if (!topbarRef.current) return;
-      var y = window.scrollY;
-      if (y > lastY && y > 80) {
-        topbarRef.current.classList.add('scrolled-down');
-      } else if (y < lastY) {
-        topbarRef.current.classList.remove('scrolled-down');
+      if (window.scrollY > 50) {
+        row.style.maxHeight = '0';
+        row.style.opacity = '0';
+        row.style.paddingTop = '0';
+        row.style.overflow = 'hidden';
+        row.style.pointerEvents = 'none';
+      } else {
+        row.style.maxHeight = '';
+        row.style.opacity = '';
+        row.style.paddingTop = '';
+        row.style.overflow = '';
+        row.style.pointerEvents = '';
       }
-      lastY = y;
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     return function () { window.removeEventListener('scroll', onScroll); };
@@ -2082,19 +2190,18 @@ function Report({ data, userKey }) {
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
       </div>
+      <div class="tabs">${TAB_DEFS.map(function (t) {
+        return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
+          onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
+      })}</div>
     </div>
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
       shareData=${shareData} onReAnalyze=${reAnalyze}
-      hasSession=${!!localStorage.getItem('catalyzer_user_key')}
+      hasSession=${!!localStorage.getItem('catalyzer_has_session')}
       onLogout=${logout} />
 
     <${KpiGrid} stats=${effectivePd.basic_stats} />
-
-    <div class="tabs">${TAB_DEFS.map(function (t) {
-      return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
-        onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
-    })}</div>
 
     ${pane}
 
@@ -2105,26 +2212,32 @@ function Report({ data, userKey }) {
 
 // ログイン成功後、データ到着までのダッシュボード骨組み表示
 function Skeleton() {
+  var menuRef = useState(false);
+  var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
   function bar(w, h, mb) {
     return html`<div class="skel" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
   return html`
     <div class="topbar">
-      <div class="skel" style=${{ width: '28px', height: '28px', borderRadius: '6px' }}></div>
+      <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-      <div class="controls-row">
-        <div class="skel skel-pill"></div>
-        <div class="skel skel-pill" style=${{ width: '160px' }}></div>
-        <div class="skel skel-pill"></div>
+      <div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+        <button class="period-trigger" disabled>全データ <span class="period-arrow">▼</span></button>
+        <button class="ms-topbar-trigger" disabled>全機体 <span class="period-arrow">▼</span></button>
+        <${LensToggle} lens=${'all'} onSelect=${function () {}} />
+      </div>
+      <div class="tabs" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+        ${TAB_DEFS.map(function (t) {
+          return html`<button class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
+        })}
       </div>
     </div>
+    <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
+      shareData=${null} onReAnalyze=${function () {}} />
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
       })}
-    </div>
-    <div class="tabs">
-      ${TAB_DEFS.map(function (t) { return html`<div class="skel" style=${{ width: '60px', height: '32px', borderRadius: '10px' }}></div>`; })}
     </div>
     <div class="panel">
       ${bar('30%', 16, 14)}${bar('100%', 220)}
@@ -2275,6 +2388,9 @@ async function analyze() {
         // remember=trueで分析成功 → セッションフラグをセット
         if (remember) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
+        }
+        if (resultData.user_key) {
+          fetchAndCacheMatches(resultData.user_key);
         }
         if (resultData.partial) {
           var warning = document.getElementById('error');

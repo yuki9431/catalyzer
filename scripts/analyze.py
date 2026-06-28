@@ -1426,14 +1426,14 @@ def build_json_report(player_name, all_data, ms_data, tag_partners=None):
     }
 
 
-def build_custom_period_report(player_name, all_data, ms_data, start, end):
+def build_custom_period_report(player_name, all_data, ms_data, start, end, tag_partners=None):
     """カスタム日時範囲の構造化JSONレポートを生成する"""
     filtered = filter_by_datetime_range(all_data, start, end)
     if not filtered:
         return None
 
     ms_filtered = build_ms_data(filtered)
-    period_report = build_period_report(filtered, ms_filtered)
+    period_report = build_period_report(filtered, ms_filtered, tag_partners)
     start_str = start.strftime("%Y-%m-%d %H:%M")
     end_str = end.strftime("%Y-%m-%d %H:%M")
     period_report["label"] = f"{start_str} 〜 {end_str}"
@@ -1474,7 +1474,7 @@ def main():
     if args.start and args.end:
         start = datetime.strptime(args.start, "%Y-%m-%d %H:%M")
         end = datetime.strptime(args.end, "%Y-%m-%d %H:%M")
-        report_data = build_custom_period_report(player_name, all_data, ms_data, start, end)
+        report_data = build_custom_period_report(player_name, all_data, ms_data, start, end, tag_partners)
         if report_data is None:
             print("指定期間のデータが見つかりませんでした。")
             sys.exit(1)

@@ -39,7 +39,13 @@ func StartServer() {
 
 	// Firestore初期化（FIRESTORE_DATABASE未設定時はスキップ）
 	if os.Getenv("FIRESTORE_DATABASE") != "" {
-		if err := firestore.Init(context.Background()); err != nil {
+		var err error
+		if p := os.Getenv("GOOGLE_CLOUD_PROJECT"); p != "" {
+			err = firestore.InitWithProjectID(context.Background(), p)
+		} else {
+			err = firestore.Init(context.Background())
+		}
+		if err != nil {
 			log.Printf("[WARN] Firestore initialization failed, continuing without Firestore: %v", err)
 		} else {
 			defer firestore.Close()
@@ -201,6 +207,11 @@ func StartServer() {
 		handlePeriod(w, r)
 	})
 
+	// GET /matches?user_key=...&after=... → 試合データ配信（IndexedDBキャッシュ用）
+	http.HandleFunc("/matches", func(w http.ResponseWriter, r *http.Request) {
+		handleMatches(w, r)
+	})
+
 	// GET /session → セッションの有効性チェック（キャッシュレポート付き）
 	http.HandleFunc("/session", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -300,7 +311,7 @@ func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
-	report, err := pipeline.RunCustomPeriod(snap.UserKey, start, end)
+	report, err := pipeline.RunCustomPeriodFromJob(j, start, end)
 	if err != nil {
 		log.Printf("[ERROR] Custom period analysis failed: %v", err)
 		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "カスタム期間の分析に失敗しました"})
@@ -338,6 +349,37 @@ func handlePeriod(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendRawReport(w, http.StatusOK, report, "", userKey, false)
+}
+
+func handleMatches(w http.ResponseWriter, r *http.Request) {
+	userKey := r.URL.Query().Get("user_key")
+	if userKey == "" {
+		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "user_key parameter is required"})
+		return
+	}
+
+	var after time.Time
+	if afterStr := r.URL.Query().Get("after"); afterStr != "" {
+		const layout = "2006-01-02 15:04"
+		var err error
+		after, err = time.Parse(layout, afterStr)
+		if err != nil {
+			sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid after datetime format (expected: YYYY-MM-DD HH:MM)"})
+			return
+		}
+	}
+
+	matches, err := pipeline.GetMatchData(userKey, after)
+	if err != nil {
+		log.Printf("[ERROR] Failed to get match data: %v", err)
+		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "試合データの取得に失敗しました"})
+		return
+	}
+
+	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"matches": matches,
+		"total":   len(matches),
+	})
 }
 
 // securityHeaders は全レスポンスにセキュリティヘッダーを付与する
@@ -427,6 +469,14 @@ func handleSessionCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if userKey == "" || encJar == nil {
+		sendJSON(w, http.StatusOK, map[string]interface{}{"valid": false})
+		return
+	}
+
+	// jarが復号可能か検証（鍵ローテーション後に無効なセッションを検出）
+	if _, err := session.Decrypt(encJar); err != nil {
+		log.Printf("[WARN] Session jar undecryptable, invalidating: %v", err)
+		_ = firestore.DeleteSession(token)
 		sendJSON(w, http.StatusOK, map[string]interface{}{"valid": false})
 		return
 	}
