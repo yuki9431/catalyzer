@@ -34,7 +34,6 @@ export function SortableTable({ headers, rows, sortableColumns, defaultLimit }) 
     return sorted;
   }, [rows, sortState]);
 
-  var expanded = limit === 0;
   var displayRows = limit > 0 ? sortedRows.slice(0, limit) : sortedRows;
   var hasMore = limit > 0 && sortedRows.length > limit;
 
@@ -74,13 +73,6 @@ export function SortableTable({ headers, rows, sortableColumns, defaultLimit }) 
 export function Table({ headers, rows }) {
   if (!rows || !rows.length) return null;
   return html`<${SortableTable} headers=${headers} rows=${rows} />`;
-}
-
-export function Section({ title, open, children }) {
-  return html`<details ...${{ open: open || false }}>
-    <summary><strong>${title}</strong></summary>
-    ${children}
-  </details><hr />`;
 }
 
 export function SubSection({ title, open, children }) {

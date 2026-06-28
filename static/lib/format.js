@@ -61,12 +61,6 @@ export function colorKD(n) { return colorVal(n, 1.5, 1.0, 1.0, 0.6, true, 2); }
 export function colorExDmg(n) { return colorVal(n, 200, 160, 160, 100, true, 0); }
 export function colorBursts(n) { return colorVal(n, 2.0, 1.5, 1.5, 1.0, true, 2); }
 
-export function colorDiff(n, d) {
-  if (n == null) return '-';
-  var text = (n >= 0 ? '+' : '') + n.toFixed(d != null ? d : 1);
-  return text;
-}
-
 export function cellValue(cell) {
   return cell != null && typeof cell === 'object' && cell.sortValue != null ? cell.sortValue : cell;
 }
