@@ -273,11 +273,20 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	// remember=true でジョブ完了時、セッションCookieを発行
-	if j.Remember && j.SessionToken != "" {
+	sessionSaved := j.Remember && j.SessionToken != ""
+	if sessionSaved {
 		setSessionCookie(w, j.SessionToken)
 	}
 
-	sendRawReport(w, http.StatusOK, snap.Report, "", snap.UserKey, false, snap.PartialData)
+	resp := reportResponse{
+		Report:       json.RawMessage(snap.Report),
+		UserKey:      snap.UserKey,
+		Partial:      snap.PartialData,
+		SessionSaved: sessionSaved,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
@@ -434,14 +443,16 @@ func sendJSON(w http.ResponseWriter, code int, data interface{}) {
 
 // sendRawReport はJSON形式のレポートをレスポンスとして返す。
 // reportJSONはanalyze.pyが生成したJSON文字列。json.RawMessageで二重エンコードを防ぐ。
+type reportResponse struct {
+	Report       json.RawMessage `json:"report"`
+	Status       string          `json:"status,omitempty"`
+	Preliminary  bool            `json:"preliminary,omitempty"`
+	Partial      bool            `json:"partial,omitempty"`
+	UserKey      string          `json:"user_key,omitempty"`
+	SessionSaved bool            `json:"session_saved,omitempty"`
+}
+
 func sendRawReport(w http.ResponseWriter, code int, reportJSON, status, userKey string, preliminary bool, partial ...bool) {
-	type reportResponse struct {
-		Report      json.RawMessage `json:"report"`
-		Status      string          `json:"status,omitempty"`
-		Preliminary bool            `json:"preliminary,omitempty"`
-		Partial     bool            `json:"partial,omitempty"`
-		UserKey     string          `json:"user_key,omitempty"`
-	}
 	isPartial := len(partial) > 0 && partial[0]
 	resp := reportResponse{
 		Report:      json.RawMessage(reportJSON),

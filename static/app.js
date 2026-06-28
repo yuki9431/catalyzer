@@ -3425,8 +3425,8 @@ async function analyze() {
 
         renderReport(resultData.report, resultData.user_key);
         renderedReal = true;
-        // remember=trueで分析成功 → セッションフラグをセット
-        if (remember) {
+        // サーバーがセッションを保存した場合のみフラグをセット
+        if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
         }
         if (resultData.user_key) {

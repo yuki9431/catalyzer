@@ -9,6 +9,7 @@ const maxInstances = config.requireNumber("maxInstances");
 const image = config.requireSecret("image");
 const domain = config.require("domain");
 const firestoreDatabase = config.require("firestoreDatabase");
+const sessionEncryptionKey = config.getSecret("sessionEncryptionKey");
 
 // shared スタックからDNSゾーン名を取得
 const sharedStackName = config.require("sharedStack");
@@ -36,6 +37,14 @@ export const service = new gcp.cloudrunv2.Service(
               name: "FIRESTORE_DATABASE",
               value: firestoreDatabase,
             },
+            ...(sessionEncryptionKey !== undefined
+              ? [
+                  {
+                    name: "SESSION_ENCRYPTION_KEY",
+                    value: sessionEncryptionKey,
+                  },
+                ]
+              : []),
           ],
           resources: {
             cpuIdle: true,
