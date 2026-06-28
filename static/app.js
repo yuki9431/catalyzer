@@ -770,6 +770,268 @@ function computeBurstCount(matches) {
   return { by_count: results, tips: tips };
 }
 
+function jsGetDeathEvents(actions) {
+  return (actions || []).filter(function (a) { return a.action === 'death'; });
+}
+function jsGetBurstEvents(actions) {
+  return (actions || []).filter(function (a) { return a.action === 'exbst-f' || a.action === 'exbst-s' || a.action === 'exbst-e'; });
+}
+function jsGetExReadyEvents(actions) {
+  return (actions || []).filter(function (a) { return a.action === 'ex'; });
+}
+
+function computeFallOrder(matches) {
+  var noFall = [], firstFall = [], secondFall = [], sameTime = [];
+  matches.forEach(function (d) {
+    if (!d.actions || !d.actions.length) return;
+    var myDeaths = jsGetDeathEvents(d.actions);
+    var partnerDeaths = jsGetDeathEvents(d.partner_actions);
+    if (!myDeaths.length) {
+      noFall.push(d);
+    } else if (!partnerDeaths.length) {
+      firstFall.push(d);
+    } else {
+      var myFirst = myDeaths[0].action_start_sec;
+      var partnerFirst = partnerDeaths[0].action_start_sec;
+      if (myFirst < partnerFirst) firstFall.push(d);
+      else if (myFirst > partnerFirst) secondFall.push(d);
+      else sameTime.push(d);
+    }
+  });
+  var total = noFall.length + firstFall.length + secondFall.length + sameTime.length;
+  if (total === 0) return null;
+  function buildStats(ms) {
+    var tg = 0, tt = 0;
+    ms.forEach(function (d) { tg += d.dmg_given; tt += d.dmg_taken; });
+    return {
+      count: ms.length,
+      rate: round1(ms.length / total * 100),
+      win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
+      avg_dmg_given: ms.length ? Math.round(jsAvg(ms.map(function (d) { return d.dmg_given; }))) : 0,
+      avg_dmg_taken: ms.length ? Math.round(jsAvg(ms.map(function (d) { return d.dmg_taken; }))) : 0,
+      dmg_efficiency: ms.length ? round3(tt > 0 ? tg / tt : 0) : 0,
+    };
+  }
+  var noFallWr = noFall.length ? jsWinRate(noFall) : 0;
+  var firstWr = firstFall.length ? jsWinRate(firstFall) : 0;
+  var secondWr = secondFall.length ? jsWinRate(secondFall) : 0;
+  var tips = [];
+  if (firstFall.length && secondFall.length) {
+    var diff = secondWr - firstWr;
+    if (Math.abs(diff) >= 5) {
+      var better = diff > 0 ? '後落ち' : '先落ち';
+      tips.push('**' + better + '**の方が勝率 **' + Math.round(Math.abs(diff)) + '%** 高い');
+    }
+  }
+  var fallTotal = firstFall.length + secondFall.length + sameTime.length;
+  if (firstFall.length && fallTotal > 0) {
+    var firstRate = firstFall.length / fallTotal * 100;
+    if (firstRate >= 60) tips.push('先落ち率 **' + Math.round(firstRate) + '%** → 前に出すぎている可能性');
+  }
+  if (noFall.length && firstFall.length) {
+    var d2 = noFallWr - firstWr;
+    if (d2 >= 10) tips.push('0落ちの試合は先落ちより勝率 **' + Math.round(d2) + '%** 高い → 耐久管理が重要');
+  }
+  return {
+    total: total,
+    no_fall: buildStats(noFall),
+    first_fall: buildStats(firstFall),
+    second_fall: buildStats(secondFall),
+    same_time: buildStats(sameTime),
+    tips: tips,
+  };
+}
+
+function computeBurstHoldDeath(matches) {
+  var holdByDeath = {};
+  var noHold = [];
+  var total = 0;
+  matches.forEach(function (d) {
+    if (!d.actions || !d.actions.length) return;
+    var deaths = jsGetDeathEvents(d.actions).sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
+    var bursts = jsGetBurstEvents(d.actions);
+    var exReadies = jsGetExReadyEvents(d.actions);
+    if (!deaths.length) return;
+    total++;
+    var hasAnyHold = false;
+    deaths.forEach(function (death, i) {
+      var deathTime = death.action_start_sec;
+      var relevantEx = exReadies.filter(function (e) { return e.action_start_sec < deathTime; });
+      if (!relevantEx.length) return;
+      var lastExTime = Math.max.apply(null, relevantEx.map(function (e) { return e.action_start_sec; }));
+      var burstUsed = bursts.some(function (b) {
+        return b.action_start_sec >= lastExTime && b.action_start_sec < deathTime;
+      });
+      if (!burstUsed) {
+        var nth = i + 1;
+        if (!holdByDeath[nth]) holdByDeath[nth] = [];
+        holdByDeath[nth].push(d);
+        hasAnyHold = true;
+      }
+    });
+    if (!hasAnyHold) noHold.push(d);
+  });
+  if (total === 0) return null;
+  function buildStats(ms) {
+    return {
+      count: ms.length,
+      rate: round1(ms.length / total * 100),
+      win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
+    };
+  }
+  var byDeath = [];
+  Object.keys(holdByDeath).map(Number).sort(function (a, b) { return a - b; }).forEach(function (nth) {
+    var stats = buildStats(holdByDeath[nth]);
+    stats.label = nth + '機目に抱え落ち';
+    byDeath.push(stats);
+  });
+  var tips = [];
+  if (byDeath.length && noHold.length) {
+    var holdSet = new Set();
+    Object.keys(holdByDeath).forEach(function (k) {
+      holdByDeath[k].forEach(function (d) { holdSet.add(d); });
+    });
+    var uniqueHold = Array.from(holdSet);
+    var diff = jsWinRate(noHold) - jsWinRate(uniqueHold);
+    if (diff > 0) tips.push('抱え落ちなしの試合の方が勝率 **' + Math.round(diff) + '%** 高い');
+  }
+  return { total: total, by_death: byDeath, no_hold: buildStats(noHold), tips: tips };
+}
+
+function computeFixedPartners(matches, tagPartners) {
+  if (!tagPartners || !tagPartners.length) {
+    return { notice: 'タッグ情報が見つかりませんでした。フレンドを登録してタッグを組むと、固定相方の詳細分析が利用できます。', partners: [] };
+  }
+  var partnerNames = {};
+  tagPartners.forEach(function (tp) { partnerNames[tp.player_name] = tp.team_name; });
+  var fixedMatches = {};
+  matches.forEach(function (d) {
+    if (partnerNames[d.partner_name]) {
+      if (!fixedMatches[d.partner_name]) fixedMatches[d.partner_name] = [];
+      fixedMatches[d.partner_name].push(d);
+    }
+  });
+  var partnerKeys = Object.keys(fixedMatches).sort(function (a, b) { return fixedMatches[b].length - fixedMatches[a].length; });
+  if (!partnerKeys.length) return { partners: [] };
+
+  var results = [];
+  partnerKeys.forEach(function (pName) {
+    var data = fixedMatches[pName];
+    var n = data.length;
+    var wl = jsWinsLosses(data);
+    var w = wl[0], l = wl[1];
+    var wr = w / n * 100;
+
+    var myTg = 0, myTt = 0;
+    data.forEach(function (d) { myTg += d.dmg_given; myTt += d.dmg_taken; });
+    var myEff = myTt > 0 ? myTg / myTt : 0;
+    var myAvgGiven = jsAvg(data.map(function (d) { return d.dmg_given; }));
+    var myAvgTaken = jsAvg(data.map(function (d) { return d.dmg_taken; }));
+    var myTotalKills = 0, myTotalDeaths = 0;
+    data.forEach(function (d) { myTotalKills += d.kills; myTotalDeaths += d.deaths; });
+    var myKd = myTotalDeaths > 0 ? myTotalKills / myTotalDeaths : 0;
+    var myAvgEx = jsAvg(data.map(function (d) { return d.ex_dmg; }));
+    var myBursts = jsAvgBursts(data);
+
+    var pTg = 0, pTt = 0, pTk = 0, pTd = 0;
+    data.forEach(function (d) { pTg += d.partner_dmg_given; pTt += d.partner_dmg_taken; pTk += d.partner_kills; pTd += d.partner_deaths; });
+    var pEff = pTt > 0 ? pTg / pTt : 0;
+    var pAvgGiven = jsAvg(data.map(function (d) { return d.partner_dmg_given; }));
+    var pAvgTaken = jsAvg(data.map(function (d) { return d.partner_dmg_taken; }));
+    var pAvgKills = jsAvg(data.map(function (d) { return d.partner_kills; }));
+    var pAvgDeaths = jsAvg(data.map(function (d) { return d.partner_deaths; }));
+    var pKd = pTd > 0 ? pTk / pTd : 0;
+    var pAvgEx = jsAvg(data.map(function (d) { return d.partner_ex_dmg; }));
+    var pBurstCounts = data.filter(function (d) { return d.partner_actions && d.partner_actions.length; }).map(function (d) { return jsGetBurstEvents(d.partner_actions).length; });
+    var pBursts = pBurstCounts.length ? jsAvg(pBurstCounts) : null;
+
+    var partnerMsMap = {};
+    data.forEach(function (d) {
+      if (!partnerMsMap[d.partner_ms]) partnerMsMap[d.partner_ms] = [];
+      partnerMsMap[d.partner_ms].push(d);
+    });
+    var msBreakdown = [];
+    var msKeys = Object.keys(partnerMsMap);
+    if (msKeys.length > 1 || msKeys.some(function (k) { return partnerMsMap[k].length >= 2; })) {
+      msKeys.sort(function (a, b) { return partnerMsMap[b].length - partnerMsMap[a].length; }).forEach(function (ms) {
+        var msList = partnerMsMap[ms];
+        var msPTg = 0, msPTt = 0;
+        msList.forEach(function (d) { msPTg += d.partner_dmg_given; msPTt += d.partner_dmg_taken; });
+        msBreakdown.push({
+          ms: ms,
+          matches: msList.length,
+          win_rate: round1(jsWinRate(msList)),
+          partner_dmg_efficiency: round3(msPTt > 0 ? msPTg / msPTt : 0),
+        });
+      });
+    }
+
+    var winData = data.filter(function (d) { return d.win; });
+    var lossData = data.filter(function (d) { return !d.win; });
+    function avgOf(key, rows) { return rows.length ? jsAvg(rows.map(function (d) { return d[key]; })) : 0; }
+    function kdOf(kKey, dKey, rows) { var tk = 0, td = 0; rows.forEach(function (d) { tk += d[kKey]; td += d[dKey]; }); return td > 0 ? tk / td : 0; }
+    function effOf(gKey, tKey, rows) { var tg2 = 0, tt2 = 0; rows.forEach(function (d) { tg2 += d[gKey]; tt2 += d[tKey]; }); return tt2 > 0 ? tg2 / tt2 : 0; }
+    function burstsOf(actKey, rows) {
+      var c = rows.filter(function (d) { return d[actKey] && d[actKey].length; }).map(function (d) { return jsGetBurstEvents(d[actKey]).length; });
+      return c.length ? jsAvg(c) : null;
+    }
+    function rnd(v, nd) { if (v == null) return null; var f = Math.pow(10, nd); return Math.round(v * f) / f; }
+    function makeWlMetrics(gKey, tKey, kKey, dKey, exKey, actKey) {
+      var metrics = [];
+      function add(label, wv, lv, nd) { metrics.push({ label: label, win_avg: rnd(wv, nd), loss_avg: rnd(lv, nd) }); }
+      add('平均与ダメージ', avgOf(gKey, winData), avgOf(gKey, lossData), 1);
+      add('平均被ダメージ', avgOf(tKey, winData), avgOf(tKey, lossData), 1);
+      add('与被ダメ比', effOf(gKey, tKey, winData), effOf(gKey, tKey, lossData), 3);
+      add('平均撃墜', avgOf(kKey, winData), avgOf(kKey, lossData), 2);
+      add('平均被撃墜', avgOf(dKey, winData), avgOf(dKey, lossData), 2);
+      add('K/D比', kdOf(kKey, dKey, winData), kdOf(kKey, dKey, lossData), 2);
+      add('平均EXダメージ', avgOf(exKey, winData), avgOf(exKey, lossData), 1);
+      add('平均覚醒回数', burstsOf(actKey, winData), burstsOf(actKey, lossData), 2);
+      return { metrics: metrics };
+    }
+    var myWl = makeWlMetrics('dmg_given', 'dmg_taken', 'kills', 'deaths', 'ex_dmg', 'actions');
+    var partnerWl = makeWlMetrics('partner_dmg_given', 'partner_dmg_taken', 'partner_kills', 'partner_deaths', 'partner_ex_dmg', 'partner_actions');
+
+    var tips = [];
+    if (pEff < 0.8) tips.push('相方の与被ダメ比 **' + pEff.toFixed(3) + '** → カットやライン維持を意識');
+    if (wr < 45 && n >= 5) tips.push('勝率 **' + Math.round(wr) + '%** → 連携や機体の組み合わせを見直し');
+    if (n >= 5) {
+      if (wr >= 90) tips.push('勝率 **' + Math.round(wr) + '%** → 驚異的！全国大会優勝レベル');
+      else if (wr >= 80) tips.push('勝率 **' + Math.round(wr) + '%** → 圧巻！勝ちパターンの再現性を高めよう');
+      else if (wr >= 70) tips.push('勝率 **' + Math.round(wr) + '%** → 素晴らしい相性。この相方を軸に苦手機体の対策を');
+      else if (wr >= 60) tips.push('勝率 **' + Math.round(wr) + '%** → 好調。役割分担を意識してさらに上へ');
+    }
+
+    var entry = {
+      partner_name: pName,
+      matches: n, wins: w, losses: l,
+      win_rate: round1(wr),
+      my_stats: {
+        avg_dmg_given: Math.round(myAvgGiven), avg_dmg_taken: Math.round(myAvgTaken),
+        dmg_efficiency: round3(myEff),
+        avg_kills: round2(jsAvg(data.map(function (d) { return d.kills; }))),
+        avg_deaths: round2(jsAvg(data.map(function (d) { return d.deaths; }))),
+        kd_ratio: round2(myKd), avg_ex_dmg: Math.round(myAvgEx),
+        avg_bursts: myBursts != null ? round2(myBursts) : null,
+      },
+      partner_stats: {
+        avg_dmg_given: Math.round(pAvgGiven), avg_dmg_taken: Math.round(pAvgTaken),
+        dmg_efficiency: round3(pEff),
+        avg_kills: round2(pAvgKills), avg_deaths: round2(pAvgDeaths),
+        kd_ratio: round2(pKd), avg_ex_dmg: Math.round(pAvgEx),
+        avg_bursts: pBursts != null ? round2(pBursts) : null,
+      },
+      my_win_loss_pattern: myWl,
+      partner_win_loss_pattern: partnerWl,
+      partner_ms_breakdown: msBreakdown,
+      tips: tips,
+    };
+    if (partnerNames[pName]) entry.team_name = partnerNames[pName];
+    results.push(entry);
+  });
+  return { partners: results };
+}
+
 // --- Utility ---
 function esc(s) {
   if (s == null) return '';
@@ -2402,9 +2664,11 @@ function OverviewPane({ pd, selectedMs, lens, allPd, frontendData }) {
     return { name: name, winRate: (msStats[name].basic_stats && msStats[name].basic_stats.win_rate) || 0 };
   });
 
-  var fp = (selectedMs && msStats[selectedMs] && msStats[selectedMs].fixed_partners)
-    ? msStats[selectedMs].fixed_partners
-    : allPd.fixed_partners;
+  var fp = (frontendData && frontendData.fixed_partners)
+    ? frontendData.fixed_partners
+    : (selectedMs && msStats[selectedMs] && msStats[selectedMs].fixed_partners)
+      ? msStats[selectedMs].fixed_partners
+      : allPd.fixed_partners;
   var fpList = fp ? (fp.partners || fp) : [];
   var fpItems = Array.isArray(fpList) ? fpList : [];
 
@@ -2487,7 +2751,7 @@ function PlaystylePane({ msStats, selectedMs, frontendData }) {
   if (frontendData) {
     deaths = frontendData.deaths_impact;
     dmg = frontendData.dmg_contribution;
-    fallOrder = (selectedMs && msStats[selectedMs]) ? msStats[selectedMs].fall_order : aggregateFallOrder(msStats);
+    fallOrder = frontendData.fall_order;
   } else if (selectedMs && msStats[selectedMs]) {
     var ms = msStats[selectedMs];
     deaths = ms.deaths_impact;
@@ -2540,7 +2804,7 @@ function BurstPane({ msStats, selectedMs, frontendData }) {
   var burstCount, burstHold;
   if (frontendData) {
     burstCount = frontendData.burst_count;
-    burstHold = (selectedMs && msStats[selectedMs]) ? msStats[selectedMs].burst_hold_death : aggregateBurstHoldDeath(msStats);
+    burstHold = frontendData.burst_hold_death;
   } else if (selectedMs && msStats[selectedMs]) {
     var ms = msStats[selectedMs];
     burstCount = ms.burst_count;
@@ -2825,6 +3089,8 @@ function Report({ data, userKey }) {
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
   var matchesRef = useState(null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
+  var tagPartnersRef = useState(null);
+  var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
   var topbarRef = useRef(null);
 
   useEffect(function () {
@@ -2832,6 +3098,10 @@ function Report({ data, userKey }) {
     loadMatchesFromDB(userKey).then(function (matches) {
       if (matches && matches.length > 0) setAllMatches(matches);
     }).catch(function () {});
+    fetch('/tag-partners?user_key=' + encodeURIComponent(userKey))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d && d.tag_partners) setTagPartners(d.tag_partners); })
+      .catch(function () {});
   }, [userKey]);
 
   useEffect(function () {
@@ -2900,8 +3170,11 @@ function Report({ data, userKey }) {
       dmg_contribution: computeDmgContribution(filtered),
       deaths_impact: computeDeathsImpact(filtered),
       burst_count: computeBurstCount(filtered),
+      fall_order: computeFallOrder(filtered),
+      burst_hold_death: computeBurstHoldDeath(filtered),
+      fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
-  }, [allMatches, selectedPeriod, selectedMs]);
+  }, [allMatches, selectedPeriod, selectedMs, tagPartners]);
 
   var shareData = selectedPeriod === 'custom' && customData ? customData.share_data : data.share_data;
 
