@@ -1988,15 +1988,20 @@ async function reanalyzeWithSession() {
   var statusText = document.getElementById('statusText');
   var error = document.getElementById('error');
 
-  // localStorageにキャッシュがあれば即時表示
+  // localStorageにキャッシュがあれば即時表示、なければスケルトン
+  var usedCache = false;
   try {
     var cachedStr = localStorage.getItem('catalyzer_report');
     var cachedKey = localStorage.getItem('catalyzer_user_key');
-    if (cachedStr && cachedKey) renderReport(JSON.parse(cachedStr), cachedKey);
+    if (cachedStr && cachedKey) {
+      renderReport(JSON.parse(cachedStr), cachedKey);
+      usedCache = true;
+    }
   } catch (e) {}
+  if (!usedCache) showSkeleton();
 
   status.style.display = 'block';
-  statusText.textContent = STATUS_MESSAGES.refreshing;
+  statusText.textContent = usedCache ? STATUS_MESSAGES.refreshing : STATUS_MESSAGES.pending;
   error.style.display = 'none';
 
   var lastPreliminaryVersion = 0;
