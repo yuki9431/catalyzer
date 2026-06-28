@@ -134,6 +134,7 @@ type ScrapingOption struct {
 	BatchSize      int                             // OnBatchReady発火間隔（試合数）。0の場合は通知しない
 	FirstBatchSize int                             // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
 	OnLoginSuccess func()                          // ログイン成功直後に1度だけ呼ばれる
+	SavedJar       http.CookieJar                  // 保存済みCookieJar。非nilの場合はログインをスキップ
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -159,16 +160,22 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		}
 	}
 
-	m := NewClient(username, password)
-	if err := m.Login(); err != nil {
-		return nil, nil, fmt.Errorf("ログインに失敗: %w", err)
+	var jar http.CookieJar
+	if opt.SavedJar != nil {
+		jar = opt.SavedJar
+	} else {
+		m := NewClient(username, password)
+		if err := m.Login(); err != nil {
+			return nil, nil, fmt.Errorf("ログインに失敗: %w", err)
+		}
+		jar = m.HTTPClient.Jar
 	}
 	if opt.OnLoginSuccess != nil {
 		opt.OnLoginSuccess()
 	}
 
 	// Phase 1: rankpageから日別ページURLを収集
-	dailyLinks, err := collectDailyLinks(m.HTTPClient.Jar, since)
+	dailyLinks, err := collectDailyLinks(jar, since)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -196,10 +203,10 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 
 	go func() {
 		defer close(entryCh)
-		streamErr = streamMatchEntries(ctx, cancel, m.HTTPClient.Jar, dailyLinks, since, entryCh)
+		streamErr = streamMatchEntries(ctx, cancel, jar, dailyLinks, since, entryCh)
 	}()
 
-	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, m.HTTPClient.Jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
+	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
 
 	// 403の場合は途中データがあればエラーと一緒に返す（呼び出し元で途中保存できるようにする）
 	if streamErr != nil || detailErr != nil {
@@ -209,7 +216,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		}
 		if errors.Is(err, ErrAccessDenied) && len(scores) > 0 {
 			log.Printf("[INFO] Returning %d partial scores despite 403 error", len(scores))
-			return scores, m.HTTPClient.Jar, err
+			return scores, jar, err
 		}
 		if streamErr != nil {
 			return nil, nil, streamErr
@@ -225,7 +232,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		return scores[i].PlayerNo < scores[j].PlayerNo
 	})
 
-	return scores, m.HTTPClient.Jar, nil
+	return scores, jar, nil
 }
 
 // collectDailyLinks はrankpageから日別ページのURLを収集する

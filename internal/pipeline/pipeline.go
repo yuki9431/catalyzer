@@ -19,6 +19,7 @@ import (
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/mslist"
 	"github.com/yuki9431/catalyzer/internal/scraper"
+	"github.com/yuki9431/catalyzer/internal/session"
 )
 
 // DefaultMSListPath はデフォルトのMSリストパス
@@ -48,6 +49,9 @@ type Job struct {
 	PartialData        bool             `json:"partial_data,omitempty"`
 	LoggedIn           bool             `json:"logged_in,omitempty"`
 	UserKey            string           `json:"-"`
+	Remember           bool             `json:"-"`
+	SessionToken       string           `json:"-"`
+	SavedJar           http.CookieJar   `json:"-"`
 	completedAt        time.Time
 	cachedScores       model.DatedScores
 	cachedTagPartners  []model.TagPartner
@@ -105,7 +109,9 @@ type On403Func func(userHash string)
 // Run はスクレイピング→分析を実行し、レポートをジョブに保存する
 func Run(j *Job, username, password string, on403 ...On403Func) {
 	jobsMu.Lock()
-	j.UserKey = model.UserKey(username)
+	if j.UserKey == "" {
+		j.UserKey = model.UserKey(username)
+	}
 	jobsMu.Unlock()
 	updateStatus(j, model.StatusScraping)
 
@@ -194,7 +200,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// スクレイピング
-	log.Printf("[INFO] Scraping for user (hash: %s)", model.UserKey(username))
+	log.Printf("[INFO] Scraping for user (hash: %s)", j.UserKey)
 	onProgress := func(current, total int) {
 		jobsMu.Lock()
 		j.Message = "戦歴データを取得中"
@@ -264,6 +270,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			jobsMu.Unlock()
 			log.Printf("[INFO] Job %s: login succeeded", j.ID)
 		},
+		SavedJar: j.SavedJar,
 	}
 	if len(backfillDates) > 0 {
 		scrapingOpt.BackfillDates = backfillDates
@@ -271,17 +278,33 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	var datedScores model.DatedScores
 	var jar http.CookieJar
+	usingSession := j.SavedJar != nil
+
 	datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scrapingOpt)
 	// 403の場合でも途中データがあれば保存・分析を続行する
 	is403WithPartialData := errors.Is(err, scraper.ErrAccessDenied) && len(datedScores) > 0
 	if err != nil && !is403WithPartialData {
+		// 保存済みセッション使用時にスクレイピング失敗 → セッション削除
+		if usingSession && j.SessionToken != "" {
+			if delErr := fs.DeleteSession(j.SessionToken); delErr != nil {
+				log.Printf("[WARN] Failed to delete expired session: %v", delErr)
+			}
+		}
 		switch {
 		case errors.Is(err, scraper.ErrLoginFailed):
-			setError(j, "ログインに失敗しました。メールアドレスとパスワードを確認してください。", err.Error())
+			if usingSession {
+				setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
+			} else {
+				setError(j, "ログインに失敗しました。メールアドレスとパスワードを確認してください。", err.Error())
+			}
 		case errors.Is(err, scraper.ErrAccessDenied):
-			setError(j, "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。", err.Error())
-			if len(on403) > 0 && on403[0] != nil {
-				on403[0](model.UserKey(username))
+			if usingSession {
+				setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
+			} else {
+				setError(j, "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。", err.Error())
+				if len(on403) > 0 && on403[0] != nil {
+					on403[0](j.UserKey)
+				}
 			}
 		case errors.Is(err, scraper.ErrUnauthorized):
 			setError(j, "認証の有効期限が切れました。再度ログインしてお試しください。", err.Error())
@@ -297,8 +320,27 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	if is403WithPartialData {
 		log.Printf("[WARN] Job %s: 403 occurred but %d partial scores available, saving partial data", j.ID, len(datedScores))
 		if len(on403) > 0 && on403[0] != nil {
-			on403[0](model.UserKey(username))
+			on403[0](j.UserKey)
 		}
+	}
+
+	// remember=true でログイン成功時、CookieJarを暗号化してFirestoreに保存
+	if j.Remember && jar != nil && session.Enabled() && j.SessionToken != "" {
+		go func() {
+			jarData, err := session.SerializeJar(jar)
+			if err != nil {
+				log.Printf("[WARN] Failed to serialize CookieJar: %v", err)
+				return
+			}
+			encData, err := session.Encrypt(jarData)
+			if err != nil {
+				log.Printf("[WARN] Failed to encrypt CookieJar: %v", err)
+				return
+			}
+			if err := fs.SaveSession(j.SessionToken, j.UserKey, encData); err != nil {
+				log.Printf("[WARN] Failed to save session: %v", err)
+			}
+		}()
 	}
 	if len(datedScores) == 0 && !exists {
 		setError(j, "戦績データが見つかりませんでした", "no scores found")
