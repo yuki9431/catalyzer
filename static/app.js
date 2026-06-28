@@ -887,14 +887,11 @@ function computeBurstHoldDeath(matches) {
   });
   var tips = [];
   if (byDeath.length && noHold.length) {
-    var allHoldSet = {};
-    var uniqueHold = [];
+    var holdSet = new Set();
     Object.keys(holdByDeath).forEach(function (k) {
-      holdByDeath[k].forEach(function (d) {
-        var id = d.date + d.ms;
-        if (!allHoldSet[id]) { allHoldSet[id] = true; uniqueHold.push(d); }
-      });
+      holdByDeath[k].forEach(function (d) { holdSet.add(d); });
     });
+    var uniqueHold = Array.from(holdSet);
     var diff = jsWinRate(noHold) - jsWinRate(uniqueHold);
     if (diff > 0) tips.push('抱え落ちなしの試合の方が勝率 **' + Math.round(diff) + '%** 高い');
   }
