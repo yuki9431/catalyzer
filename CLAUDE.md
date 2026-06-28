@@ -87,7 +87,13 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `scripts/analyze.py` — Python分析: 勝率、与被ダメ比、固定相方検出（K/D・EXダメ・覚醒回数・勝敗パターン付き）、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
-- `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Report（状態管理）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、FixedPartnerPanel（レンズ対応6軸レーダー）、各種Chart/集計関数。フロントエンド集計（Phase 1: 時間帯/曜日/日別、Phase 2: 基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜影響/シーズン/覚醒回数、Phase 3: 先落ち後落ち/覚醒抱え落ち/固定相方）でIndexedDBの試合データからリアルタイム集計、Python分析へのフォールバック付き
+- `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、Dashboard（Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel/各Pane）、App（状態管理・ルーティング）
+- `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜影響/覚醒回数/先落ち後落ち/覚醒抱え落ち/固定相方
+- `static/analysis/aggregate.js` — 集計関数。被撃墜影響/先落ち/ダメージ貢献/覚醒回数/覚醒抱え落ち/敵相性/相方の全MS横断集計
+- `static/components/ui.js` — 汎用UIコンポーネント（Tips/SortableTable/Table/SubSection）
+- `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
+- `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
+- `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
