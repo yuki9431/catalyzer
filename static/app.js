@@ -2352,6 +2352,7 @@ function Report({ data, userKey }) {
     <div class="topbar" ref=${topbarRef}>
       <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
+      ${localStorage.getItem('catalyzer_has_session') && html`<button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>`}
       <div class="controls-row">
         <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} />
