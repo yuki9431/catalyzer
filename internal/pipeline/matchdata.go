@@ -10,34 +10,43 @@ import (
 	"github.com/yuki9431/catalyzer/internal/mslist"
 )
 
+// ActionJSON はタイムラインの個別アクション（MatchData用）
+type ActionJSON struct {
+	Action         string  `json:"action"`
+	ActionStartSec float64 `json:"action_start_sec"`
+	ActionEndSec   float64 `json:"action_end_sec"`
+}
+
 // MatchData はフロントエンド向けの試合データ（プレイヤー視点）
 type MatchData struct {
-	Date            string  `json:"date"`
-	MS              string  `json:"ms"`
-	MSCost          int     `json:"ms_cost,omitempty"`
-	PartnerMS       string  `json:"partner_ms"`
-	PartnerCost     int     `json:"partner_cost,omitempty"`
-	Opponent1MS     string  `json:"opponent1_ms"`
-	Opponent1Cost   int     `json:"opponent1_cost,omitempty"`
-	Opponent2MS     string  `json:"opponent2_ms"`
-	Opponent2Cost   int     `json:"opponent2_cost,omitempty"`
-	Win             bool    `json:"win"`
-	Score           int     `json:"score"`
-	Kills           int     `json:"kills"`
-	Deaths          int     `json:"deaths"`
-	DmgGiven        int     `json:"dmg_given"`
-	DmgTaken        int     `json:"dmg_taken"`
-	ExDmg           int     `json:"ex_dmg"`
-	PartnerName     string  `json:"partner_name"`
-	PartnerScore    int     `json:"partner_score"`
-	PartnerKills    int     `json:"partner_kills"`
-	PartnerDeaths   int     `json:"partner_deaths"`
-	PartnerDmgGiven int     `json:"partner_dmg_given"`
-	PartnerDmgTaken int     `json:"partner_dmg_taken"`
-	PartnerExDmg    int     `json:"partner_ex_dmg"`
-	Bursts          int     `json:"bursts"`
-	PartnerBursts   int     `json:"partner_bursts"`
-	GameEndSec      float64 `json:"game_end_sec,omitempty"`
+	Date            string       `json:"date"`
+	MS              string       `json:"ms"`
+	MSCost          int          `json:"ms_cost,omitempty"`
+	PartnerMS       string       `json:"partner_ms"`
+	PartnerCost     int          `json:"partner_cost,omitempty"`
+	Opponent1MS     string       `json:"opponent1_ms"`
+	Opponent1Cost   int          `json:"opponent1_cost,omitempty"`
+	Opponent2MS     string       `json:"opponent2_ms"`
+	Opponent2Cost   int          `json:"opponent2_cost,omitempty"`
+	Win             bool         `json:"win"`
+	Score           int          `json:"score"`
+	Kills           int          `json:"kills"`
+	Deaths          int          `json:"deaths"`
+	DmgGiven        int          `json:"dmg_given"`
+	DmgTaken        int          `json:"dmg_taken"`
+	ExDmg           int          `json:"ex_dmg"`
+	PartnerName     string       `json:"partner_name"`
+	PartnerScore    int          `json:"partner_score"`
+	PartnerKills    int          `json:"partner_kills"`
+	PartnerDeaths   int          `json:"partner_deaths"`
+	PartnerDmgGiven int          `json:"partner_dmg_given"`
+	PartnerDmgTaken int          `json:"partner_dmg_taken"`
+	PartnerExDmg    int          `json:"partner_ex_dmg"`
+	Bursts          int          `json:"bursts"`
+	PartnerBursts   int          `json:"partner_bursts"`
+	Actions         []ActionJSON `json:"actions"`
+	PartnerActions  []ActionJSON `json:"partner_actions"`
+	GameEndSec      float64      `json:"game_end_sec,omitempty"`
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
@@ -52,6 +61,32 @@ func countBursts(timeline *model.MatchTimeline, group string) int {
 		}
 	}
 	return count
+}
+
+// buildActions はMatchTimelineから指定グループのアクションを抽出する。
+func buildActions(timeline *model.MatchTimeline, group string) []ActionJSON {
+	if timeline == nil {
+		return []ActionJSON{}
+	}
+	var actions []ActionJSON
+	for _, e := range timeline.Events {
+		if e.Group != group {
+			continue
+		}
+		action := e.ClassName
+		if e.IsPoint {
+			action = "death"
+		}
+		actions = append(actions, ActionJSON{
+			Action:         action,
+			ActionStartSec: e.StartSec,
+			ActionEndSec:   e.EndSec,
+		})
+	}
+	if actions == nil {
+		return []ActionJSON{}
+	}
+	return actions
 }
 
 // BuildMatchData はDatedScoresをフロントエンド向けの試合データに変換する。
@@ -123,6 +158,8 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			PartnerExDmg:    partner.ExDamage,
 			Bursts:          countBursts(timeline, "team1-1"),
 			PartnerBursts:   countBursts(timeline, "team1-2"),
+			Actions:         buildActions(timeline, "team1-1"),
+			PartnerActions:  buildActions(timeline, "team1-2"),
 			GameEndSec:      gameEndSec,
 		})
 	}

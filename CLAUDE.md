@@ -69,7 +69,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
 ```
 
-**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /result/{id}/period`, `GET /period`, `GET /matches`, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
+**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /result/{id}/period`, `GET /period`, `GET /matches`, `GET /tag-partners`, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
 
 ## コード構成
 
@@ -83,7 +83,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
-- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信、セッション永続化）
+- `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `scripts/analyze.py` — Python分析: 勝率、与被ダメ比、固定相方検出（K/D・EXダメ・覚醒回数・勝敗パターン付き）、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
