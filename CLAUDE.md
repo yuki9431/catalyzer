@@ -87,7 +87,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `scripts/analyze.py` — Python分析: 勝率、与被ダメ比、固定相方検出（K/D・EXダメ・覚醒回数・勝敗パターン付き）、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
-- `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Report（状態管理）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、FixedPartnerPanel（レンズ対応6軸レーダー）、各種Chart/集計関数
+- `static/app.js` — フロントエンドJS（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Report（状態管理）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、FixedPartnerPanel（レンズ対応6軸レーダー）、各種Chart/集計関数。フロントエンド集計（Phase 1: 時間帯/曜日/日別、Phase 2: 基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜影響/シーズン/覚醒回数）でIndexedDBの試合データからリアルタイム集計、Python分析へのフォールバック付き
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
