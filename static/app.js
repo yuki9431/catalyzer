@@ -1732,7 +1732,9 @@ function OverviewPane({ pd, selectedMs, lens, allPd }) {
     return { name: name, winRate: (msStats[name].basic_stats && msStats[name].basic_stats.win_rate) || 0 };
   });
 
-  var fp = allPd.fixed_partners;
+  var fp = (selectedMs && msStats[selectedMs] && msStats[selectedMs].fixed_partners)
+    ? msStats[selectedMs].fixed_partners
+    : allPd.fixed_partners;
   var fpList = fp ? (fp.partners || fp) : [];
   var fpItems = Array.isArray(fpList) ? fpList : [];
 

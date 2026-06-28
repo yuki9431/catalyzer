@@ -1353,6 +1353,7 @@ def build_period_report(all_data, ms_data, tag_partners=None):
             "fall_order": data_fall_order(data),
             "burst_hold_death": data_burst_hold_death(data),
             "burst_count": data_burst_count(data),
+            "fixed_partners": data_fixed_partners(data, tag_partners),
         }
 
     return {
