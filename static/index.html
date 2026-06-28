@@ -267,8 +267,14 @@
     .menu-drawer.open { transform: translateX(0); }
     .menu-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--line); font-size: 1.1em; font-weight: 800; color: var(--accent); }
     .menu-body { padding: 8px 0; flex: 1; }
-    .menu-item { display: block; width: 100%; padding: 12px 16px; border: none; background: none; color: var(--text); font-size: 0.95em; cursor: pointer; text-align: left; transition: background 0.15s; }
+    .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; border: none; background: none; color: var(--text); font-size: 0.95em; cursor: pointer; text-align: left; transition: background 0.15s; text-decoration: none; }
     .menu-item:hover { background: var(--panel-2); }
+    .menu-item.active { color: var(--accent); font-weight: 600; }
+    .menu-item.disabled { color: var(--muted); opacity: 0.5; cursor: default; pointer-events: none; }
+    .menu-item .menu-icon { width: 20px; text-align: center; flex-shrink: 0; }
+    .menu-item .coming-soon { font-size: 0.7em; color: var(--muted); background: var(--panel-2); border-radius: 999px; padding: 1px 8px; margin-left: auto; }
+    .menu-item .external-icon { font-size: 0.75em; color: var(--muted); margin-left: 4px; }
+    .menu-section { padding: 8px 16px 4px; font-size: 0.75em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .menu-divider { border-top: 1px solid var(--line); margin: 4px 0; }
     .menu-label { padding: 12px 16px 4px; font-size: 0.8em; color: var(--muted); font-weight: 600; }
 

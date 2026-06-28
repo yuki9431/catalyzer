@@ -2019,13 +2019,22 @@ function HamburgerMenu({ isOpen, onClose, shareData, hasSession, onLogout }) {
     <div class=${'menu-drawer' + (isOpen ? ' open' : '')}>
       <div class="menu-header"><img src="logo.svg" alt="catalyzer" style="height:24px;width:auto;" /></div>
       <div class="menu-body">
-        ${hasSession ? [
-          html`<button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>`
-        ] : null}
+        <div class="menu-section">メニュー</div>
+        <button class="menu-item active" onClick=${onClose}><span class="menu-icon">📊</span>分析レポート</button>
+        <button class="menu-item disabled"><span class="menu-icon">🔍</span>試合検索<span class="coming-soon">coming soon</span></button>
+        <button class="menu-item disabled"><span class="menu-icon">📈</span>モバイル総合戦歴<span class="coming-soon">coming soon</span></button>
+        <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
+        <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
+        <div class="menu-divider" />
+        <a class="menu-item" href="https://g-mobile.gundamgame.jp/" target="_blank" rel="noopener noreferrer"><span class="menu-icon">🌐</span>ガンダムモバイル<span class="external-icon">↗</span></a>
         <div class="menu-divider" />
         <div style="padding: 8px 16px;">
           <${ShareArea} shareData=${shareData} />
         </div>
+        ${hasSession ? html`
+          <div class="menu-divider" />
+          <button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>
+        ` : null}
       </div>
     </div>
   </div>`;
