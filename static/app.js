@@ -2265,7 +2265,7 @@ function ShareArea({ shareData }) {
 
 // --- Hamburger menu & topbar controls ---
 
-function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze, hasSession, onLogout }) {
+function HamburgerMenu({ isOpen, onClose, shareData, hasSession, onLogout }) {
   useEffect(function () {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -2281,15 +2281,22 @@ function HamburgerMenu({ isOpen, onClose, shareData, onReAnalyze, hasSession, on
     <div class=${'menu-drawer' + (isOpen ? ' open' : '')}>
       <div class="menu-header"><img src="logo.svg" alt="catalyzer" style="height:24px;width:auto;" /></div>
       <div class="menu-body">
-        <button class="menu-item" onClick=${function () { onClose(); onReAnalyze(); }}>再分析</button>
-        ${hasSession ? [
-          html`<div class="menu-divider" />`,
-          html`<button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>`
-        ] : null}
+        <div class="menu-section">メニュー</div>
+        <button class="menu-item active" onClick=${onClose}><span class="menu-icon">📊</span>分析レポート</button>
+        <button class="menu-item disabled"><span class="menu-icon">🔍</span>試合検索<span class="coming-soon">coming soon</span></button>
+        <button class="menu-item disabled"><span class="menu-icon">📈</span>モバイル総合戦歴<span class="coming-soon">coming soon</span></button>
+        <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
+        <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
+        <div class="menu-divider" />
+        <a class="menu-item" href="https://g-mobile.gundamgame.jp/" target="_blank" rel="noopener noreferrer"><span class="menu-icon">🌐</span>ガンダムモバイル<span class="external-icon">↗</span></a>
         <div class="menu-divider" />
         <div style="padding: 8px 16px;">
           <${ShareArea} shareData=${shareData} />
         </div>
+        ${hasSession ? html`
+          <div class="menu-divider" />
+          <button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>
+        ` : null}
       </div>
     </div>
   </div>`;
@@ -3220,7 +3227,7 @@ function Report({ data, userKey }) {
     </div>
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
-      shareData=${shareData} onReAnalyze=${reAnalyze}
+      shareData=${shareData}
       hasSession=${!!localStorage.getItem('catalyzer_has_session')}
       onLogout=${logout} />
 
@@ -3256,7 +3263,7 @@ function Skeleton() {
       </div>
     </div>
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
-      shareData=${null} onReAnalyze=${function () {}} />
+      shareData=${null} />
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
