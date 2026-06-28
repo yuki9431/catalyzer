@@ -273,11 +273,24 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	// remember=true でジョブ完了時、セッションCookieを発行
-	if j.Remember && j.SessionToken != "" {
+	sessionSaved := j.Remember && j.SessionToken != ""
+	if sessionSaved {
 		setSessionCookie(w, j.SessionToken)
 	}
 
-	sendRawReport(w, http.StatusOK, snap.Report, "", snap.UserKey, false, snap.PartialData)
+	type doneResponse struct {
+		Report       json.RawMessage `json:"report"`
+		UserKey      string          `json:"user_key,omitempty"`
+		Partial      bool            `json:"partial,omitempty"`
+		SessionSaved bool            `json:"session_saved,omitempty"`
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(doneResponse{
+		Report:       json.RawMessage(snap.Report),
+		UserKey:      snap.UserKey,
+		Partial:      snap.PartialData,
+		SessionSaved: sessionSaved,
+	})
 }
 
 func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
