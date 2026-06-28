@@ -207,6 +207,11 @@ func StartServer() {
 		handlePeriod(w, r)
 	})
 
+	// GET /tag-partners?user_key=... → タッグ相方情報
+	http.HandleFunc("/tag-partners", func(w http.ResponseWriter, r *http.Request) {
+		handleTagPartners(w, r)
+	})
+
 	// GET /matches?user_key=...&after=... → 試合データ配信（IndexedDBキャッシュ用）
 	http.HandleFunc("/matches", func(w http.ResponseWriter, r *http.Request) {
 		handleMatches(w, r)
@@ -349,6 +354,34 @@ func handlePeriod(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendRawReport(w, http.StatusOK, report, "", userKey, false)
+}
+
+func handleTagPartners(w http.ResponseWriter, r *http.Request) {
+	userKey := r.URL.Query().Get("user_key")
+	if userKey == "" {
+		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "user_key parameter is required"})
+		return
+	}
+
+	partners, err := firestore.LoadTagPartners(userKey)
+	if err != nil {
+		log.Printf("[ERROR] Failed to load tag partners: %v", err)
+		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "タッグ相方情報の取得に失敗しました"})
+		return
+	}
+
+	type partnerJSON struct {
+		TeamName   string `json:"team_name"`
+		PlayerName string `json:"player_name"`
+	}
+	result := make([]partnerJSON, len(partners))
+	for i, p := range partners {
+		result[i] = partnerJSON{TeamName: p.TeamName, PlayerName: p.PlayerName}
+	}
+
+	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"tag_partners": result,
+	})
 }
 
 func handleMatches(w http.ResponseWriter, r *http.Request) {
