@@ -2288,7 +2288,7 @@ function HamburgerMenu({ isOpen, onClose, shareData, hasSession, onLogout }) {
         <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
         <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
         <div class="menu-divider" />
-        <a class="menu-item" href="https://g-mobile.gundamgame.jp/" target="_blank" rel="noopener noreferrer"><span class="menu-icon">🌐</span>ガンダムモバイル<span class="external-icon">↗</span></a>
+        <a class="menu-item" href="https://web.vsmobile.jp/exvs2ib/" target="_blank" rel="noopener noreferrer"><span class="menu-icon">🌐</span>ガンダムモバイル<span class="external-icon">↗</span></a>
         <div class="menu-divider" />
         <div style="padding: 8px 16px;">
           <${ShareArea} shareData=${shareData} />
