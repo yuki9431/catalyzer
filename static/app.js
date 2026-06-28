@@ -233,7 +233,7 @@ function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a 
 function jsWinsLosses(ms) { var w = ms.filter(function (m) { return m.win; }).length; return [w, ms.length - w]; }
 function jsKdRatio(ms) { var k = 0, d = 0; ms.forEach(function (m) { k += m.kills; d += m.deaths; }); return d > 0 ? k / d : 0; }
 function jsAvgBursts(ms) {
-  var valid = ms.filter(function (m) { return m.game_end_sec > 0; });
+  var valid = ms.filter(function (m) { return m.actions && m.actions.length > 0; });
   if (!valid.length) return null;
   return jsAvg(valid.map(function (m) { return m.bursts; }));
 }
@@ -730,7 +730,7 @@ function computeSeason(matches) {
 function computeBurstCount(matches) {
   var byCount = {};
   matches.forEach(function (d) {
-    if (d.game_end_sec === 0) return;
+    if (!d.actions || !d.actions.length) return;
     var count = d.bursts || 0;
     if (!byCount[count]) byCount[count] = [];
     byCount[count].push(d);
