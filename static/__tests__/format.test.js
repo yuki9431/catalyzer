@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, pct, num, valClass4, cellValue, cellDisplay } from '../lib/format.js';
+import { esc, pct, num, cellValue, cellDisplay } from '../lib/format.js';
 
 // --- esc ---
 
@@ -67,50 +67,6 @@ describe('num', function () {
 
   it('returns dash for undefined', function () {
     assert.equal(num(undefined, 3), '-');
-  });
-});
-
-// --- valClass4 ---
-
-describe('valClass4', function () {
-  it('returns empty for null', function () {
-    assert.equal(valClass4(null, 60, 50, 40, 30, true), '');
-  });
-
-  describe('higherIsBetter = true', function () {
-    it('great when >= threshold', function () {
-      assert.equal(valClass4(70, 60, 50, 40, 30, true), 'val-great');
-    });
-
-    it('good when >= threshold', function () {
-      assert.equal(valClass4(55, 60, 50, 40, 30, true), 'val-good');
-    });
-
-    it('terrible when <= threshold', function () {
-      assert.equal(valClass4(25, 60, 50, 40, 30, true), 'val-terrible');
-    });
-
-    it('bad otherwise', function () {
-      assert.equal(valClass4(35, 60, 50, 40, 30, true), 'val-bad');
-    });
-  });
-
-  describe('higherIsBetter = false', function () {
-    it('great when <= threshold', function () {
-      assert.equal(valClass4(20, 30, 40, 50, 60, false), 'val-great');
-    });
-
-    it('good when <= threshold', function () {
-      assert.equal(valClass4(35, 30, 40, 50, 60, false), 'val-good');
-    });
-
-    it('terrible when >= threshold', function () {
-      assert.equal(valClass4(65, 30, 40, 50, 60, false), 'val-terrible');
-    });
-
-    it('bad otherwise', function () {
-      assert.equal(valClass4(45, 30, 40, 50, 60, false), 'val-bad');
-    });
   });
 });
 
