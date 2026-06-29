@@ -73,6 +73,15 @@
 ├── static/
 │   ├── index.html                 # フロントエンド
 │   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
+│   ├── analysis/
+│   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
+│   │   └── aggregate.js           # 集計関数（被撃墜影響/先落ち等）
+│   ├── components/
+│   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
+│   │   └── charts.js              # Chart.jsグラフ・レポートセクション
+│   ├── lib/
+│   │   ├── db.js                  # IndexedDBキャッシュ
+│   │   └── format.js              # 書式・色分け・共有テキスト生成
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
 │   ├── htm-preact-standalone.js   # htm + Preactライブラリ
@@ -124,6 +133,9 @@
 | `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
 | `scripts/` | Go以外のスクリプト（Python分析等） |
 | `static/` | フロントエンドHTML/JS/CSS |
+| `static/analysis/` | 統計分析・集計関数（ESモジュール） |
+| `static/components/` | UIコンポーネント・Chart.jsグラフ |
+| `static/lib/` | IndexedDBキャッシュ・書式ヘルパー |
 | `data/` | 静的データファイル（MSリスト等） |
 | `infra/` | Pulumi IaC（GCPリソース管理） |
 

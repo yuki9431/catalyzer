@@ -2,7 +2,7 @@ var MATCH_DB_NAME = 'catalyzer';
 var MATCH_DB_VERSION = 1;
 var MATCH_STORE = 'matches';
 
-export function openMatchDB() {
+function openMatchDB() {
   return new Promise(function (resolve, reject) {
     var req = indexedDB.open(MATCH_DB_NAME, MATCH_DB_VERSION);
     req.onupgradeneeded = function (e) {
@@ -51,7 +51,7 @@ export function loadMatchesFromDB(userKey) {
   });
 }
 
-export function getLatestMatchDate(userKey) {
+function getLatestMatchDate(userKey) {
   return openMatchDB().then(function (db) {
     return new Promise(function (resolve, reject) {
       var tx = db.transaction(MATCH_STORE, 'readonly');
