@@ -3,12 +3,8 @@ package pipeline
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -53,8 +49,6 @@ type Job struct {
 	SessionToken       string          `json:"-"`
 	SavedJar           http.CookieJar  `json:"-"`
 	completedAt        time.Time
-	cachedScores       model.DatedScores
-	cachedTagPartners  []model.TagPartner
 }
 
 // ジョブストア（インメモリ）
@@ -115,27 +109,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	jobsMu.Unlock()
 	updateStatus(j, model.StatusScraping)
 
-	tmpDir, err := os.MkdirTemp("", "exvs-*")
+	// MSリストから機体名・コストマッピングを読み込み
+	msList, err := mslist.LoadMSList(DefaultMSListPath)
 	if err != nil {
-		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to create temp dir: %v", err))
-		return
+		log.Printf("[WARN] MS list not found, MS names will be empty")
 	}
-	defer os.RemoveAll(tmpDir)
-
-	jsonPath := filepath.Join(tmpDir, "scores.json")
-
-	// キャッシュされたレポートがあれば即座に速報レポートとして表示
-	cachedReport, err := fs.LoadReportCache(j.UserKey)
-	if err != nil {
-		log.Printf("[WARN] Failed to load cached report: %v", err)
-	}
-	if cachedReport != "" {
-		jobsMu.Lock()
-		j.PreliminaryReport = cachedReport
-		j.PreliminaryVersion++
-		jobsMu.Unlock()
-		log.Printf("[INFO] Job %s: cached preliminary report ready", j.ID)
-	}
+	msMap := mslist.BuildMSNameMap(msList)
+	costsMap := mslist.BuildMSCostMap(msList)
 
 	// Firestoreから既存scoresを読み取り
 	var since time.Time
@@ -144,20 +124,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		log.Printf("[WARN] Failed to load scores from Firestore: %v", err)
 	}
 	exists := len(existingScores) > 0
-
-	// Firestoreから既存タッグ相方情報を読み取り（速報レポートで使用）
-	cachedTagPartnersPath := ""
-	cachedPartners, err := fs.LoadTagPartners(j.UserKey)
-	if err != nil {
-		log.Printf("[WARN] Failed to load tag partners from Firestore: %v", err)
-	}
-	if len(cachedPartners) > 0 {
-		cachedTagPartnersPath = filepath.Join(tmpDir, "cached_tag_partners.json")
-		if err := saveTagPartners(cachedPartners, cachedTagPartnersPath); err != nil {
-			log.Printf("[WARN] Failed to save cached tag partners: %v", err)
-			cachedTagPartnersPath = ""
-		}
-	}
 
 	// バックフィル判定: Firestoreから新フィールドが空のレコードがある日付を特定
 	var backfillDates map[string]bool
@@ -170,7 +136,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 	if exists {
 		if len(backfillDates) > 0 {
-			// バックフィル: since=ゼロで対象日付のみ再スクレイプ
 			log.Printf("[INFO] Backfill mode: targeting specific dates")
 		} else {
 			since, err = fs.GetLatestDatetime(j.UserKey)
@@ -182,20 +147,14 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			}
 		}
 
-		// キャッシュがない場合のみ、既存データから速報レポートを生成
-		if cachedReport == "" {
-			if err := saveScoresJSON(existingScores, jsonPath); err != nil {
-				log.Printf("[WARN] Failed to generate JSON for preliminary report: %v", err)
-			} else {
-				prelimReport := runAnalysis(jsonPath, tmpDir, cachedTagPartnersPath)
-				if prelimReport != "" {
-					jobsMu.Lock()
-					j.PreliminaryReport = prelimReport
-					j.PreliminaryVersion++
-					jobsMu.Unlock()
-					log.Printf("[INFO] Job %s: preliminary report ready", j.ID)
-				}
-			}
+		// 既存データから速報マッチデータを生成
+		prelimMatches := buildMatchesJSON(existingScores, costsMap)
+		if prelimMatches != "" {
+			jobsMu.Lock()
+			j.PreliminaryReport = prelimMatches
+			j.PreliminaryVersion++
+			jobsMu.Unlock()
+			log.Printf("[INFO] Job %s: preliminary matches ready", j.ID)
 		}
 	}
 
@@ -205,21 +164,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		jobsMu.Lock()
 		j.Message = "戦歴データを取得中"
 		j.Progress = current
-		// totalは単調増加のみ反映。Phase2の遅延ゴルーチンがtotal=0を投げてもバーをちらつかせない
 		if total > j.ProgressTotal {
 			j.ProgressTotal = total
 		}
 		jobsMu.Unlock()
 	}
 
-	// 同梱のMSリストから機体名マッピングを読み込み（速報・最終レポート両方で使用）
-	msList, err := mslist.LoadMSList(DefaultMSListPath)
-	if err != nil {
-		log.Printf("[WARN] MS list not found, MS names will be empty")
-	}
-	msMap := mslist.BuildMSNameMap(msList)
-
-	// 20試合ごとに速報レポートを段階的に更新するコールバック
+	// 20試合ごとに速報マッチデータを段階的に更新するコールバック
 	var batchAnalysisMu sync.Mutex
 	var batchWg sync.WaitGroup
 	defer batchWg.Wait()
@@ -235,26 +186,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			mslist.FillMsNames(batchScores, msMap)
 			merged := mergeScores(existingScores, batchScores)
 
-			batchDir, err := os.MkdirTemp("", "exvs-batch-*")
-			if err != nil {
-				log.Printf("[WARN] Failed to create batch temp dir: %v", err)
-				return
-			}
-			defer os.RemoveAll(batchDir)
-
-			batchPath := filepath.Join(batchDir, "scores.json")
-			if err := saveScoresJSON(merged, batchPath); err != nil {
-				log.Printf("[WARN] Failed to save batch JSON: %v", err)
-				return
-			}
-
-			report := runAnalysis(batchPath, batchDir, cachedTagPartnersPath)
-			if report != "" {
+			matches := buildMatchesJSON(merged, costsMap)
+			if matches != "" {
 				jobsMu.Lock()
-				j.PreliminaryReport = report
+				j.PreliminaryReport = matches
 				j.PreliminaryVersion++
 				jobsMu.Unlock()
-				log.Printf("[INFO] Job %s: incremental preliminary report ready (%d scores)", j.ID, len(merged))
+				log.Printf("[INFO] Job %s: incremental preliminary matches ready (%d scores)", j.ID, len(merged))
 			}
 		}()
 	}
@@ -347,51 +285,24 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		return
 	}
 
-	// 新規データがない場合はタッグ情報を付与して再分析する
+	// 新規データがない場合はタッグ情報を保存して完了
 	if len(datedScores) == 0 && j.PreliminaryReport != "" {
-		var tagPartnersPath string
 		tagPartners := scraper.ScrapeTagPartners(jar)
 		if len(tagPartners) > 0 {
-			tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-			if err := saveTagPartners(tagPartners, tagPartnersPath); err != nil {
-				log.Printf("[WARN] Failed to save tag partners: %v", err)
-				tagPartnersPath = ""
-			} else {
-				log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
-				fs.SaveTagPartners(j.UserKey, tagPartners)
-			}
-		} else {
-			log.Printf("[INFO] No tag partners found (no new data path), using cached")
-			tagPartnersPath = cachedTagPartnersPath
+			log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
+			fs.SaveTagPartners(j.UserKey, tagPartners)
 		}
 
-		// キャッシュ利用時はjsonPathが未生成なので既存データから生成
-		if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
-			if err := saveScoresJSON(existingScores, jsonPath); err != nil {
-				log.Printf("[WARN] Failed to save scores JSON for re-analysis: %v", err)
-			}
-		}
-
-		finalReport := j.PreliminaryReport
-		report := runAnalysis(jsonPath, tmpDir, tagPartnersPath)
-		if report != "" {
-			finalReport = report
-		}
-
-		// カスタム期間分析用にscoresとtag_partnersをキャッシュ
-		finalPartners := tagPartners
-		if len(finalPartners) == 0 {
-			finalPartners = cachedPartners
+		matchesJSON := buildMatchesJSON(existingScores, costsMap)
+		if matchesJSON == "" {
+			matchesJSON = j.PreliminaryReport
 		}
 
 		jobsMu.Lock()
 		j.Status = model.StatusDone
-		j.Report = finalReport
-		j.cachedScores = existingScores
-		j.cachedTagPartners = finalPartners
+		j.Report = matchesJSON
 		j.completedAt = time.Now()
 		jobsMu.Unlock()
-		fs.SaveReportCache(j.UserKey, finalReport)
 		log.Printf("[INFO] Job %s completed (no new data)", j.ID)
 		return
 	}
@@ -414,60 +325,29 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// 既存 + 新規をメモリ上でマージ（Firestoreの再読み取りを省略）
 	allScores := mergeScores(existingScores, datedScores)
 
-	if err := os.Remove(jsonPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("[WARN] Failed to remove temp JSON: %v", err)
-	}
-	if err := saveScoresJSON(allScores, jsonPath); err != nil {
-		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save JSON: %v", err))
-		return
-	}
-
-	// タッグ相方名を取得（403途中保存時はセッションが無効なのでキャッシュを使用）
-	var tagPartnersPath string
-	var finalTagPartners []model.TagPartner
-	if is403WithPartialData {
-		if cachedTagPartnersPath != "" {
-			tagPartnersPath = cachedTagPartnersPath
-			finalTagPartners = cachedPartners
-			log.Printf("[INFO] Using cached tag partners (403 partial save)")
-		}
-	} else {
+	// タッグ相方名を取得（403途中保存時はスキップ）
+	if !is403WithPartialData {
 		tagPartners := scraper.ScrapeTagPartners(jar)
 		if len(tagPartners) > 0 {
-			tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-			if err := saveTagPartners(tagPartners, tagPartnersPath); err != nil {
-				log.Printf("[WARN] Failed to save tag partners: %v", err)
-				tagPartnersPath = ""
-			} else {
-				log.Printf("[INFO] Found %d tag partners", len(tagPartners))
-				// Firestoreにtag_partnersを書き込み
-				fs.SaveTagPartners(j.UserKey, tagPartners)
-				finalTagPartners = tagPartners
-			}
-		} else {
-			log.Printf("[INFO] No tag partners found")
-			finalTagPartners = cachedPartners
+			log.Printf("[INFO] Found %d tag partners", len(tagPartners))
+			fs.SaveTagPartners(j.UserKey, tagPartners)
 		}
 	}
 
-	// Python分析実行
+	// マッチデータJSON生成
 	updateStatus(j, model.StatusAnalyzing)
-	report := runAnalysis(jsonPath, tmpDir, tagPartnersPath)
-	if report == "" {
-		setError(j, "分析処理に失敗しました", "analysis returned empty report")
+	matchesJSON := buildMatchesJSON(allScores, costsMap)
+	if matchesJSON == "" {
+		setError(j, "分析処理に失敗しました", "failed to build matches JSON")
 		return
 	}
 
-	// カスタム期間分析用にscoresとtag_partnersをキャッシュ
 	jobsMu.Lock()
 	j.Status = model.StatusDone
-	j.Report = report
+	j.Report = matchesJSON
 	j.PartialData = is403WithPartialData
-	j.cachedScores = allScores
-	j.cachedTagPartners = finalTagPartners
 	j.completedAt = time.Now()
 	jobsMu.Unlock()
-	fs.SaveReportCache(j.UserKey, report)
 	if is403WithPartialData {
 		log.Printf("[INFO] Job %s completed with partial data (403 during scraping)", j.ID)
 	} else {
@@ -475,156 +355,16 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 }
 
-// RunCustomPeriod はカスタム日時範囲で再分析を実行してJSON文字列を返す
-func RunCustomPeriod(userKey, start, end string) (string, error) {
-	tmpDir, err := os.MkdirTemp("", "exvs-period-*")
+// buildMatchesJSON はDatedScoresをフロントエンド向けのMatchData JSONに変換する。
+// 失敗時は空文字を返す。
+func buildMatchesJSON(scores model.DatedScores, costsMap map[string]int) string {
+	matches := BuildMatchData(scores, costsMap, time.Time{})
+	data, err := json.Marshal(matches)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Firestoreからscoresを読み取り
-	scores, err := fs.LoadScores(userKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to load scores from Firestore: %w", err)
-	}
-	if len(scores) == 0 {
-		return "", fmt.Errorf("no scores found for user")
-	}
-
-	// JSONを生成
-	jsonPath := filepath.Join(tmpDir, "scores.json")
-	if err := saveScoresJSON(scores, jsonPath); err != nil {
-		return "", fmt.Errorf("failed to generate JSON: %w", err)
-	}
-
-	// Firestoreからタッグ相方情報を読み取り
-	var tagPartnersPath string
-	partners, err := fs.LoadTagPartners(userKey)
-	if err != nil {
-		log.Printf("[WARN] Failed to load tag partners for custom period: %v", err)
-	}
-	if len(partners) > 0 {
-		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
-			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
-			tagPartnersPath = ""
-		}
-	}
-
-	args := []string{"scripts/analyze.py", jsonPath, "--start", start, "--end", end, "--ms-list", DefaultMSListPath}
-	if tagPartnersPath != "" {
-		args = append(args, "--tag-partners", tagPartnersPath)
-	}
-
-	cmd := exec.Command("python3", args...)
-	cmd.Dir = "/app"
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("analysis failed: %v\n%s", err, string(output))
-	}
-
-	reportPath := filepath.Join(tmpDir, "report.json")
-	report, err := os.ReadFile(reportPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read report: %w", err)
-	}
-	return string(report), nil
-}
-
-// RunCustomPeriodFromJob はジョブにキャッシュされたscoresを使ってカスタム日時範囲の再分析を実行する。
-// キャッシュがない場合はFirestoreから読み直すRunCustomPeriodにフォールバックする。
-func RunCustomPeriodFromJob(j *Job, start, end string) (string, error) {
-	jobsMu.RLock()
-	scores := j.cachedScores
-	partners := j.cachedTagPartners
-	userKey := j.UserKey
-	jobsMu.RUnlock()
-
-	if len(scores) == 0 {
-		return RunCustomPeriod(userKey, start, end)
-	}
-
-	tmpDir, err := os.MkdirTemp("", "exvs-period-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	jsonPath := filepath.Join(tmpDir, "scores.json")
-	if err := saveScoresJSON(scores, jsonPath); err != nil {
-		return "", fmt.Errorf("failed to generate JSON: %w", err)
-	}
-
-	var tagPartnersPath string
-	if len(partners) > 0 {
-		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
-			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
-			tagPartnersPath = ""
-		}
-	}
-
-	args := []string{"scripts/analyze.py", jsonPath, "--start", start, "--end", end, "--ms-list", DefaultMSListPath}
-	if tagPartnersPath != "" {
-		args = append(args, "--tag-partners", tagPartnersPath)
-	}
-
-	cmd := exec.Command("python3", args...)
-	cmd.Dir = "/app"
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("analysis failed: %v\n%s", err, string(output))
-	}
-
-	reportPath := filepath.Join(tmpDir, "report.json")
-	report, err := os.ReadFile(reportPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read report: %w", err)
-	}
-	return string(report), nil
-}
-
-// saveTagPartners はタッグ相方情報をJSONファイルに保存する
-func saveTagPartners(partners []model.TagPartner, path string) error {
-	type tagPartnerJSON struct {
-		TeamName   string `json:"team_name"`
-		PlayerName string `json:"player_name"`
-	}
-
-	data := make([]tagPartnerJSON, len(partners))
-	for i, p := range partners {
-		data[i] = tagPartnerJSON{TeamName: p.TeamName, PlayerName: p.PlayerName}
-	}
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("marshal tag partners: %w", err)
-	}
-	return os.WriteFile(path, b, 0644)
-}
-
-// runAnalysis はPython分析を実行してJSON形式のレポートを返す。失敗時は空文字を返す。
-func runAnalysis(jsonPath, tmpDir, tagPartnersPath string) string {
-	args := []string{"scripts/analyze.py", jsonPath, "--ms-list", DefaultMSListPath}
-	if tagPartnersPath != "" {
-		args = append(args, "--tag-partners", tagPartnersPath)
-	}
-	cmd := exec.Command("python3", args...)
-	cmd.Dir = "/app"
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[WARN] Analysis failed: %v\n%s", err, string(output))
+		log.Printf("[WARN] Failed to marshal matches: %v", err)
 		return ""
 	}
-
-	reportPath := filepath.Join(tmpDir, "report.json")
-	report, err := os.ReadFile(reportPath)
-	if err != nil {
-		log.Printf("[WARN] Failed to read report: %v", err)
-		return ""
-	}
-	return string(report)
+	return string(data)
 }
 
 func updateStatus(j *Job, s model.JobStatus) {
@@ -660,132 +400,6 @@ func CleanupJobs(ttl time.Duration) {
 			log.Printf("[INFO] Job cleanup: %d -> %d jobs", before, after)
 		}
 	}
-}
-
-// matchJSON はPython分析用の試合単位JSON構造
-type matchJSON struct {
-	Datetime   string       `json:"datetime"`
-	GameEndSec float64      `json:"game_end_sec"`
-	Players    []playerJSON `json:"players"`
-}
-
-// playerJSON はPython分析用のプレイヤー情報
-type playerJSON struct {
-	PlayerNo        int          `json:"player_no"`
-	Name            string       `json:"name"`
-	City            string       `json:"city"`
-	Win             bool         `json:"win"`
-	MsName          string       `json:"ms_name"`
-	MsImageURL      string       `json:"ms_image_url"`
-	Score           int          `json:"score"`
-	Kills           int          `json:"kills"`
-	Deaths          int          `json:"deaths"`
-	GiveDamage      int          `json:"give_damage"`
-	ReceiveDamage   int          `json:"receive_damage"`
-	ExDamage        int          `json:"ex_damage"`
-	MsProficiency   string       `json:"ms_proficiency"`
-	TeamName        string       `json:"team_name"`
-	PlayerLevelURL  string       `json:"player_level_url"`
-	RankBadgeURL    string       `json:"rank_badge_url"`
-	ProfileURL      string       `json:"profile_url"`
-	ShuffleGradeURL string       `json:"shuffle_grade_url"`
-	TeamGradeURL    string       `json:"team_grade_url"`
-	ScoreRanking    int          `json:"score_ranking"`
-	ArcadeName      string       `json:"arcade_name"`
-	Actions         []ActionJSON `json:"actions"`
-}
-
-// saveScoresJSON はDatedScoresを試合単位JSONファイルに保存する（Python分析用）。
-func saveScoresJSON(ds model.DatedScores, path string) error {
-	groups := make(map[string][]model.DatedScore)
-	for _, d := range ds {
-		key := d.Datetime.Format(model.MatchKeyFormat)
-		groups[key] = append(groups[key], d)
-	}
-
-	keys := make([]string, 0, len(groups))
-	for k := range groups {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	matches := make([]matchJSON, 0, len(keys))
-	for _, key := range keys {
-		entries := groups[key]
-		if len(entries) != 4 {
-			continue
-		}
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].PlayerNo < entries[j].PlayerNo
-		})
-
-		var gameEndSec float64
-		var timeline *model.MatchTimeline
-		for _, e := range entries {
-			if e.MatchTimeline != nil {
-				timeline = e.MatchTimeline
-				gameEndSec = timeline.GameEndSec
-				break
-			}
-		}
-
-		players := make([]playerJSON, len(entries))
-		for i, e := range entries {
-			actions := buildPlayerActions(timeline, e.PlayerNo)
-			players[i] = playerJSON{
-				PlayerNo:        e.PlayerNo,
-				Name:            e.PlayerScore.Name,
-				City:            e.PlayerScore.City,
-				Win:             e.PlayerScore.Win,
-				MsName:          e.PlayerScore.MsName,
-				MsImageURL:      e.PlayerScore.MsImageURL,
-				Score:           e.PlayerScore.Score,
-				Kills:           e.PlayerScore.Kills,
-				Deaths:          e.PlayerScore.Deaths,
-				GiveDamage:      e.PlayerScore.GiveDamage,
-				ReceiveDamage:   e.PlayerScore.ReceiveDamage,
-				ExDamage:        e.PlayerScore.ExDamage,
-				MsProficiency:   e.PlayerScore.MsProficiency,
-				TeamName:        e.PlayerScore.TeamName,
-				PlayerLevelURL:  e.PlayerScore.PlayerLevelURL,
-				RankBadgeURL:    e.PlayerScore.RankBadgeURL,
-				ProfileURL:      e.PlayerScore.ProfileURL,
-				ShuffleGradeURL: e.PlayerScore.ShuffleGradeURL,
-				TeamGradeURL:    e.PlayerScore.TeamGradeURL,
-				ScoreRanking:    e.PlayerScore.ScoreRanking,
-				ArcadeName:      e.PlayerScore.ArcadeName,
-				Actions:         actions,
-			}
-		}
-
-		matches = append(matches, matchJSON{
-			Datetime:   entries[0].Datetime.Format("2006-01-02 15:04"),
-			GameEndSec: gameEndSec,
-			Players:    players,
-		})
-	}
-
-	b, err := json.Marshal(matches)
-	if err != nil {
-		return fmt.Errorf("marshal scores JSON: %w", err)
-	}
-	return os.WriteFile(path, b, 0644)
-}
-
-// buildPlayerActions はMatchTimelineから特定プレイヤーのアクションを抽出する。
-func buildPlayerActions(timeline *model.MatchTimeline, playerNo int) []ActionJSON {
-	groupName := ""
-	switch playerNo {
-	case 1:
-		groupName = "team1-1"
-	case 2:
-		groupName = "team1-2"
-	case 3:
-		groupName = "team2-1"
-	case 4:
-		groupName = "team2-2"
-	}
-	return buildActions(timeline, groupName)
 }
 
 // mergeScores は既存のscoresに新規scoresをマージする。

@@ -187,24 +187,8 @@ func StartServer() {
 	})
 
 	// GET /result/{id} → 分析結果(JSON)を返す
-	// GET /result/{id}/period?start=...&end=... → カスタム期間で再分析
 	http.HandleFunc("/result/", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path[len("/result/"):]
-
-		// /result/{id}/period のパターンを判定
-		if idx := len(path) - len("/period"); idx > 0 && path[idx:] == "/period" {
-			id := path[:idx]
-			handleCustomPeriod(w, r, id)
-			return
-		}
-
-		// 既存の /result/{id} 処理
-		handleResult(w, r, path)
-	})
-
-	// GET /period?user_key=...&start=...&end=... → カスタム期間で再分析（ジョブ不要）
-	http.HandleFunc("/period", func(w http.ResponseWriter, r *http.Request) {
-		handlePeriod(w, r)
+		handleResult(w, r, r.URL.Path[len("/result/"):])
 	})
 
 	// GET /tag-partners?user_key=... → タッグ相方情報
@@ -260,7 +244,7 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 
 	if snap.Status != model.StatusDone && snap.Status != model.StatusError {
 		if snap.PreliminaryReport != "" {
-			sendRawReport(w, http.StatusOK, snap.PreliminaryReport, string(snap.Status), snap.UserKey, true)
+			sendMatchesResponse(w, http.StatusOK, snap.PreliminaryReport, string(snap.Status), snap.UserKey, true)
 			return
 		}
 		sendJSON(w, http.StatusAccepted, map[string]string{"status": string(snap.Status)})
@@ -272,14 +256,13 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 
-	// remember=true でジョブ完了時、セッションCookieを発行
 	sessionSaved := j.Remember && j.SessionToken != ""
 	if sessionSaved {
 		setSessionCookie(w, j.SessionToken)
 	}
 
-	resp := reportResponse{
-		Report:       json.RawMessage(snap.Report),
+	resp := matchesResponse{
+		Matches:      json.RawMessage(snap.Report),
 		UserKey:      snap.UserKey,
 		Partial:      snap.PartialData,
 		SessionSaved: sessionSaved,
@@ -287,82 +270,6 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
-}
-
-func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
-	j, ok := pipeline.GetJob(id)
-	if !ok {
-		sendJSON(w, http.StatusNotFound, map[string]string{"error": "Job not found"})
-		return
-	}
-
-	snap := j.Snapshot()
-	if snap.Status != model.StatusDone {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Job not completed"})
-		return
-	}
-
-	if snap.UserKey == "" {
-		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "User key not found"})
-		return
-	}
-
-	start := r.URL.Query().Get("start")
-	end := r.URL.Query().Get("end")
-	if start == "" || end == "" {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "start and end parameters are required"})
-		return
-	}
-
-	// 日時フォーマットの簡易バリデーション（YYYY-MM-DD HH:MM）
-	const layout = "2006-01-02 15:04"
-	if _, err := time.Parse(layout, start); err != nil {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid start datetime format (expected: YYYY-MM-DD HH:MM)"})
-		return
-	}
-	if _, err := time.Parse(layout, end); err != nil {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid end datetime format (expected: YYYY-MM-DD HH:MM)"})
-		return
-	}
-
-	report, err := pipeline.RunCustomPeriodFromJob(j, start, end)
-	if err != nil {
-		log.Printf("[ERROR] Custom period analysis failed: %v", err)
-		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "カスタム期間の分析に失敗しました"})
-		return
-	}
-
-	sendRawReport(w, http.StatusOK, report, "", snap.UserKey, false)
-}
-
-func handlePeriod(w http.ResponseWriter, r *http.Request) {
-	userKey := r.URL.Query().Get("user_key")
-	start := r.URL.Query().Get("start")
-	end := r.URL.Query().Get("end")
-
-	if userKey == "" || start == "" || end == "" {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "user_key, start and end parameters are required"})
-		return
-	}
-
-	const layout = "2006-01-02 15:04"
-	if _, err := time.Parse(layout, start); err != nil {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid start datetime format (expected: YYYY-MM-DD HH:MM)"})
-		return
-	}
-	if _, err := time.Parse(layout, end); err != nil {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid end datetime format (expected: YYYY-MM-DD HH:MM)"})
-		return
-	}
-
-	report, err := pipeline.RunCustomPeriod(userKey, start, end)
-	if err != nil {
-		log.Printf("[ERROR] Custom period analysis failed: %v", err)
-		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "カスタム期間の分析に失敗しました"})
-		return
-	}
-
-	sendRawReport(w, http.StatusOK, report, "", userKey, false)
 }
 
 func handleTagPartners(w http.ResponseWriter, r *http.Request) {
@@ -441,10 +348,8 @@ func sendJSON(w http.ResponseWriter, code int, data interface{}) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// sendRawReport はJSON形式のレポートをレスポンスとして返す。
-// reportJSONはanalyze.pyが生成したJSON文字列。json.RawMessageで二重エンコードを防ぐ。
-type reportResponse struct {
-	Report       json.RawMessage `json:"report"`
+type matchesResponse struct {
+	Matches      json.RawMessage `json:"matches"`
 	Status       string          `json:"status,omitempty"`
 	Preliminary  bool            `json:"preliminary,omitempty"`
 	Partial      bool            `json:"partial,omitempty"`
@@ -452,13 +357,11 @@ type reportResponse struct {
 	SessionSaved bool            `json:"session_saved,omitempty"`
 }
 
-func sendRawReport(w http.ResponseWriter, code int, reportJSON, status, userKey string, preliminary bool, partial ...bool) {
-	isPartial := len(partial) > 0 && partial[0]
-	resp := reportResponse{
-		Report:      json.RawMessage(reportJSON),
+func sendMatchesResponse(w http.ResponseWriter, code int, matchesJSON, status, userKey string, preliminary bool) {
+	resp := matchesResponse{
+		Matches:     json.RawMessage(matchesJSON),
 		Status:      status,
 		Preliminary: preliminary,
-		Partial:     isPartial,
 		UserKey:     userKey,
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -525,18 +428,10 @@ func handleSessionCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{
+	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"valid":    true,
 		"user_key": userKey,
-	}
-
-	// キャッシュ済みレポートがあれば返す（localStorage消失時のフォールバック）
-	cachedReport, err := firestore.LoadReportCache(userKey)
-	if err == nil && cachedReport != "" {
-		resp["report"] = json.RawMessage(cachedReport)
-	}
-
-	sendJSON(w, http.StatusOK, resp)
+	})
 }
 
 // handleSessionDelete はセッションを削除する（ログアウト）
