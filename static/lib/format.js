@@ -17,7 +17,7 @@ export function boldText(s) {
 export function pct(n) { return n != null ? n.toFixed(1) + '%' : '-'; }
 export function num(n, d) { return n != null ? n.toFixed(d != null ? d : 0) : '-'; }
 
-export function valClass4(n, great, good, bad, terrible, higherIsBetter) {
+function valClass4(n, great, good, bad, terrible, higherIsBetter) {
   if (n == null) return '';
   if (higherIsBetter) {
     if (n >= great) return 'val-great';
@@ -32,7 +32,7 @@ export function valClass4(n, great, good, bad, terrible, higherIsBetter) {
   }
 }
 
-export function colorVal(n, great, good, bad, terrible, higherIsBetter, decimals) {
+function colorVal(n, great, good, bad, terrible, higherIsBetter, decimals) {
   if (n == null) return '-';
   var cls = valClass4(n, great, good, bad, terrible, higherIsBetter);
   var text = n.toFixed(decimals != null ? decimals : 0);
