@@ -1,3 +1,4 @@
+// Package server provides the HTTP server and API handlers.
 package server
 
 import (

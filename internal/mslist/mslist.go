@@ -1,3 +1,4 @@
+// Package mslist handles MS list loading, saving, merging, and name resolution.
 package mslist
 
 import (

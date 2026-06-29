@@ -38,8 +38,8 @@ func main() {
 		log.Fatalf("Failed to init Firestore: %v", err)
 	}
 	defer func() {
-		if err := client.Close(); err != nil {
-			log.Printf("[WARN] Firestore close error: %v", err)
+		if cerr := client.Close(); cerr != nil {
+			log.Printf("[WARN] Firestore close error: %v", cerr)
 		}
 	}()
 

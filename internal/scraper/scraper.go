@@ -1,3 +1,4 @@
+// Package scraper implements web scraping for game stats and authentication.
 package scraper
 
 import (
