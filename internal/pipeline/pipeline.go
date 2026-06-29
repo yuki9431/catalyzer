@@ -335,7 +335,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// マッチデータJSON生成
-	updateStatus(j, model.StatusAnalyzing)
 	matchesJSON := buildMatchesJSON(allScores, costsMap)
 	if matchesJSON == "" {
 		setError(j, "分析処理に失敗しました", "failed to build matches JSON")

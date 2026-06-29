@@ -74,9 +74,8 @@ type JobStatus string
 
 const (
 	StatusPending   JobStatus = "pending"
-	StatusScraping  JobStatus = "scraping"
-	StatusAnalyzing JobStatus = "analyzing"
-	StatusDone      JobStatus = "done"
+	StatusScraping JobStatus = "scraping"
+	StatusDone     JobStatus = "done"
 	StatusError     JobStatus = "error"
 )
 

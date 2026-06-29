@@ -1566,11 +1566,14 @@ if (rememberInfoBtn && rememberModal) {
 
   if (hasSession) {
     if (loginForm) loginForm.style.display = 'none';
+    var hasLocalData = cachedUserKey && document.getElementById('report').children.length > 0;
 
     fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
       if (!data.valid) {
         localStorage.removeItem('catalyzer_has_session');
         if (loginForm) loginForm.style.display = 'block';
+      } else if (!hasLocalData) {
+        reanalyzeWithSession();
       }
     }).catch(function () {
       if (loginForm) loginForm.style.display = 'block';
