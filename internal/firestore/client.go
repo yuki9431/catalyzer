@@ -1,3 +1,4 @@
+// Package firestore provides Firestore client initialization and data access.
 package firestore
 
 import (

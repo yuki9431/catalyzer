@@ -38,7 +38,9 @@ func TestLoadGradeList(t *testing.T) {
 		{ImageURL: "https://example.com/ace1.png", Class: "Ace", Grade: 1},
 	}
 	raw, _ := json.Marshal(data)
-	os.WriteFile(path, raw, 0644)
+	if err := os.WriteFile(path, raw, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	loaded, err := LoadGradeList(path)
 	if err != nil {
@@ -65,7 +67,9 @@ func TestLoadGradeList_NotFound(t *testing.T) {
 func TestLoadGradeList_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bad.json")
-	os.WriteFile(path, []byte("{invalid"), 0644)
+	if err := os.WriteFile(path, []byte("{invalid"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := LoadGradeList(path)
 	if err == nil {

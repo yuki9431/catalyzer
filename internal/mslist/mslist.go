@@ -104,7 +104,7 @@ func MergeMSList(scraped, existing []model.MSInfo) []model.MSInfo {
 }
 
 // SaveMSList はMSInfoリストをName→ImageURLの順でソートしてJSONファイルに保存する
-func SaveMSList(msList []model.MSInfo, path string) error {
+func SaveMSList(msList []model.MSInfo, path string) (err error) {
 	sort.Slice(msList, func(i, j int) bool {
 		if msList[i].Name != msList[j].Name {
 			return msList[i].Name < msList[j].Name
@@ -116,7 +116,11 @@ func SaveMSList(msList []model.MSInfo, path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
@@ -124,12 +128,16 @@ func SaveMSList(msList []model.MSInfo, path string) error {
 }
 
 // LoadMSList はJSONファイルからMSInfoリストを読み込む
-func LoadMSList(path string) ([]model.MSInfo, error) {
+func LoadMSList(path string) (_ []model.MSInfo, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	var msList []model.MSInfo
 	if err := json.NewDecoder(f).Decode(&msList); err != nil {

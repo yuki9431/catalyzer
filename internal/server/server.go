@@ -48,7 +48,11 @@ func StartServer() {
 		if err != nil {
 			log.Printf("[WARN] Firestore initialization failed, continuing without Firestore: %v", err)
 		} else {
-			defer firestore.Close()
+			defer func() {
+				if cerr := firestore.Close(); cerr != nil {
+					log.Printf("[WARN] Firestore close error: %v", cerr)
+				}
+			}()
 		}
 	} else {
 		log.Printf("[INFO] FIRESTORE_DATABASE not set, Firestore disabled")
@@ -69,7 +73,7 @@ func StartServer() {
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "ok")
+		_, _ = fmt.Fprint(w, "ok")
 	})
 
 	// POST /analyze → ジョブ作成、IDを返す
@@ -286,7 +290,7 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func handleCustomPeriod(w http.ResponseWriter, r *http.Request, id string) {
@@ -438,7 +442,7 @@ func securityHeaders(next http.Handler) http.Handler {
 func sendJSON(w http.ResponseWriter, code int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 // sendRawReport はJSON形式のレポートをレスポンスとして返す。
@@ -463,7 +467,7 @@ func sendRawReport(w http.ResponseWriter, code int, reportJSON, status, userKey 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func setSessionCookie(w http.ResponseWriter, token string) {
@@ -518,8 +522,8 @@ func handleSessionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// jarが復号可能か検証（鍵ローテーション後に無効なセッションを検出）
-	if _, err := session.Decrypt(encJar); err != nil {
-		log.Printf("[WARN] Session jar undecryptable, invalidating: %v", err)
+	if _, decErr := session.Decrypt(encJar); decErr != nil {
+		log.Printf("[WARN] Session jar undecryptable, invalidating: %v", decErr)
 		_ = firestore.DeleteSession(token)
 		sendJSON(w, http.StatusOK, map[string]interface{}{"valid": false})
 		return

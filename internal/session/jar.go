@@ -26,7 +26,7 @@ type cookieEntry struct {
 	Path     string `json:"path,omitempty"`
 	Domain   string `json:"domain,omitempty"`
 	Secure   bool   `json:"secure,omitempty"`
-	HttpOnly bool   `json:"http_only,omitempty"`
+	HTTPOnly bool   `json:"http_only,omitempty"`
 }
 
 // SerializeJar はCookieJarの内容をJSONバイト列にシリアライズする。
@@ -45,7 +45,7 @@ func SerializeJar(jar http.CookieJar) ([]byte, error) {
 				Path:     c.Path,
 				Domain:   c.Domain,
 				Secure:   c.Secure,
-				HttpOnly: c.HttpOnly,
+				HTTPOnly: c.HttpOnly,
 			}
 		}
 		entries = append(entries, serializedCookie{
@@ -81,7 +81,7 @@ func DeserializeJar(data []byte) (http.CookieJar, error) {
 				Path:     c.Path,
 				Domain:   c.Domain,
 				Secure:   c.Secure,
-				HttpOnly: c.HttpOnly,
+				HttpOnly: c.HTTPOnly,
 			}
 		}
 		jar.SetCookies(u, cookies)

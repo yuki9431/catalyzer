@@ -86,11 +86,8 @@ func SaveScores(userKey string, scores model.DatedScores) {
 	groups := groupByDatetime(scores)
 	matchesCol := userRef.Collection("matches")
 
-	const batchLimit = 500
-	var docs []struct {
-		id  string
-		doc matchDoc
-	}
+	var count int
+	bw := c.BulkWriter(ctx)
 
 	for key, entries := range groups {
 		if len(entries) != 4 {
@@ -98,30 +95,16 @@ func SaveScores(userKey string, scores model.DatedScores) {
 			continue
 		}
 		doc := buildMatchDoc(entries)
-		docs = append(docs, struct {
-			id  string
-			doc matchDoc
-		}{key, doc})
+		if _, err := bw.Set(matchesCol.Doc(key), doc); err != nil {
+			log.Printf("[WARN] Firestore: failed to enqueue match %s: %v", key, err)
+			continue
+		}
+		count++
 	}
 
-	for i := 0; i < len(docs); i += batchLimit {
-		end := i + batchLimit
-		if end > len(docs) {
-			end = len(docs)
-		}
+	bw.End()
 
-		batch := c.Batch()
-		for _, d := range docs[i:end] {
-			batch.Set(matchesCol.Doc(d.id), d.doc)
-		}
-
-		if _, err := batch.Commit(ctx); err != nil {
-			log.Printf("[WARN] Firestore: failed to save matches batch (%d-%d of %d, partial write): %v", i, end, len(docs), err)
-			return
-		}
-	}
-
-	log.Printf("[INFO] Firestore: saved %d matches for user %s", len(docs), userKey)
+	log.Printf("[INFO] Firestore: saved %d matches for user %s", count, userKey)
 }
 
 // loadScoresTimeout はLoadScores用のタイムアウト（全量読み取りのため長めに設定）
