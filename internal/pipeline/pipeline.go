@@ -1,3 +1,4 @@
+// Package pipeline implements the analysis pipeline with job management.
 package pipeline
 
 import (
@@ -265,18 +266,18 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// remember=true でログイン成功時、CookieJarを暗号化してFirestoreに保存
 	if j.Remember && jar != nil && session.Enabled() && j.SessionToken != "" {
 		go func() {
-			jarData, err := session.SerializeJar(jar)
-			if err != nil {
-				log.Printf("[WARN] Failed to serialize CookieJar: %v", err)
+			jarData, sessErr := session.SerializeJar(jar)
+			if sessErr != nil {
+				log.Printf("[WARN] Failed to serialize CookieJar: %v", sessErr)
 				return
 			}
-			encData, err := session.Encrypt(jarData)
-			if err != nil {
-				log.Printf("[WARN] Failed to encrypt CookieJar: %v", err)
+			encData, sessErr := session.Encrypt(jarData)
+			if sessErr != nil {
+				log.Printf("[WARN] Failed to encrypt CookieJar: %v", sessErr)
 				return
 			}
-			if err := fs.SaveSession(j.SessionToken, j.UserKey, encData); err != nil {
-				log.Printf("[WARN] Failed to save session: %v", err)
+			if sessErr = fs.SaveSession(j.SessionToken, j.UserKey, encData); sessErr != nil {
+				log.Printf("[WARN] Failed to save session: %v", sessErr)
 			}
 		}()
 	}

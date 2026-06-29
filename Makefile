@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test extract-grades \
+.PHONY: build run restart stop test test-js extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
 
@@ -27,6 +27,10 @@ stop:
 ## Go テストを実行
 test:
 	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
+
+## フロントエンド（JS）テストを実行
+test-js:
+	node --test 'static/__tests__/*.test.js'
 
 ## Firestoreから未登録グレードURLを抽出
 extract-grades:

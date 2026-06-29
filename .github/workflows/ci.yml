@@ -41,14 +41,33 @@ jobs:
         with:
           go-version: "1.26"
 
-      - name: Go vet
-        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
 
       - name: Go test
-        run: go test ./internal/...
+        run: go test -race -coverprofile=coverage.out ./internal/...
+
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out | tail -1
 
       - name: Go build check
         run: go build ./cmd/server
+
+  test-js:
+    needs: check-labels
+    if: needs.check-labels.outputs.skip-ci != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: JS test
+        run: node --test 'static/__tests__/*.test.js'
 
   validate-mslist:
     runs-on: ubuntu-latest

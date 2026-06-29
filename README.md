@@ -82,6 +82,10 @@
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
 │   │   └── format.js              # 書式・色分け・共有テキスト生成
+│   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー）
+│   │   ├── stats.test.js          # stats.js テスト
+│   │   ├── aggregate.test.js      # aggregate.js テスト
+│   │   └── format.test.js         # format.js テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
 │   ├── htm-preact-standalone.js   # htm + Preactライブラリ
@@ -103,12 +107,13 @@
 │       └── index.ts               # Cloud Run・ドメインマッピング
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                 # CI（Docker build, Go vet, Python構文チェック）
+│       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test, Python構文チェック）
 │       ├── build.yml              # ビルド&プッシュ（mainマージ時）
 │       ├── deploy.yml             # デプロイ（Pulumi up）
 │       ├── deploy-prod.yml        # 本番デプロイ（手動実行）
 │       ├── infra-ci.yml           # インフラCI（Pulumi preview）
 │       └── update-mslist.yml      # MSリスト自動更新
+├── .golangci.yml                  # golangci-lint設定
 ├── Makefile                       # ビルド・起動・インフラコマンド
 ├── Dockerfile                     # マルチステージビルド
 ├── go.mod
@@ -156,6 +161,9 @@ make stop
 
 # Goテスト
 make test
+
+# フロントエンド（JS）テスト
+make test-js
 
 # Firestoreから未登録グレードURLを抽出
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
