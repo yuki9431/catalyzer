@@ -24,6 +24,9 @@ make stop
 # Goテスト
 make test
 
+# フロントエンド（JS）テスト
+make test-js
+
 # ポート変更
 PORT=3000 make run
 
@@ -51,7 +54,7 @@ http://localhost:8080 でアクセス可能。
 
 **ローカル環境にGoはインストール済み。Python/Pulumiはインストールされていない。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。Pulumi のsecretは GCP KMS で暗号化しており（各スタックの `secretsprovider: gcpkms://...`）、`gcloud auth application-default login` 済みのADCで復号する。パスフレーズは不要。
 
-CIでは `go vet`、`go build`、`py_compile` を実行。ラベル `skip-ci` でスキップ可能。
+CIでは `golangci-lint`、`go test -race`（カバレッジ計測付き）、`go build`、`py_compile`、`node --test`（JSテスト）を実行。ラベル `skip-ci` でスキップ可能。
 
 ## アーキテクチャ
 
@@ -94,6 +97,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/aggregate/formatの純粋関数テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
@@ -104,7 +108,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ## GitHub Actions
 
-- CI: `ci.yml`（PRのみ。Docker build, go vet, py_compile。ラベル `skip-ci` でスキップ）
+- CI: `ci.yml`（PRのみ。Docker build, golangci-lint, go test -race + coverage, JS test, py_compile。ラベル `skip-ci` でスキップ）
 - Build: `build.yml`（mainマージ時 → イメージビルド&プッシュ → **stgのみ**Pulumi yaml の image 更新 → コミット → deploy.yml 呼び出し。ラベル `no-deploy` でスキップ。手動実行可）
 - Deploy to Prod: `deploy-prod.yml`（**手動実行のみ**。stgのイメージをprodに適用 → コミット → deploy.yml 呼び出し）
 - Deploy: `deploy.yml`（`infra/app/Pulumi.*.yaml` 変更トリガー or build.yml/deploy-prod.yml からの `workflow_dispatch` → `pulumi up`）
@@ -147,7 +151,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **循環依存を作らない。** 依存は`model` ← `mslist` / `scraper` / `firestore` ← `pipeline` ← `server`の一方向
 - **構造体のフィールド名はGoの命名規則（PascalCase）に従う。** スネークケースは使わない
 - **テストは対象パッケージと同じディレクトリに置く。** `xxx_test.go`で`package xxx`を使う
-- **`go vet`と`make build`がパスすることを確認してからコミットする**
+- **`go vet`（または`golangci-lint run`）と`make build`がパスすることを確認してからコミットする**
 
 ## セキュリティルール
 
