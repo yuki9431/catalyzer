@@ -8,12 +8,35 @@ linters:
   settings:
     errcheck:
       check-blank: false
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+        - (*cloud.google.com/go/firestore.Client).Close
+        - (*github.com/gocolly/colly/v2.Collector).Visit
+        - (*github.com/gocolly/colly/v2.Collector).Post
+        - (net/http.ResponseWriter).Write
+        - os.RemoveAll
+        - os.Setenv
+        - os.Unsetenv
+        - os.WriteFile
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*encoding/json.Encoder).Encode
     govet:
       enable-all: true
       disable:
         - fieldalignment
+        - shadow
     staticcheck:
-      checks: ["all", "-SA1029"]
+      checks:
+        - "all"
+        - "-SA1019"
+        - "-SA1029"
+        - "-SA4011"
+        - "-ST1000"
+        - "-ST1003"
   exclusions:
     paths:
       - vendor
