@@ -7,6 +7,7 @@ import {
   computeDmgContribution, computeDeathsImpact,
   computeBurstCount, computeFallOrder, computeBurstHoldDeath,
   computeFixedPartners,
+  computeShareData, computeMsSummary,
 } from './analysis/stats.js';
 import {
   aggregateDeathsImpact, aggregateFallOrder, aggregateDmgContribution,
@@ -14,7 +15,7 @@ import {
   aggregateEnemyMatchup, aggregatePartner,
 } from './analysis/aggregate.js';
 import {
-  loadMatchesFromDB, saveMatchesToDB, fetchAndCacheMatches,
+  loadMatchesFromDB, saveMatchesToDB,
 } from './lib/db.js';
 import {
   esc, pct, num, colorPct, colorDE,
@@ -160,8 +161,6 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   var isOpen = openRef[0], setIsOpen = openRef[1];
   var customRef = useState(false);
   var showCustom = customRef[0], setShowCustom = customRef[1];
-  var loadingRef = useState(false);
-  var isLoading = loadingRef[0], setIsLoading = loadingRef[1];
   var errorRef = useState('');
   var customError = errorRef[0], setCustomError = errorRef[1];
 
@@ -229,23 +228,9 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
     }
     var start = showTime ? formatDt(startDate, startHour, startMin) : startDate + ' 00:00';
     var end = showTime ? formatDt(endDate, endHour, endMin) : endDate + ' 23:59';
-    setIsLoading(true);
     setCustomError('');
-    fetch('/period?user_key=' + encodeURIComponent(userKey) + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end))
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        setIsLoading(false);
-        if (data.error) {
-          setCustomError(data.error);
-          return;
-        }
-        onCustomReport(data.report);
-        setIsOpen(false);
-      })
-      .catch(function (e) {
-        setIsLoading(false);
-        setCustomError(e.message);
-      });
+    onCustomReport({ start: start, end: end });
+    setIsOpen(false);
   }
 
   return html`<div class="period-selector" ref=${containerRef}>
@@ -286,8 +271,7 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
         </div>`}
         <button class="period-time-toggle" onClick=${function () { setShowTime(!showTime); }}>
           ${showTime ? '時刻指定を解除' : '時刻を指定'}</button>
-        <button class="period-custom-apply" onClick=${handleCustomApply} disabled=${isLoading}>
-          ${isLoading ? '分析中...' : '適用'}</button>
+        <button class="period-custom-apply" onClick=${handleCustomApply}>適用</button>
         ${customError && html`<p class="period-custom-error">${customError}</p>`}
       </div>`}
     </div>`}
@@ -726,19 +710,15 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 
 // --- Tab panes ---
 
-function OverviewPane({ pd, selectedMs, lens, allPd, frontendData }) {
-  var seasons = (frontendData && frontendData.season) || allPd.season || [];
-  var msStats = allPd.ms_stats || {};
-  var msEntries = Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; });
+function OverviewPane({ pd, selectedMs, lens, frontendData }) {
+  var seasons = (frontendData && frontendData.season) || [];
+  var msSummary = (frontendData && frontendData.ms_summary) || {};
+  var msEntries = Object.keys(msSummary).sort(function (a, b) { return msSummary[b].matches - msSummary[a].matches; });
   var compareEntries = msEntries.map(function (name) {
-    return { name: name, winRate: (msStats[name].basic_stats && msStats[name].basic_stats.win_rate) || 0 };
+    return { name: name, winRate: (msSummary[name].basic_stats && msSummary[name].basic_stats.win_rate) || 0 };
   });
 
-  var fp = (frontendData && frontendData.fixed_partners)
-    ? frontendData.fixed_partners
-    : (selectedMs && msStats[selectedMs] && msStats[selectedMs].fixed_partners)
-      ? msStats[selectedMs].fixed_partners
-      : allPd.fixed_partners;
+  var fp = (frontendData && frontendData.fixed_partners) || {};
   var fpList = fp ? (fp.partners || fp) : [];
   var fpItems = Array.isArray(fpList) ? fpList : [];
 
@@ -1015,16 +995,17 @@ async function reanalyzeWithSession() {
   var statusText = document.getElementById('statusText');
   var error = document.getElementById('error');
 
-  // localStorageにキャッシュがあれば即時表示、なければスケルトン
+  var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
-  try {
-    var cachedStr = localStorage.getItem('catalyzer_report');
-    var cachedKey = localStorage.getItem('catalyzer_user_key');
-    if (cachedStr && cachedKey) {
-      renderReport(JSON.parse(cachedStr), cachedKey);
-      usedCache = true;
-    }
-  } catch (e) {}
+  if (cachedKey) {
+    try {
+      var cachedMatches = await loadMatchesFromDB(cachedKey);
+      if (cachedMatches && cachedMatches.length > 0) {
+        renderReport({ matches: cachedMatches }, cachedKey);
+        usedCache = true;
+      }
+    } catch (e) {}
+  }
   if (!usedCache) showSkeleton();
 
   status.style.display = 'block';
@@ -1038,7 +1019,6 @@ async function reanalyzeWithSession() {
     var data = await res.json();
 
     if (data.error) {
-      // セッション失効
       if (res.status === 401) {
         localStorage.removeItem('catalyzer_user_key');
         localStorage.removeItem('catalyzer_has_session');
@@ -1088,15 +1068,17 @@ async function reanalyzeWithSession() {
       if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
-        if (prelimData.report && prelimData.preliminary) {
-          renderReport(prelimData.report, prelimData.user_key);
+        if (prelimData.matches && prelimData.preliminary) {
+          if (prelimData.user_key) {
+            saveMatchesToDB(prelimData.user_key, prelimData.matches);
+          }
+          renderReport({ matches: prelimData.matches }, prelimData.user_key);
           statusText.textContent = STATUS_MESSAGES.refreshing;
           lastPreliminaryVersion = statusData.preliminary_version;
         }
       }
 
       if (statusData.status === 'error') {
-        // セッション失効エラーの場合はログイン画面を表示
         if (statusData.error && statusData.error.indexOf('セッション') >= 0) {
           localStorage.removeItem('catalyzer_user_key');
           localStorage.removeItem('catalyzer_has_session');
@@ -1110,10 +1092,10 @@ async function reanalyzeWithSession() {
         var resultRes = await fetch('/result/' + jobId);
         var resultData = await resultRes.json();
         if (resultData.error) throw new Error(resultData.error);
-        renderReport(resultData.report, resultData.user_key);
-        if (resultData.user_key) {
-          fetchAndCacheMatches(resultData.user_key);
+        if (resultData.user_key && resultData.matches) {
+          await saveMatchesToDB(resultData.user_key, resultData.matches);
         }
+        renderReport({ matches: resultData.matches }, resultData.user_key);
         break;
       }
     }
@@ -1129,7 +1111,6 @@ async function logout() {
   try {
     await fetch('/session', { method: 'DELETE' });
   } catch (e) {}
-  localStorage.removeItem('catalyzer_report');
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
@@ -1147,8 +1128,8 @@ function Report({ data, userKey }) {
   if (!data) return null;
   var periodRef = useState('all');
   var selectedPeriod = periodRef[0], setSelectedPeriod = periodRef[1];
-  var customDataRef = useState(null);
-  var customData = customDataRef[0], setCustomData = customDataRef[1];
+  var customRangeRef = useState(null);
+  var customRange = customRangeRef[0], setCustomRange = customRangeRef[1];
   var tabRef = useState('overview');
   var activeTab = tabRef[0], setActiveTab = tabRef[1];
   var msRef = useState(null);
@@ -1157,7 +1138,7 @@ function Report({ data, userKey }) {
   var lens = lensRef[0], setLens = lensRef[1];
   var menuRef = useState(false);
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
-  var matchesRef = useState(null);
+  var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
@@ -1166,7 +1147,9 @@ function Report({ data, userKey }) {
   useEffect(function () {
     if (!userKey) return;
     loadMatchesFromDB(userKey).then(function (matches) {
-      if (matches && matches.length > 0) setAllMatches(matches);
+      if (matches && matches.length > 0) setAllMatches(function (prev) {
+        return prev && prev.length >= matches.length ? prev : matches;
+      });
     }).catch(function () {});
     fetch('/tag-partners?user_key=' + encodeURIComponent(userKey))
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -1196,37 +1179,30 @@ function Report({ data, userKey }) {
     return function () { window.removeEventListener('scroll', onScroll); };
   }, []);
 
-  var periods = data.periods || {};
-  var allPeriods = customData ? Object.assign({}, periods, { custom: customData.periods.custom }) : periods;
-  var pd = allPeriods[selectedPeriod] || allPeriods['all'];
-  if (!pd) return null;
-
-  var msStats = pd.ms_stats || {};
-  var msEntries = useMemo(function () {
-    return Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; }).map(function (name) {
-      return { name: name, matches: msStats[name].matches };
-    });
-  }, [msStats]);
-
-  useEffect(function () {
-    if (selectedMs && !msStats[selectedMs]) setSelectedMs(null);
-  }, [pd]);
-
-  var effectivePd = useMemo(function () {
-    if (!selectedMs || !msStats[selectedMs]) return pd;
-    var ms = msStats[selectedMs];
-    return { basic_stats: ms.basic_stats, win_loss_pattern: ms.win_loss_pattern };
-  }, [pd, selectedMs]);
+  var PERIOD_LABELS = { all: '全データ', '90d': '90日', '60d': '60日', '30d': '30日', '14d': '14日', '7d': '7日', '3d': '3日', '1d': '1日' };
+  var periods = {};
+  PERIOD_KEYS.forEach(function (k) { periods[k] = { label: PERIOD_LABELS[k] }; });
+  if (customRange) periods.custom = { label: customRange.start.substring(5, 10) + ' ~ ' + customRange.end.substring(5, 10) };
 
   var frontendData = useMemo(function () {
     if (!allMatches || !allMatches.length) return null;
-    if (selectedPeriod === 'custom') return null;
-    var filtered = allMatches;
+    var periodFiltered = allMatches;
     var days = PERIOD_DAYS[selectedPeriod];
-    if (days) filtered = filterByPlayDays(allMatches, days);
+    if (days) periodFiltered = filterByPlayDays(allMatches, days);
+    if (selectedPeriod === 'custom' && customRange) {
+      periodFiltered = allMatches.filter(function (m) {
+        return m.date >= customRange.start && m.date <= customRange.end;
+      });
+    }
+    if (!periodFiltered.length) return null;
+    var msSummary = computeMsSummary(periodFiltered);
+    var shareItems = computeShareData(periodFiltered);
+    var filtered = periodFiltered;
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
-    if (!filtered.length) return null;
+    if (!filtered.length) return { ms_summary: msSummary, share_data: shareItems };
     return {
+      ms_summary: msSummary,
+      share_data: shareItems,
       time_of_day: computeTimeOfDay(filtered),
       day_of_week: computeDayOfWeek(filtered),
       daily_trend: computeDailyTrend(filtered),
@@ -1244,19 +1220,36 @@ function Report({ data, userKey }) {
       burst_hold_death: computeBurstHoldDeath(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
-  }, [allMatches, selectedPeriod, selectedMs, tagPartners]);
+  }, [allMatches, selectedPeriod, selectedMs, tagPartners, customRange]);
 
-  var shareData = selectedPeriod === 'custom' && customData ? customData.share_data : data.share_data;
+  var msStats = (frontendData && frontendData.ms_summary) || {};
+  var msEntries = useMemo(function () {
+    return Object.keys(msStats).sort(function (a, b) { return msStats[b].matches - msStats[a].matches; }).map(function (name) {
+      return { name: name, matches: msStats[name].matches };
+    });
+  }, [msStats]);
 
-  function handleCustomReport(report) {
-    setCustomData(report);
+  useEffect(function () {
+    if (selectedMs && !msStats[selectedMs]) setSelectedMs(null);
+  }, [msStats]);
+
+  var shareData = (frontendData && frontendData.share_data) || [];
+
+  function handleCustomReport(range) {
+    setCustomRange(range);
     setSelectedPeriod('custom');
   }
 
   var fePd = useMemo(function () {
-    if (!frontendData) return effectivePd;
-    return { basic_stats: frontendData.basic_stats, win_loss_pattern: frontendData.win_loss_pattern };
-  }, [frontendData, effectivePd]);
+    if (frontendData && frontendData.basic_stats) {
+      return { basic_stats: frontendData.basic_stats, win_loss_pattern: frontendData.win_loss_pattern };
+    }
+    return { basic_stats: null, win_loss_pattern: null };
+  }, [frontendData]);
+
+  if (!frontendData) {
+    return html`<${Skeleton} />`;
+  }
 
   var pane;
   if (activeTab === 'playstyle') {
@@ -1266,10 +1259,10 @@ function Report({ data, userKey }) {
   } else if (activeTab === 'matchup') {
     pane = html`<${MatchupPane} msStats=${msStats} selectedMs=${selectedMs} frontendData=${frontendData} />`;
   } else if (activeTab === 'time') {
-    var timePd = frontendData ? { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season } : pd;
-    pane = html`<${TimePane} pd=${timePd} selectedMs=${selectedMs} usingFrontend=${!!frontendData} />`;
+    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
+    pane = html`<${TimePane} pd=${timePd} selectedMs=${selectedMs} usingFrontend=${true} />`;
   } else {
-    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} allPd=${pd} frontendData=${frontendData} />`;
+    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;
   }
 
   return html`
@@ -1278,7 +1271,7 @@ function Report({ data, userKey }) {
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
       <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
       <div class="controls-row">
-        <${PeriodSelector} periods=${allPeriods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
+        <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
@@ -1357,9 +1350,7 @@ function renderReport(data, userKey) {
   if (pageTitle) pageTitle.style.display = 'none';
   render(html`<${Report} data=${data} userKey=${userKey} />`, reportEl);
 
-  // レポートをlocalStorageにキャッシュ（次回アクセス時の即時表示用）
   try {
-    localStorage.setItem('catalyzer_report', JSON.stringify(data));
     if (userKey) localStorage.setItem('catalyzer_user_key', userKey);
   } catch (e) {}
 }
@@ -1398,17 +1389,18 @@ async function analyze() {
   var lastPreliminaryVersion = 0;
   var renderedReal = false;
 
-  // localStorageにキャッシュがあれば即時表示、なければスケルトン
+  var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
-  try {
-    var cachedStr = localStorage.getItem('catalyzer_report');
-    var cachedKey = localStorage.getItem('catalyzer_user_key');
-    if (cachedStr && cachedKey) {
-      renderReport(JSON.parse(cachedStr), cachedKey);
-      statusText.textContent = STATUS_MESSAGES.refreshing;
-      usedCache = true;
-    }
-  } catch (e) {}
+  if (cachedKey) {
+    try {
+      var cachedMatches = await loadMatchesFromDB(cachedKey);
+      if (cachedMatches && cachedMatches.length > 0) {
+        renderReport({ matches: cachedMatches }, cachedKey);
+        statusText.textContent = STATUS_MESSAGES.refreshing;
+        usedCache = true;
+      }
+    } catch (e) {}
+  }
   if (!usedCache) showSkeleton();
 
   try {
@@ -1444,7 +1436,6 @@ async function analyze() {
       var progressFill = document.getElementById('progressFill');
       var isScraping = statusData.status === 'scraping';
       if (statusData.progress_total > 0) {
-        // 総数確定: 処理済み/総数の正確なバー
         var p = Math.round(100 * statusData.progress / statusData.progress_total);
         progressFill.classList.remove('indeterminate');
         progressFill.style.width = p + '%';
@@ -1452,7 +1443,6 @@ async function analyze() {
         document.getElementById('progressCount').textContent = statusData.progress + '/' + statusData.progress_total + '件';
         progressWrap.style.display = 'block';
       } else if (isScraping) {
-        // 総数未確定(Phase2)中: 不定アニメーション + 取得済み件数
         progressFill.classList.add('indeterminate');
         document.getElementById('progressPct').textContent = '戦歴を検索中…';
         document.getElementById('progressCount').textContent = statusData.progress ? statusData.progress + '件' : '';
@@ -1462,12 +1452,14 @@ async function analyze() {
         progressWrap.style.display = 'none';
       }
 
-      // 速報レポート（キャッシュ含む実データ）はログイン成功確認後にのみ反映する
       if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
-        if (prelimData.report && prelimData.preliminary) {
-          renderReport(prelimData.report, prelimData.user_key);
+        if (prelimData.matches && prelimData.preliminary) {
+          if (prelimData.user_key) {
+            saveMatchesToDB(prelimData.user_key, prelimData.matches);
+          }
+          renderReport({ matches: prelimData.matches }, prelimData.user_key);
           renderedReal = true;
           statusText.textContent = STATUS_MESSAGES.refreshing;
           lastPreliminaryVersion = statusData.preliminary_version;
@@ -1486,14 +1478,13 @@ async function analyze() {
           throw new Error(resultData.error);
         }
 
-        renderReport(resultData.report, resultData.user_key);
+        if (resultData.user_key && resultData.matches) {
+          await saveMatchesToDB(resultData.user_key, resultData.matches);
+        }
+        renderReport({ matches: resultData.matches }, resultData.user_key);
         renderedReal = true;
-        // サーバーがセッションを保存した場合のみフラグをセット
         if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
-        }
-        if (resultData.user_key) {
-          fetchAndCacheMatches(resultData.user_key);
         }
         if (resultData.partial) {
           var warning = document.getElementById('error');
@@ -1509,7 +1500,6 @@ async function analyze() {
   } catch (e) {
     error.style.display = 'block';
     error.textContent = e.message;
-    // まだ実データを描画していない（ログイン中 or スケルトン表示中）なら結果画面を畳んでログイン画面へ戻す
     if (!renderedReal) {
       render(null, reportEl);
       reportEl.style.display = 'none';
@@ -1556,45 +1546,39 @@ if (rememberInfoBtn && rememberModal) {
   }
 }
 
-// ページロード時: localStorageにキャッシュレポートがあれば即時表示
-(function initSession() {
-  var cachedReport = null;
+// ページロード時: IndexedDBにmatchesがあれば即時表示
+(async function initSession() {
   var cachedUserKey = null;
   var hasSession = false;
   try {
-    var reportStr = localStorage.getItem('catalyzer_report');
     cachedUserKey = localStorage.getItem('catalyzer_user_key');
     hasSession = !!localStorage.getItem('catalyzer_has_session');
-    if (reportStr) cachedReport = JSON.parse(reportStr);
   } catch (e) {}
 
-  // キャッシュレポートがあれば即時表示
-  if (cachedReport && cachedUserKey) {
-    renderReport(cachedReport, cachedUserKey);
+  if (cachedUserKey) {
+    try {
+      var cachedMatches = await loadMatchesFromDB(cachedUserKey);
+      if (cachedMatches && cachedMatches.length > 0) {
+        renderReport({ matches: cachedMatches }, cachedUserKey);
+      }
+    } catch (e) {}
   }
 
   if (hasSession) {
-    // セッション保持ユーザー: ログインフォームを隠し、バックグラウンドでセッション確認
     if (loginForm) loginForm.style.display = 'none';
+    var hasLocalData = cachedUserKey && document.getElementById('report').children.length > 0;
 
     fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
       if (!data.valid) {
-        // セッション失効
         localStorage.removeItem('catalyzer_has_session');
         if (loginForm) loginForm.style.display = 'block';
-        // レポートキャッシュがない場合はサーバーのレポートキャッシュなしで通常ログインへ
-      } else if (!cachedReport && data.report) {
-        // localStorageにレポートがないがサーバーにはある場合
-        renderReport(data.report, data.user_key);
-        if (loginForm) loginForm.style.display = 'none';
-        try { localStorage.setItem('catalyzer_report', JSON.stringify(data.report)); } catch (e) {}
+      } else if (!hasLocalData) {
+        reanalyzeWithSession();
       }
     }).catch(function () {
-      // ネットワークエラー: ログインフォームを表示
       if (loginForm) loginForm.style.display = 'block';
     });
   }
-  // セッションなし + キャッシュありの場合: レポートは表示済み、ログインフォームも表示（デフォルト）
 })();
 
 // preview.html用: windowにrenderReportを公開

@@ -4,7 +4,7 @@
 
 ## プロジェクト概要
 
-catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバーサス2 インフィニットブースト）の戦績分析Webアプリ。公式サイトから対戦データをスクレイピングし、Firestoreに保存、Python分析を実行してJSONレポートを返す。
+catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバーサス2 インフィニットブースト）の戦績分析Webアプリ。公式サイトから対戦データをスクレイピングし、Firestoreに保存、フロントエンドのJS分析関数でレポートを生成する。
 
 ## ビルド・開発コマンド
 
@@ -35,9 +35,6 @@ PORT=3000 make run
 python3 -m http.server 8888 --directory static
 # → http://localhost:8888/preview.html
 
-# レポート生成
-python3 scripts/analyze.py /tmp/scores.csv
-
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
@@ -52,9 +49,9 @@ STACK=stg make pulumi-app-shell       # app(検証) シェル
 
 http://localhost:8080 でアクセス可能。
 
-**ローカル環境にGoはインストール済み。Python/Pulumiはインストールされていない。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。Pulumi のsecretは GCP KMS で暗号化しており（各スタックの `secretsprovider: gcpkms://...`）、`gcloud auth application-default login` 済みのADCで復号する。パスフレーズは不要。
+**ローカル環境にGoはインストール済み。Pulumiはインストールされていない。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。Pulumi のsecretは GCP KMS で暗号化しており（各スタックの `secretsprovider: gcpkms://...`）、`gcloud auth application-default login` 済みのADCで復号する。パスフレーズは不要。
 
-CIでは `golangci-lint`、`go test -race`（カバレッジ計測付き）、`go build`、`py_compile`、`node --test`（JSテスト）を実行。ラベル `skip-ci` でスキップ可能。
+CIでは `golangci-lint`、`go test -race`（カバレッジ計測付き）、`go build`、`node --test`（JSテスト）を実行。ラベル `skip-ci` でスキップ可能。
 
 ## アーキテクチャ
 
@@ -62,17 +59,16 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ```
 ブラウザ → POST /analyze → ジョブ作成（pending）
-  → Firestoreから既存matchesを読み取り → 速報レポート生成
+  → Firestoreから既存matchesを読み取り → 速報マッチデータ生成
   → Collyで新規戦績をスクレイピング（状態: scraping）
   → data/ms_list.jsonからMS名・コストを補完
   → Firestoreにmatches/tag_partners書き込み（タイムラインはmatchesに埋め込み）
-  → Firestoreから全matches読み取り → 試合単位JSON生成
-  → scripts/analyze.py でJSONを分析（状態: analyzing）
-  → JSONレポートを返却（状態: done）
+  → 全matchesからMatchData JSON生成（状態: done）
 クライアントは GET /status/{id} でポーリング後、GET /result/{id} で結果取得
+フロントエンドがIndexedDBにmatchesを保存し、JS分析関数で統計を計算・表示
 ```
 
-**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /result/{id}/period`, `GET /period`, `GET /matches`, `GET /tag-partners`, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
+**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `GET /matches`, `GET /tag-partners`, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
 
 ## コード構成
 
@@ -88,10 +84,9 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
-- `scripts/analyze.py` — Python分析: 勝率、与被ダメ比、固定相方検出（K/D・EXダメ・覚醒回数・勝敗パターン付き）、JSON構造化レポート生成
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
-- `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンド集計、未キャッシュ時はサーバー分析結果にフォールバック
-- `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜影響/覚醒回数/先落ち後落ち/覚醒抱え落ち/固定相方
+- `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンドで全統計を計算
+- `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜影響/覚醒回数/先落ち後落ち/覚醒抱え落ち/固定相方/SNS共有データ/MS別サマリー
 - `static/analysis/aggregate.js` — 集計関数。被撃墜影響/先落ち/ダメージ貢献/覚醒回数/覚醒抱え落ち/敵相性/相方の全MS横断集計
 - `static/components/ui.js` — 汎用UIコンポーネント（Tips/SortableTable/Table/SubSection）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
@@ -108,7 +103,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ## GitHub Actions
 
-- CI: `ci.yml`（PRのみ。Docker build, golangci-lint, go test -race + coverage, JS test, py_compile。ラベル `skip-ci` でスキップ）
+- CI: `ci.yml`（PRのみ。Docker build, golangci-lint, go test -race + coverage, JS test。ラベル `skip-ci` でスキップ）
 - Build: `build.yml`（mainマージ時 → イメージビルド&プッシュ → **stgのみ**Pulumi yaml の image 更新 → コミット → deploy.yml 呼び出し。ラベル `no-deploy` でスキップ。手動実行可）
 - Deploy to Prod: `deploy-prod.yml`（**手動実行のみ**。stgのイメージをprodに適用 → コミット → deploy.yml 呼び出し）
 - Deploy: `deploy.yml`（`infra/app/Pulumi.*.yaml` 変更トリガー or build.yml/deploy-prod.yml からの `workflow_dispatch` → `pulumi up`）
@@ -128,7 +123,6 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 ## 主要な技術情報
 
 - **Go 1.26**、Webフレームワーク不使用（標準 `net/http`）
-- **Python 3.11** で分析（pip依存なし）
 - **Pulumi (TypeScript)** でインフラ管理
 - ストレージはFirestore（環境変数 `FIRESTORE_DATABASE` で指定）、ユーザーキーは SHA256(email)[:8] の16進数
 - Cloud Runデプロイ、`PORT` 環境変数（デフォルト 8080）
@@ -139,7 +133,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   - `SCRAPER_MAX_DETAIL`: 詳細取得件数の上限。0または未設定で無制限（既定 0）
   - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
-- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。レポートはlocalStorageにもキャッシュし即時表示
+- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示
 
 ## Goコーディング規約
 
@@ -158,5 +152,5 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **GCPプロジェクトID、バケット名、サービスアカウント等のインフラ識別子をコードやCLAUDE.mdにハードコードしない。** 環境変数またはGitHub Secrets/Variablesを使うこと。
 - **IAM権限は最小権限の原則を徹底する。** プロジェクトレベルの広範なロール（例: `roles/storage.admin`）ではなく、バケット単位・リソース単位で必要最低限のロール（例: `roles/storage.objectUser`）を付与すること。
 - 公開リポジトリのため、コミット履歴にも残ることを意識する。
-- マルチステージDockerfile: `golang:1.26-alpine` でビルド、`python:3.11-alpine` で実行
+- マルチステージDockerfile: `golang:1.26-alpine` でビルド、`alpine:3.22` で実行
 - CSP: `script-src 'self'`（インラインスクリプト禁止）、`style-src 'self' 'unsafe-inline'`

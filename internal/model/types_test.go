@@ -39,8 +39,8 @@ func TestUserKey_KnownValue(t *testing.T) {
 }
 
 func TestJobStatus_Constants(t *testing.T) {
-	statuses := []JobStatus{StatusPending, StatusScraping, StatusAnalyzing, StatusDone, StatusError}
-	expected := []string{"pending", "scraping", "analyzing", "done", "error"}
+	statuses := []JobStatus{StatusPending, StatusScraping, StatusDone, StatusError}
+	expected := []string{"pending", "scraping", "done", "error"}
 
 	for i, s := range statuses {
 		if string(s) != expected[i] {

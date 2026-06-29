@@ -51,36 +51,3 @@ export function loadMatchesFromDB(userKey) {
   });
 }
 
-function getLatestMatchDate(userKey) {
-  return openMatchDB().then(function (db) {
-    return new Promise(function (resolve, reject) {
-      var tx = db.transaction(MATCH_STORE, 'readonly');
-      var store = tx.objectStore(MATCH_STORE);
-      var index = store.index('userKey_date');
-      var range = IDBKeyRange.bound([userKey, ''], [userKey, '￿']);
-      var req = index.openCursor(range, 'prev');
-      req.onsuccess = function (e) {
-        var cursor = e.target.result;
-        resolve(cursor ? cursor.value.date : null);
-      };
-      req.onerror = function (e) { reject(e.target.error); };
-    });
-  });
-}
-
-export function fetchAndCacheMatches(userKey) {
-  getLatestMatchDate(userKey).then(function (latestDate) {
-    var url = '/matches?user_key=' + encodeURIComponent(userKey);
-    if (latestDate) {
-      url += '&after=' + encodeURIComponent(latestDate);
-    }
-    return fetch(url);
-  }).then(function (res) {
-    if (!res.ok) throw new Error('fetch failed');
-    return res.json();
-  }).then(function (data) {
-    if (data.matches && data.matches.length > 0) {
-      return saveMatchesToDB(userKey, data.matches);
-    }
-  }).catch(function () {});
-}

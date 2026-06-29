@@ -935,3 +935,66 @@ export function computeFixedPartners(matches, tagPartners) {
   });
   return { partners: results };
 }
+
+export function computeShareData(matches) {
+  if (!matches.length) return [];
+  var msGroups = {};
+  matches.forEach(function (m) {
+    if (!msGroups[m.ms]) msGroups[m.ms] = [];
+    msGroups[m.ms].push(m);
+  });
+  var topMs = Object.keys(msGroups).sort(function (a, b) { return msGroups[b].length - msGroups[a].length; })[0];
+  if (!topMs) return [];
+
+  var items = [];
+  items.push({ type: 'top_ms', ms: topMs, count: msGroups[topMs].length });
+
+  var topData = msGroups[topMs];
+  var enemyStats = {};
+  topData.forEach(function (d) {
+    [d.opponent1_ms, d.opponent2_ms].forEach(function (ems) {
+      if (!ems) return;
+      if (!enemyStats[ems]) enemyStats[ems] = [];
+      enemyStats[ems].push(d);
+    });
+  });
+
+  var bestEnemy = null, worstEnemy = null;
+  Object.keys(enemyStats).forEach(function (ems) {
+    var ms = enemyStats[ems];
+    if (ms.length < 3) return;
+    var wr = jsWinRate(ms);
+    if (!bestEnemy || wr > bestEnemy.wr) bestEnemy = { enemy: ems, wr: wr, count: ms.length };
+    if (!worstEnemy || wr < worstEnemy.wr) worstEnemy = { enemy: ems, wr: wr, count: ms.length };
+  });
+  if (bestEnemy && bestEnemy.wr >= 60) {
+    items.push({ type: 'strong_enemy', enemy: bestEnemy.enemy, wr: Math.round(bestEnemy.wr), count: bestEnemy.count });
+  }
+  if (worstEnemy && worstEnemy.wr <= 40) {
+    items.push({ type: 'weak_enemy', enemy: worstEnemy.enemy, wr: Math.round(worstEnemy.wr), count: worstEnemy.count });
+  }
+
+  if (topData.length >= 3) {
+    items.push({ type: 'dmg_efficiency', ms: topMs, value: round3(jsDmgEfficiency(topData)) });
+  }
+  return items;
+}
+
+export function computeMsSummary(matches) {
+  var msGroups = {};
+  matches.forEach(function (m) {
+    if (!m.ms) return;
+    if (!msGroups[m.ms]) msGroups[m.ms] = [];
+    msGroups[m.ms].push(m);
+  });
+  var summary = {};
+  Object.keys(msGroups).forEach(function (ms) {
+    var data = msGroups[ms];
+    summary[ms] = {
+      matches: data.length,
+      basic_stats: computeBasicStats(data),
+      win_loss_pattern: computeWinLossPattern(data),
+    };
+  });
+  return summary;
+}
