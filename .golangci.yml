@@ -1,0 +1,26 @@
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosimple
+    - bodyclose
+    - nilerr
+
+linters-settings:
+  errcheck:
+    check-blank: false
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  staticcheck:
+    checks: ["all", "-SA1029"]
+
+issues:
+  exclude-dirs:
+    - vendor
+  max-issues-per-linter: 50
+  max-same-issues: 10
