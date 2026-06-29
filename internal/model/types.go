@@ -1,3 +1,4 @@
+// Package model defines data types and key generation for the application.
 package model
 
 import (

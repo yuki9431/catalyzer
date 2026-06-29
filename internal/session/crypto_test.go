@@ -2,7 +2,6 @@ package session
 
 import (
 	"encoding/hex"
-	"os"
 	"sync"
 	"testing"
 )
@@ -18,9 +17,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	for i := range key {
 		key[i] = byte(i)
 	}
-	os.Setenv("SESSION_ENCRYPTION_KEY", hex.EncodeToString(key))
+	t.Setenv("SESSION_ENCRYPTION_KEY", hex.EncodeToString(key))
 	t.Cleanup(func() {
-		os.Unsetenv("SESSION_ENCRYPTION_KEY")
 		resetCrypto()
 	})
 	resetCrypto()
@@ -51,9 +49,8 @@ func TestEncryptDifferentNonce(t *testing.T) {
 	for i := range key {
 		key[i] = byte(i + 10)
 	}
-	os.Setenv("SESSION_ENCRYPTION_KEY", hex.EncodeToString(key))
+	t.Setenv("SESSION_ENCRYPTION_KEY", hex.EncodeToString(key))
 	t.Cleanup(func() {
-		os.Unsetenv("SESSION_ENCRYPTION_KEY")
 		resetCrypto()
 	})
 	resetCrypto()
@@ -76,9 +73,8 @@ func TestEncryptDifferentNonce(t *testing.T) {
 
 func TestDecryptTampered(t *testing.T) {
 	key := make([]byte, 32)
-	os.Setenv("SESSION_ENCRYPTION_KEY", hex.EncodeToString(key))
+	t.Setenv("SESSION_ENCRYPTION_KEY", hex.EncodeToString(key))
 	t.Cleanup(func() {
-		os.Unsetenv("SESSION_ENCRYPTION_KEY")
 		resetCrypto()
 	})
 	resetCrypto()
@@ -93,7 +89,7 @@ func TestDecryptTampered(t *testing.T) {
 }
 
 func TestNotEnabled(t *testing.T) {
-	os.Unsetenv("SESSION_ENCRYPTION_KEY")
+	t.Setenv("SESSION_ENCRYPTION_KEY", "")
 	resetCrypto()
 
 	if Enabled() {

@@ -92,7 +92,7 @@ type loginResponse struct {
 			} `json:"terms"`
 		} `json:"view"`
 	} `json:"data"`
-	RedirectUrl string `json:"redirect"`
+	RedirectURL string `json:"redirect"`
 }
 
 // NewClient は新しいクライアントを作成する
@@ -132,32 +132,32 @@ func (c *Client) Login() error {
 	if err != nil {
 		return fmt.Errorf("ログインリクエストに失敗: %w", err)
 	}
-	defer loginPage.Body.Close()
+	defer func() { _ = loginPage.Body.Close() }()
 
 	var l loginResponse
-	if err := json.NewDecoder(loginPage.Body).Decode(&l); err != nil {
-		return fmt.Errorf("ログインレスポンスの解析に失敗: %w", err)
+	if decErr := json.NewDecoder(loginPage.Body).Decode(&l); decErr != nil {
+		return fmt.Errorf("ログインレスポンスの解析に失敗: %w", decErr)
 	}
 
-	if l.RedirectUrl == "" {
+	if l.RedirectURL == "" {
 		return ErrLoginFailed
 	}
 
-	if strings.Contains(l.RedirectUrl, "passkey") {
+	if strings.Contains(l.RedirectURL, "passkey") {
 		return c.skipPasskey(l)
 	}
 
-	authPage, err := c.HTTPClient.Get(l.RedirectUrl)
+	authPage, err := c.HTTPClient.Get(l.RedirectURL)
 	if err != nil {
 		return fmt.Errorf("認証リダイレクトに失敗: %w", err)
 	}
-	defer authPage.Body.Close()
+	defer func() { _ = authPage.Body.Close() }()
 
 	return nil
 }
 
 func (c *Client) skipPasskey(l loginResponse) error {
-	parsedURL, err := url.Parse(l.RedirectUrl)
+	parsedURL, err := url.Parse(l.RedirectURL)
 	if err != nil {
 		return err
 	}
@@ -198,11 +198,11 @@ func (c *Client) skipPasskey(l loginResponse) error {
 	if err != nil {
 		return err
 	}
-	defer skipResp.Body.Close()
+	defer func() { _ = skipResp.Body.Close() }()
 
 	var passkeyResp map[string]interface{}
-	if err := json.NewDecoder(skipResp.Body).Decode(&passkeyResp); err != nil {
-		return err
+	if decErr := json.NewDecoder(skipResp.Body).Decode(&passkeyResp); decErr != nil {
+		return decErr
 	}
 
 	redirectURL := ""
@@ -241,7 +241,7 @@ func (c *Client) skipPasskey(l loginResponse) error {
 	if err != nil {
 		return err
 	}
-	defer authPage.Body.Close()
+	defer func() { _ = authPage.Body.Close() }()
 
 	return nil
 }

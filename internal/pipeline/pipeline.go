@@ -1,3 +1,4 @@
+// Package pipeline implements the analysis pipeline with job management.
 package pipeline
 
 import (
@@ -120,7 +121,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to create temp dir: %v", err))
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
+			log.Printf("[WARN] Failed to remove temp dir: %v", rmErr)
+		}
+	}()
 
 	jsonPath := filepath.Join(tmpDir, "scores.json")
 
@@ -153,8 +158,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 	if len(cachedPartners) > 0 {
 		cachedTagPartnersPath = filepath.Join(tmpDir, "cached_tag_partners.json")
-		if err := saveTagPartners(cachedPartners, cachedTagPartnersPath); err != nil {
-			log.Printf("[WARN] Failed to save cached tag partners: %v", err)
+		if saveErr := saveTagPartners(cachedPartners, cachedTagPartnersPath); saveErr != nil {
+			log.Printf("[WARN] Failed to save cached tag partners: %v", saveErr)
 			cachedTagPartnersPath = ""
 		}
 	}
@@ -184,8 +189,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 
 		// キャッシュがない場合のみ、既存データから速報レポートを生成
 		if cachedReport == "" {
-			if err := saveScoresJSON(existingScores, jsonPath); err != nil {
-				log.Printf("[WARN] Failed to generate JSON for preliminary report: %v", err)
+			if saveErr := saveScoresJSON(existingScores, jsonPath); saveErr != nil {
+				log.Printf("[WARN] Failed to generate JSON for preliminary report: %v", saveErr)
 			} else {
 				prelimReport := runAnalysis(jsonPath, tmpDir, cachedTagPartnersPath)
 				if prelimReport != "" {
@@ -235,16 +240,20 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			mslist.FillMsNames(batchScores, msMap)
 			merged := mergeScores(existingScores, batchScores)
 
-			batchDir, err := os.MkdirTemp("", "exvs-batch-*")
-			if err != nil {
-				log.Printf("[WARN] Failed to create batch temp dir: %v", err)
+			batchDir, batchErr := os.MkdirTemp("", "exvs-batch-*")
+			if batchErr != nil {
+				log.Printf("[WARN] Failed to create batch temp dir: %v", batchErr)
 				return
 			}
-			defer os.RemoveAll(batchDir)
+			defer func() {
+				if rmErr := os.RemoveAll(batchDir); rmErr != nil {
+					log.Printf("[WARN] Failed to remove batch temp dir: %v", rmErr)
+				}
+			}()
 
 			batchPath := filepath.Join(batchDir, "scores.json")
-			if err := saveScoresJSON(merged, batchPath); err != nil {
-				log.Printf("[WARN] Failed to save batch JSON: %v", err)
+			if saveErr := saveScoresJSON(merged, batchPath); saveErr != nil {
+				log.Printf("[WARN] Failed to save batch JSON: %v", saveErr)
 				return
 			}
 
@@ -327,18 +336,18 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// remember=true でログイン成功時、CookieJarを暗号化してFirestoreに保存
 	if j.Remember && jar != nil && session.Enabled() && j.SessionToken != "" {
 		go func() {
-			jarData, err := session.SerializeJar(jar)
-			if err != nil {
-				log.Printf("[WARN] Failed to serialize CookieJar: %v", err)
+			jarData, sessErr := session.SerializeJar(jar)
+			if sessErr != nil {
+				log.Printf("[WARN] Failed to serialize CookieJar: %v", sessErr)
 				return
 			}
-			encData, err := session.Encrypt(jarData)
-			if err != nil {
-				log.Printf("[WARN] Failed to encrypt CookieJar: %v", err)
+			encData, sessErr := session.Encrypt(jarData)
+			if sessErr != nil {
+				log.Printf("[WARN] Failed to encrypt CookieJar: %v", sessErr)
 				return
 			}
-			if err := fs.SaveSession(j.SessionToken, j.UserKey, encData); err != nil {
-				log.Printf("[WARN] Failed to save session: %v", err)
+			if sessErr = fs.SaveSession(j.SessionToken, j.UserKey, encData); sessErr != nil {
+				log.Printf("[WARN] Failed to save session: %v", sessErr)
 			}
 		}()
 	}
@@ -353,8 +362,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		tagPartners := scraper.ScrapeTagPartners(jar)
 		if len(tagPartners) > 0 {
 			tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-			if err := saveTagPartners(tagPartners, tagPartnersPath); err != nil {
-				log.Printf("[WARN] Failed to save tag partners: %v", err)
+			if saveErr := saveTagPartners(tagPartners, tagPartnersPath); saveErr != nil {
+				log.Printf("[WARN] Failed to save tag partners: %v", saveErr)
 				tagPartnersPath = ""
 			} else {
 				log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
@@ -366,9 +375,9 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		}
 
 		// キャッシュ利用時はjsonPathが未生成なので既存データから生成
-		if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
-			if err := saveScoresJSON(existingScores, jsonPath); err != nil {
-				log.Printf("[WARN] Failed to save scores JSON for re-analysis: %v", err)
+		if _, statErr := os.Stat(jsonPath); os.IsNotExist(statErr) {
+			if saveErr := saveScoresJSON(existingScores, jsonPath); saveErr != nil {
+				log.Printf("[WARN] Failed to save scores JSON for re-analysis: %v", saveErr)
 			}
 		}
 
@@ -414,11 +423,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// 既存 + 新規をメモリ上でマージ（Firestoreの再読み取りを省略）
 	allScores := mergeScores(existingScores, datedScores)
 
-	if err := os.Remove(jsonPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("[WARN] Failed to remove temp JSON: %v", err)
+	if rmErr := os.Remove(jsonPath); rmErr != nil && !os.IsNotExist(rmErr) {
+		log.Printf("[WARN] Failed to remove temp JSON: %v", rmErr)
 	}
-	if err := saveScoresJSON(allScores, jsonPath); err != nil {
-		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save JSON: %v", err))
+	if saveErr := saveScoresJSON(allScores, jsonPath); saveErr != nil {
+		setError(j, "内部エラーが発生しました", fmt.Sprintf("failed to save JSON: %v", saveErr))
 		return
 	}
 
@@ -435,8 +444,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		tagPartners := scraper.ScrapeTagPartners(jar)
 		if len(tagPartners) > 0 {
 			tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-			if err := saveTagPartners(tagPartners, tagPartnersPath); err != nil {
-				log.Printf("[WARN] Failed to save tag partners: %v", err)
+			if saveErr := saveTagPartners(tagPartners, tagPartnersPath); saveErr != nil {
+				log.Printf("[WARN] Failed to save tag partners: %v", saveErr)
 				tagPartnersPath = ""
 			} else {
 				log.Printf("[INFO] Found %d tag partners", len(tagPartners))
@@ -481,7 +490,11 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
+			log.Printf("[WARN] Failed to remove temp dir: %v", rmErr)
+		}
+	}()
 
 	// Firestoreからscoresを読み取り
 	scores, err := fs.LoadScores(userKey)
@@ -494,8 +507,8 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 
 	// JSONを生成
 	jsonPath := filepath.Join(tmpDir, "scores.json")
-	if err := saveScoresJSON(scores, jsonPath); err != nil {
-		return "", fmt.Errorf("failed to generate JSON: %w", err)
+	if saveErr := saveScoresJSON(scores, jsonPath); saveErr != nil {
+		return "", fmt.Errorf("failed to generate JSON: %w", saveErr)
 	}
 
 	// Firestoreからタッグ相方情報を読み取り
@@ -506,8 +519,8 @@ func RunCustomPeriod(userKey, start, end string) (string, error) {
 	}
 	if len(partners) > 0 {
 		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
-			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
+		if saveErr := saveTagPartners(partners, tagPartnersPath); saveErr != nil {
+			log.Printf("[WARN] Failed to save tag partners for custom period: %v", saveErr)
 			tagPartnersPath = ""
 		}
 	}
@@ -549,18 +562,22 @@ func RunCustomPeriodFromJob(j *Job, start, end string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
+			log.Printf("[WARN] Failed to remove temp dir: %v", rmErr)
+		}
+	}()
 
 	jsonPath := filepath.Join(tmpDir, "scores.json")
-	if err := saveScoresJSON(scores, jsonPath); err != nil {
-		return "", fmt.Errorf("failed to generate JSON: %w", err)
+	if saveErr := saveScoresJSON(scores, jsonPath); saveErr != nil {
+		return "", fmt.Errorf("failed to generate JSON: %w", saveErr)
 	}
 
 	var tagPartnersPath string
 	if len(partners) > 0 {
 		tagPartnersPath = filepath.Join(tmpDir, "tag_partners.json")
-		if err := saveTagPartners(partners, tagPartnersPath); err != nil {
-			log.Printf("[WARN] Failed to save tag partners for custom period: %v", err)
+		if saveErr := saveTagPartners(partners, tagPartnersPath); saveErr != nil {
+			log.Printf("[WARN] Failed to save tag partners for custom period: %v", saveErr)
 			tagPartnersPath = ""
 		}
 	}

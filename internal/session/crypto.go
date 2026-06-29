@@ -1,3 +1,4 @@
+// Package session provides session encryption and cookie jar serialization.
 package session
 
 import (

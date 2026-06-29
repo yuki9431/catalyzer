@@ -26,7 +26,11 @@ func main() {
 	if err := firestore.InitWithProjectID(ctx, projectID); err != nil {
 		log.Fatalf("Firestore初期化失敗: %v", err)
 	}
-	defer firestore.Close()
+	defer func() {
+		if err := firestore.Close(); err != nil {
+			log.Printf("[WARN] Firestore close error: %v", err)
+		}
+	}()
 
 	gradeList, err := gradelist.LoadGradeList(*gradeListPath)
 	if err != nil {

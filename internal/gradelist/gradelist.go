@@ -1,3 +1,4 @@
+// Package gradelist handles grade list loading and unknown grade detection.
 package gradelist
 
 import (

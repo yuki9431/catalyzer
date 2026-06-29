@@ -37,7 +37,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to init Firestore: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if cerr := client.Close(); cerr != nil {
+			log.Printf("[WARN] Firestore close error: %v", cerr)
+		}
+	}()
 
 	userRef := client.Collection("users").Doc(*userKey)
 
@@ -81,20 +85,13 @@ func main() {
 	}
 
 	// 削除実行
-	const batchLimit = 500
-	for i := 0; i < len(matchDocs); i += batchLimit {
-		end := i + batchLimit
-		if end > len(matchDocs) {
-			end = len(matchDocs)
-		}
-		batch := client.Batch()
-		for _, doc := range matchDocs[i:end] {
-			batch.Delete(doc.Ref)
-		}
-		if _, err := batch.Commit(ctx); err != nil {
-			log.Fatalf("Batch delete failed (%d-%d): %v", i, end, err)
+	bw := client.BulkWriter(ctx)
+	for _, doc := range matchDocs {
+		if _, err := bw.Delete(doc.Ref); err != nil {
+			log.Fatalf("BulkWriter delete failed: %v", err)
 		}
 	}
+	bw.End()
 
 	log.Printf("[INFO] Deleted %d matches", len(matchDocs))
 }

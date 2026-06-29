@@ -63,20 +63,19 @@ func SaveTagPartners(userKey string, partners []model.TagPartner) {
 	userRef := c.Collection("users").Doc(userKey)
 	partnersCol := userRef.Collection("tag_partners")
 
-	batch := c.Batch()
+	bw := c.BulkWriter(ctx)
 	for _, p := range partners {
 		docID := partnerDocID(p)
 		doc := partnersCol.Doc(docID)
-		batch.Set(doc, tagPartnerDoc{
+		if _, err := bw.Set(doc, tagPartnerDoc{
 			TeamName:   p.TeamName,
 			PlayerName: p.PlayerName,
-		})
+		}); err != nil {
+			log.Printf("[WARN] Firestore: failed to enqueue tag partner %s: %v", docID, err)
+			continue
+		}
 	}
-
-	if _, err := batch.Commit(ctx); err != nil {
-		log.Printf("[WARN] Firestore: failed to save tag partners: %v", err)
-		return
-	}
+	bw.End()
 
 	log.Printf("[INFO] Firestore: saved %d tag partners for user %s", len(partners), userKey)
 }

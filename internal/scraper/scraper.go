@@ -1,3 +1,4 @@
+// Package scraper implements web scraping for game stats and authentication.
 package scraper
 
 import (
@@ -265,7 +266,7 @@ func collectDailyLinks(jar http.CookieJar, since time.Time) ([]dailyLink, error)
 		links = append(links, dailyLink{date: date, url: link, shopName: shopName})
 	})
 
-	c.Visit(mobileRankpage)
+	_ = c.Visit(mobileRankpage)
 
 	if accessDenied {
 		return nil, ErrAccessDenied
@@ -293,7 +294,6 @@ func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http
 		// キャンセル済みなら新規goroutineを起動しない
 		select {
 		case <-ctx.Done():
-			break
 		default:
 		}
 		if ctx.Err() != nil {
@@ -407,12 +407,12 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 		if len(links) >= 2 {
 			nextLink := links[len(links)-2]
 			if nextLink != "javascript:void(0);" {
-				c.Visit(e.Request.AbsoluteURL(nextLink))
+				_ = c.Visit(e.Request.AbsoluteURL(nextLink))
 			}
 		}
 	})
 
-	c.Visit(dl.url)
+	_ = c.Visit(dl.url)
 	return entries, httpErr
 }
 
@@ -564,7 +564,7 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 		log.Printf("[ERROR] fetchSingleDetail: リクエスト失敗 url=%s err=%v", e.detailURL, err)
 		return nil, fmt.Errorf("リクエスト失敗: url=%s: %w", e.detailURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		log.Printf("[ERROR] fetchSingleDetail: HTTP %d url=%s", resp.StatusCode, e.detailURL)
@@ -931,7 +931,7 @@ func ScrapeTagPartners(jar http.CookieJar) []model.TagPartner {
 		}
 	})
 
-	c.Visit(mobileTagPage)
+	_ = c.Visit(mobileTagPage)
 	return partners
 }
 
@@ -962,7 +962,7 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 	tokenCollector.OnHTML("input[name=_token]", func(e *colly.HTMLElement) {
 		csrfToken = e.Attr("value")
 	})
-	tokenCollector.Visit(mobileMSUsedRate)
+	_ = tokenCollector.Visit(mobileMSUsedRate)
 
 	if tokenErr != nil {
 		return nil, fmt.Errorf("CSRFトークン取得に失敗: %w", tokenErr)
@@ -1010,12 +1010,12 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 			nextLinks := e.ChildAttrs("li > a", "href")
 			for _, link := range nextLinks {
 				if link != "javascript:void(0);" {
-					c.Visit(e.Request.AbsoluteURL(link))
+					_ = c.Visit(e.Request.AbsoluteURL(link))
 				}
 			}
 		})
 
-		c.Post(mobileMSUsedRate, map[string]string{
+		_ = c.Post(mobileMSUsedRate, map[string]string{
 			"_token":   csrfToken,
 			"cost":     fmt.Sprintf("%d", currentCost),
 			"category": "1",
