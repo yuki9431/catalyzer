@@ -518,7 +518,7 @@ describe('computeFixedPartners', function () {
     assert.equal(result.partners[0].matches, 7);
   });
 
-  it('merges partners with empty team name under NO_NAME_TEAM', function () {
+  it('keeps partners with empty team name separate by player name', function () {
     var tagPartners = [
       { player_name: 'ソロA', team_name: '' },
       { player_name: 'ソロB', team_name: '' },
@@ -526,9 +526,23 @@ describe('computeFixedPartners', function () {
     var matches = makeMatches(2, { partner_name: 'ソロA' })
       .concat(makeMatches(3, { partner_name: 'ソロB' }));
     var result = computeFixedPartners(matches, tagPartners);
-    assert.equal(result.partners.length, 1);
-    assert.equal(result.partners[0].partner_name, 'NO_NAME_TEAM');
-    assert.equal(result.partners[0].matches, 5);
+    assert.equal(result.partners.length, 2);
+    var names = result.partners.map(function (p) { return p.partner_name; }).sort();
+    assert.deepEqual(names, ['ソロA', 'ソロB']);
+  });
+
+  it('does not merge the default NO_NAME_TEAM (different partners)', function () {
+    // チーム名未設定はソース側でデフォルト NO_NAME_TEAM になるが、実際は別々の相方
+    var tagPartners = [
+      { player_name: 'ソロA', team_name: 'NO_NAME_TEAM' },
+      { player_name: 'ソロB', team_name: 'NO_NAME_TEAM' },
+    ];
+    var matches = makeMatches(2, { partner_name: 'ソロA' })
+      .concat(makeMatches(3, { partner_name: 'ソロB' }));
+    var result = computeFixedPartners(matches, tagPartners);
+    assert.equal(result.partners.length, 2);
+    var names = result.partners.map(function (p) { return p.partner_name; }).sort();
+    assert.deepEqual(names, ['ソロA', 'ソロB']);
   });
 
   it('returns empty partners when no matches with tag partners', function () {

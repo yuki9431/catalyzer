@@ -810,21 +810,25 @@ export function computeFixedPartners(matches, tagPartners) {
   var teamOf = {};
   tagPartners.forEach(function (tp) { teamOf[tp.player_name] = tp.team_name; });
   // チーム名が同じ相方は統合する（このゲームは名前が可変のため、チーム名で同一相方を判定）。
-  // チーム名が空の相方はまとめて NO_NAME_TEAM として1チーム扱いにする。
+  // ただしチーム名未設定（空 or デフォルトの NO_NAME_TEAM）は実際には別々の相方なので統合せず、
+  // プレイヤー名ごとに個別集計する。
   var NO_NAME_TEAM = 'NO_NAME_TEAM';
-  var fixedMatches = {};   // team_name -> matches[]
+  var fixedMatches = {};   // key -> matches[]
+  var groupLabel = {};     // key -> 表示名（チーム名 or プレイヤー名）
   matches.forEach(function (d) {
     if (!Object.prototype.hasOwnProperty.call(teamOf, d.partner_name)) return;
-    var team = teamOf[d.partner_name] || NO_NAME_TEAM;
-    if (!fixedMatches[team]) fixedMatches[team] = [];
-    fixedMatches[team].push(d);
+    var team = teamOf[d.partner_name];
+    var named = team && team !== NO_NAME_TEAM;
+    var key = named ? 'team:' + team : 'player:' + d.partner_name;
+    if (!fixedMatches[key]) { fixedMatches[key] = []; groupLabel[key] = named ? team : d.partner_name; }
+    fixedMatches[key].push(d);
   });
   var partnerKeys = Object.keys(fixedMatches).sort(function (a, b) { return fixedMatches[b].length - fixedMatches[a].length; });
   if (!partnerKeys.length) return { partners: [] };
 
   var results = [];
-  partnerKeys.forEach(function (teamName) {
-    var data = fixedMatches[teamName];
+  partnerKeys.forEach(function (key) {
+    var data = fixedMatches[key];
     var n = data.length;
     var wl = jsWinsLosses(data);
     var w = wl[0], l = wl[1];
@@ -911,7 +915,7 @@ export function computeFixedPartners(matches, tagPartners) {
     }
 
     var entry = {
-      partner_name: teamName,
+      partner_name: groupLabel[key],
       matches: n, wins: w, losses: l,
       win_rate: round1(wr),
       my_stats: {
@@ -934,7 +938,8 @@ export function computeFixedPartners(matches, tagPartners) {
       partner_ms_breakdown: msBreakdown,
       tips: tips,
     };
-    // チーム名は partner_name に格納済み。二重表示を避けるため team_name は付けない。
+    // 表示名（チーム名 or プレイヤー名）は partner_name に格納済み。
+    // チーム名の二重表示を避けるため team_name は付けない。
     results.push(entry);
   });
   return { partners: results };
