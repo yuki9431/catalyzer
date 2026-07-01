@@ -518,7 +518,7 @@ describe('computeFixedPartners', function () {
     assert.equal(result.partners[0].matches, 7);
   });
 
-  it('keeps partners with empty team name separate by player name', function () {
+  it('merges partners with empty team name under NO_NAME_TEAM', function () {
     var tagPartners = [
       { player_name: 'ソロA', team_name: '' },
       { player_name: 'ソロB', team_name: '' },
@@ -526,9 +526,9 @@ describe('computeFixedPartners', function () {
     var matches = makeMatches(2, { partner_name: 'ソロA' })
       .concat(makeMatches(3, { partner_name: 'ソロB' }));
     var result = computeFixedPartners(matches, tagPartners);
-    assert.equal(result.partners.length, 2);
-    var names = result.partners.map(function (p) { return p.partner_name; }).sort();
-    assert.deepEqual(names, ['ソロA', 'ソロB']);
+    assert.equal(result.partners.length, 1);
+    assert.equal(result.partners[0].partner_name, 'NO_NAME_TEAM');
+    assert.equal(result.partners[0].matches, 5);
   });
 
   it('returns empty partners when no matches with tag partners', function () {
