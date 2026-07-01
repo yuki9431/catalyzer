@@ -806,21 +806,26 @@ export function computeFixedPartners(matches, tagPartners) {
   if (!tagPartners || !tagPartners.length) {
     return { notice: 'タッグ情報が見つかりませんでした。フレンドを登録してタッグを組むと、固定相方の詳細分析が利用できます。', partners: [] };
   }
-  var partnerNames = {};
-  tagPartners.forEach(function (tp) { partnerNames[tp.player_name] = tp.team_name; });
-  var fixedMatches = {};
+  // player_name -> team_name（team_nameは空文字の場合あり）
+  var teamOf = {};
+  tagPartners.forEach(function (tp) { teamOf[tp.player_name] = tp.team_name; });
+  // チーム名が同じ相方は統合する（このゲームは名前が可変のため、チーム名で同一相方を判定）。
+  // チーム名が空の相方は従来通りプレイヤー名ごとに個別集計する。
+  var fixedMatches = {};   // key -> matches[]
+  var groupLabel = {};     // key -> 表示名（チーム名 or プレイヤー名）
   matches.forEach(function (d) {
-    if (partnerNames[d.partner_name]) {
-      if (!fixedMatches[d.partner_name]) fixedMatches[d.partner_name] = [];
-      fixedMatches[d.partner_name].push(d);
-    }
+    if (!Object.prototype.hasOwnProperty.call(teamOf, d.partner_name)) return;
+    var team = teamOf[d.partner_name];
+    var key = team ? 'team:' + team : 'player:' + d.partner_name;
+    if (!fixedMatches[key]) { fixedMatches[key] = []; groupLabel[key] = team || d.partner_name; }
+    fixedMatches[key].push(d);
   });
   var partnerKeys = Object.keys(fixedMatches).sort(function (a, b) { return fixedMatches[b].length - fixedMatches[a].length; });
   if (!partnerKeys.length) return { partners: [] };
 
   var results = [];
-  partnerKeys.forEach(function (pName) {
-    var data = fixedMatches[pName];
+  partnerKeys.forEach(function (key) {
+    var data = fixedMatches[key];
     var n = data.length;
     var wl = jsWinsLosses(data);
     var w = wl[0], l = wl[1];
@@ -907,7 +912,7 @@ export function computeFixedPartners(matches, tagPartners) {
     }
 
     var entry = {
-      partner_name: pName,
+      partner_name: groupLabel[key],
       matches: n, wins: w, losses: l,
       win_rate: round1(wr),
       my_stats: {
@@ -930,7 +935,8 @@ export function computeFixedPartners(matches, tagPartners) {
       partner_ms_breakdown: msBreakdown,
       tips: tips,
     };
-    if (partnerNames[pName]) entry.team_name = partnerNames[pName];
+    // 表示名（チーム名 or プレイヤー名）は partner_name に格納済み。
+    // チーム名の二重表示を避けるため team_name は付けない。
     results.push(entry);
   });
   return { partners: results };

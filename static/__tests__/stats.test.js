@@ -491,16 +491,44 @@ describe('computeFixedPartners', function () {
     assert.ok(result.notice);
   });
 
-  it('matches tag partners by name', function () {
+  it('matches tag partners by name and labels with team name', function () {
     var tagPartners = [{ player_name: 'パートナー', team_name: 'チームA' }];
     var matches = makeMatches(5, { partner_name: 'パートナー' });
     var result = computeFixedPartners(matches, tagPartners);
     assert.equal(result.partners.length, 1);
-    assert.equal(result.partners[0].partner_name, 'パートナー');
-    assert.equal(result.partners[0].team_name, 'チームA');
+    // チーム名がある相方はチーム名で表示（名前は可変のため）
+    assert.equal(result.partners[0].partner_name, 'チームA');
+    assert.equal(result.partners[0].team_name, undefined);
     assert.equal(result.partners[0].matches, 5);
     assert.ok(result.partners[0].my_stats);
     assert.ok(result.partners[0].partner_stats);
+  });
+
+  it('merges partners with the same team name', function () {
+    // 同じチーム名の別プレイヤー（名前変更などで別名になったケース）を統合する
+    var tagPartners = [
+      { player_name: '旧名', team_name: 'チームA' },
+      { player_name: '新名', team_name: 'チームA' },
+    ];
+    var matches = makeMatches(3, { partner_name: '旧名' })
+      .concat(makeMatches(4, { partner_name: '新名' }));
+    var result = computeFixedPartners(matches, tagPartners);
+    assert.equal(result.partners.length, 1);
+    assert.equal(result.partners[0].partner_name, 'チームA');
+    assert.equal(result.partners[0].matches, 7);
+  });
+
+  it('keeps partners with empty team name separate by player name', function () {
+    var tagPartners = [
+      { player_name: 'ソロA', team_name: '' },
+      { player_name: 'ソロB', team_name: '' },
+    ];
+    var matches = makeMatches(2, { partner_name: 'ソロA' })
+      .concat(makeMatches(3, { partner_name: 'ソロB' }));
+    var result = computeFixedPartners(matches, tagPartners);
+    assert.equal(result.partners.length, 2);
+    var names = result.partners.map(function (p) { return p.partner_name; }).sort();
+    assert.deepEqual(names, ['ソロA', 'ソロB']);
   });
 
   it('returns empty partners when no matches with tag partners', function () {
