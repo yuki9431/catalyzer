@@ -491,21 +491,21 @@ describe('computeFixedPartners', function () {
     assert.ok(result.notice);
   });
 
-  it('matches tag partners by name and labels with latest player name', function () {
+  it('matches tag partners by name and labels with latest player name + team name', function () {
     var tagPartners = [{ player_name: 'パートナー', team_name: 'チームA' }];
     var matches = makeMatches(5, { partner_name: 'パートナー' });
     var result = computeFixedPartners(matches, tagPartners);
     assert.equal(result.partners.length, 1);
     assert.equal(result.partners[0].partner_name, 'パートナー');
-    assert.equal(result.partners[0].team_name, undefined);
+    assert.equal(result.partners[0].team_name, 'チームA');
     assert.equal(result.partners[0].matches, 5);
     assert.ok(result.partners[0].my_stats);
     assert.ok(result.partners[0].partner_stats);
   });
 
-  it('merges partners with the same team name and shows the latest name', function () {
+  it('merges partners with the same team name and shows latest name + team name', function () {
     // 同じチーム名の別プレイヤー（名前変更などで別名になったケース）を統合し、
-    // 表示は最新の試合で使われていたプレイヤー名にする
+    // 表示は最新の試合で使われていたプレイヤー名＋チーム名にする
     var tagPartners = [
       { player_name: '旧名', team_name: 'チームA' },
       { player_name: '新名', team_name: 'チームA' },
@@ -515,6 +515,7 @@ describe('computeFixedPartners', function () {
     var result = computeFixedPartners(matches, tagPartners);
     assert.equal(result.partners.length, 1);
     assert.equal(result.partners[0].partner_name, '新名');
+    assert.equal(result.partners[0].team_name, 'チームA');
     assert.equal(result.partners[0].matches, 7);
   });
 
@@ -529,6 +530,8 @@ describe('computeFixedPartners', function () {
     assert.equal(result.partners.length, 2);
     var names = result.partners.map(function (p) { return p.partner_name; }).sort();
     assert.deepEqual(names, ['ソロA', 'ソロB']);
+    // チーム未統合なので team_name は付かない
+    assert.ok(result.partners.every(function (p) { return p.team_name === undefined; }));
   });
 
   it('does not merge the default NO_NAME_TAG (different partners)', function () {
