@@ -809,18 +809,17 @@ export function computeFixedPartners(matches, tagPartners) {
   // player_name -> team_name（team_nameは空文字の場合あり）
   var teamOf = {};
   tagPartners.forEach(function (tp) { teamOf[tp.player_name] = tp.team_name; });
-  // チーム名が同じ相方は統合する（このゲームは名前が可変のため、チーム名で同一相方を判定）。
-  // ただしチーム名未設定（空 or デフォルトの NO_NAME_TEAM）は実際には別々の相方なので統合せず、
-  // プレイヤー名ごとに個別集計する。
-  var NO_NAME_TEAM = 'NO_NAME_TEAM';
+  // 相方の試合をグループ化する。チーム名があれば同一チームで統合し（このゲームは名前が可変
+  // のため、名前変更をまたいで同一相方として扱える）、チーム名が未設定（空 or デフォルトの
+  // NO_NAME_TAG）の相方は別々の相方なので統合せずプレイヤー名ごとに集計する。
+  var NO_NAME_TAG = 'NO_NAME_TAG';
   var fixedMatches = {};   // key -> matches[]
-  var groupLabel = {};     // key -> 表示名（チーム名 or プレイヤー名）
   matches.forEach(function (d) {
     if (!Object.prototype.hasOwnProperty.call(teamOf, d.partner_name)) return;
     var team = teamOf[d.partner_name];
-    var named = team && team !== NO_NAME_TEAM;
+    var named = team && team !== NO_NAME_TAG;
     var key = named ? 'team:' + team : 'player:' + d.partner_name;
-    if (!fixedMatches[key]) { fixedMatches[key] = []; groupLabel[key] = named ? team : d.partner_name; }
+    if (!fixedMatches[key]) fixedMatches[key] = [];
     fixedMatches[key].push(d);
   });
   var partnerKeys = Object.keys(fixedMatches).sort(function (a, b) { return fixedMatches[b].length - fixedMatches[a].length; });
@@ -830,6 +829,9 @@ export function computeFixedPartners(matches, tagPartners) {
   partnerKeys.forEach(function (key) {
     var data = fixedMatches[key];
     var n = data.length;
+    // 表示名は最新の試合で使われていた相方のプレイヤー名（名前が可変のため最新を採用）
+    var latestName = data[0].partner_name, latestDate = data[0].date;
+    data.forEach(function (d) { if (d.date > latestDate) { latestDate = d.date; latestName = d.partner_name; } });
     var wl = jsWinsLosses(data);
     var w = wl[0], l = wl[1];
     var wr = w / n * 100;
@@ -915,7 +917,7 @@ export function computeFixedPartners(matches, tagPartners) {
     }
 
     var entry = {
-      partner_name: groupLabel[key],
+      partner_name: latestName,
       matches: n, wins: w, losses: l,
       win_rate: round1(wr),
       my_stats: {
@@ -938,8 +940,7 @@ export function computeFixedPartners(matches, tagPartners) {
       partner_ms_breakdown: msBreakdown,
       tips: tips,
     };
-    // 表示名（チーム名 or プレイヤー名）は partner_name に格納済み。
-    // チーム名の二重表示を避けるため team_name は付けない。
+    // 表示名（最新のプレイヤー名）は partner_name に格納済み。team_name は使わない。
     results.push(entry);
   });
   return { partners: results };

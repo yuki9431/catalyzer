@@ -491,30 +491,30 @@ describe('computeFixedPartners', function () {
     assert.ok(result.notice);
   });
 
-  it('matches tag partners by name and labels with team name', function () {
+  it('matches tag partners by name and labels with latest player name', function () {
     var tagPartners = [{ player_name: 'パートナー', team_name: 'チームA' }];
     var matches = makeMatches(5, { partner_name: 'パートナー' });
     var result = computeFixedPartners(matches, tagPartners);
     assert.equal(result.partners.length, 1);
-    // チーム名がある相方はチーム名で表示（名前は可変のため）
-    assert.equal(result.partners[0].partner_name, 'チームA');
+    assert.equal(result.partners[0].partner_name, 'パートナー');
     assert.equal(result.partners[0].team_name, undefined);
     assert.equal(result.partners[0].matches, 5);
     assert.ok(result.partners[0].my_stats);
     assert.ok(result.partners[0].partner_stats);
   });
 
-  it('merges partners with the same team name', function () {
-    // 同じチーム名の別プレイヤー（名前変更などで別名になったケース）を統合する
+  it('merges partners with the same team name and shows the latest name', function () {
+    // 同じチーム名の別プレイヤー（名前変更などで別名になったケース）を統合し、
+    // 表示は最新の試合で使われていたプレイヤー名にする
     var tagPartners = [
       { player_name: '旧名', team_name: 'チームA' },
       { player_name: '新名', team_name: 'チームA' },
     ];
-    var matches = makeMatches(3, { partner_name: '旧名' })
-      .concat(makeMatches(4, { partner_name: '新名' }));
+    var matches = makeMatches(3, { partner_name: '旧名', date: '2025-01-10 10:00' })
+      .concat(makeMatches(4, { partner_name: '新名', date: '2025-06-20 10:00' }));
     var result = computeFixedPartners(matches, tagPartners);
     assert.equal(result.partners.length, 1);
-    assert.equal(result.partners[0].partner_name, 'チームA');
+    assert.equal(result.partners[0].partner_name, '新名');
     assert.equal(result.partners[0].matches, 7);
   });
 
@@ -531,11 +531,11 @@ describe('computeFixedPartners', function () {
     assert.deepEqual(names, ['ソロA', 'ソロB']);
   });
 
-  it('does not merge the default NO_NAME_TEAM (different partners)', function () {
-    // チーム名未設定はソース側でデフォルト NO_NAME_TEAM になるが、実際は別々の相方
+  it('does not merge the default NO_NAME_TAG (different partners)', function () {
+    // チーム名未設定はスクレイピング上デフォルトの NO_NAME_TAG になるが、実際は別々の相方
     var tagPartners = [
-      { player_name: 'ソロA', team_name: 'NO_NAME_TEAM' },
-      { player_name: 'ソロB', team_name: 'NO_NAME_TEAM' },
+      { player_name: 'ソロA', team_name: 'NO_NAME_TAG' },
+      { player_name: 'ソロB', team_name: 'NO_NAME_TAG' },
     ];
     var matches = makeMatches(2, { partner_name: 'ソロA' })
       .concat(makeMatches(3, { partner_name: 'ソロB' }));
