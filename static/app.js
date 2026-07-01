@@ -1316,7 +1316,7 @@ function Skeleton() {
       </div>
     </div>
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
-      shareData=${null} />
+      shareData=${null} onLogout=${logout} />
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
