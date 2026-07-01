@@ -816,6 +816,55 @@ export function computeBurstTiming(matches) {
   };
 }
 
+// F/S/E覚醒の使用傾向を分析する。発動数の比率（使用率）とタイプ別の勝率を集計する。
+var BURST_TYPES = [
+  { action: 'exbst-f', key: 'F', label: 'F覚醒' },
+  { action: 'exbst-s', key: 'S', label: 'S覚醒' },
+  { action: 'exbst-e', key: 'E', label: 'E覚醒' },
+];
+
+export function computeBurstType(matches) {
+  var stat = {};
+  BURST_TYPES.forEach(function (t) { stat[t.action] = { count: 0, matches: [] }; });
+  var totalBursts = 0;
+  matches.forEach(function (d) {
+    if (!d.actions || !d.actions.length) return;
+    var seen = {};
+    d.actions.forEach(function (a) {
+      if (!stat[a.action]) return;
+      stat[a.action].count++;
+      totalBursts++;
+      if (!seen[a.action]) { seen[a.action] = true; stat[a.action].matches.push(d); }
+    });
+  });
+  if (totalBursts === 0) return null;
+  var byType = BURST_TYPES.map(function (t) {
+    var s = stat[t.action];
+    return {
+      key: t.key,
+      label: t.label,
+      count: s.count,
+      rate: round1(s.count / totalBursts * 100),
+      matches: s.matches.length,
+      win_rate: s.matches.length ? round1(jsWinRate(s.matches)) : 0,
+    };
+  }).filter(function (t) { return t.count > 0; });
+  var tips = [];
+  var byUsage = byType.slice().sort(function (a, b) { return b.count - a.count; });
+  if (byUsage.length) {
+    tips.push('最もよく使う覚醒は **' + byUsage[0].label + '**（使用率 ' + byUsage[0].rate + '%）');
+  }
+  var eligible = byType.filter(function (t) { return t.matches >= 5; });
+  if (eligible.length >= 2) {
+    var byWin = eligible.slice().sort(function (a, b) { return b.win_rate - a.win_rate; });
+    var best = byWin[0], worst = byWin[byWin.length - 1];
+    if (best.win_rate - worst.win_rate >= 5) {
+      tips.push('**' + best.label + '** の勝率が最も高い（' + best.win_rate + '%） → この覚醒を軸にすると良い');
+    }
+  }
+  return { total_bursts: totalBursts, by_type: byType, tips: tips };
+}
+
 export function computeFixedPartners(matches, tagPartners) {
   if (!tagPartners || !tagPartners.length) {
     return { notice: 'タッグ情報が見つかりませんでした。フレンドを登録してタッグを組むと、固定相方の詳細分析が利用できます。', partners: [] };

@@ -5,13 +5,13 @@ import {
   computeBasicStats, computeWinLossPattern,
   computeEnemyMatchup, computePartner, computeCostPair, computeMsPair,
   computeDmgContribution, computeDeathsImpact,
-  computeBurstCount, computeFallOrder, computeBurstTiming,
+  computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
   computeFixedPartners,
   computeShareData, computeMsSummary,
 } from './analysis/stats.js';
 import {
   aggregateDeathsImpact, aggregateFallOrder, aggregateDmgContribution,
-  aggregateBurstCount, aggregateBurstTiming,
+  aggregateBurstCount, aggregateBurstTiming, aggregateBurstType,
   aggregateEnemyMatchup, aggregatePartner,
 } from './analysis/aggregate.js';
 import {
@@ -32,7 +32,7 @@ import {
   DmgContributionSubSection, DeathsImpactSubSection,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
-  FallOrderContent, BurstTimingContent, BurstCountContent,
+  FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
 } from './components/charts.js';
 
 // --- Constants ---
@@ -857,20 +857,26 @@ function PlaystylePane({ msStats, selectedMs, frontendData }) {
 }
 
 function BurstPane({ msStats, selectedMs, frontendData }) {
-  var burstCount, burstTiming;
+  var burstCount, burstTiming, burstType;
   if (frontendData) {
     burstCount = frontendData.burst_count;
     burstTiming = frontendData.burst_timing;
+    burstType = frontendData.burst_type;
   } else if (selectedMs && msStats[selectedMs]) {
     var ms = msStats[selectedMs];
     burstCount = ms.burst_count;
     burstTiming = ms.burst_timing;
+    burstType = ms.burst_type;
   } else {
     burstCount = aggregateBurstCount(msStats);
     burstTiming = aggregateBurstTiming(msStats);
+    burstType = aggregateBurstType(msStats);
   }
 
   var countItems = burstCount && burstCount.by_count ? burstCount.by_count : [];
+  var typeItems = burstType && burstType.by_type
+    ? burstType.by_type.map(function (t) { return { label: t.label, matches: t.matches, win_rate: t.win_rate }; })
+    : [];
   var timingItems = [];
   if (burstTiming) {
     if (burstTiming.immediate && burstTiming.immediate.count > 0) {
@@ -887,12 +893,17 @@ function BurstPane({ msStats, selectedMs, frontendData }) {
       <${BurstCountContent} countData=${burstCount} />
     <//>`}
 
+    ${typeItems.length > 0 && html`<${Panel} title="覚醒タイプ別傾向">
+      <${WinRateBarChart} items=${typeItems} />
+      <${BurstTypeContent} typeData=${burstType} />
+    <//>`}
+
     ${timingItems.length > 0 && html`<${Panel} title="覚醒タイミング">
       <${WinRateBarChart} items=${timingItems} />
       <${BurstTimingContent} timingData=${burstTiming} />
     <//>`}
 
-    ${!countItems.length && !timingItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
+    ${!countItems.length && !typeItems.length && !timingItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
   </div>`;
 }
 
@@ -1224,6 +1235,7 @@ function Report({ data, userKey }) {
       burst_count: computeBurstCount(filtered),
       fall_order: computeFallOrder(filtered),
       burst_timing: computeBurstTiming(filtered),
+      burst_type: computeBurstType(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
   }, [allMatches, selectedPeriod, selectedMs, tagPartners, customRange]);

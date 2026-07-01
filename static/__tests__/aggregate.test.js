@@ -6,6 +6,7 @@ import {
   aggregateDmgContribution,
   aggregateBurstCount,
   aggregateBurstTiming,
+  aggregateBurstType,
   aggregateEnemyMatchup,
   aggregatePartner,
 } from '../analysis/aggregate.js';
@@ -181,6 +182,47 @@ describe('aggregateBurstTiming', function () {
 
   it('returns null for no data', function () {
     assert.equal(aggregateBurstTiming({}), null);
+  });
+});
+
+// --- aggregateBurstType ---
+
+describe('aggregateBurstType', function () {
+  it('merges burst type usage across MS', function () {
+    var msStats = {
+      'ガンダム': {
+        burst_type: {
+          total_bursts: 6,
+          by_type: [
+            { key: 'F', label: 'F覚醒', count: 4, rate: '66.7', matches: 4, win_rate: 50 },
+            { key: 'S', label: 'S覚醒', count: 2, rate: '33.3', matches: 2, win_rate: 100 },
+          ],
+        },
+      },
+      'ザク': {
+        burst_type: {
+          total_bursts: 4,
+          by_type: [
+            { key: 'F', label: 'F覚醒', count: 2, rate: '50.0', matches: 2, win_rate: 100 },
+            { key: 'E', label: 'E覚醒', count: 2, rate: '50.0', matches: 2, win_rate: 0 },
+          ],
+        },
+      },
+    };
+    var result = aggregateBurstType(msStats);
+    assert.ok(result);
+    assert.equal(result.total_bursts, 10);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 6);
+    assert.equal(f.matches, 6);
+    // (50%*4 + 100%*2) / 6 = 4勝/6 ≒ 66.67%
+    assert.ok(Math.abs(f.win_rate - 66.6667) < 0.1);
+    // 並び順は F, S, E
+    assert.deepEqual(result.by_type.map(function (t) { return t.key; }), ['F', 'S', 'E']);
+  });
+
+  it('returns null for no data', function () {
+    assert.equal(aggregateBurstType({}), null);
   });
 });
 

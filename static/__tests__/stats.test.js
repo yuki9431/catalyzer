@@ -18,6 +18,7 @@ import {
   computeBurstCount,
   computeFallOrder,
   computeBurstTiming,
+  computeBurstType,
   computeFixedPartners,
 } from '../analysis/stats.js';
 
@@ -497,6 +498,46 @@ describe('computeBurstTiming', function () {
   it('returns null when there is no ex or burst data', function () {
     var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
     assert.equal(computeBurstTiming(matches), null);
+  });
+});
+
+// --- computeBurstType ---
+
+describe('computeBurstType', function () {
+  it('counts F/S/E usage rate and win rate', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [{ action: 'exbst-f', action_start_sec: 30 }] }),
+      makeMatch({ win: false, actions: [{ action: 'exbst-f', action_start_sec: 30 }] }),
+      makeMatch({ win: true, actions: [{ action: 'exbst-s', action_start_sec: 30 }] }),
+      makeMatch({ win: true, actions: [{ action: 'exbst-e', action_start_sec: 30 }] }),
+    ];
+    var result = computeBurstType(matches);
+    assert.ok(result);
+    assert.equal(result.total_bursts, 4);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 2);
+    assert.equal(f.rate, 50);
+    assert.equal(f.matches, 2);
+    assert.equal(f.win_rate, 50);
+  });
+
+  it('counts multiple bursts of the same type in one match once per match', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [
+        { action: 'exbst-f', action_start_sec: 20 },
+        { action: 'exbst-f', action_start_sec: 60 },
+      ] }),
+    ];
+    var result = computeBurstType(matches);
+    assert.ok(result);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 2);
+    assert.equal(f.matches, 1);
+  });
+
+  it('returns null when there are no burst events', function () {
+    var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
+    assert.equal(computeBurstType(matches), null);
   });
 });
 

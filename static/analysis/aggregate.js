@@ -117,6 +117,35 @@ export function aggregateBurstTiming(msStats) {
   };
 }
 
+export function aggregateBurstType(msStats) {
+  var typeMap = {};
+  var totalBursts = 0;
+  Object.keys(msStats).forEach(function (ms) {
+    var bt = msStats[ms].burst_type;
+    if (!bt) return;
+    totalBursts += bt.total_bursts || 0;
+    (bt.by_type || []).forEach(function (t) {
+      if (!typeMap[t.key]) typeMap[t.key] = { key: t.key, label: t.label, count: 0, matches: 0, wins: 0 };
+      typeMap[t.key].count += t.count || 0;
+      typeMap[t.key].matches += t.matches || 0;
+      typeMap[t.key].wins += Math.round((t.win_rate || 0) / 100 * (t.matches || 0));
+    });
+  });
+  if (totalBursts === 0) return null;
+  var order = { F: 0, S: 1, E: 2 };
+  var byType = Object.values(typeMap).map(function (t) {
+    return {
+      key: t.key,
+      label: t.label,
+      count: t.count,
+      rate: (t.count / totalBursts * 100).toFixed(1),
+      matches: t.matches,
+      win_rate: t.matches > 0 ? t.wins / t.matches * 100 : 0,
+    };
+  }).sort(function (a, b) { return (order[a.key] || 0) - (order[b.key] || 0); });
+  return { total_bursts: totalBursts, by_type: byType };
+}
+
 export function aggregateEnemyMatchup(msStats) {
   var enemyMap = {};
   Object.keys(msStats).forEach(function (ms) {

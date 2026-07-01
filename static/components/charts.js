@@ -573,6 +573,18 @@ export function BurstTimingContent({ timingData }) {
   </div>`;
 }
 
+export function BurstTypeContent({ typeData }) {
+  if (!typeData || !typeData.by_type || !typeData.by_type.length) return null;
+  var rows = typeData.by_type.map(function (t) {
+    return [t.label, t.count + '回 (' + t.rate + '%)', t.matches + '戦', colorPct(t.win_rate)];
+  });
+  return html`<div>
+    <p>F/S/E覚醒の使用傾向（対象: ${typeData.total_bursts}回発動）</p>
+    <${Table} headers=${['覚醒タイプ', '発動数', '試合数', '勝率']} rows=${rows} />
+    <${Tips} tips=${typeData.tips} />
+  </div>`;
+}
+
 export function BurstCountContent({ countData }) {
   if (!countData || !countData.by_count || !countData.by_count.length) return null;
   var rows = countData.by_count.map(function (c) {
