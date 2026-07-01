@@ -312,7 +312,7 @@ function ShareArea({ shareData }) {
 
 // --- Hamburger menu & topbar controls ---
 
-function HamburgerMenu({ isOpen, onClose, shareData, hasSession, onLogout }) {
+function HamburgerMenu({ isOpen, onClose, shareData, onLogout }) {
   useEffect(function () {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -340,10 +340,8 @@ function HamburgerMenu({ isOpen, onClose, shareData, hasSession, onLogout }) {
         <div style="padding: 8px 16px;">
           <${ShareArea} shareData=${shareData} />
         </div>
-        ${hasSession ? html`
-          <div class="menu-divider" />
-          <button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>
-        ` : null}
+        <div class="menu-divider" />
+        <button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>
       </div>
     </div>
   </div>`;
@@ -1284,7 +1282,6 @@ function Report({ data, userKey }) {
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
       shareData=${shareData}
-      hasSession=${!!localStorage.getItem('catalyzer_has_session')}
       onLogout=${logout} />
 
     <${KpiGrid} stats=${fePd.basic_stats} />
@@ -1319,7 +1316,7 @@ function Skeleton() {
       </div>
     </div>
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
-      shareData=${null} />
+      shareData=${null} onLogout=${logout} />
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
