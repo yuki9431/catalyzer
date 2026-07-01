@@ -182,6 +182,14 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
 
   var containerRef = useRef(null);
   var triggerRef = useRef(null);
+  var customElRef = useRef(null);
+
+  // 日付指定を開いたらカレンダーが見えるようドロップダウン内でスクロールする
+  useEffect(function () {
+    if (showCustom && customElRef.current) {
+      customElRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [showCustom]);
 
   useEffect(function () {
     function handleClick(e) {
@@ -247,7 +255,7 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
         ${userKey && html`<button class=${'period-dropdown-item period-dropdown-custom' + (showCustom ? ' active' : '')}
           onClick=${function () { setShowCustom(!showCustom); }}>日付指定</button>`}
       </div>
-      ${showCustom && html`<div class="period-custom">
+      ${showCustom && html`<div class="period-custom" ref=${customElRef}>
         <div class="period-custom-range">
           <div class="period-custom-col">
             <span class="period-custom-title">開始: ${startDate || '未選択'}${showTime ? ' ' + String(startHour).padStart(2, '0') + ':' + String(startMin).padStart(2, '0') : ''}</span>
