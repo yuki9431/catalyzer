@@ -17,7 +17,7 @@ import {
   computeSeason,
   computeBurstCount,
   computeFallOrder,
-  computeBurstHoldDeath,
+  computeBurstTiming,
   computeFixedPartners,
 } from '../analysis/stats.js';
 
@@ -437,43 +437,66 @@ describe('computeFallOrder', function () {
   });
 });
 
-// --- computeBurstHoldDeath ---
+// --- computeBurstTiming ---
 
-describe('computeBurstHoldDeath', function () {
-  it('detects burst hold before death', function () {
+describe('computeBurstTiming', function () {
+  it('classifies an immediate activation (<=5s)', function () {
     var matches = [
       makeMatch({
+        win: true,
         actions: [
           { action: 'ex', action_start_sec: 30 },
-          { action: 'death', action_start_sec: 60 },
+          { action: 'exbst-f', action_start_sec: 33 },
         ],
       }),
     ];
-    var result = computeBurstHoldDeath(matches);
+    var result = computeBurstTiming(matches);
     assert.ok(result);
     assert.equal(result.total, 1);
-    assert.ok(result.by_death.length > 0);
+    assert.equal(result.activations, 1);
+    assert.equal(result.avg, 3);
+    assert.equal(result.median, 3);
+    assert.equal(result.immediate.count, 1);
+    assert.equal(result.delayed.count, 0);
   });
 
-  it('counts no_hold when burst was used', function () {
+  it('classifies a delayed activation (>5s)', function () {
     var matches = [
       makeMatch({
         actions: [
           { action: 'ex', action_start_sec: 30 },
-          { action: 'exbst-f', action_start_sec: 40 },
-          { action: 'death', action_start_sec: 60 },
+          { action: 'exbst-s', action_start_sec: 42 },
         ],
       }),
     ];
-    var result = computeBurstHoldDeath(matches);
+    var result = computeBurstTiming(matches);
     assert.ok(result);
-    assert.equal(result.no_hold.count, 1);
+    assert.equal(result.avg, 12);
+    assert.equal(result.immediate.count, 0);
+    assert.equal(result.delayed.count, 1);
   });
 
-  it('returns null for no death data', function () {
+  it('pairs multiple ex/burst events in a match', function () {
+    var matches = [
+      makeMatch({
+        actions: [
+          { action: 'ex', action_start_sec: 20 },
+          { action: 'exbst-f', action_start_sec: 24 },
+          { action: 'ex', action_start_sec: 60 },
+          { action: 'exbst-e', action_start_sec: 66 },
+        ],
+      }),
+    ];
+    var result = computeBurstTiming(matches);
+    assert.ok(result);
+    assert.equal(result.activations, 2);
+    assert.equal(result.avg, 5);
+    assert.equal(result.median, 5);
+  });
+
+  it('returns null when there is no ex or burst data', function () {
     var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
-    var result = computeBurstHoldDeath(matches);
-    assert.equal(result, null);
+    assert.equal(computeBurstTiming(matches), null);
   });
 });
 

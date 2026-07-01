@@ -5,7 +5,7 @@ import {
   aggregateFallOrder,
   aggregateDmgContribution,
   aggregateBurstCount,
-  aggregateBurstHoldDeath,
+  aggregateBurstTiming,
   aggregateEnemyMatchup,
   aggregatePartner,
 } from '../analysis/aggregate.js';
@@ -143,30 +143,44 @@ describe('aggregateBurstCount', function () {
   });
 });
 
-// --- aggregateBurstHoldDeath ---
+// --- aggregateBurstTiming ---
 
-describe('aggregateBurstHoldDeath', function () {
-  it('merges burst hold death across MS', function () {
+describe('aggregateBurstTiming', function () {
+  it('merges burst timing across MS', function () {
     var msStats = {
       'ガンダム': {
-        burst_hold_death: {
+        burst_timing: {
           total: 10,
-          no_hold: { count: 6, rate: '60.0', win_rate: 70 },
-          by_death: [
-            { label: '1機目に抱え落ち', count: 4, rate: '40.0', win_rate: 30 },
-          ],
+          activations: 12,
+          avg: 4,
+          median: 3,
+          immediate: { count: 7, rate: '70.0', win_rate: 60 },
+          delayed: { count: 3, rate: '30.0', win_rate: 40 },
+        },
+      },
+      'ザク': {
+        burst_timing: {
+          total: 4,
+          activations: 4,
+          avg: 8,
+          median: 7,
+          immediate: { count: 1, rate: '25.0', win_rate: 100 },
+          delayed: { count: 3, rate: '75.0', win_rate: 50 },
         },
       },
     };
-    var result = aggregateBurstHoldDeath(msStats);
+    var result = aggregateBurstTiming(msStats);
     assert.ok(result);
-    assert.equal(result.total, 10);
-    assert.equal(result.no_hold.count, 6);
-    assert.ok(result.by_death.length > 0);
+    assert.equal(result.total, 14);
+    assert.equal(result.activations, 16);
+    assert.equal(result.immediate.count, 8);
+    assert.equal(result.delayed.count, 6);
+    // 遅延の加重平均: (4*12 + 8*4) / 16 = 5
+    assert.equal(result.avg, 5);
   });
 
   it('returns null for no data', function () {
-    assert.equal(aggregateBurstHoldDeath({}), null);
+    assert.equal(aggregateBurstTiming({}), null);
   });
 });
 

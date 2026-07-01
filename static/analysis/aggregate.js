@@ -86,28 +86,35 @@ export function aggregateBurstCount(msStats) {
   return { by_count: byCount };
 }
 
-export function aggregateBurstHoldDeath(msStats) {
-  var deathMap = {};
-  var noHoldWins = 0, noHoldTotal = 0, total = 0;
+export function aggregateBurstTiming(msStats) {
+  var immCount = 0, immWins = 0, delCount = 0, delWins = 0;
+  var delaySum = 0, medianSum = 0, activations = 0, total = 0;
   Object.keys(msStats).forEach(function (ms) {
-    var bh = msStats[ms].burst_hold_death;
-    if (!bh) return;
-    total += bh.total || 0;
-    if (bh.no_hold) {
-      noHoldTotal += bh.no_hold.count || 0;
-      noHoldWins += Math.round((bh.no_hold.win_rate || 0) / 100 * (bh.no_hold.count || 0));
+    var bt = msStats[ms].burst_timing;
+    if (!bt) return;
+    total += bt.total || 0;
+    if (bt.immediate) {
+      immCount += bt.immediate.count || 0;
+      immWins += Math.round((bt.immediate.win_rate || 0) / 100 * (bt.immediate.count || 0));
     }
-    (bh.by_death || []).forEach(function (d) {
-      if (!deathMap[d.label]) deathMap[d.label] = { label: d.label, count: 0, wins: 0 };
-      deathMap[d.label].count += d.count;
-      deathMap[d.label].wins += Math.round(d.win_rate / 100 * d.count);
-    });
+    if (bt.delayed) {
+      delCount += bt.delayed.count || 0;
+      delWins += Math.round((bt.delayed.win_rate || 0) / 100 * (bt.delayed.count || 0));
+    }
+    var acts = bt.activations || 0;
+    delaySum += (bt.avg || 0) * acts;
+    medianSum += (bt.median || 0) * acts;
+    activations += acts;
   });
   if (total === 0) return null;
-  var byDeath = Object.values(deathMap).map(function (d) {
-    return { label: d.label, count: d.count, rate: (d.count / total * 100).toFixed(1), win_rate: d.count > 0 ? d.wins / d.count * 100 : 0 };
-  });
-  return { total: total, by_death: byDeath, no_hold: { count: noHoldTotal, rate: (noHoldTotal / total * 100).toFixed(1), win_rate: noHoldTotal > 0 ? noHoldWins / noHoldTotal * 100 : 0 } };
+  return {
+    total: total,
+    activations: activations,
+    avg: activations > 0 ? Math.round(delaySum / activations * 10) / 10 : 0,
+    median: activations > 0 ? Math.round(medianSum / activations * 10) / 10 : 0,
+    immediate: { count: immCount, rate: (immCount / total * 100).toFixed(1), win_rate: immCount > 0 ? immWins / immCount * 100 : 0 },
+    delayed: { count: delCount, rate: (delCount / total * 100).toFixed(1), win_rate: delCount > 0 ? delWins / delCount * 100 : 0 },
+  };
 }
 
 export function aggregateEnemyMatchup(msStats) {
