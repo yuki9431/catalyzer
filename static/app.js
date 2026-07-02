@@ -728,7 +728,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
     <//>`}
 
-    ${(!selectedMs || frontendData) && seasons.length > 0 && html`<${Panel} title="シーズン別分析">
+    ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
       ${seasons.length > 1 && html`<${SeasonChart} seasons=${seasons} />`}
       ${seasons.map(function (s) {
         var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
@@ -753,7 +753,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
   </div>`;
 }
 
-function TimePane({ pd, selectedMs, usingFrontend }) {
+function TimePane({ pd }) {
   var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend;
   var timeRows = time && time.hours ? time.hours.map(function (h) {
     return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
@@ -769,7 +769,6 @@ function TimePane({ pd, selectedMs, usingFrontend }) {
   });
 
   return html`<div class="tabpane">
-    ${selectedMs && !usingFrontend && html`<div class="info-note">※ 時間帯データは全機体の集計です（機体別の時間帯分析は今後対応予定）</div>`}
     ${time && time.hours && time.hours.length > 0 && html`<${Panel} title="時間帯別の勝率">
       <${TimeOfDayChart} hours=${time.hours} />
       <${Tips} tips=${time.tips} />
@@ -1212,7 +1211,7 @@ function Report({ data, userKey }) {
     pane = html`<${MatchupPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'time') {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
-    pane = html`<${TimePane} pd=${timePd} selectedMs=${selectedMs} usingFrontend=${true} />`;
+    pane = html`<${TimePane} pd=${timePd} />`;
   } else {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;
   }
