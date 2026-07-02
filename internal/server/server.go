@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"net/mail"
 	"os"
@@ -228,6 +229,11 @@ func StartServer() {
 	})
 
 	// 静的ファイル（フロントエンド）
+	// .webmanifest はGo組み込みのMIMEテーブルに無く、実行環境(alpine)に
+	// /etc/mime.types も無いため、PWA仕様が要求するContent-Typeを明示登録する
+	if err := mime.AddExtensionType(".webmanifest", "application/manifest+json"); err != nil {
+		log.Printf("[WARN] Failed to register webmanifest MIME type: %v", err)
+	}
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/", fs)
 
