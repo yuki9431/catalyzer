@@ -441,7 +441,7 @@ describe('computeFallOrder', function () {
 // --- computeBurstTiming ---
 
 describe('computeBurstTiming', function () {
-  it('classifies burst before first death as 1落ち前', function () {
+  it('classifies burst before first death as 1機目', function () {
     var matches = [
       makeMatch({
         win: true,
@@ -455,13 +455,13 @@ describe('computeBurstTiming', function () {
     assert.ok(result);
     assert.equal(result.total, 1);
     assert.equal(result.activations, 1);
-    var pre = result.by_timing.find(function (t) { return t.label === '1落ち前'; });
+    var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
     assert.ok(pre);
     assert.equal(pre.count, 1);
     assert.equal(pre.matches, 1);
   });
 
-  it('classifies burst after first death as 1落ち後', function () {
+  it('classifies burst after first death as 2機目', function () {
     var matches = [
       makeMatch({
         actions: [
@@ -472,7 +472,7 @@ describe('computeBurstTiming', function () {
     ];
     var result = computeBurstTiming(matches);
     assert.ok(result);
-    var post = result.by_timing.find(function (t) { return t.label === '1落ち後'; });
+    var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
     assert.ok(post);
     assert.equal(post.count, 1);
   });
@@ -490,13 +490,13 @@ describe('computeBurstTiming', function () {
     var result = computeBurstTiming(matches);
     assert.ok(result);
     assert.equal(result.activations, 2);
-    var pre = result.by_timing.find(function (t) { return t.label === '1落ち前'; });
-    var post = result.by_timing.find(function (t) { return t.label === '1落ち後'; });
+    var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
+    var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
     assert.equal(pre.count, 1);
     assert.equal(post.count, 1);
   });
 
-  it('classifies burst after 2 deaths as 2落ち後', function () {
+  it('classifies burst after 2 deaths as 3機目', function () {
     var matches = [
       makeMatch({
         actions: [
@@ -508,7 +508,7 @@ describe('computeBurstTiming', function () {
     ];
     var result = computeBurstTiming(matches);
     assert.ok(result);
-    var post2 = result.by_timing.find(function (t) { return t.label === '2落ち後'; });
+    var post2 = result.by_timing.find(function (t) { return t.label === '3機目'; });
     assert.ok(post2);
     assert.equal(post2.count, 1);
   });

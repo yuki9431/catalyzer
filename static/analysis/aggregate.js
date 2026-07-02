@@ -102,7 +102,7 @@ export function aggregateBurstTiming(msStats) {
     });
   });
   if (total === 0) return null;
-  var order = ['1落ち前', '1落ち後', '2落ち後'];
+  var order = ['1機目', '2機目', '3機目'];
   var byTiming = order.filter(function (l) { return catMap[l]; }).map(function (l) {
     var c = catMap[l];
     return {

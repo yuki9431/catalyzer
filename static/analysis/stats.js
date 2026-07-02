@@ -746,7 +746,7 @@ export function computeFallOrder(matches) {
   };
 }
 
-// 覚醒発動時の被撃墜数で分類する。1落ち前に覚醒できた試合ほど勝率が高い傾向がある。
+// 覚醒発動時の被撃墜数で分類する。1機目に覚醒できた試合ほど勝率が高い傾向がある。
 export function computeBurstTiming(matches) {
   var categories = {};
   var total = 0;
@@ -766,8 +766,8 @@ export function computeBurstTiming(matches) {
         if (deaths[i].action_start_sec < burst.action_start_sec) deathsBefore++;
         else break;
       }
-      var label = deathsBefore === 0 ? '1落ち前'
-        : deathsBefore === 1 ? '1落ち後' : '2落ち後';
+      var label = deathsBefore === 0 ? '1機目'
+        : deathsBefore === 1 ? '2機目' : '3機目';
       if (!categories[label]) categories[label] = { count: 0, matches: [] };
       categories[label].count++;
       totalActivations++;
@@ -778,7 +778,7 @@ export function computeBurstTiming(matches) {
     });
   });
   if (total === 0) return null;
-  var order = ['1落ち前', '1落ち後', '2落ち後'];
+  var order = ['1機目', '2機目', '3機目'];
   var byTiming = order.filter(function (l) { return categories[l]; }).map(function (l) {
     var cat = categories[l];
     return {
@@ -790,12 +790,12 @@ export function computeBurstTiming(matches) {
     };
   });
   var tips = [];
-  var pre = categories['1落ち前'];
-  var post = categories['1落ち後'];
+  var pre = categories['1機目'];
+  var post = categories['2機目'];
   if (pre && post && pre.matches.length >= 3 && post.matches.length >= 3) {
     var diff = jsWinRate(pre.matches) - jsWinRate(post.matches);
     if (diff >= 5) {
-      tips.push('1落ち前に覚醒できた試合の勝率が **' + Math.round(diff) + '%** 高い → 1落ち前の覚醒を意識しよう');
+      tips.push('1機目に覚醒できた試合の勝率が **' + Math.round(diff) + '%** 高い → 1機目の覚醒を意識しよう');
     }
   }
   return {
