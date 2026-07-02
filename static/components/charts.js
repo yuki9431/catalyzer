@@ -74,11 +74,9 @@ export function TeamDeathsImpactSection({ teamDeaths }) {
   if (!teamDeaths || !teamDeaths.groups || !teamDeaths.groups.length) return null;
   return html`<div>
     ${teamDeaths.groups.map(function (g) {
-      var rows = [['全体', g.matches + '戦', colorPct(g.win_rate)]].concat(
-        (g.partners || []).map(function (p) {
-          return [p.partner_label, p.matches + '戦', colorPct(p.win_rate)];
-        })
-      );
+      var rows = (g.partners || []).map(function (p) {
+        return [p.partner_label, p.matches + '戦', colorPct(p.win_rate)];
+      }).concat([['全体', g.matches + '戦', colorPct(g.win_rate)]]);
       return html`<div>
         <h3>自機${g.self_label}</h3>
         <${Table} headers=${['僚機被撃墜', '試合数', '勝率']} rows=${rows} />
