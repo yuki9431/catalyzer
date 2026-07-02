@@ -536,8 +536,9 @@ export function DmgContributionChart({ dmg }) {
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
-// 僚機被撃墜バケット別の系列色（暖色になるほど僚機の被撃墜が多い＝悪化）
-var TEAM_DEATHS_PARTNER_COLORS = ['#69f0ae', '#4fc3f7', '#ff8a65', '#ef5350'];
+// 僚機被撃墜バケット別の系列色。他グラフ(水色#81d4fa基調)と揃えた青系グラデ。
+// 緑↔赤の警告色は勝率ヒートマップと誤読されるため避け、寒色の濃さで僚機被撃墜数を表す。
+var TEAM_DEATHS_PARTNER_COLORS = ['#81d4fa', '#4fc3f7', '#29b6f6', '#0288d1'];
 
 export function TeamDeathsChart({ teamDeaths }) {
   var containerRef = useRef(null);
