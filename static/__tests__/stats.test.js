@@ -530,8 +530,8 @@ describe('computeFixedPartners', function () {
     assert.equal(result.partners.length, 2);
     var names = result.partners.map(function (p) { return p.partner_name; }).sort();
     assert.deepEqual(names, ['ソロA', 'ソロB']);
-    // チーム未統合なので team_name は付かない
-    assert.ok(result.partners.every(function (p) { return p.team_name === undefined; }));
+    // チーム未統合の相方にはデフォルトのチーム名 NO_NAME_TAG が付く
+    assert.ok(result.partners.every(function (p) { return p.team_name === 'NO_NAME_TAG'; }));
   });
 
   it('does not merge the default NO_NAME_TAG (different partners)', function () {
@@ -546,6 +546,8 @@ describe('computeFixedPartners', function () {
     assert.equal(result.partners.length, 2);
     var names = result.partners.map(function (p) { return p.partner_name; }).sort();
     assert.deepEqual(names, ['ソロA', 'ソロB']);
+    // 統合はしないが、表示用にデフォルトのチーム名 NO_NAME_TAG を付ける
+    assert.ok(result.partners.every(function (p) { return p.team_name === 'NO_NAME_TAG'; }));
   });
 
   it('returns empty partners when no matches with tag partners', function () {

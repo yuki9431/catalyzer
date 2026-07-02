@@ -942,8 +942,8 @@ export function computeFixedPartners(matches, tagPartners) {
       partner_ms_breakdown: msBreakdown,
       tips: tips,
     };
-    // 表示は「最新プレイヤー名 【チーム名】」。チーム未統合の相方には team_name を付けない。
-    if (teamName) entry.team_name = teamName;
+    // 表示は「最新プレイヤー名 【チーム名】」。チーム未統合の相方にはデフォルトのチーム名（NO_NAME_TAG）を付ける。
+    entry.team_name = teamName || NO_NAME_TAG;
     results.push(entry);
   });
   return { partners: results };
