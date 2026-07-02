@@ -86,28 +86,60 @@ export function aggregateBurstCount(msStats) {
   return { by_count: byCount };
 }
 
-export function aggregateBurstHoldDeath(msStats) {
-  var deathMap = {};
-  var noHoldWins = 0, noHoldTotal = 0, total = 0;
+export function aggregateBurstTiming(msStats) {
+  var catMap = {};
+  var total = 0;
   Object.keys(msStats).forEach(function (ms) {
-    var bh = msStats[ms].burst_hold_death;
-    if (!bh) return;
-    total += bh.total || 0;
-    if (bh.no_hold) {
-      noHoldTotal += bh.no_hold.count || 0;
-      noHoldWins += Math.round((bh.no_hold.win_rate || 0) / 100 * (bh.no_hold.count || 0));
-    }
-    (bh.by_death || []).forEach(function (d) {
-      if (!deathMap[d.label]) deathMap[d.label] = { label: d.label, count: 0, wins: 0 };
-      deathMap[d.label].count += d.count;
-      deathMap[d.label].wins += Math.round(d.win_rate / 100 * d.count);
+    var bt = msStats[ms].burst_timing;
+    if (!bt) return;
+    total += bt.total || 0;
+    (bt.by_timing || []).forEach(function (t) {
+      if (!catMap[t.label]) catMap[t.label] = { label: t.label, count: 0, wins: 0 };
+      catMap[t.label].count += t.count || 0;
+      catMap[t.label].wins += Math.round((t.win_rate || 0) / 100 * (t.count || 0));
     });
   });
   if (total === 0) return null;
-  var byDeath = Object.values(deathMap).map(function (d) {
-    return { label: d.label, count: d.count, rate: (d.count / total * 100).toFixed(1), win_rate: d.count > 0 ? d.wins / d.count * 100 : 0 };
+  var order = ['1機目', '2機目', '3機目'];
+  var byTiming = order.filter(function (l) { return catMap[l]; }).map(function (l) {
+    var c = catMap[l];
+    return {
+      label: c.label,
+      count: c.count,
+      rate: (c.count / total * 100).toFixed(1),
+      win_rate: c.count > 0 ? c.wins / c.count * 100 : 0,
+    };
   });
-  return { total: total, by_death: byDeath, no_hold: { count: noHoldTotal, rate: (noHoldTotal / total * 100).toFixed(1), win_rate: noHoldTotal > 0 ? noHoldWins / noHoldTotal * 100 : 0 } };
+  return { total: total, by_timing: byTiming };
+}
+
+export function aggregateBurstType(msStats) {
+  var typeMap = {};
+  var totalBursts = 0;
+  Object.keys(msStats).forEach(function (ms) {
+    var bt = msStats[ms].burst_type;
+    if (!bt) return;
+    totalBursts += bt.total_bursts || 0;
+    (bt.by_type || []).forEach(function (t) {
+      if (!typeMap[t.key]) typeMap[t.key] = { key: t.key, label: t.label, count: 0, matches: 0, wins: 0 };
+      typeMap[t.key].count += t.count || 0;
+      typeMap[t.key].matches += t.matches || 0;
+      typeMap[t.key].wins += Math.round((t.win_rate || 0) / 100 * (t.matches || 0));
+    });
+  });
+  if (totalBursts === 0) return null;
+  var order = { F: 0, S: 1, E: 2 };
+  var byType = Object.values(typeMap).map(function (t) {
+    return {
+      key: t.key,
+      label: t.label,
+      count: t.count,
+      rate: (t.count / totalBursts * 100).toFixed(1),
+      matches: t.matches,
+      win_rate: t.matches > 0 ? t.wins / t.matches * 100 : 0,
+    };
+  }).sort(function (a, b) { return (order[a.key] || 0) - (order[b.key] || 0); });
+  return { total_bursts: totalBursts, by_type: byType };
 }
 
 export function aggregateEnemyMatchup(msStats) {

@@ -5,13 +5,13 @@ import {
   computeBasicStats, computeWinLossPattern,
   computeEnemyMatchup, computePartner, computeCostPair, computeMsPair,
   computeDmgContribution, computeDeathsImpact,
-  computeBurstCount, computeFallOrder, computeBurstHoldDeath,
+  computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
   computeFixedPartners,
   computeShareData, computeMsSummary,
 } from './analysis/stats.js';
 import {
   aggregateDeathsImpact, aggregateFallOrder, aggregateDmgContribution,
-  aggregateBurstCount, aggregateBurstHoldDeath,
+  aggregateBurstCount, aggregateBurstTiming, aggregateBurstType,
   aggregateEnemyMatchup, aggregatePartner,
 } from './analysis/aggregate.js';
 import {
@@ -32,7 +32,7 @@ import {
   DmgContributionSubSection, DeathsImpactSubSection,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
-  FallOrderContent, BurstHoldDeathContent, BurstCountContent,
+  FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
 } from './components/charts.js';
 
 // --- Constants ---
@@ -857,29 +857,29 @@ function PlaystylePane({ msStats, selectedMs, frontendData }) {
 }
 
 function BurstPane({ msStats, selectedMs, frontendData }) {
-  var burstCount, burstHold;
+  var burstCount, burstTiming, burstType;
   if (frontendData) {
     burstCount = frontendData.burst_count;
-    burstHold = frontendData.burst_hold_death;
+    burstTiming = frontendData.burst_timing;
+    burstType = frontendData.burst_type;
   } else if (selectedMs && msStats[selectedMs]) {
     var ms = msStats[selectedMs];
     burstCount = ms.burst_count;
-    burstHold = ms.burst_hold_death;
+    burstTiming = ms.burst_timing;
+    burstType = ms.burst_type;
   } else {
     burstCount = aggregateBurstCount(msStats);
-    burstHold = aggregateBurstHoldDeath(msStats);
+    burstTiming = aggregateBurstTiming(msStats);
+    burstType = aggregateBurstType(msStats);
   }
 
   var countItems = burstCount && burstCount.by_count ? burstCount.by_count : [];
-  var holdItems = [];
-  if (burstHold) {
-    (burstHold.by_death || []).filter(function (d) { return d.count > 0; }).forEach(function (d) {
-      holdItems.push({ label: d.label, matches: d.count, win_rate: d.win_rate });
-    });
-    if (burstHold.no_hold && burstHold.no_hold.count > 0) {
-      holdItems.push({ label: '抱え落ちなし', matches: burstHold.no_hold.count, win_rate: burstHold.no_hold.win_rate });
-    }
-  }
+  var typeItems = burstType && burstType.by_type
+    ? burstType.by_type.map(function (t) { return { label: t.label, matches: t.matches, win_rate: t.win_rate }; })
+    : [];
+  var timingItems = burstTiming && burstTiming.by_timing
+    ? burstTiming.by_timing.map(function (t) { return { label: t.label, matches: t.count, win_rate: t.win_rate }; })
+    : [];
 
   return html`<div class="tabpane">
     ${countItems.length > 0 && html`<${Panel} title="覚醒回数と勝率">
@@ -887,12 +887,17 @@ function BurstPane({ msStats, selectedMs, frontendData }) {
       <${BurstCountContent} countData=${burstCount} />
     <//>`}
 
-    ${holdItems.length > 0 && html`<${Panel} title="覚醒抱え落ち">
-      <${WinRateBarChart} items=${holdItems} />
-      <${BurstHoldDeathContent} holdData=${burstHold} />
+    ${typeItems.length > 0 && html`<${Panel} title="覚醒タイプ別傾向">
+      <${WinRateBarChart} items=${typeItems} />
+      <${BurstTypeContent} typeData=${burstType} />
     <//>`}
 
-    ${!countItems.length && !holdItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
+    ${timingItems.length > 0 && html`<${Panel} title="覚醒タイミング">
+      <${WinRateBarChart} items=${timingItems} />
+      <${BurstTimingContent} timingData=${burstTiming} />
+    <//>`}
+
+    ${!countItems.length && !typeItems.length && !timingItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
   </div>`;
 }
 
@@ -1223,7 +1228,8 @@ function Report({ data, userKey }) {
       deaths_impact: computeDeathsImpact(filtered),
       burst_count: computeBurstCount(filtered),
       fall_order: computeFallOrder(filtered),
-      burst_hold_death: computeBurstHoldDeath(filtered),
+      burst_timing: computeBurstTiming(filtered),
+      burst_type: computeBurstType(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
   }, [allMatches, selectedPeriod, selectedMs, tagPartners, customRange]);

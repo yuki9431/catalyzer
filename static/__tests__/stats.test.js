@@ -17,7 +17,8 @@ import {
   computeSeason,
   computeBurstCount,
   computeFallOrder,
-  computeBurstHoldDeath,
+  computeBurstTiming,
+  computeBurstType,
   computeFixedPartners,
 } from '../analysis/stats.js';
 
@@ -437,43 +438,122 @@ describe('computeFallOrder', function () {
   });
 });
 
-// --- computeBurstHoldDeath ---
+// --- computeBurstTiming ---
 
-describe('computeBurstHoldDeath', function () {
-  it('detects burst hold before death', function () {
+describe('computeBurstTiming', function () {
+  it('classifies burst before first death as 1機目', function () {
     var matches = [
       makeMatch({
+        win: true,
         actions: [
-          { action: 'ex', action_start_sec: 30 },
+          { action: 'exbst-f', action_start_sec: 30 },
           { action: 'death', action_start_sec: 60 },
         ],
       }),
     ];
-    var result = computeBurstHoldDeath(matches);
+    var result = computeBurstTiming(matches);
     assert.ok(result);
     assert.equal(result.total, 1);
-    assert.ok(result.by_death.length > 0);
+    var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
+    assert.ok(pre);
+    assert.equal(pre.count, 1);
   });
 
-  it('counts no_hold when burst was used', function () {
+  it('classifies burst after first death as 2機目', function () {
     var matches = [
       makeMatch({
         actions: [
-          { action: 'ex', action_start_sec: 30 },
-          { action: 'exbst-f', action_start_sec: 40 },
-          { action: 'death', action_start_sec: 60 },
+          { action: 'death', action_start_sec: 30 },
+          { action: 'exbst-s', action_start_sec: 50 },
         ],
       }),
     ];
-    var result = computeBurstHoldDeath(matches);
+    var result = computeBurstTiming(matches);
     assert.ok(result);
-    assert.equal(result.no_hold.count, 1);
+    var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
+    assert.ok(post);
+    assert.equal(post.count, 1);
   });
 
-  it('returns null for no death data', function () {
+  it('handles multiple bursts across deaths in one match', function () {
+    var matches = [
+      makeMatch({
+        actions: [
+          { action: 'exbst-f', action_start_sec: 20 },
+          { action: 'death', action_start_sec: 40 },
+          { action: 'exbst-e', action_start_sec: 60 },
+        ],
+      }),
+    ];
+    var result = computeBurstTiming(matches);
+    assert.ok(result);
+    assert.equal(result.total, 1);
+    var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
+    var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
+    assert.equal(pre.count, 1);
+    assert.equal(post.count, 1);
+  });
+
+  it('classifies burst after 2 deaths as 3機目', function () {
+    var matches = [
+      makeMatch({
+        actions: [
+          { action: 'death', action_start_sec: 20 },
+          { action: 'death', action_start_sec: 40 },
+          { action: 'exbst-f', action_start_sec: 50 },
+        ],
+      }),
+    ];
+    var result = computeBurstTiming(matches);
+    assert.ok(result);
+    var post2 = result.by_timing.find(function (t) { return t.label === '3機目'; });
+    assert.ok(post2);
+    assert.equal(post2.count, 1);
+  });
+
+  it('returns null when there are no burst events', function () {
+    var matches = [makeMatch({ actions: [{ action: 'death', action_start_sec: 30 }] })];
+    assert.equal(computeBurstTiming(matches), null);
+  });
+});
+
+// --- computeBurstType ---
+
+describe('computeBurstType', function () {
+  it('counts F/S/E usage rate and win rate', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [{ action: 'exbst-f', action_start_sec: 30 }] }),
+      makeMatch({ win: false, actions: [{ action: 'exbst-f', action_start_sec: 30 }] }),
+      makeMatch({ win: true, actions: [{ action: 'exbst-s', action_start_sec: 30 }] }),
+      makeMatch({ win: true, actions: [{ action: 'exbst-e', action_start_sec: 30 }] }),
+    ];
+    var result = computeBurstType(matches);
+    assert.ok(result);
+    assert.equal(result.total_bursts, 4);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 2);
+    assert.equal(f.rate, 50);
+    assert.equal(f.matches, 2);
+    assert.equal(f.win_rate, 50);
+  });
+
+  it('counts multiple bursts of the same type in one match once per match', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [
+        { action: 'exbst-f', action_start_sec: 20 },
+        { action: 'exbst-f', action_start_sec: 60 },
+      ] }),
+    ];
+    var result = computeBurstType(matches);
+    assert.ok(result);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 2);
+    assert.equal(f.matches, 1);
+  });
+
+  it('returns null when there are no burst events', function () {
     var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
-    var result = computeBurstHoldDeath(matches);
-    assert.equal(result, null);
+    assert.equal(computeBurstType(matches), null);
   });
 });
 

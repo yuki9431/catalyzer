@@ -5,7 +5,8 @@ import {
   aggregateFallOrder,
   aggregateDmgContribution,
   aggregateBurstCount,
-  aggregateBurstHoldDeath,
+  aggregateBurstTiming,
+  aggregateBurstType,
   aggregateEnemyMatchup,
   aggregatePartner,
 } from '../analysis/aggregate.js';
@@ -143,30 +144,82 @@ describe('aggregateBurstCount', function () {
   });
 });
 
-// --- aggregateBurstHoldDeath ---
+// --- aggregateBurstTiming ---
 
-describe('aggregateBurstHoldDeath', function () {
-  it('merges burst hold death across MS', function () {
+describe('aggregateBurstTiming', function () {
+  it('merges burst timing across MS', function () {
     var msStats = {
       'ガンダム': {
-        burst_hold_death: {
+        burst_timing: {
           total: 10,
-          no_hold: { count: 6, rate: '60.0', win_rate: 70 },
-          by_death: [
-            { label: '1機目に抱え落ち', count: 4, rate: '40.0', win_rate: 30 },
+          by_timing: [
+            { label: '1機目', count: 7, rate: '70.0', win_rate: 60 },
+            { label: '2機目', count: 5, rate: '50.0', win_rate: 40 },
+          ],
+        },
+      },
+      'ザク': {
+        burst_timing: {
+          total: 4,
+          by_timing: [
+            { label: '1機目', count: 1, rate: '25.0', win_rate: 100 },
+            { label: '2機目', count: 3, rate: '75.0', win_rate: 0 },
           ],
         },
       },
     };
-    var result = aggregateBurstHoldDeath(msStats);
+    var result = aggregateBurstTiming(msStats);
     assert.ok(result);
-    assert.equal(result.total, 10);
-    assert.equal(result.no_hold.count, 6);
-    assert.ok(result.by_death.length > 0);
+    assert.equal(result.total, 14);
+    var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
+    assert.equal(pre.count, 8);
+    var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
+    assert.equal(post.count, 8);
   });
 
   it('returns null for no data', function () {
-    assert.equal(aggregateBurstHoldDeath({}), null);
+    assert.equal(aggregateBurstTiming({}), null);
+  });
+});
+
+// --- aggregateBurstType ---
+
+describe('aggregateBurstType', function () {
+  it('merges burst type usage across MS', function () {
+    var msStats = {
+      'ガンダム': {
+        burst_type: {
+          total_bursts: 6,
+          by_type: [
+            { key: 'F', label: 'F覚醒', count: 4, rate: '66.7', matches: 4, win_rate: 50 },
+            { key: 'S', label: 'S覚醒', count: 2, rate: '33.3', matches: 2, win_rate: 100 },
+          ],
+        },
+      },
+      'ザク': {
+        burst_type: {
+          total_bursts: 4,
+          by_type: [
+            { key: 'F', label: 'F覚醒', count: 2, rate: '50.0', matches: 2, win_rate: 100 },
+            { key: 'E', label: 'E覚醒', count: 2, rate: '50.0', matches: 2, win_rate: 0 },
+          ],
+        },
+      },
+    };
+    var result = aggregateBurstType(msStats);
+    assert.ok(result);
+    assert.equal(result.total_bursts, 10);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 6);
+    assert.equal(f.matches, 6);
+    // (50%*4 + 100%*2) / 6 = 4勝/6 ≒ 66.67%
+    assert.ok(Math.abs(f.win_rate - 66.6667) < 0.1);
+    // 並び順は F, S, E
+    assert.deepEqual(result.by_type.map(function (t) { return t.key; }), ['F', 'S', 'E']);
+  });
+
+  it('returns null for no data', function () {
+    assert.equal(aggregateBurstType({}), null);
   });
 });
 
