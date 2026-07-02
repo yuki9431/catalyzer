@@ -100,12 +100,11 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
 - `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンドで全統計を計算
 - `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜影響/覚醒回数/先落ち後落ち/覚醒タイミング（発動時の被撃墜数で1機目/2機目/3機目に分類）/覚醒タイプ別傾向（F/S/E）/固定相方/SNS共有データ/MS別サマリー
-- `static/analysis/aggregate.js` — 集計関数。被撃墜影響/先落ち/ダメージ貢献/覚醒回数/覚醒タイミング/覚醒タイプ別傾向/敵相性/相方の全MS横断集計
 - `static/components/ui.js` — 汎用UIコンポーネント（Tips/SortableTable/Table/SubSection）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/aggregate/formatの純粋関数テスト）
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/formatの純粋関数テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）

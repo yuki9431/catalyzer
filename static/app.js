@@ -10,11 +10,6 @@ import {
   computeShareData, computeMsSummary,
 } from './analysis/stats.js';
 import {
-  aggregateDeathsImpact, aggregateFallOrder, aggregateDmgContribution,
-  aggregateBurstCount, aggregateBurstTiming, aggregateBurstType,
-  aggregateEnemyMatchup, aggregatePartner,
-} from './analysis/aggregate.js';
-import {
   loadMatchesFromDB, saveMatchesToDB,
 } from './lib/db.js';
 import {
@@ -802,22 +797,10 @@ function TimePane({ pd, selectedMs, usingFrontend }) {
 
 // --- New tab panes ---
 
-function PlaystylePane({ msStats, selectedMs, frontendData }) {
-  var deaths, fallOrder, dmg;
-  if (frontendData) {
-    deaths = frontendData.deaths_impact;
-    dmg = frontendData.dmg_contribution;
-    fallOrder = frontendData.fall_order;
-  } else if (selectedMs && msStats[selectedMs]) {
-    var ms = msStats[selectedMs];
-    deaths = ms.deaths_impact;
-    fallOrder = ms.fall_order;
-    dmg = ms.dmg_contribution;
-  } else {
-    deaths = aggregateDeathsImpact(msStats);
-    fallOrder = aggregateFallOrder(msStats);
-    dmg = aggregateDmgContribution(msStats);
-  }
+function PlaystylePane({ frontendData }) {
+  var deaths = frontendData.deaths_impact;
+  var dmg = frontendData.dmg_contribution;
+  var fallOrder = frontendData.fall_order;
 
   var deathItems = [];
   if (deaths) {
@@ -856,22 +839,10 @@ function PlaystylePane({ msStats, selectedMs, frontendData }) {
   </div>`;
 }
 
-function BurstPane({ msStats, selectedMs, frontendData }) {
-  var burstCount, burstTiming, burstType;
-  if (frontendData) {
-    burstCount = frontendData.burst_count;
-    burstTiming = frontendData.burst_timing;
-    burstType = frontendData.burst_type;
-  } else if (selectedMs && msStats[selectedMs]) {
-    var ms = msStats[selectedMs];
-    burstCount = ms.burst_count;
-    burstTiming = ms.burst_timing;
-    burstType = ms.burst_type;
-  } else {
-    burstCount = aggregateBurstCount(msStats);
-    burstTiming = aggregateBurstTiming(msStats);
-    burstType = aggregateBurstType(msStats);
-  }
+function BurstPane({ frontendData }) {
+  var burstCount = frontendData.burst_count;
+  var burstTiming = frontendData.burst_timing;
+  var burstType = frontendData.burst_type;
 
   var countItems = burstCount && burstCount.by_count ? burstCount.by_count : [];
   var typeItems = burstType && burstType.by_type
@@ -901,69 +872,38 @@ function BurstPane({ msStats, selectedMs, frontendData }) {
   </div>`;
 }
 
-function MatchupPane({ msStats, selectedMs, frontendData }) {
-  var enemyMatchup, partnerData, msPairData, costPairData;
+function MatchupPane({ frontendData }) {
+  var enemyMatchup = frontendData.enemy_matchup;
+  var partnerData = frontendData.partner;
+  var costPairData = frontendData.cost_pair;
+  var msPairData = frontendData.ms_pair;
 
-  if (frontendData) {
-    enemyMatchup = frontendData.enemy_matchup;
-    partnerData = frontendData.partner;
-    costPairData = frontendData.cost_pair;
-    msPairData = frontendData.ms_pair;
-  } else if (selectedMs && msStats[selectedMs]) {
-    var ms = msStats[selectedMs];
-    enemyMatchup = ms.enemy_matchup;
-    partnerData = ms.partner;
-    msPairData = ms.ms_pair;
-    costPairData = ms.cost_pair;
-  }
-
-  if (enemyMatchup || partnerData || msPairData || costPairData) {
-    var enemyStrong = (enemyMatchup && enemyMatchup.strong || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
-    var enemyWeak = (enemyMatchup && enemyMatchup.weak || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
-    var partnerEntries = (partnerData || []).slice(0, 10).map(function (p) { return { name: p.ms, winRate: p.win_rate }; });
-    var msPairEntries = (msPairData && msPairData.by_matches || []).slice(0, 10).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
-    var costPairEntries = (costPairData || []).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
-
-    return html`<div class="tabpane">
-      ${enemyMatchup && html`<${Panel} title="敵機体との相性">
-        ${enemyStrong.length > 0 && html`<h3>得意な相手</h3><${MsCompareChart} entries=${enemyStrong} />`}
-        ${enemyWeak.length > 0 && html`<h3>苦手な相手</h3><${MsCompareChart} entries=${enemyWeak} />`}
-        <${EnemyMatchupSection} matchup=${enemyMatchup} />
-      <//>`}
-
-      ${partnerData && partnerData.length > 0 && html`<${Panel} title="相方機体との相性">
-        <${MsCompareChart} entries=${partnerEntries} />
-        <${PartnerSection} partners=${partnerData} />
-      <//>`}
-
-      ${msPairData && html`<${Panel} title="編成別勝率">
-        ${msPairEntries.length > 0 && html`<${MsCompareChart} entries=${msPairEntries} />`}
-        <${MsPairSubSection} msPair=${msPairData} />
-      <//>`}
-
-      ${costPairData && costPairData.length > 0 && html`<${Panel} title="コスト編成別勝率">
-        <${MsCompareChart} entries=${costPairEntries} />
-        <${CostPairSubSection} costPair=${costPairData} />
-      <//>`}
-    </div>`;
-  }
-
-  var agg = aggregateEnemyMatchup(msStats);
-  var aggPartner = aggregatePartner(msStats);
-  var aggStrong = (agg.strong || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
-  var aggWeak = (agg.weak || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
-  var aggPartnerEntries = aggPartner.slice(0, 10).map(function (p) { return { name: p.ms, winRate: p.win_rate }; });
+  var enemyStrong = (enemyMatchup && enemyMatchup.strong || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
+  var enemyWeak = (enemyMatchup && enemyMatchup.weak || []).slice(0, 10).map(function (e) { return { name: e.ms, winRate: e.win_rate }; });
+  var partnerEntries = (partnerData || []).slice(0, 10).map(function (p) { return { name: p.ms, winRate: p.win_rate }; });
+  var msPairEntries = (msPairData && msPairData.by_matches || []).slice(0, 10).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
+  var costPairEntries = (costPairData || []).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
 
   return html`<div class="tabpane">
-    <${Panel} title="敵機体との相性（全機体集計）">
-      ${aggStrong.length > 0 && html`<h3>得意な相手</h3><${MsCompareChart} entries=${aggStrong} />`}
-      ${aggWeak.length > 0 && html`<h3>苦手な相手</h3><${MsCompareChart} entries=${aggWeak} />`}
-      <${EnemyMatchupSection} matchup=${agg} />
-    <//>
+    ${enemyMatchup && html`<${Panel} title="敵機体との相性">
+      ${enemyStrong.length > 0 && html`<h3>得意な相手</h3><${MsCompareChart} entries=${enemyStrong} />`}
+      ${enemyWeak.length > 0 && html`<h3>苦手な相手</h3><${MsCompareChart} entries=${enemyWeak} />`}
+      <${EnemyMatchupSection} matchup=${enemyMatchup} />
+    <//>`}
 
-    ${aggPartnerEntries.length > 0 && html`<${Panel} title="相方機体との相性（全機体集計）">
-      <${MsCompareChart} entries=${aggPartnerEntries} />
-      <${PartnerSection} partners=${aggPartner} />
+    ${partnerData && partnerData.length > 0 && html`<${Panel} title="相方機体との相性">
+      <${MsCompareChart} entries=${partnerEntries} />
+      <${PartnerSection} partners=${partnerData} />
+    <//>`}
+
+    ${msPairData && html`<${Panel} title="編成別勝率">
+      ${msPairEntries.length > 0 && html`<${MsCompareChart} entries=${msPairEntries} />`}
+      <${MsPairSubSection} msPair=${msPairData} />
+    <//>`}
+
+    ${costPairData && costPairData.length > 0 && html`<${Panel} title="コスト編成別勝率">
+      <${MsCompareChart} entries=${costPairEntries} />
+      <${CostPairSubSection} costPair=${costPairData} />
     <//>`}
   </div>`;
 }
@@ -1265,11 +1205,11 @@ function Report({ data, userKey }) {
 
   var pane;
   if (activeTab === 'playstyle') {
-    pane = html`<${PlaystylePane} msStats=${msStats} selectedMs=${selectedMs} frontendData=${frontendData} />`;
+    pane = html`<${PlaystylePane} frontendData=${frontendData} />`;
   } else if (activeTab === 'burst') {
-    pane = html`<${BurstPane} msStats=${msStats} selectedMs=${selectedMs} frontendData=${frontendData} />`;
+    pane = html`<${BurstPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'matchup') {
-    pane = html`<${MatchupPane} msStats=${msStats} selectedMs=${selectedMs} frontendData=${frontendData} />`;
+    pane = html`<${MatchupPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'time') {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
     pane = html`<${TimePane} pd=${timePd} selectedMs=${selectedMs} usingFrontend=${true} />`;
