@@ -6,6 +6,19 @@
 
 catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバーサス2 インフィニットブースト）の戦績分析Webアプリ。公式サイトから対戦データをスクレイピングし、Firestoreに保存、フロントエンドのJS分析関数でレポートを生成する。
 
+## 検証コマンド（oracle）— 自律ループの生命線
+
+明示宣言が自動検出より常に優先される。変更は必ずこれらで裏を取り、全緑を確認してから完了とする。
+
+- **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
+- **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
+- **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js'`
+- **lint**: `golangci-lint run`
+- **フォーマット**: `gofmt -l .`（差分ゼロが正）
+- **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
+
+完了条件の既定値: 上記が全て成功していること。Go の変更は build+test+vet/lint、JS の変更は test-js を最低限通す。
+
 ## ビルド・開発コマンド
 
 ```bash

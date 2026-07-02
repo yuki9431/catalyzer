@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make build:*)",
+      "Bash(make test:*)",
+      "Bash(make test-js:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)",
+      "Bash(goimports:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(node --test:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh issue create:*)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && out=$({ gofmt -l . 2>&1; go vet ./... 2>&1; } | head -30); if [ -n \"$out\" ]; then echo \"verification failed:\" >&2; echo \"$out\" >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
