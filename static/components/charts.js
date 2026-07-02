@@ -557,17 +557,31 @@ export function FallOrderContent({ fallOrder }) {
   </div>`;
 }
 
-export function BurstHoldDeathContent({ holdData }) {
-  if (!holdData) return null;
-  var nh = holdData.no_hold;
-  var rows = (holdData.by_death || []).filter(function (d) { return d.count > 0; }).map(function (d) {
-    return [d.label, d.count + '戦 (' + d.rate + '%)', colorPct(d.win_rate)];
-  });
-  rows.push(['抱え落ちなし', nh.count + '戦 (' + nh.rate + '%)', colorPct(nh.win_rate)]);
+export function BurstTimingContent({ timingData }) {
+  if (!timingData) return null;
+  var im = timingData.immediate;
+  var dl = timingData.delayed;
+  var rows = [
+    ['即発動（5秒以内）', im.count + '戦 (' + im.rate + '%)', colorPct(im.win_rate)],
+    ['遅延発動（5秒超）', dl.count + '戦 (' + dl.rate + '%)', colorPct(dl.win_rate)],
+  ];
   return html`<div>
-    <p>覚醒ゲージが溜まった状態で発動せずに撃墜された試合（対象: ${holdData.total}戦）</p>
+    <p>覚醒ゲージMAXから発動までの遅延時間（対象: ${timingData.total}戦 / ${timingData.activations}回発動）<br />
+      平均 <strong>${timingData.avg}秒</strong> ・ 中央値 <strong>${timingData.median}秒</strong></p>
     <${Table} headers=${['パターン', '試合数', '勝率']} rows=${rows} />
-    <${Tips} tips=${holdData.tips} />
+    <${Tips} tips=${timingData.tips} />
+  </div>`;
+}
+
+export function BurstTypeContent({ typeData }) {
+  if (!typeData || !typeData.by_type || !typeData.by_type.length) return null;
+  var rows = typeData.by_type.map(function (t) {
+    return [t.label, t.count + '回 (' + t.rate + '%)', t.matches + '戦', colorPct(t.win_rate)];
+  });
+  return html`<div>
+    <p>F/S/E覚醒の使用傾向（対象: ${typeData.total_bursts}回発動）</p>
+    <${Table} headers=${['覚醒タイプ', '発動数', '試合数', '勝率']} rows=${rows} />
+    <${Tips} tips=${typeData.tips} />
   </div>`;
 }
 

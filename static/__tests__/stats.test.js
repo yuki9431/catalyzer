@@ -17,7 +17,8 @@ import {
   computeSeason,
   computeBurstCount,
   computeFallOrder,
-  computeBurstHoldDeath,
+  computeBurstTiming,
+  computeBurstType,
   computeFixedPartners,
 } from '../analysis/stats.js';
 
@@ -437,43 +438,106 @@ describe('computeFallOrder', function () {
   });
 });
 
-// --- computeBurstHoldDeath ---
+// --- computeBurstTiming ---
 
-describe('computeBurstHoldDeath', function () {
-  it('detects burst hold before death', function () {
+describe('computeBurstTiming', function () {
+  it('classifies an immediate activation (<=5s)', function () {
     var matches = [
       makeMatch({
+        win: true,
         actions: [
           { action: 'ex', action_start_sec: 30 },
-          { action: 'death', action_start_sec: 60 },
+          { action: 'exbst-f', action_start_sec: 33 },
         ],
       }),
     ];
-    var result = computeBurstHoldDeath(matches);
+    var result = computeBurstTiming(matches);
     assert.ok(result);
     assert.equal(result.total, 1);
-    assert.ok(result.by_death.length > 0);
+    assert.equal(result.activations, 1);
+    assert.equal(result.avg, 3);
+    assert.equal(result.median, 3);
+    assert.equal(result.immediate.count, 1);
+    assert.equal(result.delayed.count, 0);
   });
 
-  it('counts no_hold when burst was used', function () {
+  it('classifies a delayed activation (>5s)', function () {
     var matches = [
       makeMatch({
         actions: [
           { action: 'ex', action_start_sec: 30 },
-          { action: 'exbst-f', action_start_sec: 40 },
-          { action: 'death', action_start_sec: 60 },
+          { action: 'exbst-s', action_start_sec: 42 },
         ],
       }),
     ];
-    var result = computeBurstHoldDeath(matches);
+    var result = computeBurstTiming(matches);
     assert.ok(result);
-    assert.equal(result.no_hold.count, 1);
+    assert.equal(result.avg, 12);
+    assert.equal(result.immediate.count, 0);
+    assert.equal(result.delayed.count, 1);
   });
 
-  it('returns null for no death data', function () {
+  it('pairs multiple ex/burst events in a match', function () {
+    var matches = [
+      makeMatch({
+        actions: [
+          { action: 'ex', action_start_sec: 20 },
+          { action: 'exbst-f', action_start_sec: 24 },
+          { action: 'ex', action_start_sec: 60 },
+          { action: 'exbst-e', action_start_sec: 66 },
+        ],
+      }),
+    ];
+    var result = computeBurstTiming(matches);
+    assert.ok(result);
+    assert.equal(result.activations, 2);
+    assert.equal(result.avg, 5);
+    assert.equal(result.median, 5);
+  });
+
+  it('returns null when there is no ex or burst data', function () {
     var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
-    var result = computeBurstHoldDeath(matches);
-    assert.equal(result, null);
+    assert.equal(computeBurstTiming(matches), null);
+  });
+});
+
+// --- computeBurstType ---
+
+describe('computeBurstType', function () {
+  it('counts F/S/E usage rate and win rate', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [{ action: 'exbst-f', action_start_sec: 30 }] }),
+      makeMatch({ win: false, actions: [{ action: 'exbst-f', action_start_sec: 30 }] }),
+      makeMatch({ win: true, actions: [{ action: 'exbst-s', action_start_sec: 30 }] }),
+      makeMatch({ win: true, actions: [{ action: 'exbst-e', action_start_sec: 30 }] }),
+    ];
+    var result = computeBurstType(matches);
+    assert.ok(result);
+    assert.equal(result.total_bursts, 4);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 2);
+    assert.equal(f.rate, 50);
+    assert.equal(f.matches, 2);
+    assert.equal(f.win_rate, 50);
+  });
+
+  it('counts multiple bursts of the same type in one match once per match', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [
+        { action: 'exbst-f', action_start_sec: 20 },
+        { action: 'exbst-f', action_start_sec: 60 },
+      ] }),
+    ];
+    var result = computeBurstType(matches);
+    assert.ok(result);
+    var f = result.by_type.find(function (t) { return t.key === 'F'; });
+    assert.equal(f.count, 2);
+    assert.equal(f.matches, 1);
+  });
+
+  it('returns null when there are no burst events', function () {
+    var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
+    assert.equal(computeBurstType(matches), null);
   });
 });
 

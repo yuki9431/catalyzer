@@ -28,6 +28,12 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function round3(n) { return Math.round(n * 1000) / 1000; }
 
 function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0; }
+function jsMedian(arr) {
+  if (!arr.length) return 0;
+  var s = arr.slice().sort(function (a, b) { return a - b; });
+  var mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
 function jsWinsLosses(ms) { var w = ms.filter(function (m) { return m.win; }).length; return [w, ms.length - w]; }
 function jsKdRatio(ms) { var k = 0, d = 0; ms.forEach(function (m) { k += m.kills; d += m.deaths; }); return d > 0 ? k / d : 0; }
 function jsAvgBursts(ms) {
@@ -746,35 +752,39 @@ export function computeFallOrder(matches) {
   };
 }
 
-export function computeBurstHoldDeath(matches) {
-  var holdByDeath = {};
-  var noHold = [];
-  var total = 0;
+// 覚醒ゲージMAX（ex）から発動（exbst-*）までの遅延時間を分析する。
+// 5秒以内で発動した「即発動」の試合と、それより遅い「遅延発動」の試合で勝率を比較する。
+export var BURST_IMMEDIATE_SEC = 5;
+
+export function computeBurstTiming(matches) {
+  var allDelays = [];
+  var immediate = [], delayed = [];
   matches.forEach(function (d) {
     if (!d.actions || !d.actions.length) return;
-    var deaths = jsGetDeathEvents(d.actions).sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
-    var bursts = jsGetBurstEvents(d.actions);
-    var exReadies = jsGetExReadyEvents(d.actions);
-    if (!deaths.length) return;
-    total++;
-    var hasAnyHold = false;
-    deaths.forEach(function (death, i) {
-      var deathTime = death.action_start_sec;
-      var relevantEx = exReadies.filter(function (e) { return e.action_start_sec < deathTime; });
-      if (!relevantEx.length) return;
-      var lastExTime = Math.max.apply(null, relevantEx.map(function (e) { return e.action_start_sec; }));
-      var burstUsed = bursts.some(function (b) {
-        return b.action_start_sec >= lastExTime && b.action_start_sec < deathTime;
-      });
-      if (!burstUsed) {
-        var nth = i + 1;
-        if (!holdByDeath[nth]) holdByDeath[nth] = [];
-        holdByDeath[nth].push(d);
-        hasAnyHold = true;
+    var exReadies = jsGetExReadyEvents(d.actions).slice()
+      .sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
+    var bursts = jsGetBurstEvents(d.actions).slice()
+      .sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
+    if (!exReadies.length || !bursts.length) return;
+    // ex を発生順に見て、それ以降で未使用の最初の exbst-* と対応付ける（1試合中の複数覚醒に対応）。
+    var used = {};
+    var delays = [];
+    exReadies.forEach(function (ex) {
+      for (var i = 0; i < bursts.length; i++) {
+        if (used[i]) continue;
+        if (bursts[i].action_start_sec >= ex.action_start_sec) {
+          used[i] = true;
+          delays.push(bursts[i].action_start_sec - ex.action_start_sec);
+          break;
+        }
       }
     });
-    if (!hasAnyHold) noHold.push(d);
+    if (!delays.length) return;
+    delays.forEach(function (dl) { allDelays.push(dl); });
+    if (jsAvg(delays) <= BURST_IMMEDIATE_SEC) immediate.push(d);
+    else delayed.push(d);
   });
+  var total = immediate.length + delayed.length;
   if (total === 0) return null;
   function buildStats(ms) {
     return {
@@ -783,23 +793,76 @@ export function computeBurstHoldDeath(matches) {
       win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
     };
   }
-  var byDeath = [];
-  Object.keys(holdByDeath).map(Number).sort(function (a, b) { return a - b; }).forEach(function (nth) {
-    var stats = buildStats(holdByDeath[nth]);
-    stats.label = nth + '機目に抱え落ち';
-    byDeath.push(stats);
-  });
+  var avg = round1(jsAvg(allDelays));
+  var median = round1(jsMedian(allDelays));
   var tips = [];
-  if (byDeath.length && noHold.length) {
-    var holdSet = new Set();
-    Object.keys(holdByDeath).forEach(function (k) {
-      holdByDeath[k].forEach(function (d) { holdSet.add(d); });
-    });
-    var uniqueHold = Array.from(holdSet);
-    var diff = jsWinRate(noHold) - jsWinRate(uniqueHold);
-    if (diff > 0) tips.push('抱え落ちなしの試合の方が勝率 **' + Math.round(diff) + '%** 高い');
+  if (immediate.length && delayed.length) {
+    var diff = jsWinRate(immediate) - jsWinRate(delayed);
+    if (diff >= 5) {
+      tips.push('即発動（' + BURST_IMMEDIATE_SEC + '秒以内）の試合の方が勝率 **' + Math.round(diff) + '%** 高い → ゲージが溜まったら早めに覚醒を');
+    }
   }
-  return { total: total, by_death: byDeath, no_hold: buildStats(noHold), tips: tips };
+  if (avg > BURST_IMMEDIATE_SEC + 3) {
+    tips.push('覚醒発動までの平均遅延が **' + avg + '秒** → タイミングを意識して早めに発動しよう');
+  }
+  return {
+    total: total,
+    activations: allDelays.length,
+    avg: avg,
+    median: median,
+    immediate: buildStats(immediate),
+    delayed: buildStats(delayed),
+    tips: tips,
+  };
+}
+
+// F/S/E覚醒の使用傾向を分析する。発動数の比率（使用率）とタイプ別の勝率を集計する。
+var BURST_TYPES = [
+  { action: 'exbst-f', key: 'F', label: 'F覚醒' },
+  { action: 'exbst-s', key: 'S', label: 'S覚醒' },
+  { action: 'exbst-e', key: 'E', label: 'E覚醒' },
+];
+
+export function computeBurstType(matches) {
+  var stat = {};
+  BURST_TYPES.forEach(function (t) { stat[t.action] = { count: 0, matches: [] }; });
+  var totalBursts = 0;
+  matches.forEach(function (d) {
+    if (!d.actions || !d.actions.length) return;
+    var seen = {};
+    d.actions.forEach(function (a) {
+      if (!stat[a.action]) return;
+      stat[a.action].count++;
+      totalBursts++;
+      if (!seen[a.action]) { seen[a.action] = true; stat[a.action].matches.push(d); }
+    });
+  });
+  if (totalBursts === 0) return null;
+  var byType = BURST_TYPES.map(function (t) {
+    var s = stat[t.action];
+    return {
+      key: t.key,
+      label: t.label,
+      count: s.count,
+      rate: round1(s.count / totalBursts * 100),
+      matches: s.matches.length,
+      win_rate: s.matches.length ? round1(jsWinRate(s.matches)) : 0,
+    };
+  }).filter(function (t) { return t.count > 0; });
+  var tips = [];
+  var byUsage = byType.slice().sort(function (a, b) { return b.count - a.count; });
+  if (byUsage.length) {
+    tips.push('最もよく使う覚醒は **' + byUsage[0].label + '**（使用率 ' + byUsage[0].rate + '%）');
+  }
+  var eligible = byType.filter(function (t) { return t.matches >= 5; });
+  if (eligible.length >= 2) {
+    var byWin = eligible.slice().sort(function (a, b) { return b.win_rate - a.win_rate; });
+    var best = byWin[0], worst = byWin[byWin.length - 1];
+    if (best.win_rate - worst.win_rate >= 5) {
+      tips.push('**' + best.label + '** の勝率が最も高い（' + best.win_rate + '%） → この覚醒を軸にすると良い');
+    }
+  }
+  return { total_bursts: totalBursts, by_type: byType, tips: tips };
 }
 
 export function computeFixedPartners(matches, tagPartners) {
