@@ -249,7 +249,8 @@
     .cal-day.selected { background: var(--accent); color: #062536; font-weight: bold; border-color: var(--accent); }
     .cal-day.in-range { background: rgba(79,195,247,0.15); color: var(--text); border-color: transparent; }
     .time-sel { display: flex; align-items: center; gap: 4px; }
-    .time-select { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 0.85em; cursor: pointer; }
+    /* color-scheme: dark でネイティブの選択肢ポップアップを暗色描画にする（未指定だと白背景+青ハイライトで文字が読めない） */
+    .time-select { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 0.85em; cursor: pointer; color-scheme: dark; }
     .time-select:focus { outline: none; border-color: var(--accent); }
     .time-colon { color: #666; }
     .period-backdrop { display: none; }
