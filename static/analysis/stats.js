@@ -832,6 +832,8 @@ export function computeFixedPartners(matches, tagPartners) {
     // 表示名は最新の試合で使われていた相方のプレイヤー名（名前が可変のため最新を採用）
     var latestName = data[0].partner_name, latestDate = data[0].date;
     data.forEach(function (d) { if (d.date > latestDate) { latestDate = d.date; latestName = d.partner_name; } });
+    // チームで統合したエントリはチーム名も併記する（キーは 'team:' + チーム名）
+    var teamName = key.indexOf('team:') === 0 ? key.slice(5) : '';
     var wl = jsWinsLosses(data);
     var w = wl[0], l = wl[1];
     var wr = w / n * 100;
@@ -940,7 +942,8 @@ export function computeFixedPartners(matches, tagPartners) {
       partner_ms_breakdown: msBreakdown,
       tips: tips,
     };
-    // 表示名（最新のプレイヤー名）は partner_name に格納済み。team_name は使わない。
+    // 表示は「最新プレイヤー名 【チーム名】」。チーム未統合の相方にはデフォルトのチーム名（NO_NAME_TAG）を付ける。
+    entry.team_name = teamName || NO_NAME_TAG;
     results.push(entry);
   });
   return { partners: results };
