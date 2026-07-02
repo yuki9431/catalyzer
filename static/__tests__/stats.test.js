@@ -13,7 +13,7 @@ import {
   computeCostPair,
   computeMsPair,
   computeDmgContribution,
-  computeDeathsImpact,
+  computeTeamDeathsImpact,
   computeSeason,
   computeBurstCount,
   computeFallOrder,
@@ -326,27 +326,130 @@ describe('computeDmgContribution', function () {
   });
 });
 
-// --- computeDeathsImpact ---
+// --- computeTeamDeathsImpact ---
 
-describe('computeDeathsImpact', function () {
-  it('groups by cost and death count', function () {
+describe('computeTeamDeathsImpact', function () {
+  function findGroup(result, self) {
+    return result.groups.find(function (g) { return g.self === self; });
+  }
+  function findPartner(group, partner) {
+    return group.partners.find(function (p) { return p.partner === partner; });
+  }
+
+  it('buckets by self x partner deaths and computes matches/win_rate per cell', function () {
     var matches = [
-      makeMatch({ ms_cost: 3000, deaths: 0, win: true }),
-      makeMatch({ ms_cost: 3000, deaths: 1, win: true }),
-      makeMatch({ ms_cost: 3000, deaths: 2, win: false }),
-      makeMatch({ ms_cost: 3000, deaths: 3, win: false }),
+      makeMatch({ deaths: 0, partner_deaths: 0, win: true }),
+      makeMatch({ deaths: 0, partner_deaths: 0, win: true }),
+      makeMatch({ deaths: 0, partner_deaths: 1, win: false }),
     ];
-    var result = computeDeathsImpact(matches);
-    assert.ok(result.length > 0);
-    var cost3000 = result.find(function (r) { return r.cost === 3000; });
-    assert.ok(cost3000);
-    assert.equal(cost3000.fatal_deaths, 2);
-    assert.ok(cost3000.buckets.length > 0);
+    var result = computeTeamDeathsImpact(matches);
+    var g0 = findGroup(result, 0);
+    assert.ok(g0);
+    var p0 = findPartner(g0, 0);
+    var p1 = findPartner(g0, 1);
+    assert.equal(p0.matches, 2);
+    assert.equal(p0.win_rate, 100);
+    assert.equal(p1.matches, 1);
+    assert.equal(p1.win_rate, 0);
   });
 
-  it('handles matches without recognized cost', function () {
-    var matches = [makeMatch({ ms_cost: 9999 })];
-    assert.deepEqual(computeDeathsImpact(matches), []);
+  it('collapses deaths >= TEAM_DEATH_MAX into the "N落ち以上" bucket on both axes', function () {
+    var matches = [
+      makeMatch({ deaths: 3, partner_deaths: 0 }),
+      makeMatch({ deaths: 5, partner_deaths: 0 }),
+      makeMatch({ deaths: 0, partner_deaths: 3 }),
+      makeMatch({ deaths: 0, partner_deaths: 7 }),
+    ];
+    var result = computeTeamDeathsImpact(matches);
+    var g3 = findGroup(result, 3);
+    assert.ok(g3);
+    assert.equal(g3.self_label, '3落ち以上');
+    assert.equal(g3.matches, 2);
+    var g0 = findGroup(result, 0);
+    var p3 = findPartner(g0, 3);
+    assert.ok(p3);
+    assert.equal(p3.partner_label, '3落ち以上');
+    assert.equal(p3.matches, 2);
+  });
+
+  it('omits cells and self groups with zero matches', function () {
+    var matches = [makeMatch({ deaths: 0, partner_deaths: 1 })];
+    var result = computeTeamDeathsImpact(matches);
+    assert.equal(result.groups.length, 1);
+    assert.equal(result.groups[0].partners.length, 1);
+    assert.equal(findGroup(result, 1), undefined);
+  });
+
+  it('computes self-level marginal matches and win_rate across partner cells', function () {
+    var matches = [
+      makeMatch({ deaths: 1, partner_deaths: 0, win: true }),
+      makeMatch({ deaths: 1, partner_deaths: 0, win: true }),
+      makeMatch({ deaths: 1, partner_deaths: 2, win: false }),
+    ];
+    var result = computeTeamDeathsImpact(matches);
+    var g1 = findGroup(result, 1);
+    var partnerTotal = g1.partners.reduce(function (sum, p) { return sum + p.matches; }, 0);
+    assert.equal(g1.matches, partnerTotal);
+    assert.equal(g1.matches, 3);
+    assert.equal(g1.win_rate, Math.round(2 / 3 * 1000) / 10);
+  });
+
+  it('skips matches missing deaths or partner_deaths (type guard)', function () {
+    var matches = [
+      makeMatch({ deaths: 0, partner_deaths: 0 }),
+      makeMatch({ deaths: 0, partner_deaths: undefined }),
+      makeMatch({ deaths: undefined, partner_deaths: 0 }),
+    ];
+    var result = computeTeamDeathsImpact(matches);
+    assert.equal(result.total, 1);
+  });
+
+  it('flags low_sample cells under 5 matches and notes it in tips', function () {
+    var fourMatches = makeMatches(4, { deaths: 0, partner_deaths: 0 });
+    var fiveMatches = makeMatches(5, { deaths: 1, partner_deaths: 0 });
+    var result = computeTeamDeathsImpact(fourMatches.concat(fiveMatches));
+    var p0 = findPartner(findGroup(result, 0), 0);
+    var p1 = findPartner(findGroup(result, 1), 0);
+    assert.equal(p0.low_sample, true);
+    assert.equal(p1.low_sample, false);
+    assert.ok(result.tips.some(function (t) { return t.indexOf('5戦未満') >= 0; }));
+  });
+
+  it('returns empty result for empty input', function () {
+    var result = computeTeamDeathsImpact([]);
+    assert.equal(result.total, 0);
+    assert.deepEqual(result.groups, []);
+  });
+
+  it('sorts groups by self ascending and partners by partner ascending regardless of input order', function () {
+    var matches = [
+      makeMatch({ deaths: 2, partner_deaths: 1 }),
+      makeMatch({ deaths: 0, partner_deaths: 2 }),
+      makeMatch({ deaths: 1, partner_deaths: 0 }),
+      makeMatch({ deaths: 0, partner_deaths: 0 }),
+      makeMatch({ deaths: 2, partner_deaths: 0 }),
+      makeMatch({ deaths: 0, partner_deaths: 1 }),
+    ];
+    var result = computeTeamDeathsImpact(matches);
+    var selfOrder = result.groups.map(function (g) { return g.self; });
+    assert.deepEqual(selfOrder, selfOrder.slice().sort(function (a, b) { return a - b; }));
+
+    var g0 = findGroup(result, 0);
+    var partnerOrder = g0.partners.map(function (p) { return p.partner; });
+    assert.deepEqual(partnerOrder, [0, 1, 2]);
+
+    var g2 = findGroup(result, 2);
+    var g2PartnerOrder = g2.partners.map(function (p) { return p.partner; });
+    assert.deepEqual(g2PartnerOrder, [0, 1]);
+  });
+
+  it('includes the cross-cost note in tips when there is at least one valid match, and omits it for empty input', function () {
+    var matches = [makeMatch({ deaths: 0, partner_deaths: 0 })];
+    var result = computeTeamDeathsImpact(matches);
+    assert.ok(result.tips.indexOf('※コスト横断の回数集計です（落ちきり回数はコストで異なります）') >= 0);
+
+    var emptyResult = computeTeamDeathsImpact([]);
+    assert.deepEqual(emptyResult.tips, []);
   });
 });
 
