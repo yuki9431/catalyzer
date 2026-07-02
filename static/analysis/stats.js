@@ -6,6 +6,8 @@ export var PERIOD_DAYS = { '90d': 90, '60d': 60, '30d': 30, '14d': 14, '7d': 7, 
 
 var COST_LABEL = {3000: '3000コスト', 2500: '2500コスト', 2000: '2000コスト', 1500: '1500コスト'};
 var COST_FATAL_DEATHS = {3000: 2, 2500: 3, 2000: 3, 1500: 4};
+var TEAM_DEATH_MAX = 3;   // これ以上は "3+" に集約
+var MIN_SAMPLE = 5;       // これ未満のセルは参考値扱い
 
 // --- Internal Helpers ---
 
@@ -474,81 +476,66 @@ export function computeDmgContribution(matches, minMatches) {
   };
 }
 
-export function computeDeathsImpact(matches) {
-  var costGroups = {};
-  matches.forEach(function (d) {
-    var cost = d.ms_cost || 0;
-    if (COST_FATAL_DEATHS[cost]) {
-      if (!costGroups[cost]) costGroups[cost] = [];
-      costGroups[cost].push(d);
-    }
+export function computeTeamDeathsImpact(matches) {
+  var valid = matches.filter(function (d) { return d.deaths != null && d.partner_deaths != null; });
+
+  function bucket(n) { return n >= TEAM_DEATH_MAX ? TEAM_DEATH_MAX : n; }
+  function label(k) { return k === TEAM_DEATH_MAX ? (k + '落ち以上') : (k + '落ち'); }
+
+  var bySelf = {};
+  valid.forEach(function (d) {
+    var s = bucket(d.deaths);
+    var p = bucket(d.partner_deaths);
+    if (!bySelf[s]) bySelf[s] = {};
+    if (!bySelf[s][p]) bySelf[s][p] = [];
+    bySelf[s][p].push(d);
   });
 
-  var results = [];
-  var costKeys = Object.keys(costGroups).map(Number).sort(function (a, b) { return b - a; });
-  costKeys.forEach(function (cost) {
-    var data = costGroups[cost];
-    var fatal = COST_FATAL_DEATHS[cost];
-    var maxBucket = fatal + 1;
-
-    var byDeaths = {};
-    data.forEach(function (d) {
-      var deaths = d.deaths;
-      var key = deaths >= maxBucket ? (maxBucket + '+') : String(deaths);
-      if (!byDeaths[key]) byDeaths[key] = [];
-      byDeaths[key].push(d);
+  var hasLowSample = false;
+  var groups = [];
+  var selfKeys = Object.keys(bySelf).map(Number).sort(function (a, b) { return a - b; });
+  selfKeys.forEach(function (s) {
+    var partnerGroups = bySelf[s];
+    var selfMatches = [];
+    var partners = [];
+    var partnerKeys = Object.keys(partnerGroups).map(Number).sort(function (a, b) { return a - b; });
+    partnerKeys.forEach(function (p) {
+      var pMatches = partnerGroups[p];
+      selfMatches = selfMatches.concat(pMatches);
+      var lowSample = pMatches.length < MIN_SAMPLE;
+      if (lowSample) hasLowSample = true;
+      partners.push({
+        partner: p,
+        partner_label: label(p),
+        matches: pMatches.length,
+        win_rate: round1(jsWinRate(pMatches)),
+        low_sample: lowSample,
+      });
     });
-
-    var buckets = [];
-    for (var i = 0; i < fatal; i++) {
-      var key = String(i);
-      if (byDeaths[key]) {
-        var bMatches = byDeaths[key];
-        var wr = jsWinRate(bMatches);
-        var eff = jsDmgEfficiency(bMatches);
-        buckets.push({
-          deaths: i,
-          label: i + '落ち',
-          matches: bMatches.length,
-          win_rate: round1(wr),
-          dmg_efficiency: round3(eff),
-          status: i === fatal - 1 ? 'danger' : 'safe',
-        });
-      }
-    }
-
-    var fatalCount = 0;
-    for (var j = fatal; j < maxBucket; j++) {
-      fatalCount += (byDeaths[String(j)] || []).length;
-    }
-    fatalCount += (byDeaths[maxBucket + '+'] || []).length;
-
-    var safeData = [];
-    for (var k = 0; k < fatal; k++) {
-      safeData = safeData.concat(byDeaths[String(k)] || []);
-    }
-    var safeWr = safeData.length ? jsWinRate(safeData) : 0;
-
-    var tips = [];
-    if (fatalCount > 0 && data.length > 0) {
-      tips.push(fatal + '落ち以上 **' + fatalCount + '/' + data.length + '戦**（' + Math.round(fatalCount / data.length * 100) + '%）');
-    }
-    if (safeData.length) {
-      tips.push((fatal - 1) + '落ち以内の勝率 **' + round1(safeWr) + '%**');
-    }
-
-    results.push({
-      cost: cost,
-      cost_label: COST_LABEL[cost],
-      matches: data.length,
-      fatal_deaths: fatal,
-      fatal_cost: cost * fatal,
-      buckets: buckets,
-      tips: tips,
+    groups.push({
+      self: s,
+      self_label: label(s),
+      matches: selfMatches.length,
+      win_rate: round1(jsWinRate(selfMatches)),
+      partners: partners,
     });
   });
 
-  return results;
+  var tips = [];
+  if (hasLowSample) {
+    tips.push('5戦未満のセルは参考値です');
+  }
+  if (valid.length > 0) {
+    tips.push('※コスト横断の回数集計です（落ちきり回数はコストで異なります）');
+  }
+
+  return {
+    total: valid.length,
+    self_max: TEAM_DEATH_MAX,
+    partner_max: TEAM_DEATH_MAX,
+    groups: groups,
+    tips: tips,
+  };
 }
 
 export function computeSeason(matches) {

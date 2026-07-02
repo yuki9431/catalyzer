@@ -70,17 +70,20 @@ export function DmgContributionSubSection({ dmg }) {
   </div>`;
 }
 
-export function DeathsImpactSubSection({ deaths }) {
-  if (!deaths || !deaths.length) return null;
-  return deaths.map(function (d) {
-    var rows = (d.buckets || []).map(function (b) {
-      return [b.label, b.matches + '戦', colorPct(b.win_rate)];
-    });
-    return html`<div>
-      <${Table} headers=${['被撃墜数', '試合数', '勝率']} rows=${rows} />
-      <${Tips} tips=${d.tips} />
-    </div>`;
-  });
+export function TeamDeathsImpactSection({ teamDeaths }) {
+  if (!teamDeaths || !teamDeaths.groups || !teamDeaths.groups.length) return null;
+  return html`<div>
+    ${teamDeaths.groups.map(function (g) {
+      var rows = (g.partners || []).map(function (p) {
+        return [p.partner_label, p.matches + '戦', colorPct(p.win_rate)];
+      });
+      return html`<div>
+        <h3>自分${g.self_label}（${g.matches}戦 ${pct(g.win_rate)}）</h3>
+        <${Table} headers=${['相方被撃墜', '試合数', '勝率']} rows=${rows} />
+      </div>`;
+    })}
+    <${Tips} tips=${teamDeaths.tips} />
+  </div>`;
 }
 
 // スクロール連動: 要素が画面に入ったらtrueを返すフック

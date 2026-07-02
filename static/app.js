@@ -4,7 +4,7 @@ import {
   computeTimeOfDay, computeDayOfWeek, computeDailyTrend, computeSeason,
   computeBasicStats, computeWinLossPattern,
   computeEnemyMatchup, computePartner, computeCostPair, computeMsPair,
-  computeDmgContribution, computeDeathsImpact,
+  computeDmgContribution, computeTeamDeathsImpact,
   computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
   computeFixedPartners,
   computeShareData, computeMsSummary,
@@ -24,7 +24,7 @@ import {
 import {
   useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
-  DmgContributionSubSection, DeathsImpactSubSection,
+  DmgContributionSubSection, TeamDeathsImpactSection,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
   FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
@@ -797,16 +797,9 @@ function TimePane({ pd }) {
 // --- New tab panes ---
 
 function PlaystylePane({ frontendData }) {
-  var deaths = frontendData.deaths_impact;
+  var teamDeaths = frontendData.team_deaths;
   var dmg = frontendData.dmg_contribution;
   var fallOrder = frontendData.fall_order;
-
-  var deathItems = [];
-  if (deaths) {
-    deaths.forEach(function (d) {
-      (d.buckets || []).forEach(function (b) { deathItems.push(b); });
-    });
-  }
 
   var fallItems = [];
   if (fallOrder) {
@@ -819,9 +812,8 @@ function PlaystylePane({ frontendData }) {
   }
 
   return html`<div class="tabpane">
-    ${deaths && deathItems.length > 0 && html`<${Panel} title="被撃墜数と勝率">
-      <${WinRateBarChart} items=${deathItems} />
-      <${DeathsImpactSubSection} deaths=${deaths} />
+    ${teamDeaths && teamDeaths.groups.length > 0 && html`<${Panel} title="被撃墜と勝率（自分×相方）">
+      <${TeamDeathsImpactSection} teamDeaths=${teamDeaths} />
     <//>`}
 
     ${fallOrder && html`<${Panel} title="先落ち/後落ち分析">
@@ -834,7 +826,7 @@ function PlaystylePane({ frontendData }) {
       <${DmgContributionSubSection} dmg=${dmg} />
     <//>`}
 
-    ${!deaths && !fallOrder && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
+    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
   </div>`;
 }
 
@@ -1164,7 +1156,7 @@ function Report({ data, userKey }) {
       cost_pair: computeCostPair(filtered),
       ms_pair: computeMsPair(filtered),
       dmg_contribution: computeDmgContribution(filtered),
-      deaths_impact: computeDeathsImpact(filtered),
+      team_deaths: computeTeamDeathsImpact(filtered),
       burst_count: computeBurstCount(filtered),
       fall_order: computeFallOrder(filtered),
       burst_timing: computeBurstTiming(filtered),
