@@ -74,15 +74,16 @@ export function TeamDeathsImpactSection({ teamDeaths }) {
   if (!teamDeaths || !teamDeaths.groups || !teamDeaths.groups.length) return null;
   return html`<div>
     ${teamDeaths.groups.map(function (g) {
-      var rows = (g.partners || []).map(function (p) {
-        return [p.partner_label, p.matches + '戦', colorPct(p.win_rate)];
-      });
+      var rows = [['全体', g.matches + '戦', colorPct(g.win_rate)]].concat(
+        (g.partners || []).map(function (p) {
+          return [p.partner_label, p.matches + '戦', colorPct(p.win_rate)];
+        })
+      );
       return html`<div>
-        <h3>自分${g.self_label}（${g.matches}戦 ${pct(g.win_rate)}）</h3>
-        <${Table} headers=${['相方被撃墜', '試合数', '勝率']} rows=${rows} />
+        <h3>自機${g.self_label}</h3>
+        <${Table} headers=${['僚機被撃墜', '試合数', '勝率']} rows=${rows} />
       </div>`;
     })}
-    <${Tips} tips=${teamDeaths.tips} />
   </div>`;
 }
 
@@ -534,6 +535,78 @@ export function DmgContributionChart({ dmg }) {
     return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
   }, [dmg, inView]);
 
+  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
+// 僚機被撃墜バケット別の系列色（暖色になるほど僚機の被撃墜が多い＝悪化）
+var TEAM_DEATHS_PARTNER_COLORS = ['#69f0ae', '#4fc3f7', '#ff8a65', '#ef5350'];
+
+export function TeamDeathsChart({ teamDeaths }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+  var groups = (teamDeaths && teamDeaths.groups) || [];
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current || !groups.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    // matrix[self][partner] = {win_rate, matches}。ツールチップの試合数表示に使う
+    var matrix = {};
+    var partnerLabels = {};
+    groups.forEach(function (g) {
+      matrix[g.self] = {};
+      (g.partners || []).forEach(function (p) {
+        partnerLabels[p.partner] = p.partner_label;
+        matrix[g.self][p.partner] = { win_rate: p.win_rate, matches: p.matches };
+      });
+    });
+    var partnerKeys = Object.keys(partnerLabels).map(Number).sort(function (a, b) { return a - b; });
+    var labels = groups.map(function (g) { return '自機' + g.self_label; });
+
+    var datasets = partnerKeys.map(function (pk) {
+      return {
+        label: '僚機' + partnerLabels[pk],
+        data: groups.map(function (g) {
+          var cell = matrix[g.self][pk];
+          return cell ? cell.win_rate : null;
+        }),
+        backgroundColor: TEAM_DEATHS_PARTNER_COLORS[pk] || '#9e9e9e',
+        borderWidth: 0,
+        _partnerKey: pk,
+      };
+    });
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#aaa', font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                var g = groups[ctx.dataIndex];
+                var cell = matrix[g.self][ctx.dataset._partnerKey];
+                if (!cell) return '';
+                return ctx.dataset.label + ': 勝率 ' + cell.win_rate + '% (' + cell.matches + '戦)';
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#888', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { min: 0, max: 100, ticks: { color: '#aaa', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.08)' } },
+        },
+      },
+      plugins: [winRate50Plugin],
+    });
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [teamDeaths, inView]);
+
+  if (!groups.length) return null;
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 

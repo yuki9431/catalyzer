@@ -404,17 +404,6 @@ describe('computeTeamDeathsImpact', function () {
     assert.equal(result.total, 1);
   });
 
-  it('flags low_sample cells under 5 matches and notes it in tips', function () {
-    var fourMatches = makeMatches(4, { deaths: 0, partner_deaths: 0 });
-    var fiveMatches = makeMatches(5, { deaths: 1, partner_deaths: 0 });
-    var result = computeTeamDeathsImpact(fourMatches.concat(fiveMatches));
-    var p0 = findPartner(findGroup(result, 0), 0);
-    var p1 = findPartner(findGroup(result, 1), 0);
-    assert.equal(p0.low_sample, true);
-    assert.equal(p1.low_sample, false);
-    assert.ok(result.tips.some(function (t) { return t.indexOf('5戦未満') >= 0; }));
-  });
-
   it('returns empty result for empty input', function () {
     var result = computeTeamDeathsImpact([]);
     assert.equal(result.total, 0);
@@ -441,15 +430,6 @@ describe('computeTeamDeathsImpact', function () {
     var g2 = findGroup(result, 2);
     var g2PartnerOrder = g2.partners.map(function (p) { return p.partner; });
     assert.deepEqual(g2PartnerOrder, [0, 1]);
-  });
-
-  it('includes the cross-cost note in tips when there is at least one valid match, and omits it for empty input', function () {
-    var matches = [makeMatch({ deaths: 0, partner_deaths: 0 })];
-    var result = computeTeamDeathsImpact(matches);
-    assert.ok(result.tips.indexOf('※コスト横断の回数集計です（落ちきり回数はコストで異なります）') >= 0);
-
-    var emptyResult = computeTeamDeathsImpact([]);
-    assert.deepEqual(emptyResult.tips, []);
   });
 });
 

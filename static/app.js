@@ -24,7 +24,7 @@ import {
 import {
   useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
-  DmgContributionSubSection, TeamDeathsImpactSection,
+  DmgContributionSubSection, TeamDeathsImpactSection, TeamDeathsChart,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
   FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
@@ -812,7 +812,8 @@ function PlaystylePane({ frontendData }) {
   }
 
   return html`<div class="tabpane">
-    ${teamDeaths && teamDeaths.groups.length > 0 && html`<${Panel} title="被撃墜と勝率（自分×相方）">
+    ${teamDeaths && teamDeaths.groups.length > 0 && html`<${Panel} title="被撃墜と勝率（自機×僚機）">
+      <${TeamDeathsChart} teamDeaths=${teamDeaths} />
       <${TeamDeathsImpactSection} teamDeaths=${teamDeaths} />
     <//>`}
 
@@ -882,7 +883,7 @@ function MatchupPane({ frontendData }) {
       <${EnemyMatchupSection} matchup=${enemyMatchup} />
     <//>`}
 
-    ${partnerData && partnerData.length > 0 && html`<${Panel} title="相方機体との相性">
+    ${partnerData && partnerData.length > 0 && html`<${Panel} title="僚機との相性">
       <${MsCompareChart} entries=${partnerEntries} />
       <${PartnerSection} partners=${partnerData} />
     <//>`}

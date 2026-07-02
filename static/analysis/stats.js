@@ -7,7 +7,6 @@ export var PERIOD_DAYS = { '90d': 90, '60d': 60, '30d': 30, '14d': 14, '7d': 7, 
 var COST_LABEL = {3000: '3000コスト', 2500: '2500コスト', 2000: '2000コスト', 1500: '1500コスト'};
 var COST_FATAL_DEATHS = {3000: 2, 2500: 3, 2000: 3, 1500: 4};
 var TEAM_DEATH_MAX = 3;   // これ以上は "3+" に集約
-var MIN_SAMPLE = 5;       // これ未満のセルは参考値扱い
 
 // --- Internal Helpers ---
 
@@ -491,7 +490,6 @@ export function computeTeamDeathsImpact(matches) {
     bySelf[s][p].push(d);
   });
 
-  var hasLowSample = false;
   var groups = [];
   var selfKeys = Object.keys(bySelf).map(Number).sort(function (a, b) { return a - b; });
   selfKeys.forEach(function (s) {
@@ -502,14 +500,11 @@ export function computeTeamDeathsImpact(matches) {
     partnerKeys.forEach(function (p) {
       var pMatches = partnerGroups[p];
       selfMatches = selfMatches.concat(pMatches);
-      var lowSample = pMatches.length < MIN_SAMPLE;
-      if (lowSample) hasLowSample = true;
       partners.push({
         partner: p,
         partner_label: label(p),
         matches: pMatches.length,
         win_rate: round1(jsWinRate(pMatches)),
-        low_sample: lowSample,
       });
     });
     groups.push({
@@ -521,20 +516,11 @@ export function computeTeamDeathsImpact(matches) {
     });
   });
 
-  var tips = [];
-  if (hasLowSample) {
-    tips.push('5戦未満のセルは参考値です');
-  }
-  if (valid.length > 0) {
-    tips.push('※コスト横断の回数集計です（落ちきり回数はコストで異なります）');
-  }
-
   return {
     total: valid.length,
     self_max: TEAM_DEATH_MAX,
     partner_max: TEAM_DEATH_MAX,
     groups: groups,
-    tips: tips,
   };
 }
 
