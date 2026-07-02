@@ -42,9 +42,6 @@ function jsGetDeathEvents(actions) {
 function jsGetBurstEvents(actions) {
   return (actions || []).filter(function (a) { return a.action === 'exbst-f' || a.action === 'exbst-s' || a.action === 'exbst-e'; });
 }
-function jsGetExReadyEvents(actions) {
-  return (actions || []).filter(function (a) { return a.action === 'ex'; });
-}
 
 // --- Exported Analysis Functions ---
 
