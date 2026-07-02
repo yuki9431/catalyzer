@@ -563,7 +563,7 @@ export function BurstTimingContent({ timingData }) {
     return [t.label, t.count + '戦 (' + t.rate + '%)', colorPct(t.win_rate)];
   });
   return html`<div>
-    <p>覚醒発動時の被撃墜数で分類（対象: ${timingData.total}戦）</p>
+    <p>覚醒発動時の被撃墜数で分類（対象: ${timingData.total}戦）<br />1試合で複数のタイミングに覚醒した場合は各タイミングに計上（割合の合計は100%を超えることがあります）</p>
     <${Table} headers=${['タイミング', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${timingData.tips} />
   </div>`;
