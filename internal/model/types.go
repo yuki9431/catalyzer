@@ -43,11 +43,11 @@ type PlayerScore struct {
 
 // MatchEvent は試合経過の1イベント
 type MatchEvent struct {
-	Group    string  `json:"group"`     // team1-1, team1-2, team2-1, team2-2
-	StartSec float64 `json:"start_sec"` // 開始時間(秒)
-	EndSec   float64 `json:"end_sec"`   // 終了時間(秒、pointの場合は0)
-	ClassName string `json:"class_name"` // ex, exbst-f, exbst-s, exbst-e, ov, exbst-ov
-	IsPoint  bool    `json:"is_point"`  // 被撃墜イベントか
+	Group     string  `json:"group"`      // team1-1, team1-2, team2-1, team2-2
+	StartSec  float64 `json:"start_sec"`  // 開始時間(秒)
+	EndSec    float64 `json:"end_sec"`    // 終了時間(秒、pointの場合は0)
+	ClassName string  `json:"class_name"` // ex, exbst-f, exbst-s, exbst-e, ov, exbst-ov
+	IsPoint   bool    `json:"is_point"`   // 被撃墜イベントか
 }
 
 // MatchTimeline は試合全体の経過データ
@@ -74,10 +74,10 @@ type TagPartner struct {
 type JobStatus string
 
 const (
-	StatusPending   JobStatus = "pending"
+	StatusPending  JobStatus = "pending"
 	StatusScraping JobStatus = "scraping"
 	StatusDone     JobStatus = "done"
-	StatusError     JobStatus = "error"
+	StatusError    JobStatus = "error"
 )
 
 // JobSnapshot はジョブ状態のスナップショット

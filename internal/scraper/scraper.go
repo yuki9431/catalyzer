@@ -130,12 +130,12 @@ type ProgressFunc func(current, total int)
 // ScrapingOption はスクレイピングのオプション
 type ScrapingOption struct {
 	OnProgress     ProgressFunc
-	BackfillDates  map[string]bool // バックフィル対象日付セット（"2006/01/02"形式）。nilなら全日付対象
+	BackfillDates  map[string]bool                // バックフィル対象日付セット（"2006/01/02"形式）。nilなら全日付対象
 	OnBatchReady   func(scores model.DatedScores) // BatchSize試合ごとに蓄積スコアのスナップショットを通知
-	BatchSize      int                             // OnBatchReady発火間隔（試合数）。0の場合は通知しない
-	FirstBatchSize int                             // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
-	OnLoginSuccess func()                          // ログイン成功直後に1度だけ呼ばれる
-	SavedJar       http.CookieJar                  // 保存済みCookieJar。非nilの場合はログインをスキップ
+	BatchSize      int                            // OnBatchReady発火間隔（試合数）。0の場合は通知しない
+	FirstBatchSize int                            // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
+	OnLoginSuccess func()                         // ログイン成功直後に1度だけ呼ばれる
+	SavedJar       http.CookieJar                 // 保存済みCookieJar。非nilの場合はログインをスキップ
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す

@@ -23,3 +23,7 @@ node_modules/
 
 # Temp files
 tmp/
+
+# claude-harness（作業ジャーナル・ローカル設定。コード資産ではない）
+.claude/pipeline/
+.claude/settings.local.json

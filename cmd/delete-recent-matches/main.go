@@ -54,7 +54,7 @@ func main() {
 	log.Printf("[INFO] Latest datetime: %s", latestTime.Format("2006-01-02 15:04"))
 
 	// cutoff = 最新日の0:00から (days-1) 日前
-	cutoff := latestTime.Truncate(24 * time.Hour).AddDate(0, 0, -(*days - 1))
+	cutoff := latestTime.Truncate(24*time.Hour).AddDate(0, 0, -(*days - 1))
 	log.Printf("[INFO] Cutoff (deleting >= %s): %d days", cutoff.Format("2006-01-02"), *days)
 
 	// 削除対象を収集
