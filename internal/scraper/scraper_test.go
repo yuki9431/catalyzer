@@ -15,11 +15,26 @@
 package scraper
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+// TestScrapingWithOption_CanceledContext は、開始前にキャンセル済みのContextを渡すと
+// ネットワークアクセスせずに ErrCanceled を返すことを確認する（ログアウト即中断の要）。
+func TestScrapingWithOption_CanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 開始前にキャンセル
+
+	_, _, err := ScrapingWithOption("user@example.com", "pw", time.Time{}, ScrapingOption{Context: ctx})
+	if !errors.Is(err, ErrCanceled) {
+		t.Fatalf("キャンセル済みContextで ErrCanceled を期待したが got: %v", err)
+	}
+}
 
 func TestParseNumber(t *testing.T) {
 	tests := []struct {

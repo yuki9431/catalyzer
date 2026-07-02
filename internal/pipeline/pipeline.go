@@ -2,6 +2,7 @@
 package pipeline
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -50,6 +51,8 @@ type Job struct {
 	SessionToken       string          `json:"-"`
 	SavedJar           http.CookieJar  `json:"-"`
 	completedAt        time.Time
+	ctx                context.Context    // スクレイピングのキャンセル用Context（NewJobで生成）
+	cancel             context.CancelFunc // ctxのキャンセル関数。CancelJobから呼ばれる
 }
 
 // ジョブストア（インメモリ）
@@ -60,14 +63,28 @@ var (
 
 // NewJob はジョブを作成してストアに登録する
 func NewJob() *Job {
+	ctx, cancel := context.WithCancel(context.Background())
 	j := &Job{
 		ID:     uuid.New().String(),
 		Status: model.StatusPending,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 	jobsMu.Lock()
 	jobs[j.ID] = j
 	jobsMu.Unlock()
 	return j
+}
+
+// CancelJob は実行中のジョブのスクレイピング処理を中断する。
+// 存在しない、または既に完了したジョブに対しては安全な no-op。
+func CancelJob(id string) {
+	jobsMu.RLock()
+	j, ok := jobs[id]
+	jobsMu.RUnlock()
+	if ok && j.cancel != nil {
+		j.cancel()
+	}
 }
 
 // GetJob はIDからジョブを取得する
@@ -103,6 +120,16 @@ type On403Func func(userHash string)
 
 // Run はスクレイピング→分析を実行し、レポートをジョブに保存する
 func Run(j *Job, username, password string, on403 ...On403Func) {
+	// ジョブ完了時にContextを解放する（CancelJobがこの後呼ばれても no-op）
+	if j.cancel != nil {
+		defer j.cancel()
+	}
+	// 開始前に既にキャンセル済み（ログアウト直後など）なら何もせず中断状態にする
+	if j.ctx != nil && j.ctx.Err() != nil {
+		markCancelled(j)
+		return
+	}
+
 	jobsMu.Lock()
 	if j.UserKey == "" {
 		j.UserKey = model.UserKey(username)
@@ -210,6 +237,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			log.Printf("[INFO] Job %s: login succeeded", j.ID)
 		},
 		SavedJar: j.SavedJar,
+		Context:  j.ctx,
 	}
 	if len(backfillDates) > 0 {
 		scrapingOpt.BackfillDates = backfillDates
@@ -220,6 +248,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	usingSession := j.SavedJar != nil
 
 	datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scrapingOpt)
+	// ログアウト等でキャンセルされた場合は、途中データやセッションを一切保存せず中断する
+	if errors.Is(err, scraper.ErrCanceled) {
+		markCancelled(j)
+		return
+	}
 	// 403の場合でも途中データがあれば保存・分析を続行する
 	is403WithPartialData := errors.Is(err, scraper.ErrAccessDenied) && len(datedScores) > 0
 	if err != nil && !is403WithPartialData {
@@ -371,6 +404,15 @@ func updateStatus(j *Job, s model.JobStatus) {
 	jobsMu.Lock()
 	j.Status = s
 	jobsMu.Unlock()
+}
+
+// markCancelled はジョブをキャンセル状態にする（ログアウト等でスクレイピングを中断したとき）
+func markCancelled(j *Job) {
+	jobsMu.Lock()
+	j.Status = model.StatusCancelled
+	j.completedAt = time.Now()
+	jobsMu.Unlock()
+	log.Printf("[INFO] Job %s cancelled by user", j.ID)
 }
 
 func setError(j *Job, clientMsg, detail string) {
