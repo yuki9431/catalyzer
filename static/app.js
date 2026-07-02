@@ -1210,7 +1210,7 @@ function Report({ data, userKey }) {
   } else if (activeTab === 'matchup') {
     pane = html`<${MatchupPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'time') {
-    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
+    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;
