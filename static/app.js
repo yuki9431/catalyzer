@@ -878,7 +878,7 @@ function BurstPane({ msStats, selectedMs, frontendData }) {
     ? burstType.by_type.map(function (t) { return { label: t.label, matches: t.matches, win_rate: t.win_rate }; })
     : [];
   var timingItems = burstTiming && burstTiming.by_timing
-    ? burstTiming.by_timing.map(function (t) { return { label: t.label, matches: t.matches, win_rate: t.win_rate }; })
+    ? burstTiming.by_timing.map(function (t) { return { label: t.label, matches: t.count, win_rate: t.win_rate }; })
     : [];
 
   return html`<div class="tabpane">

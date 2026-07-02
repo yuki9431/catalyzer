@@ -560,11 +560,11 @@ export function FallOrderContent({ fallOrder }) {
 export function BurstTimingContent({ timingData }) {
   if (!timingData || !timingData.by_timing || !timingData.by_timing.length) return null;
   var rows = timingData.by_timing.map(function (t) {
-    return [t.label, t.count + '回', t.matches + '戦', colorPct(t.win_rate)];
+    return [t.label, t.count + '戦 (' + t.rate + '%)', colorPct(t.win_rate)];
   });
   return html`<div>
-    <p>覚醒発動時の被撃墜数で分類（対象: ${timingData.total}戦 / ${timingData.activations}回発動）</p>
-    <${Table} headers=${['タイミング', '発動数', '試合数', '勝率']} rows=${rows} />
+    <p>覚醒発動時の被撃墜数で分類（対象: ${timingData.total}戦）</p>
+    <${Table} headers=${['タイミング', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${timingData.tips} />
   </div>`;
 }

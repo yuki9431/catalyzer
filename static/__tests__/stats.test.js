@@ -454,11 +454,9 @@ describe('computeBurstTiming', function () {
     var result = computeBurstTiming(matches);
     assert.ok(result);
     assert.equal(result.total, 1);
-    assert.equal(result.activations, 1);
     var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
     assert.ok(pre);
     assert.equal(pre.count, 1);
-    assert.equal(pre.matches, 1);
   });
 
   it('classifies burst after first death as 2機目', function () {
@@ -489,7 +487,7 @@ describe('computeBurstTiming', function () {
     ];
     var result = computeBurstTiming(matches);
     assert.ok(result);
-    assert.equal(result.activations, 2);
+    assert.equal(result.total, 1);
     var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
     var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
     assert.equal(pre.count, 1);

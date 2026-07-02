@@ -88,17 +88,15 @@ export function aggregateBurstCount(msStats) {
 
 export function aggregateBurstTiming(msStats) {
   var catMap = {};
-  var total = 0, totalActivations = 0;
+  var total = 0;
   Object.keys(msStats).forEach(function (ms) {
     var bt = msStats[ms].burst_timing;
     if (!bt) return;
     total += bt.total || 0;
-    totalActivations += bt.activations || 0;
     (bt.by_timing || []).forEach(function (t) {
-      if (!catMap[t.label]) catMap[t.label] = { label: t.label, count: 0, matches: 0, wins: 0 };
+      if (!catMap[t.label]) catMap[t.label] = { label: t.label, count: 0, wins: 0 };
       catMap[t.label].count += t.count || 0;
-      catMap[t.label].matches += t.matches || 0;
-      catMap[t.label].wins += Math.round((t.win_rate || 0) / 100 * (t.matches || 0));
+      catMap[t.label].wins += Math.round((t.win_rate || 0) / 100 * (t.count || 0));
     });
   });
   if (total === 0) return null;
@@ -108,12 +106,11 @@ export function aggregateBurstTiming(msStats) {
     return {
       label: c.label,
       count: c.count,
-      rate: (c.count / totalActivations * 100).toFixed(1),
-      matches: c.matches,
-      win_rate: c.matches > 0 ? c.wins / c.matches * 100 : 0,
+      rate: (c.count / total * 100).toFixed(1),
+      win_rate: c.count > 0 ? c.wins / c.count * 100 : 0,
     };
   });
-  return { total: total, activations: totalActivations, by_timing: byTiming };
+  return { total: total, by_timing: byTiming };
 }
 
 export function aggregateBurstType(msStats) {

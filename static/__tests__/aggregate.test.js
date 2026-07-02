@@ -152,20 +152,18 @@ describe('aggregateBurstTiming', function () {
       'ガンダム': {
         burst_timing: {
           total: 10,
-          activations: 12,
           by_timing: [
-            { label: '1機目', count: 7, rate: '58.3', matches: 7, win_rate: 60 },
-            { label: '2機目', count: 5, rate: '41.7', matches: 5, win_rate: 40 },
+            { label: '1機目', count: 7, rate: '70.0', win_rate: 60 },
+            { label: '2機目', count: 5, rate: '50.0', win_rate: 40 },
           ],
         },
       },
       'ザク': {
         burst_timing: {
           total: 4,
-          activations: 4,
           by_timing: [
-            { label: '1機目', count: 1, rate: '25.0', matches: 1, win_rate: 100 },
-            { label: '2機目', count: 3, rate: '75.0', matches: 3, win_rate: 0 },
+            { label: '1機目', count: 1, rate: '25.0', win_rate: 100 },
+            { label: '2機目', count: 3, rate: '75.0', win_rate: 0 },
           ],
         },
       },
@@ -173,13 +171,10 @@ describe('aggregateBurstTiming', function () {
     var result = aggregateBurstTiming(msStats);
     assert.ok(result);
     assert.equal(result.total, 14);
-    assert.equal(result.activations, 16);
     var pre = result.by_timing.find(function (t) { return t.label === '1機目'; });
     assert.equal(pre.count, 8);
-    assert.equal(pre.matches, 8);
     var post = result.by_timing.find(function (t) { return t.label === '2機目'; });
     assert.equal(post.count, 8);
-    assert.equal(post.matches, 8);
   });
 
   it('returns null for no data', function () {

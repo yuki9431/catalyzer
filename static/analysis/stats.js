@@ -750,7 +750,6 @@ export function computeFallOrder(matches) {
 export function computeBurstTiming(matches) {
   var categories = {};
   var total = 0;
-  var totalActivations = 0;
   matches.forEach(function (d) {
     if (!d.actions || !d.actions.length) return;
     var bursts = jsGetBurstEvents(d.actions).slice()
@@ -768,39 +767,35 @@ export function computeBurstTiming(matches) {
       }
       var label = deathsBefore === 0 ? '1機目'
         : deathsBefore === 1 ? '2機目' : '3機目';
-      if (!categories[label]) categories[label] = { count: 0, matches: [] };
-      categories[label].count++;
-      totalActivations++;
       if (!seen[label]) {
         seen[label] = true;
-        categories[label].matches.push(d);
+        if (!categories[label]) categories[label] = [];
+        categories[label].push(d);
       }
     });
   });
   if (total === 0) return null;
   var order = ['1機目', '2機目', '3機目'];
   var byTiming = order.filter(function (l) { return categories[l]; }).map(function (l) {
-    var cat = categories[l];
+    var ms = categories[l];
     return {
       label: l,
-      count: cat.count,
-      rate: round1(cat.count / totalActivations * 100),
-      matches: cat.matches.length,
-      win_rate: cat.matches.length ? round1(jsWinRate(cat.matches)) : 0,
+      count: ms.length,
+      rate: round1(ms.length / total * 100),
+      win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
     };
   });
   var tips = [];
   var pre = categories['1機目'];
   var post = categories['2機目'];
-  if (pre && post && pre.matches.length >= 3 && post.matches.length >= 3) {
-    var diff = jsWinRate(pre.matches) - jsWinRate(post.matches);
+  if (pre && post && pre.length >= 3 && post.length >= 3) {
+    var diff = jsWinRate(pre) - jsWinRate(post);
     if (diff >= 5) {
       tips.push('1機目に覚醒できた試合の勝率が **' + Math.round(diff) + '%** 高い → 1機目の覚醒を意識しよう');
     }
   }
   return {
     total: total,
-    activations: totalActivations,
     by_timing: byTiming,
     tips: tips,
   };
