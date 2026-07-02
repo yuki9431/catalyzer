@@ -877,15 +877,9 @@ function BurstPane({ msStats, selectedMs, frontendData }) {
   var typeItems = burstType && burstType.by_type
     ? burstType.by_type.map(function (t) { return { label: t.label, matches: t.matches, win_rate: t.win_rate }; })
     : [];
-  var timingItems = [];
-  if (burstTiming) {
-    if (burstTiming.immediate && burstTiming.immediate.count > 0) {
-      timingItems.push({ label: '即発動（5秒以内）', matches: burstTiming.immediate.count, win_rate: burstTiming.immediate.win_rate });
-    }
-    if (burstTiming.delayed && burstTiming.delayed.count > 0) {
-      timingItems.push({ label: '遅延発動（5秒超）', matches: burstTiming.delayed.count, win_rate: burstTiming.delayed.win_rate });
-    }
-  }
+  var timingItems = burstTiming && burstTiming.by_timing
+    ? burstTiming.by_timing.map(function (t) { return { label: t.label, matches: t.matches, win_rate: t.win_rate }; })
+    : [];
 
   return html`<div class="tabpane">
     ${countItems.length > 0 && html`<${Panel} title="覚醒回数と勝率">

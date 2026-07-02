@@ -28,12 +28,6 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function round3(n) { return Math.round(n * 1000) / 1000; }
 
 function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0; }
-function jsMedian(arr) {
-  if (!arr.length) return 0;
-  var s = arr.slice().sort(function (a, b) { return a - b; });
-  var mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
 function jsWinsLosses(ms) { var w = ms.filter(function (m) { return m.win; }).length; return [w, ms.length - w]; }
 function jsKdRatio(ms) { var k = 0, d = 0; ms.forEach(function (m) { k += m.kills; d += m.deaths; }); return d > 0 ? k / d : 0; }
 function jsAvgBursts(ms) {
@@ -752,66 +746,62 @@ export function computeFallOrder(matches) {
   };
 }
 
-// 覚醒ゲージMAX（ex）から発動（exbst-*）までの遅延時間を分析する。
-// 5秒以内で発動した「即発動」の試合と、それより遅い「遅延発動」の試合で勝率を比較する。
-export var BURST_IMMEDIATE_SEC = 5;
-
+// 覚醒発動時の被撃墜数で分類する。1落ち前に覚醒できた試合ほど勝率が高い傾向がある。
 export function computeBurstTiming(matches) {
-  var allDelays = [];
-  var immediate = [], delayed = [];
+  var categories = {};
+  var total = 0;
+  var totalActivations = 0;
   matches.forEach(function (d) {
     if (!d.actions || !d.actions.length) return;
-    var exReadies = jsGetExReadyEvents(d.actions).slice()
-      .sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
     var bursts = jsGetBurstEvents(d.actions).slice()
       .sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
-    if (!exReadies.length || !bursts.length) return;
-    // ex を発生順に見て、それ以降で未使用の最初の exbst-* と対応付ける（1試合中の複数覚醒に対応）。
-    var used = {};
-    var delays = [];
-    exReadies.forEach(function (ex) {
-      for (var i = 0; i < bursts.length; i++) {
-        if (used[i]) continue;
-        if (bursts[i].action_start_sec >= ex.action_start_sec) {
-          used[i] = true;
-          delays.push(bursts[i].action_start_sec - ex.action_start_sec);
-          break;
-        }
+    var deaths = jsGetDeathEvents(d.actions).slice()
+      .sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
+    if (!bursts.length) return;
+    total++;
+    var seen = {};
+    bursts.forEach(function (burst) {
+      var deathsBefore = 0;
+      for (var i = 0; i < deaths.length; i++) {
+        if (deaths[i].action_start_sec < burst.action_start_sec) deathsBefore++;
+        else break;
+      }
+      var label = deathsBefore === 0 ? '1落ち前'
+        : deathsBefore === 1 ? '1落ち後' : '2落ち後';
+      if (!categories[label]) categories[label] = { count: 0, matches: [] };
+      categories[label].count++;
+      totalActivations++;
+      if (!seen[label]) {
+        seen[label] = true;
+        categories[label].matches.push(d);
       }
     });
-    if (!delays.length) return;
-    delays.forEach(function (dl) { allDelays.push(dl); });
-    if (jsAvg(delays) <= BURST_IMMEDIATE_SEC) immediate.push(d);
-    else delayed.push(d);
   });
-  var total = immediate.length + delayed.length;
   if (total === 0) return null;
-  function buildStats(ms) {
+  var order = ['1落ち前', '1落ち後', '2落ち後'];
+  var byTiming = order.filter(function (l) { return categories[l]; }).map(function (l) {
+    var cat = categories[l];
     return {
-      count: ms.length,
-      rate: round1(ms.length / total * 100),
-      win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
+      label: l,
+      count: cat.count,
+      rate: round1(cat.count / totalActivations * 100),
+      matches: cat.matches.length,
+      win_rate: cat.matches.length ? round1(jsWinRate(cat.matches)) : 0,
     };
-  }
-  var avg = round1(jsAvg(allDelays));
-  var median = round1(jsMedian(allDelays));
+  });
   var tips = [];
-  if (immediate.length && delayed.length) {
-    var diff = jsWinRate(immediate) - jsWinRate(delayed);
+  var pre = categories['1落ち前'];
+  var post = categories['1落ち後'];
+  if (pre && post && pre.matches.length >= 3 && post.matches.length >= 3) {
+    var diff = jsWinRate(pre.matches) - jsWinRate(post.matches);
     if (diff >= 5) {
-      tips.push('即発動（' + BURST_IMMEDIATE_SEC + '秒以内）の試合の方が勝率 **' + Math.round(diff) + '%** 高い → ゲージが溜まったら早めに覚醒を');
+      tips.push('1落ち前に覚醒できた試合の勝率が **' + Math.round(diff) + '%** 高い → 1落ち前の覚醒を意識しよう');
     }
-  }
-  if (avg > BURST_IMMEDIATE_SEC + 3) {
-    tips.push('覚醒発動までの平均遅延が **' + avg + '秒** → タイミングを意識して早めに発動しよう');
   }
   return {
     total: total,
-    activations: allDelays.length,
-    avg: avg,
-    median: median,
-    immediate: buildStats(immediate),
-    delayed: buildStats(delayed),
+    activations: totalActivations,
+    by_timing: byTiming,
     tips: tips,
   };
 }

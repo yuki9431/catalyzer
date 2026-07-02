@@ -441,13 +441,13 @@ describe('computeFallOrder', function () {
 // --- computeBurstTiming ---
 
 describe('computeBurstTiming', function () {
-  it('classifies an immediate activation (<=5s)', function () {
+  it('classifies burst before first death as 1落ち前', function () {
     var matches = [
       makeMatch({
         win: true,
         actions: [
-          { action: 'ex', action_start_sec: 30 },
-          { action: 'exbst-f', action_start_sec: 33 },
+          { action: 'exbst-f', action_start_sec: 30 },
+          { action: 'death', action_start_sec: 60 },
         ],
       }),
     ];
@@ -455,48 +455,66 @@ describe('computeBurstTiming', function () {
     assert.ok(result);
     assert.equal(result.total, 1);
     assert.equal(result.activations, 1);
-    assert.equal(result.avg, 3);
-    assert.equal(result.median, 3);
-    assert.equal(result.immediate.count, 1);
-    assert.equal(result.delayed.count, 0);
+    var pre = result.by_timing.find(function (t) { return t.label === '1落ち前'; });
+    assert.ok(pre);
+    assert.equal(pre.count, 1);
+    assert.equal(pre.matches, 1);
   });
 
-  it('classifies a delayed activation (>5s)', function () {
+  it('classifies burst after first death as 1落ち後', function () {
     var matches = [
       makeMatch({
         actions: [
-          { action: 'ex', action_start_sec: 30 },
-          { action: 'exbst-s', action_start_sec: 42 },
+          { action: 'death', action_start_sec: 30 },
+          { action: 'exbst-s', action_start_sec: 50 },
         ],
       }),
     ];
     var result = computeBurstTiming(matches);
     assert.ok(result);
-    assert.equal(result.avg, 12);
-    assert.equal(result.immediate.count, 0);
-    assert.equal(result.delayed.count, 1);
+    var post = result.by_timing.find(function (t) { return t.label === '1落ち後'; });
+    assert.ok(post);
+    assert.equal(post.count, 1);
   });
 
-  it('pairs multiple ex/burst events in a match', function () {
+  it('handles multiple bursts across deaths in one match', function () {
     var matches = [
       makeMatch({
         actions: [
-          { action: 'ex', action_start_sec: 20 },
-          { action: 'exbst-f', action_start_sec: 24 },
-          { action: 'ex', action_start_sec: 60 },
-          { action: 'exbst-e', action_start_sec: 66 },
+          { action: 'exbst-f', action_start_sec: 20 },
+          { action: 'death', action_start_sec: 40 },
+          { action: 'exbst-e', action_start_sec: 60 },
         ],
       }),
     ];
     var result = computeBurstTiming(matches);
     assert.ok(result);
     assert.equal(result.activations, 2);
-    assert.equal(result.avg, 5);
-    assert.equal(result.median, 5);
+    var pre = result.by_timing.find(function (t) { return t.label === '1落ち前'; });
+    var post = result.by_timing.find(function (t) { return t.label === '1落ち後'; });
+    assert.equal(pre.count, 1);
+    assert.equal(post.count, 1);
   });
 
-  it('returns null when there is no ex or burst data', function () {
-    var matches = [makeMatch({ actions: [{ action: 'ex', action_start_sec: 30 }] })];
+  it('classifies burst after 2 deaths as 2落ち後', function () {
+    var matches = [
+      makeMatch({
+        actions: [
+          { action: 'death', action_start_sec: 20 },
+          { action: 'death', action_start_sec: 40 },
+          { action: 'exbst-f', action_start_sec: 50 },
+        ],
+      }),
+    ];
+    var result = computeBurstTiming(matches);
+    assert.ok(result);
+    var post2 = result.by_timing.find(function (t) { return t.label === '2落ち後'; });
+    assert.ok(post2);
+    assert.equal(post2.count, 1);
+  });
+
+  it('returns null when there are no burst events', function () {
+    var matches = [makeMatch({ actions: [{ action: 'death', action_start_sec: 30 }] })];
     assert.equal(computeBurstTiming(matches), null);
   });
 });

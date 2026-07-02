@@ -87,34 +87,33 @@ export function aggregateBurstCount(msStats) {
 }
 
 export function aggregateBurstTiming(msStats) {
-  var immCount = 0, immWins = 0, delCount = 0, delWins = 0;
-  var delaySum = 0, medianSum = 0, activations = 0, total = 0;
+  var catMap = {};
+  var total = 0, totalActivations = 0;
   Object.keys(msStats).forEach(function (ms) {
     var bt = msStats[ms].burst_timing;
     if (!bt) return;
     total += bt.total || 0;
-    if (bt.immediate) {
-      immCount += bt.immediate.count || 0;
-      immWins += Math.round((bt.immediate.win_rate || 0) / 100 * (bt.immediate.count || 0));
-    }
-    if (bt.delayed) {
-      delCount += bt.delayed.count || 0;
-      delWins += Math.round((bt.delayed.win_rate || 0) / 100 * (bt.delayed.count || 0));
-    }
-    var acts = bt.activations || 0;
-    delaySum += (bt.avg || 0) * acts;
-    medianSum += (bt.median || 0) * acts;
-    activations += acts;
+    totalActivations += bt.activations || 0;
+    (bt.by_timing || []).forEach(function (t) {
+      if (!catMap[t.label]) catMap[t.label] = { label: t.label, count: 0, matches: 0, wins: 0 };
+      catMap[t.label].count += t.count || 0;
+      catMap[t.label].matches += t.matches || 0;
+      catMap[t.label].wins += Math.round((t.win_rate || 0) / 100 * (t.matches || 0));
+    });
   });
   if (total === 0) return null;
-  return {
-    total: total,
-    activations: activations,
-    avg: activations > 0 ? Math.round(delaySum / activations * 10) / 10 : 0,
-    median: activations > 0 ? Math.round(medianSum / activations * 10) / 10 : 0,
-    immediate: { count: immCount, rate: (immCount / total * 100).toFixed(1), win_rate: immCount > 0 ? immWins / immCount * 100 : 0 },
-    delayed: { count: delCount, rate: (delCount / total * 100).toFixed(1), win_rate: delCount > 0 ? delWins / delCount * 100 : 0 },
-  };
+  var order = ['1落ち前', '1落ち後', '2落ち後'];
+  var byTiming = order.filter(function (l) { return catMap[l]; }).map(function (l) {
+    var c = catMap[l];
+    return {
+      label: c.label,
+      count: c.count,
+      rate: (c.count / totalActivations * 100).toFixed(1),
+      matches: c.matches,
+      win_rate: c.matches > 0 ? c.wins / c.matches * 100 : 0,
+    };
+  });
+  return { total: total, activations: totalActivations, by_timing: byTiming };
 }
 
 export function aggregateBurstType(msStats) {
