@@ -1,6 +1,7 @@
 {
   "name": "catalyzer",
   "short_name": "catalyzer",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
