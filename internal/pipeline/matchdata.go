@@ -94,6 +94,10 @@ func buildActions(timeline *model.MatchTimeline, group string) []ActionJSON {
 func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Time) []MatchData {
 	groups := make(map[string][]model.DatedScore)
 	for _, d := range ds {
+		// afterフィルタ。GetMatchData経由ではLoadScoresAfterがFirestore側で
+		// datetime > after に絞るためここは冗長だが、全量LoadScores経路や
+		// 他呼び出し元からの安全網として残す。境界はLoadScoresAfterの `>` と
+		// 揃えて厳密なAfter（>）とする——ここを >= に緩めると両者が食い違う。
 		if !after.IsZero() && !d.Datetime.After(after) {
 			continue
 		}
