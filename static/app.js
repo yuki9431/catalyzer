@@ -1167,6 +1167,9 @@ function Report({ data, userKey }) {
     var shareItems = computeShareData(periodFiltered);
     var filtered = periodFiltered;
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
+    // 勝敗レンズ: 選択時はレポート全体を勝ち/負け試合のみに絞る（MS一覧・共有データは母集団のまま）
+    if (lens === 'win') filtered = filtered.filter(function (m) { return m.win; });
+    else if (lens === 'loss') filtered = filtered.filter(function (m) { return !m.win; });
     if (!filtered.length) return { ms_summary: msSummary, share_data: shareItems };
     return {
       ms_summary: msSummary,
@@ -1189,7 +1192,7 @@ function Report({ data, userKey }) {
       burst_type: computeBurstType(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
-  }, [allMatches, selectedPeriod, selectedMs, tagPartners, customRange]);
+  }, [allMatches, selectedPeriod, selectedMs, lens, tagPartners, customRange]);
 
   var msStats = (frontendData && frontendData.ms_summary) || {};
   var msEntries = useMemo(function () {
