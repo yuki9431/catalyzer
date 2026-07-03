@@ -76,13 +76,12 @@ export function TeamDeathsImpactSection({ teamDeaths }) {
     ${teamDeaths.groups.map(function (g) {
       var rows = (g.partners || []).map(function (p) {
         return [p.partner_label, p.matches + '戦', colorPct(p.win_rate)];
-      });
+      }).concat([['全体', g.matches + '戦', colorPct(g.win_rate)]]);
       return html`<div>
-        <h3>自分${g.self_label}（${g.matches}戦 ${pct(g.win_rate)}）</h3>
-        <${Table} headers=${['相方被撃墜', '試合数', '勝率']} rows=${rows} />
+        <h3>自機${g.self_label}</h3>
+        <${Table} headers=${['僚機被撃墜', '試合数', '勝率']} rows=${rows} />
       </div>`;
     })}
-    <${Tips} tips=${teamDeaths.tips} />
   </div>`;
 }
 
@@ -535,6 +534,66 @@ export function DmgContributionChart({ dmg }) {
   }, [dmg, inView]);
 
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
+
+// 勝率のdivergingヒートカラー。50%を境に緑(高勝率)/赤(低勝率)へ濃度を上げる。
+// 他グラフの「≥60緑 / <50赤」の警告色ルールと統一しつつ、連続グラデーションにする。
+function heatColor(wr) {
+  if (wr >= 50) {
+    var tGood = (wr - 50) / 50;
+    return 'rgba(76,175,80,' + (0.15 + 0.7 * tGood).toFixed(3) + ')';
+  }
+  var tBad = (50 - wr) / 50;
+  return 'rgba(239,83,80,' + (0.15 + 0.7 * tBad).toFixed(3) + ')';
+}
+
+export function TeamDeathsHeatmap({ teamDeaths }) {
+  var groups = (teamDeaths && teamDeaths.groups) || [];
+  if (!groups.length) return null;
+
+  // matrix[self][partner] = {win_rate, matches}
+  var matrix = {};
+  var partnerLabels = {};
+  groups.forEach(function (g) {
+    matrix[g.self] = {};
+    (g.partners || []).forEach(function (p) {
+      partnerLabels[p.partner] = p.partner_label;
+      matrix[g.self][p.partner] = { win_rate: p.win_rate, matches: p.matches };
+    });
+  });
+  var partnerKeys = Object.keys(partnerLabels).map(Number).sort(function (a, b) { return a - b; });
+
+  return html`<div class="heatmap-wrap">
+    <div class="table-wrap"><table class="heatmap">
+      <thead><tr>
+        <th>自機＼僚機</th>
+        ${partnerKeys.map(function (pk) { return html`<th>僚機${partnerLabels[pk]}</th>`; })}
+      </tr></thead>
+      <tbody>
+        ${groups.map(function (g) {
+          return html`<tr>
+            <th>自機${g.self_label}</th>
+            ${partnerKeys.map(function (pk) {
+              var cell = matrix[g.self][pk];
+              if (!cell) {
+                return html`<td class="heatmap-cell heatmap-cell-empty">−</td>`;
+              }
+              var title = '自機' + g.self_label + '×僚機' + partnerLabels[pk] + ': 勝率' + cell.win_rate + '% (' + cell.matches + '戦)';
+              return html`<td class="heatmap-cell" style=${'background:' + heatColor(cell.win_rate) + ';'} title=${title}>
+                <div class="heatmap-wr">${cell.win_rate}%</div>
+                <div class="heatmap-matches">${cell.matches}戦</div>
+              </td>`;
+            })}
+          </tr>`;
+        })}
+      </tbody>
+    </table></div>
+    <div class="heatmap-legend">
+      <span>勝率 低</span>
+      <span class="heatmap-legend-bar"></span>
+      <span>高</span>
+    </div>
+  </div>`;
 }
 
 // --- Fall order / Burst before death ---
