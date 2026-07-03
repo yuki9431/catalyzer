@@ -3,10 +3,18 @@ name: Build
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "infra/app/Pulumi.*.yaml"
-      - ".github/workflows/deploy.yml"
-      - ".github/workflows/deploy-prod.yml"
+    # Dockerfile が実際にイメージへ取り込むパスだけをトリガーにする。
+    # workflow/docs/infra/Makefile 等の変更ではイメージが変わらないためデプロイを走らせない。
+    # （追加漏れはデプロイ漏れになるため、Dockerfile の COPY 対象と厳密に対応させること）
+    paths:
+      - "Dockerfile"
+      - "go.mod"
+      - "go.sum"
+      - "cmd/**"
+      - "internal/**"
+      - "static/**"
+      - "data/ms_list.json"
+      - "data/grade_list.json"
   workflow_dispatch:
 
 jobs:
