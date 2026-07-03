@@ -31,7 +31,6 @@ jobs:
       - name: Get stg image and set to prod
         working-directory: infra/app
         run: |
-          npm install -g @pulumi/pulumi 2>/dev/null || true
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
 
           pulumi stack select stg

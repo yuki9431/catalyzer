@@ -91,7 +91,6 @@ jobs:
       - name: Update Pulumi config with new image
         working-directory: infra/app
         run: |
-          npm install -g @pulumi/pulumi 2>/dev/null || true
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
           pulumi stack select stg
           pulumi config set exvs-app:image "$IMAGE" --secret

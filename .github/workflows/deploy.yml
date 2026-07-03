@@ -80,7 +80,6 @@ jobs:
       - name: Deploy with Pulumi
         working-directory: infra/app
         run: |
-          npm install -g @pulumi/pulumi 2>/dev/null || true
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
           pulumi stack select "${{ matrix.environment }}"
-          pulumi up --yes
+          pulumi up --yes --skip-preview
