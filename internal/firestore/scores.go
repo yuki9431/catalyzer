@@ -127,6 +127,36 @@ func LoadScores(userKey string) (model.DatedScores, error) {
 		return nil, fmt.Errorf("query matches: %w", err)
 	}
 
+	return docsToScores(docs), nil
+}
+
+// LoadScoresAfter はFirestoreからユーザーのafterより後（>）のmatchesのみ読み取り、
+// datetime昇順のDatedScoresで返す。差分取得用に全量読み取りを避けるためのクエリレベルフィルタ。
+// 境界はBuildMatchDataのメモリフィルタ（Datetime.After(after)）と揃えて厳密な `>` とする。
+func LoadScoresAfter(userKey string, after time.Time) (model.DatedScores, error) {
+	c := getClient()
+	if c == nil {
+		return nil, fmt.Errorf("firestore client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), loadScoresTimeout)
+	defer cancel()
+
+	userRef := c.Collection("users").Doc(userKey)
+	docs, err := userRef.Collection("matches").
+		Where("datetime", ">", after).
+		OrderBy("datetime", firestore.Asc).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("query matches after %s: %w", after.Format(time.RFC3339), err)
+	}
+
+	return docsToScores(docs), nil
+}
+
+// docsToScores はmatchesドキュメント群をDatedScoresに変換する。
+// 各試合のMatchTimelineはPlayerNo==1のDatedScoreにセットされる。
+func docsToScores(docs []*firestore.DocumentSnapshot) model.DatedScores {
 	scores := make(model.DatedScores, 0, len(docs)*4)
 	for _, doc := range docs {
 		var md matchDoc
@@ -171,7 +201,7 @@ func LoadScores(userKey string) (model.DatedScores, error) {
 		}
 	}
 
-	return scores, nil
+	return scores
 }
 
 // GetLatestDatetime はFirestoreからユーザーの最新試合日時を取得する。

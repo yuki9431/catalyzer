@@ -168,8 +168,16 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 }
 
 // GetMatchData はFirestoreからscoresを読み取り、フロントエンド向けの試合データを返す。
+// afterが非ゼロの場合はFirestoreクエリレベルで差分（datetime > after）のみ読み取り、
+// 全量読み取りによるレイテンシと読み取りコストを避ける。
 func GetMatchData(userKey string, after time.Time) ([]MatchData, error) {
-	scores, err := fs.LoadScores(userKey)
+	var scores model.DatedScores
+	var err error
+	if after.IsZero() {
+		scores, err = fs.LoadScores(userKey)
+	} else {
+		scores, err = fs.LoadScoresAfter(userKey, after)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("load scores: %w", err)
 	}
