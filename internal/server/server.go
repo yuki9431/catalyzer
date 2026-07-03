@@ -268,6 +268,12 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 
 	snap := j.Snapshot()
 
+	// キャンセル済み（ログアウト等で中断）は結果がない終端状態。ポーラーが確定応答を得られるようにする
+	if snap.Status == model.StatusCancelled {
+		sendJSON(w, http.StatusOK, map[string]string{"status": string(model.StatusCancelled)})
+		return
+	}
+
 	if snap.Status != model.StatusDone && snap.Status != model.StatusError {
 		if snap.PreliminaryReport != "" {
 			sendMatchesResponse(w, http.StatusOK, snap.PreliminaryReport, string(snap.Status), snap.UserKey, true)

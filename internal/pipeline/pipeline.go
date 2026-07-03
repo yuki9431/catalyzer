@@ -248,8 +248,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	usingSession := j.SavedJar != nil
 
 	datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scrapingOpt)
-	// ログアウト等でキャンセルされた場合は、途中データやセッションを一切保存せず中断する
-	if errors.Is(err, scraper.ErrCanceled) {
+	// ログアウト等でキャンセルされた場合は、途中データやセッションを一切保存せず中断する。
+	// スクレイピングが成功して返った直後や、ログイン/日別ページ収集の早期エラーが
+	// ログアウトと競合した場合でも、ctxがキャンセル済みなら error/403 と誤判定せず中断する
+	// （セッション再保存や403ブロックの誤発動を防ぐ）
+	if errors.Is(err, scraper.ErrCanceled) || (j.ctx != nil && j.ctx.Err() != nil) {
 		markCancelled(j)
 		return
 	}

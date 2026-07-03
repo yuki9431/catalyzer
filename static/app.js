@@ -1017,6 +1017,8 @@ async function reanalyzeWithSession() {
       if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
         if (prelimData.matches && prelimData.preliminary) {
           if (prelimData.user_key) {
             saveMatchesToDB(prelimData.user_key, prelimData.matches);
@@ -1042,6 +1044,8 @@ async function reanalyzeWithSession() {
       if (statusData.status === 'done') {
         var resultRes = await fetch('/result/' + jobId);
         var resultData = await resultRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
         if (resultData.error) throw new Error(resultData.error);
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches);
@@ -1063,8 +1067,9 @@ async function logout() {
   // 実行中の分析ジョブがあればスクレイピングを中断し、ポーリングを停止する
   var jid = activeJobId;
   activeJobId = null;
+  // キャンセルは撃ちっぱなし（await しない）。/cancel が詰まってもセッション削除・UIリセットを止めない
   if (jid) {
-    try { await fetch('/cancel/' + jid, { method: 'POST' }); } catch (e) {}
+    try { fetch('/cancel/' + jid, { method: 'POST' }).catch(function () {}); } catch (e) {}
   }
   try {
     await fetch('/session', { method: 'DELETE' });
@@ -1416,6 +1421,8 @@ async function analyze() {
       if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
         if (prelimData.matches && prelimData.preliminary) {
           if (prelimData.user_key) {
             saveMatchesToDB(prelimData.user_key, prelimData.matches);
@@ -1436,6 +1443,8 @@ async function analyze() {
       if (statusData.status === 'done') {
         var resultRes = await fetch('/result/' + jobId);
         var resultData = await resultRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
 
         if (resultData.error) {
           throw new Error(resultData.error);
