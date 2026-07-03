@@ -40,6 +40,9 @@ var STATUS_MESSAGES = {
   error: 'エラーが発生しました',
 };
 
+// 実行中の分析ジョブID。ログアウト時にこのジョブのスクレイピングを中断し、ポーリングを停止するために使う
+var activeJobId = null;
+
 var PERIOD_KEYS = ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d'];
 
 // --- Calendar component ---
@@ -981,9 +984,12 @@ async function reanalyzeWithSession() {
     }
 
     var jobId = data.id;
+    activeJobId = jobId;
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
+      // ログアウト等でジョブが中断/切り替わった場合はポーリングを停止する
+      if (activeJobId !== jobId) return;
 
       var statusRes = await fetch('/status/' + jobId);
       var statusData = await statusRes.json();
@@ -1016,6 +1022,8 @@ async function reanalyzeWithSession() {
       if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
         if (prelimData.matches && prelimData.preliminary) {
           if (prelimData.user_key) {
             saveMatchesToDB(prelimData.user_key, prelimData.matches);
@@ -1025,6 +1033,8 @@ async function reanalyzeWithSession() {
           lastPreliminaryVersion = statusData.preliminary_version;
         }
       }
+
+      if (statusData.status === 'cancelled') return;
 
       if (statusData.status === 'error') {
         if (statusData.error && statusData.error.indexOf('セッション') >= 0) {
@@ -1039,6 +1049,8 @@ async function reanalyzeWithSession() {
       if (statusData.status === 'done') {
         var resultRes = await fetch('/result/' + jobId);
         var resultData = await resultRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
         if (resultData.error) throw new Error(resultData.error);
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches);
@@ -1051,11 +1063,19 @@ async function reanalyzeWithSession() {
     error.style.display = 'block';
     error.textContent = e.message;
   } finally {
+    if (activeJobId === jobId) activeJobId = null;
     status.style.display = 'none';
   }
 }
 
 async function logout() {
+  // 実行中の分析ジョブがあればスクレイピングを中断し、ポーリングを停止する
+  var jid = activeJobId;
+  activeJobId = null;
+  // キャンセルは撃ちっぱなし（await しない）。/cancel が詰まってもセッション削除・UIリセットを止めない
+  if (jid) {
+    try { fetch('/cancel/' + jid, { method: 'POST' }).catch(function () {}); } catch (e) {}
+  }
   try {
     await fetch('/session', { method: 'DELETE' });
   } catch (e) {}
@@ -1367,9 +1387,12 @@ async function analyze() {
     }
 
     var jobId = data.id;
+    activeJobId = jobId;
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
+      // ログアウト等でジョブが中断/切り替わった場合はポーリングを停止する
+      if (activeJobId !== jobId) return;
 
       var statusRes = await fetch('/status/' + jobId);
       var statusData = await statusRes.json();
@@ -1403,6 +1426,8 @@ async function analyze() {
       if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
         var prelimRes = await fetch('/result/' + jobId);
         var prelimData = await prelimRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
         if (prelimData.matches && prelimData.preliminary) {
           if (prelimData.user_key) {
             saveMatchesToDB(prelimData.user_key, prelimData.matches);
@@ -1414,6 +1439,8 @@ async function analyze() {
         }
       }
 
+      if (statusData.status === 'cancelled') return;
+
       if (statusData.status === 'error') {
         throw new Error(statusData.error || '分析に失敗しました');
       }
@@ -1421,6 +1448,8 @@ async function analyze() {
       if (statusData.status === 'done') {
         var resultRes = await fetch('/result/' + jobId);
         var resultData = await resultRes.json();
+        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+        if (activeJobId !== jobId) return;
 
         if (resultData.error) {
           throw new Error(resultData.error);
@@ -1455,6 +1484,7 @@ async function analyze() {
     }
     document.getElementById('loginForm').style.display = 'block';
   } finally {
+    if (activeJobId === jobId) activeJobId = null;
     btn.disabled = false;
     status.style.display = 'none';
   }

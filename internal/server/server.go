@@ -192,6 +192,21 @@ func StartServer() {
 		sendJSON(w, http.StatusOK, resp)
 	})
 
+	// POST /cancel/{id} → 実行中のジョブ（スクレイピング）を中断する（ログアウト時などに使用）
+	http.HandleFunc("/cancel/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		id := r.URL.Path[len("/cancel/"):]
+		if id == "" {
+			sendJSON(w, http.StatusBadRequest, map[string]string{"error": "Job id is required"})
+			return
+		}
+		pipeline.CancelJob(id)
+		sendJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+	})
+
 	// GET /result/{id} → 分析結果(JSON)を返す
 	http.HandleFunc("/result/", func(w http.ResponseWriter, r *http.Request) {
 		handleResult(w, r, r.URL.Path[len("/result/"):])
@@ -252,6 +267,12 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	snap := j.Snapshot()
+
+	// キャンセル済み（ログアウト等で中断）は結果がない終端状態。ポーラーが確定応答を得られるようにする
+	if snap.Status == model.StatusCancelled {
+		sendJSON(w, http.StatusOK, map[string]string{"status": string(model.StatusCancelled)})
+		return
+	}
 
 	if snap.Status != model.StatusDone && snap.Status != model.StatusError {
 		if snap.PreliminaryReport != "" {

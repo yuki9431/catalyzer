@@ -89,6 +89,9 @@ var ErrNotFound = errors.New("ページが見つかりません")
 // ErrHTTPRequestFailed はHTTPリクエストが失敗した場合のエラー
 var ErrHTTPRequestFailed = errors.New("データ取得中にHTTPエラーが発生しました")
 
+// ErrCanceled は呼び出し元のContextキャンセル（ログアウト等）で処理を中断した場合のエラー
+var ErrCanceled = errors.New("処理がキャンセルされました")
+
 // dailyLink はrankpageから収集した日別ページ情報
 type dailyLink struct {
 	date     string
@@ -136,6 +139,7 @@ type ScrapingOption struct {
 	FirstBatchSize int                            // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
 	OnLoginSuccess func()                         // ログイン成功直後に1度だけ呼ばれる
 	SavedJar       http.CookieJar                 // 保存済みCookieJar。非nilの場合はログインをスキップ
+	Context        context.Context                // 呼び出し元のContext。キャンセルでスクレイピングを中断する。nilならBackground
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -161,6 +165,16 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		}
 	}
 
+	// 呼び出し元Context（ログアウト等のキャンセル用）。未指定ならBackground
+	parent := opt.Context
+	if parent == nil {
+		parent = context.Background()
+	}
+	// 開始前に既にキャンセル済みなら何もしない
+	if parent.Err() != nil {
+		return nil, nil, ErrCanceled
+	}
+
 	var jar http.CookieJar
 	if opt.SavedJar != nil {
 		jar = opt.SavedJar
@@ -173,6 +187,10 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 	}
 	if opt.OnLoginSuccess != nil {
 		opt.OnLoginSuccess()
+	}
+	// ログイン中にキャンセルされた場合はここで中断
+	if parent.Err() != nil {
+		return nil, nil, ErrCanceled
 	}
 
 	// Phase 1: rankpageから日別ページURLを収集
@@ -193,8 +211,9 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 		dailyLinks = filtered
 	}
 
-	// 403検出時に全処理を即座に打ち切るためのcontext
-	ctx, cancel := context.WithCancel(context.Background())
+	// 403検出時に全処理を即座に打ち切るためのcontext。呼び出し元Contextを親にすることで、
+	// ログアウト等の外部キャンセルでもスクレイピングが即座に停止する
+	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
 	// Phase 2+3: 日別ページ収集→詳細ページ取得をパイプラインで並行実行
@@ -208,6 +227,13 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 	}()
 
 	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
+
+	// 呼び出し元Contextのキャンセル（ログアウト等）を最優先で判定する。
+	// 内部の403キャンセル（子ctx）とは異なり親ctxが完了しているため区別できる。
+	// この場合は途中データを保存せず、403ブロックも発動させない
+	if parent.Err() != nil {
+		return nil, nil, ErrCanceled
+	}
 
 	// 403の場合は途中データがあればエラーと一緒に返す（呼び出し元で途中保存できるようにする）
 	if streamErr != nil || detailErr != nil {

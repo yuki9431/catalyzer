@@ -74,10 +74,11 @@ type TagPartner struct {
 type JobStatus string
 
 const (
-	StatusPending  JobStatus = "pending"
-	StatusScraping JobStatus = "scraping"
-	StatusDone     JobStatus = "done"
-	StatusError    JobStatus = "error"
+	StatusPending   JobStatus = "pending"
+	StatusScraping  JobStatus = "scraping"
+	StatusDone      JobStatus = "done"
+	StatusError     JobStatus = "error"
+	StatusCancelled JobStatus = "cancelled" // ログアウト等でユーザーが処理を中断した状態
 )
 
 // JobSnapshot はジョブ状態のスナップショット
