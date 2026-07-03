@@ -536,77 +536,64 @@ export function DmgContributionChart({ dmg }) {
   return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
-// 僚機被撃墜バケット別の系列色。他グラフ(水色#81d4fa基調)と揃えた青系グラデ。
-// 緑↔赤の警告色は勝率ヒートマップと誤読されるため避け、寒色の濃さで僚機被撃墜数を表す。
-var TEAM_DEATHS_PARTNER_COLORS = ['#81d4fa', '#4fc3f7', '#29b6f6', '#0288d1'];
+// 勝率のdivergingヒートカラー。50%を境に緑(高勝率)/赤(低勝率)へ濃度を上げる。
+// 他グラフの「≥60緑 / <50赤」の警告色ルールと統一しつつ、連続グラデーションにする。
+function heatColor(wr) {
+  if (wr >= 50) {
+    var tGood = (wr - 50) / 50;
+    return 'rgba(76,175,80,' + (0.15 + 0.7 * tGood).toFixed(3) + ')';
+  }
+  var tBad = (50 - wr) / 50;
+  return 'rgba(239,83,80,' + (0.15 + 0.7 * tBad).toFixed(3) + ')';
+}
 
-export function TeamDeathsChart({ teamDeaths }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
+export function TeamDeathsHeatmap({ teamDeaths }) {
   var groups = (teamDeaths && teamDeaths.groups) || [];
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !groups.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-
-    // matrix[self][partner] = {win_rate, matches}。ツールチップの試合数表示に使う
-    var matrix = {};
-    var partnerLabels = {};
-    groups.forEach(function (g) {
-      matrix[g.self] = {};
-      (g.partners || []).forEach(function (p) {
-        partnerLabels[p.partner] = p.partner_label;
-        matrix[g.self][p.partner] = { win_rate: p.win_rate, matches: p.matches };
-      });
-    });
-    var partnerKeys = Object.keys(partnerLabels).map(Number).sort(function (a, b) { return a - b; });
-    var labels = groups.map(function (g) { return '自機' + g.self_label; });
-
-    var datasets = partnerKeys.map(function (pk) {
-      return {
-        label: '僚機' + partnerLabels[pk],
-        data: groups.map(function (g) {
-          var cell = matrix[g.self][pk];
-          return cell ? cell.win_rate : null;
-        }),
-        backgroundColor: TEAM_DEATHS_PARTNER_COLORS[pk] || '#9e9e9e',
-        borderWidth: 0,
-        _partnerKey: pk,
-      };
-    });
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: { labels: labels, datasets: datasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { labels: { color: '#aaa', font: { size: 12 } } },
-          tooltip: {
-            callbacks: {
-              label: function (ctx) {
-                var g = groups[ctx.dataIndex];
-                var cell = matrix[g.self][ctx.dataset._partnerKey];
-                if (!cell) return '';
-                return ctx.dataset.label + ': 勝率 ' + cell.win_rate + '% (' + cell.matches + '戦)';
-              },
-            },
-          },
-        },
-        scales: {
-          x: { ticks: { color: '#888', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-          y: { min: 0, max: 100, ticks: { color: '#aaa', callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.08)' } },
-        },
-      },
-      plugins: [winRate50Plugin],
-    });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [teamDeaths, inView]);
-
   if (!groups.length) return null;
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+
+  // matrix[self][partner] = {win_rate, matches}
+  var matrix = {};
+  var partnerLabels = {};
+  groups.forEach(function (g) {
+    matrix[g.self] = {};
+    (g.partners || []).forEach(function (p) {
+      partnerLabels[p.partner] = p.partner_label;
+      matrix[g.self][p.partner] = { win_rate: p.win_rate, matches: p.matches };
+    });
+  });
+  var partnerKeys = Object.keys(partnerLabels).map(Number).sort(function (a, b) { return a - b; });
+
+  return html`<div class="heatmap-wrap">
+    <div class="table-wrap"><table class="heatmap">
+      <thead><tr>
+        <th>自機＼僚機</th>
+        ${partnerKeys.map(function (pk) { return html`<th>僚機${partnerLabels[pk]}</th>`; })}
+      </tr></thead>
+      <tbody>
+        ${groups.map(function (g) {
+          return html`<tr>
+            <th>自機${g.self_label}</th>
+            ${partnerKeys.map(function (pk) {
+              var cell = matrix[g.self][pk];
+              if (!cell) {
+                return html`<td class="heatmap-cell heatmap-cell-empty">−</td>`;
+              }
+              var title = '自機' + g.self_label + '×僚機' + partnerLabels[pk] + ': 勝率' + cell.win_rate + '% (' + cell.matches + '戦)';
+              return html`<td class="heatmap-cell" style=${'background:' + heatColor(cell.win_rate) + ';'} title=${title}>
+                <div class="heatmap-wr">${cell.win_rate}%</div>
+                <div class="heatmap-matches">${cell.matches}戦</div>
+              </td>`;
+            })}
+          </tr>`;
+        })}
+      </tbody>
+    </table></div>
+    <div class="heatmap-legend">
+      <span>勝率 低</span>
+      <span class="heatmap-legend-bar"></span>
+      <span>高</span>
+    </div>
+  </div>`;
 }
 
 // --- Fall order / Burst before death ---

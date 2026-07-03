@@ -200,6 +200,19 @@
     .show-more-btn { padding: 6px 16px; border: 1px solid var(--line); border-radius: 4px; background: #162029; color: var(--accent); font-size: 0.85em; cursor: pointer; transition: all 0.2s; width: auto; }
     .show-more-btn:hover { border-color: var(--accent); background: var(--panel-2); }
 
+    /* ===== Heatmap (被撃墜と勝率) ===== */
+    .heatmap-wrap { margin: 10px 0; }
+    .heatmap th, .heatmap td { text-align: center; white-space: nowrap; }
+    .heatmap thead th:first-child, .heatmap tbody th { text-align: right; }
+    .heatmap tbody th { color: var(--accent); font-weight: 600; }
+    .heatmap-cell { min-width: 72px; }
+    .heatmap-cell-empty { background: rgba(255,255,255,0.03); color: #666; }
+    .heatmap tbody tr:hover th { background: transparent; } /* 各セルが独立色のため行hoverハイライトは無効化 */
+    .heatmap-wr { font-size: 1.05em; font-weight: 600; color: #eee; }
+    .heatmap-matches { font-size: 0.78em; color: #aaa; margin-top: 2px; }
+    .heatmap-legend { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 0.82em; color: #aaa; }
+    .heatmap-legend-bar { display: inline-block; width: 120px; height: 10px; border-radius: 5px; background: linear-gradient(to right, rgba(239,83,80,0.85), rgba(255,255,255,0.08), rgba(76,175,80,0.85)); }
+
     /* ===== Charts ===== */
     .chart-container { position: relative; height: 300px; margin: 12px 0; }
     .chart-radar { max-width: 400px; margin: 0 auto; }

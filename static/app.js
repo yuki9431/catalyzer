@@ -24,7 +24,7 @@ import {
 import {
   useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
-  DmgContributionSubSection, TeamDeathsImpactSection, TeamDeathsChart,
+  DmgContributionSubSection, TeamDeathsImpactSection, TeamDeathsHeatmap,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
   FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
@@ -813,7 +813,7 @@ function PlaystylePane({ frontendData }) {
 
   return html`<div class="tabpane">
     ${teamDeaths && teamDeaths.groups.length > 0 && html`<${Panel} title="被撃墜と勝率（自機×僚機）">
-      <${TeamDeathsChart} teamDeaths=${teamDeaths} />
+      <${TeamDeathsHeatmap} teamDeaths=${teamDeaths} />
       <${TeamDeathsImpactSection} teamDeaths=${teamDeaths} />
     <//>`}
 
