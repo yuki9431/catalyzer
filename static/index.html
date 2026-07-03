@@ -60,7 +60,8 @@
     button:disabled { background: #333; color: #666; cursor: not-allowed; }
     .security-note { margin: 16px 0; padding: 12px; font-size: 0.8em; color: #aaa; line-height: 1.6; background: #162029; border-radius: 8px; border-left: 3px solid var(--accent); }
     .note { margin-top: 16px; font-size: 0.8em; color: #777; line-height: 1.6; }
-    .status { text-align: center; margin: 20px 0; color: #aaa; }
+    /* 分析中は pageTitle が隠れ #status が最上部要素になるため、上端の safe-area を自前で確保する */
+    .status { text-align: center; margin: calc(20px + env(safe-area-inset-top)) 0 20px; color: #aaa; }
     .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid #333; border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .progress-wrap { margin-top: 12px; max-width: 480px; margin-left: auto; margin-right: auto; }
