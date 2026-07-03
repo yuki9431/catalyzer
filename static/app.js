@@ -965,8 +965,13 @@ async function reanalyzeWithSession() {
       if (res.status === 401) {
         localStorage.removeItem('catalyzer_user_key');
         localStorage.removeItem('catalyzer_has_session');
+        // ログイン画面へ戻す。pageTitle(ロゴ)を復帰させ、その safe-area で上端の被りを防ぐ
+        var rep = document.getElementById('report');
+        if (rep) { render(null, rep); rep.style.display = 'none'; }
         var lf = document.getElementById('loginForm');
         if (lf) lf.style.display = 'block';
+        var t = document.getElementById('pageTitle');
+        if (t) t.style.display = '';
         error.style.display = 'block';
         error.textContent = data.error;
         status.style.display = 'none';
