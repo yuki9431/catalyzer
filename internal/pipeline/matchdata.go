@@ -94,6 +94,10 @@ func buildActions(timeline *model.MatchTimeline, group string) []ActionJSON {
 func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Time) []MatchData {
 	groups := make(map[string][]model.DatedScore)
 	for _, d := range ds {
+		// afterフィルタ。GetMatchData経由ではLoadScoresAfterがFirestore側で
+		// datetime > after に絞るためここは冗長だが、全量LoadScores経路や
+		// 他呼び出し元からの安全網として残す。境界はLoadScoresAfterの `>` と
+		// 揃えて厳密なAfter（>）とする——ここを >= に緩めると両者が食い違う。
 		if !after.IsZero() && !d.Datetime.After(after) {
 			continue
 		}
@@ -168,8 +172,16 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 }
 
 // GetMatchData はFirestoreからscoresを読み取り、フロントエンド向けの試合データを返す。
+// afterが非ゼロの場合はFirestoreクエリレベルで差分（datetime > after）のみ読み取り、
+// 全量読み取りによるレイテンシと読み取りコストを避ける。
 func GetMatchData(userKey string, after time.Time) ([]MatchData, error) {
-	scores, err := fs.LoadScores(userKey)
+	var scores model.DatedScores
+	var err error
+	if after.IsZero() {
+		scores, err = fs.LoadScores(userKey)
+	} else {
+		scores, err = fs.LoadScoresAfter(userKey, after)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("load scores: %w", err)
 	}
