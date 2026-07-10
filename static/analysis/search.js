@@ -16,14 +16,26 @@ export var SORT_OPTIONS = [
 // フィルタの初期値。UI側はこれを複製して状態の初期値に使う。
 export function emptyFilters() {
   return {
+    playDays: '',            // 期間プリセット（''=全データ / '1d','3d'... レポートと同じ直近プレイ日数）
     dateFrom: '', dateTo: '',
-    myMs: '', partnerMs: '', enemyMs: '',
-    playerName: '',          // 相方プレイヤー名の部分一致（曖昧検索）
+    myMsList: [],            // 自機（複数選択・OR）
+    partnerMsList: [],       // 僚機（複数選択・OR）
+    enemyMsList: [],         // 敵機（複数選択）
+    enemyMsMode: 'or',       // 'and'=相手編成に全部いる / 'or'=どれかいる
+    playerName: '',          // 相方・敵プレイヤー名の部分一致（曖昧検索）
+    myTagList: [],           // 味方タッグ名（複数選択・OR）
+    enemyTagName: '',        // 敵陣タッグ名の部分一致（曖昧検索）
     result: 'all',           // 'all' | 'win' | 'loss'
+    myCostList: [],          // 自機コスト（複数選択・OR）
+    partnerCostList: [],     // 僚機コスト（複数選択・OR）
+    enemyCostPairList: [],   // 相手コスト編成（複数選択・OR）
     dmgGivenMin: '', dmgGivenMax: '',
     dmgTakenMin: '', dmgTakenMax: '',
     killsMin: '', killsMax: '',
     deathsMin: '', deathsMax: '',
+    scoreMin: '', scoreMax: '',
+    exDmgMin: '', exDmgMax: '',
+    burstsMin: '', burstsMax: '',
   };
 }
 
@@ -31,9 +43,14 @@ export function emptyFilters() {
 export function hasActiveFilters(filters) {
   var f = filters || {};
   if (f.result && f.result !== 'all') return true;
-  var keys = ['dateFrom', 'dateTo', 'myMs', 'partnerMs', 'enemyMs', 'playerName',
+  var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
+  for (var j = 0; j < listKeys.length; j++) {
+    if (f[listKeys[j]] && f[listKeys[j]].length) return true;
+  }
+  var keys = ['playDays', 'dateFrom', 'dateTo', 'playerName', 'enemyTagName',
     'dmgGivenMin', 'dmgGivenMax', 'dmgTakenMin', 'dmgTakenMax',
-    'killsMin', 'killsMax', 'deathsMin', 'deathsMax'];
+    'killsMin', 'killsMax', 'deathsMin', 'deathsMax',
+    'scoreMin', 'scoreMax', 'exDmgMin', 'exDmgMax', 'burstsMin', 'burstsMax'];
   for (var i = 0; i < keys.length; i++) {
     var v = f[keys[i]];
     if (v !== '' && v != null) return true;
@@ -66,13 +83,30 @@ function tally(matches, getters) {
     });
 }
 
-// 絞り込みドロップダウン用の機体名リスト（自機・相方・敵）を出現頻度順で返す。
+// 相手2機のコスト編成キー。高コスト+低コストで正規化（順不同で同一扱い）。
+// どちらかが未取得(0)なら '' を返して集計・絞り込み対象外にする。
+export function enemyCostPairKey(a, b) {
+  var x = Number(a) || 0, y = Number(b) || 0;
+  if (!x || !y) return '';
+  return Math.max(x, y) + ' + ' + Math.min(x, y);
+}
+
+// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成）を
+// 出現頻度順で返す。
 export function collectMsOptions(matches) {
   var ms = matches || [];
+  // 相手コスト編成は出現数順ではなくコスト降順（3000+3000 → 3000+2500 → …）で並べる。
+  var costPairs = tally(ms, [function (m) { return [enemyCostPairKey(m.opponent1_cost, m.opponent2_cost)]; }]);
+  costPairs.sort(function (a, b) {
+    var pa = a.name.split(' + '), pb = b.name.split(' + ');
+    return (Number(pb[0]) - Number(pa[0])) || (Number(pb[1]) - Number(pa[1]));
+  });
   return {
     mine: tally(ms, [function (m) { return [m.ms]; }]),
     partners: tally(ms, [function (m) { return [m.partner_ms]; }]),
     enemies: tally(ms, [function (m) { return [m.opponent1_ms, m.opponent2_ms]; }]),
+    myTags: tally(ms, [function (m) { return [m.team_name]; }]),
+    enemyCostPairs: costPairs,
   };
 }
 
@@ -100,36 +134,64 @@ function nameMatches(m, needle) {
   return false;
 }
 
+
 // 試合配列を filters で絞り込む。元配列は変更しない。
 export function filterMatches(matches, filters) {
   var f = filters || {};
   var dateFrom = f.dateFrom || '';
   var dateTo = f.dateTo || '';
-  var myMs = f.myMs || '';
-  var partnerMs = f.partnerMs || '';
-  var enemyMs = f.enemyMs || '';
+  // 自機・僚機は複数選択・OR（選んだどれかに一致）。
+  var myMsList = f.myMsList || [];
+  var partnerMsList = f.partnerMsList || [];
+  // 敵機は複数選択。and=相手2機に選んだ機体が全部いる（編成指定）、or=どれかいる。
+  var enemyMsList = f.enemyMsList || [];
+  var enemyMsMode = f.enemyMsMode || 'or';
   // プレイヤー名は部分一致・大小文字無視の曖昧検索（相方・敵の名前が対象）
   var playerName = (f.playerName || '').trim().toLowerCase();
+  // 味方タッグは複数選択・OR。敵タッグ名は部分一致・大小文字無視（敵陣）。
+  var myTagList = f.myTagList || [];
+  var enemyTagName = (f.enemyTagName || '').trim().toLowerCase();
   var result = f.result || 'all';
+  // コスト系は複数選択・OR。コストは数値比較のため数値化しておく。
+  var myCostList = (f.myCostList || []).map(Number);
+  var partnerCostList = (f.partnerCostList || []).map(Number);
+  var enemyCostPairList = f.enemyCostPairList || [];
   var dgMin = toNum(f.dmgGivenMin), dgMax = toNum(f.dmgGivenMax);
   var dtMin = toNum(f.dmgTakenMin), dtMax = toNum(f.dmgTakenMax);
   var kMin = toNum(f.killsMin), kMax = toNum(f.killsMax);
   var deMin = toNum(f.deathsMin), deMax = toNum(f.deathsMax);
+  var scMin = toNum(f.scoreMin), scMax = toNum(f.scoreMax);
+  var exMin = toNum(f.exDmgMin), exMax = toNum(f.exDmgMax);
+  var buMin = toNum(f.burstsMin), buMax = toNum(f.burstsMax);
 
   return (matches || []).filter(function (m) {
     var day = (m.date || '').substring(0, 10);
     if (dateFrom && day < dateFrom) return false;
     if (dateTo && day > dateTo) return false;
-    if (myMs && m.ms !== myMs) return false;
-    if (partnerMs && m.partner_ms !== partnerMs) return false;
-    if (enemyMs && m.opponent1_ms !== enemyMs && m.opponent2_ms !== enemyMs) return false;
+    if (myMsList.length && myMsList.indexOf(m.ms) < 0) return false;
+    if (partnerMsList.length && partnerMsList.indexOf(m.partner_ms) < 0) return false;
+    if (enemyMsList.length) {
+      var es = [m.opponent1_ms, m.opponent2_ms];
+      var hit = enemyMsMode === 'and'
+        ? enemyMsList.every(function (x) { return es.indexOf(x) >= 0; })
+        : enemyMsList.some(function (x) { return es.indexOf(x) >= 0; });
+      if (!hit) return false;
+    }
     if (playerName && !nameMatches(m, playerName)) return false;
+    if (myTagList.length && myTagList.indexOf(m.team_name) < 0) return false;
+    if (enemyTagName && String(m.opponent_team_name || '').toLowerCase().indexOf(enemyTagName) < 0) return false;
     if (result === 'win' && !m.win) return false;
     if (result === 'loss' && m.win) return false;
+    if (myCostList.length && myCostList.indexOf(m.ms_cost) < 0) return false;
+    if (partnerCostList.length && partnerCostList.indexOf(m.partner_cost) < 0) return false;
+    if (enemyCostPairList.length && enemyCostPairList.indexOf(enemyCostPairKey(m.opponent1_cost, m.opponent2_cost)) < 0) return false;
     if (!inRange(m.dmg_given, dgMin, dgMax)) return false;
     if (!inRange(m.dmg_taken, dtMin, dtMax)) return false;
     if (!inRange(m.kills, kMin, kMax)) return false;
     if (!inRange(m.deaths, deMin, deMax)) return false;
+    if (!inRange(m.score, scMin, scMax)) return false;
+    if (!inRange(m.ex_dmg, exMin, exMax)) return false;
+    if (!inRange(m.bursts, buMin, buMax)) return false;
     return true;
   });
 }

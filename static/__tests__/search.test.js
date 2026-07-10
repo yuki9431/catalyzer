@@ -39,7 +39,7 @@ describe('emptyFilters / hasActiveFilters', function () {
   });
   it('detects a set text/number filter', function () {
     var f = emptyFilters();
-    f.myMs = 'ガンダム';
+    f.myMsList = ['ガンダム'];
     assert.equal(hasActiveFilters(f), true);
     var g = emptyFilters();
     g.dmgGivenMin = 500;
@@ -76,7 +76,32 @@ describe('collectMsOptions', function () {
   });
   it('handles empty input', function () {
     var opts = collectMsOptions([]);
-    assert.deepEqual(opts, { mine: [], partners: [], enemies: [] });
+    assert.deepEqual(opts, { mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [] });
+  });
+  it('orders enemyCostPairs by cost descending (not by match count)', function () {
+    var matches = [
+      makeMatch({ opponent1_cost: 2000, opponent2_cost: 2000 }),
+      makeMatch({ opponent1_cost: 2000, opponent2_cost: 2000 }),
+      makeMatch({ opponent1_cost: 3000, opponent2_cost: 2500 }),
+    ];
+    var opts = collectMsOptions(matches);
+    // 対戦数は 2000+2000 の方が多いが、コスト降順で 3000+2500 が先
+    assert.equal(opts.enemyCostPairs[0].name, '3000 + 2500');
+    assert.equal(opts.enemyCostPairs[1].name, '2000 + 2000');
+  });
+  it('tallies own team (myTags) from team_name only', function () {
+    var matches = [
+      makeMatch({ team_name: 'アルファ', opponent_team_name: 'ブラボー' }),
+      makeMatch({ team_name: 'アルファ', opponent_team_name: 'チャーリー' }),
+      makeMatch({ team_name: '', opponent_team_name: '' }),
+    ];
+    var opts = collectMsOptions(matches);
+    // 自陣アルファが2試合で最頻。敵陣タッグ(ブラボー等)は myTags に含まない
+    assert.equal(opts.myTags[0].name, 'アルファ');
+    assert.equal(opts.myTags[0].matches, 2);
+    var names = opts.myTags.map(function (t) { return t.name; });
+    assert.equal(names.indexOf('ブラボー'), -1);
+    assert.equal(names.indexOf(''), -1);
   });
 });
 
@@ -97,16 +122,29 @@ describe('filterMatches', function () {
     assert.equal(r[0].date, '2025-06-15 12:00');
   });
   it('filters by my ms', function () {
-    var f = emptyFilters(); f.myMs = 'ガンダム';
+    var f = emptyFilters(); f.myMsList = ['ガンダム'];
     assert.equal(filterMatches(matches, f).length, 2);
   });
   it('filters by partner ms', function () {
-    var f = emptyFilters(); f.partnerMs = 'グフ';
+    var f = emptyFilters(); f.partnerMsList = ['グフ'];
     assert.equal(filterMatches(matches, f).length, 1);
   });
-  it('filters by enemy ms matching either opponent', function () {
-    var f = emptyFilters(); f.enemyMs = 'Y';
+  it('filters by enemy ms multi-select (OR: any selected among opponents)', function () {
+    var f = emptyFilters(); f.enemyMsList = ['Y']; f.enemyMsMode = 'or';
     assert.equal(filterMatches(matches, f).length, 2);
+    // Y または Z のどちらかが相手にいる試合（全3件）
+    var f2 = emptyFilters(); f2.enemyMsList = ['Y', 'Z']; f2.enemyMsMode = 'or';
+    assert.equal(filterMatches(matches, f2).length, 3);
+  });
+  it('filters by enemy ms multi-select (AND: enemy composition, all present)', function () {
+    var ms = [
+      makeMatch({ opponent1_ms: 'ターンX', opponent2_ms: 'アリュゼウス' }),
+      makeMatch({ opponent1_ms: 'アリュゼウス', opponent2_ms: 'ターンX' }), // 順不同で同編成
+      makeMatch({ opponent1_ms: 'ターンX', opponent2_ms: 'ザク' }),
+    ];
+    var f = emptyFilters(); f.enemyMsList = ['ターンX', 'アリュゼウス']; f.enemyMsMode = 'and';
+    // 両方そろっている試合のみ（順不同OK）＝2件
+    assert.equal(filterMatches(ms, f).length, 2);
   });
   it('filters by player name (partner or enemy, partial, case-insensitive)', function () {
     var ms = [
@@ -138,6 +176,81 @@ describe('filterMatches', function () {
     var f = emptyFilters(); f.playerName = 'a';
     assert.equal(filterMatches(ms, f).length, 0);
   });
+  it('filters by own tag (myTagName, exact match on team_name)', function () {
+    var ms = [
+      makeMatch({ team_name: 'アルファ', opponent_team_name: 'ブラボー' }),
+      makeMatch({ team_name: 'アルファ', opponent_team_name: 'チャーリー' }),
+      makeMatch({ team_name: 'デルタ', opponent_team_name: 'アルファ' }),
+    ];
+    // 自陣team_nameのみ完全一致（敵陣にアルファがある3件目はヒットしない）
+    var own = emptyFilters(); own.myTagList = ['アルファ'];
+    assert.equal(filterMatches(ms, own).length, 2);
+    // 完全一致（部分文字列では一致しない）
+    var partial = emptyFilters(); partial.myTagList = ['アル'];
+    assert.equal(filterMatches(ms, partial).length, 0);
+  });
+  it('filters by enemy tag (enemyTagName, partial match on opponent_team_name)', function () {
+    var ms = [
+      makeMatch({ team_name: 'アルファ', opponent_team_name: 'ブラボー団' }),
+      makeMatch({ team_name: 'チャーリー', opponent_team_name: 'デルタ' }),
+    ];
+    // 敵陣タッグの部分一致
+    var partial = emptyFilters(); partial.enemyTagName = 'ブラボー';
+    assert.equal(filterMatches(ms, partial).length, 1);
+    // 大小文字無視 + 前後空白無視
+    var ci = emptyFilters(); ci.enemyTagName = '  デルタ ';
+    assert.equal(filterMatches(ms, ci).length, 1);
+    // 自陣team_nameは敵タッグ検索の対象外
+    var ownOnly = emptyFilters(); ownOnly.enemyTagName = 'アルファ';
+    assert.equal(filterMatches(ms, ownOnly).length, 0);
+    // 空タッグ名(シャッフル)は安全にスキップ
+    var missing = [makeMatch({ opponent_team_name: '' })];
+    var f = emptyFilters(); f.enemyTagName = 'ブラボー';
+    assert.equal(filterMatches(missing, f).length, 0);
+  });
+  it('filters by my cost (exact, numeric)', function () {
+    var ms = [
+      makeMatch({ ms_cost: 3000 }), makeMatch({ ms_cost: 2500 }), makeMatch({ ms_cost: 3000 }),
+    ];
+    var f = emptyFilters(); f.myCostList = ['3000'];
+    assert.equal(filterMatches(ms, f).length, 2);
+    var f2 = emptyFilters(); f2.myCostList = ['1500'];
+    assert.equal(filterMatches(ms, f2).length, 0);
+  });
+  it('filters by partner cost (exact, numeric)', function () {
+    var ms = [
+      makeMatch({ partner_cost: 2000 }), makeMatch({ partner_cost: 1500 }),
+    ];
+    var f = emptyFilters(); f.partnerCostList = ['2000'];
+    assert.equal(filterMatches(ms, f).length, 1);
+  });
+  it('filters by enemy cost pair (order-independent, normalized)', function () {
+    var ms = [
+      makeMatch({ opponent1_cost: 3000, opponent2_cost: 2500 }),
+      makeMatch({ opponent1_cost: 2500, opponent2_cost: 3000 }), // 同編成(順不同)
+      makeMatch({ opponent1_cost: 2000, opponent2_cost: 2000 }),
+    ];
+    var f = emptyFilters(); f.enemyCostPairList = ['3000 + 2500'];
+    assert.equal(filterMatches(ms, f).length, 2);
+    var f2 = emptyFilters(); f2.enemyCostPairList = ['2000 + 2000'];
+    assert.equal(filterMatches(ms, f2).length, 1);
+    // 未取得(0)コストは対象外
+    var miss = [makeMatch({ opponent1_cost: 0, opponent2_cost: 3000 })];
+    var f3 = emptyFilters(); f3.enemyCostPairList = ['3000 + 2500'];
+    assert.equal(filterMatches(miss, f3).length, 0);
+  });
+  it('filters by score / ex_dmg / bursts ranges', function () {
+    var ms = [
+      makeMatch({ score: 300, ex_dmg: 100, bursts: 1 }),
+      makeMatch({ score: 600, ex_dmg: 250, bursts: 3 }),
+    ];
+    var sc = emptyFilters(); sc.scoreMin = 500;
+    assert.equal(filterMatches(ms, sc).length, 1);
+    var ex = emptyFilters(); ex.exDmgMax = 150;
+    assert.equal(filterMatches(ms, ex).length, 1);
+    var bu = emptyFilters(); bu.burstsMin = 2; bu.burstsMax = 4;
+    assert.equal(filterMatches(ms, bu).length, 1);
+  });
   it('filters by result', function () {
     var win = emptyFilters(); win.result = 'win';
     assert.equal(filterMatches(matches, win).length, 2);
@@ -158,7 +271,7 @@ describe('filterMatches', function () {
   });
   it('combines multiple conditions (AND)', function () {
     var f = emptyFilters();
-    f.myMs = 'ガンダム'; f.result = 'win'; f.dmgGivenMin = 1000;
+    f.myMsList = ['ガンダム']; f.result = 'win'; f.dmgGivenMin = 1000;
     var r = filterMatches(matches, f);
     assert.equal(r.length, 1);
     assert.equal(r[0].dmg_given, 1200);

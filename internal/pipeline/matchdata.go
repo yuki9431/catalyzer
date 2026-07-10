@@ -19,33 +19,36 @@ type ActionJSON struct {
 
 // MatchData はフロントエンド向けの試合データ（プレイヤー視点）
 type MatchData struct {
-	Date            string `json:"date"`
-	MS              string `json:"ms"`
-	MSCost          int    `json:"ms_cost,omitempty"`
-	PartnerMS       string `json:"partner_ms"`
-	PartnerCost     int    `json:"partner_cost,omitempty"`
-	Opponent1MS     string `json:"opponent1_ms"`
-	Opponent1Cost   int    `json:"opponent1_cost,omitempty"`
-	Opponent1Name   string `json:"opponent1_name"`
-	Opponent2MS     string `json:"opponent2_ms"`
-	Opponent2Cost   int    `json:"opponent2_cost,omitempty"`
-	Opponent2Name   string `json:"opponent2_name"`
-	Win             bool   `json:"win"`
-	Score           int    `json:"score"`
-	Kills           int    `json:"kills"`
-	Deaths          int    `json:"deaths"`
-	DmgGiven        int    `json:"dmg_given"`
-	DmgTaken        int    `json:"dmg_taken"`
-	ExDmg           int    `json:"ex_dmg"`
-	PartnerName     string `json:"partner_name"`
-	PartnerScore    int    `json:"partner_score"`
-	PartnerKills    int    `json:"partner_kills"`
-	PartnerDeaths   int    `json:"partner_deaths"`
-	PartnerDmgGiven int    `json:"partner_dmg_given"`
-	PartnerDmgTaken int    `json:"partner_dmg_taken"`
-	PartnerExDmg    int    `json:"partner_ex_dmg"`
-	Bursts          int    `json:"bursts"`
-	PartnerBursts   int    `json:"partner_bursts"`
+	Date             string `json:"date"`
+	Name             string `json:"name"`
+	TeamName         string `json:"team_name"`          // 自陣のタッグ名（固定タッグ時。シャッフルは空）
+	OpponentTeamName string `json:"opponent_team_name"` // 敵陣のタッグ名
+	MS               string `json:"ms"`
+	MSCost           int    `json:"ms_cost,omitempty"`
+	PartnerMS        string `json:"partner_ms"`
+	PartnerCost      int    `json:"partner_cost,omitempty"`
+	Opponent1MS      string `json:"opponent1_ms"`
+	Opponent1Cost    int    `json:"opponent1_cost,omitempty"`
+	Opponent1Name    string `json:"opponent1_name"`
+	Opponent2MS      string `json:"opponent2_ms"`
+	Opponent2Cost    int    `json:"opponent2_cost,omitempty"`
+	Opponent2Name    string `json:"opponent2_name"`
+	Win              bool   `json:"win"`
+	Score            int    `json:"score"`
+	Kills            int    `json:"kills"`
+	Deaths           int    `json:"deaths"`
+	DmgGiven         int    `json:"dmg_given"`
+	DmgTaken         int    `json:"dmg_taken"`
+	ExDmg            int    `json:"ex_dmg"`
+	PartnerName      string `json:"partner_name"`
+	PartnerScore     int    `json:"partner_score"`
+	PartnerKills     int    `json:"partner_kills"`
+	PartnerDeaths    int    `json:"partner_deaths"`
+	PartnerDmgGiven  int    `json:"partner_dmg_given"`
+	PartnerDmgTaken  int    `json:"partner_dmg_taken"`
+	PartnerExDmg     int    `json:"partner_ex_dmg"`
+	Bursts           int    `json:"bursts"`
+	PartnerBursts    int    `json:"partner_bursts"`
 	// 敵2機のスコア（公式「スコア」画面と同じ項目。覚醒回数はタイムライン側で扱う）
 	Opponent1Score    int          `json:"opponent1_score"`
 	Opponent1Kills    int          `json:"opponent1_kills"`
@@ -61,6 +64,8 @@ type MatchData struct {
 	Opponent2ExDmg    int          `json:"opponent2_ex_dmg"`
 	Actions           []ActionJSON `json:"actions"`
 	PartnerActions    []ActionJSON `json:"partner_actions"`
+	Opponent1Actions  []ActionJSON `json:"opponent1_actions"`
+	Opponent2Actions  []ActionJSON `json:"opponent2_actions"`
 	GameEndSec        float64      `json:"game_end_sec,omitempty"`
 }
 
@@ -153,6 +158,9 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 
 		matches = append(matches, MatchData{
 			Date:              entries[0].Datetime.Format("2006-01-02 15:04"),
+			Name:              me.Name,
+			TeamName:          me.TeamName,
+			OpponentTeamName:  opp1.TeamName,
 			MS:                me.MsName,
 			MSCost:            costsMap[mslist.StripQuery(me.MsImageURL)],
 			PartnerMS:         partner.MsName,
@@ -193,6 +201,8 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			PartnerBursts:     countBursts(timeline, "team1-2"),
 			Actions:           buildActions(timeline, "team1-1"),
 			PartnerActions:    buildActions(timeline, "team1-2"),
+			Opponent1Actions:  buildActions(timeline, "team2-1"),
+			Opponent2Actions:  buildActions(timeline, "team2-2"),
 			GameEndSec:        gameEndSec,
 		})
 	}

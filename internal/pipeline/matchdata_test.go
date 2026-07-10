@@ -12,12 +12,17 @@ import (
 func match(dt time.Time, p1Win bool) model.DatedScores {
 	ds := make(model.DatedScores, 4)
 	for i := 0; i < 4; i++ {
+		teamName := "myteam" // PlayerNo 1,2 は自陣
+		if i >= 2 {
+			teamName = "enemyteam" // PlayerNo 3,4 は敵陣
+		}
 		ds[i] = model.DatedScore{
 			PlayerNo: i + 1,
 			Datetime: dt,
 			PlayerScore: model.PlayerScore{
-				Name: string(rune('a' + i)),
-				Win:  (i < 2) == p1Win, // team1(PlayerNo 1,2)はp1Winと同じ勝敗
+				Name:     string(rune('a' + i)),
+				TeamName: teamName,
+				Win:      (i < 2) == p1Win, // team1(PlayerNo 1,2)はp1Winと同じ勝敗
 			},
 		}
 	}
@@ -46,6 +51,22 @@ func TestBuildMatchData_AfterBoundaryIsStrict(t *testing.T) {
 	}
 }
 
+func TestBuildMatchData_PopulatesTeamNames(t *testing.T) {
+	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
+
+	got := BuildMatchData(match(base, true), nil, time.Time{})
+	if len(got) != 1 {
+		t.Fatalf("want 1 match, got %d", len(got))
+	}
+	// 自陣=PlayerNo1のTeamName、敵陣=PlayerNo3のTeamName。
+	if got[0].TeamName != "myteam" {
+		t.Errorf("TeamName: want %q, got %q", "myteam", got[0].TeamName)
+	}
+	if got[0].OpponentTeamName != "enemyteam" {
+		t.Errorf("OpponentTeamName: want %q, got %q", "enemyteam", got[0].OpponentTeamName)
+	}
+}
+
 func TestBuildMatchData_PopulatesPlayerNames(t *testing.T) {
 	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
 
@@ -54,7 +75,10 @@ func TestBuildMatchData_PopulatesPlayerNames(t *testing.T) {
 		t.Fatalf("want 1 match, got %d", len(got))
 	}
 	// match ヘルパーは PlayerNo 1..4 に 'a'..'d' を割り当てる。
-	// 相方=PlayerNo2='b'、敵1=PlayerNo3='c'、敵2=PlayerNo4='d'。
+	// 自分=PlayerNo1='a'、相方=PlayerNo2='b'、敵1=PlayerNo3='c'、敵2=PlayerNo4='d'。
+	if got[0].Name != "a" {
+		t.Errorf("Name: want %q, got %q", "a", got[0].Name)
+	}
 	if got[0].PartnerName != "b" {
 		t.Errorf("PartnerName: want %q, got %q", "b", got[0].PartnerName)
 	}

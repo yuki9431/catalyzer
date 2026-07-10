@@ -19,7 +19,7 @@ import {
   buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK,
 } from './lib/format.js';
 import {
-  Tips, SortableTable, Table, SubSection,
+  Tips, SortableTable, Table, SubSection, RangeCalendar,
 } from './components/ui.js';
 import { SearchView } from './components/search.js';
 import {
@@ -29,6 +29,7 @@ import {
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
   FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
+  CompareRadar,
 } from './components/charts.js';
 
 // --- Constants ---
@@ -45,89 +46,6 @@ var STATUS_MESSAGES = {
 var activeJobId = null;
 
 var PERIOD_KEYS = ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d'];
-
-// --- Calendar component ---
-
-var DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
-
-function RangeCalendar({ startDate, endDate, onSelectStart, onSelectEnd }) {
-  var init = startDate ? new Date(startDate) : new Date();
-  var viewRef = useState({ year: init.getFullYear(), month: init.getMonth() });
-  var view = viewRef[0], setView = viewRef[1];
-  var phaseRef = useState(startDate ? (endDate ? 'done' : 'end') : 'start');
-  var phase = phaseRef[0], setPhase = phaseRef[1];
-
-  function prevMonth() {
-    setView(function (v) {
-      var m = v.month - 1;
-      return m < 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: m };
-    });
-  }
-  function nextMonth() {
-    setView(function (v) {
-      var m = v.month + 1;
-      return m > 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: m };
-    });
-  }
-
-  var firstDay = new Date(view.year, view.month, 1).getDay();
-  var daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
-
-  var cells = [];
-  for (var i = 0; i < firstDay; i++) cells.push(null);
-  for (var d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length < 42) cells.push(null);
-
-  function toStr(day) {
-    return view.year + '-' + String(view.month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-  }
-
-  function handleClick(day) {
-    if (!day) return;
-    var s = toStr(day);
-    if (phase === 'start' || phase === 'done') {
-      onSelectStart(s);
-      onSelectEnd('');
-      setPhase('end');
-    } else {
-      if (s < startDate) {
-        onSelectStart(s);
-        onSelectEnd('');
-      } else {
-        onSelectEnd(s);
-        setPhase('done');
-      }
-    }
-  }
-
-  function dayClass(day) {
-    if (!day) return '';
-    var s = toStr(day);
-    var cls = 'cal-day';
-    if (s === startDate || s === endDate) cls += ' selected';
-    else if (startDate && endDate && s > startDate && s < endDate) cls += ' in-range';
-    return cls;
-  }
-
-  var hint = phase === 'start' || phase === 'done' ? '▶ 開始日を選択' : '▶ 終了日を選択';
-
-  return html`<div class="cal">
-    <div class="cal-header">
-      <button class="cal-nav" onClick=${prevMonth}>◀</button>
-      <span class="cal-title">${view.year}年${view.month + 1}月</span>
-      <button class="cal-nav" onClick=${nextMonth}>▶</button>
-    </div>
-    <div style="text-align:center;font-size:0.8em;color:var(--accent);margin-bottom:4px">${hint}</div>
-    <div class="cal-grid">
-      ${DOW_LABELS.map(function (d) { return html`<span class="cal-dow">${d}</span>`; })}
-      ${cells.map(function (day) {
-        if (!day) return html`<span class="cal-empty" />`;
-        return html`<button class=${dayClass(day)}
-          onClick=${function () { handleClick(day); }}>${day}</button>`;
-      })}
-    </div>
-  </div>`;
-}
 
 // --- Time selector ---
 
@@ -444,45 +362,6 @@ function KpiGrid({ stats }) {
 }
 
 // 2系列を重ねたレーダー（series: [{label, color, bg, data[]}]）
-function CompareRadar({ labels, series, showLegend }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current) return;
-    if (chartRef.current) chartRef.current.destroy();
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'radar',
-      data: {
-        labels: labels,
-        datasets: series.map(function (s) {
-          return {
-            label: s.label, data: s.data, hidden: !!s.hidden,
-            backgroundColor: s.bg, borderColor: s.color,
-            pointBackgroundColor: s.color, borderWidth: 2,
-          };
-        }),
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: showLegend === false ? { display: false } : { labels: { color: '#8aa0b3' } } },
-        scales: {
-          r: {
-            min: 0, max: 100, ticks: { display: false, stepSize: 25 },
-            grid: { color: 'rgba(255,255,255,0.1)' }, angleLines: { color: 'rgba(255,255,255,0.1)' },
-            pointLabels: { color: '#aaa', font: { size: 12 } },
-          },
-        },
-      },
-    });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [labels, series, inView, showLegend]);
-
-  return html`<div class="chart-container chart-radar" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
-}
-
 // 全体・勝利時・敗北時を下のボタンで単一選択し、レーダーとテーブルを連動して切り替える
 // 軸はK/D比(頂点)→被ダメ(右)→EXダメ(下)→与ダメ(左)。勝率は分割で無意味なため含めない
 function BasicLensSection({ basic, pattern, lens }) {
@@ -886,7 +765,7 @@ function MatchupPane({ frontendData }) {
   var costPairEntries = (costPairData || []).map(function (p) { return { name: p.pair, winRate: p.win_rate }; });
 
   return html`<div class="tabpane">
-    ${enemyMatchup && html`<${Panel} title="敵機体との相性">
+    ${enemyMatchup && html`<${Panel} title="敵機との相性">
       ${enemyStrong.length > 0 && html`<h3>得意な相手</h3><${MsCompareChart} entries=${enemyStrong} />`}
       ${enemyWeak.length > 0 && html`<h3>苦手な相手</h3><${MsCompareChart} entries=${enemyWeak} />`}
       <${EnemyMatchupSection} matchup=${enemyMatchup} />
@@ -1118,7 +997,22 @@ function Report({ data, userKey }) {
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
+  var msImagesRef = useState(null);
+  var msImages = msImagesRef[0], setMsImages = msImagesRef[1];
   var topbarRef = useRef(null);
+
+  // 機体名→画像URLのマップを一度だけ取得（試合検索一覧のサムネイル表示用）。
+  useEffect(function () {
+    fetch('/ms-list')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (list) {
+        if (!list) return;
+        var map = {};
+        list.forEach(function (m) { if (m && m.Name) map[m.Name] = m.ImageURL; });
+        setMsImages(map);
+      })
+      .catch(function () {});
+  }, []);
 
   useEffect(function () {
     if (!userKey) return;
@@ -1238,7 +1132,7 @@ function Report({ data, userKey }) {
       </div>
       <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
         shareData=${shareData} onLogout=${logout} currentView=${view} onNavigate=${setView} />
-      <${SearchView} matches=${allMatches || []} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
     `;
   }
 
