@@ -146,6 +146,23 @@ describe('filterMatches', function () {
     // 両方そろっている試合のみ（順不同OK）＝2件
     assert.equal(filterMatches(ms, f).length, 2);
   });
+  it('filters by player name scope (ally / enemy / both)', function () {
+    var ms = [
+      makeMatch({ partner_name: 'シャア', opponent1_name: '敵A', opponent2_name: '敵B' }),
+      makeMatch({ partner_name: '相方X', opponent1_name: 'シャア', opponent2_name: '敵C' }),
+    ];
+    // both: 相方でも相手でもヒット → 2件
+    var both = emptyFilters(); both.playerName = 'シャア';
+    assert.equal(filterMatches(ms, both).length, 2);
+    // ally: 相方名のみ → 1件目
+    var ally = emptyFilters(); ally.playerName = 'シャア'; ally.playerNameScope = 'ally';
+    assert.equal(filterMatches(ms, ally).length, 1);
+    assert.equal(filterMatches(ms, ally)[0].partner_name, 'シャア');
+    // enemy: 相手名のみ → 2件目
+    var enemy = emptyFilters(); enemy.playerName = 'シャア'; enemy.playerNameScope = 'enemy';
+    assert.equal(filterMatches(ms, enemy).length, 1);
+    assert.equal(filterMatches(ms, enemy)[0].opponent1_name, 'シャア');
+  });
   it('filters by player name (partner or enemy, partial, case-insensitive)', function () {
     var ms = [
       makeMatch({ partner_name: 'ガンダムマスター', opponent1_name: '敵A', opponent2_name: '敵B' }),

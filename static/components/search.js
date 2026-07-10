@@ -125,7 +125,15 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
       </div>
 
       <div class="search-field">
-        <label class="search-label">プレイヤー名（相方・相手／部分一致）</label>
+        <div class="search-label search-label-row">
+          <span>プレイヤー名（部分一致）</span>
+          <span class="search-andor">
+            ${[['both', '両方'], ['ally', '相方'], ['enemy', '相手']].map(function (o) {
+              return html`<button type="button" class=${'search-andor-btn' + (filters.playerNameScope === o[0] ? ' active' : '')}
+                onClick=${function () { onField('playerNameScope', o[0]); }}>${o[1]}</button>`;
+            })}
+          </span>
+        </div>
         <${Autocomplete} value=${filters.playerName} placeholder="名前の一部を入力"
           options=${options.playerNames.map(function (o) { return o.name; })}
           onChange=${function (v) { onField('playerName', v); }} />

@@ -23,6 +23,7 @@ export function emptyFilters() {
     enemyMsList: [],         // 敵機（複数選択）
     enemyMsMode: 'or',       // 'and'=相手編成に全部いる / 'or'=どれかいる
     playerName: '',          // 相方・敵プレイヤー名の部分一致（曖昧検索）
+    playerNameScope: 'both',  // 'both' | 'ally'(相方のみ) | 'enemy'(相手のみ)
     myTagList: [],           // 味方タッグ名（複数選択・OR）
     enemyTagName: '',        // 敵陣タッグ名の部分一致（曖昧検索）
     result: 'all',           // 'all' | 'win' | 'loss'
@@ -129,8 +130,11 @@ function inRange(value, min, max) {
 
 // 試合内のプレイヤー名（相方・敵1・敵2）のいずれかが needle を部分一致で含むか。
 // needle は呼び出し側で trim + toLowerCase 済みであること。
-function nameMatches(m, needle) {
-  var names = [m.partner_name, m.opponent1_name, m.opponent2_name];
+function nameMatches(m, needle, scope) {
+  var names;
+  if (scope === 'ally') names = [m.partner_name];
+  else if (scope === 'enemy') names = [m.opponent1_name, m.opponent2_name];
+  else names = [m.partner_name, m.opponent1_name, m.opponent2_name];
   for (var i = 0; i < names.length; i++) {
     if (String(names[i] || '').toLowerCase().indexOf(needle) >= 0) return true;
   }
@@ -149,8 +153,9 @@ export function filterMatches(matches, filters) {
   // 敵機は複数選択。and=相手2機に選んだ機体が全部いる（編成指定）、or=どれかいる。
   var enemyMsList = f.enemyMsList || [];
   var enemyMsMode = f.enemyMsMode || 'or';
-  // プレイヤー名は部分一致・大小文字無視の曖昧検索（相方・敵の名前が対象）
+  // プレイヤー名は部分一致・大小文字無視の曖昧検索。scopeで相方のみ/相手のみに絞れる。
   var playerName = (f.playerName || '').trim().toLowerCase();
+  var playerNameScope = f.playerNameScope || 'both';
   // 味方タッグは複数選択・OR。敵タッグ名は部分一致・大小文字無視（敵陣）。
   var myTagList = f.myTagList || [];
   var enemyTagName = (f.enemyTagName || '').trim().toLowerCase();
@@ -180,7 +185,7 @@ export function filterMatches(matches, filters) {
         : enemyMsList.some(function (x) { return es.indexOf(x) >= 0; });
       if (!hit) return false;
     }
-    if (playerName && !nameMatches(m, playerName)) return false;
+    if (playerName && !nameMatches(m, playerName, playerNameScope)) return false;
     if (myTagList.length && myTagList.indexOf(m.team_name) < 0) return false;
     if (enemyTagName && String(m.opponent_team_name || '').toLowerCase().indexOf(enemyTagName) < 0) return false;
     if (result === 'win' && !m.win) return false;
