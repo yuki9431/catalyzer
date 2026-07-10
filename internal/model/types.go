@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-// MatchKeyFormat は試合を一意に識別するためのdatetimeフォーマット
+// MatchKeyFormat は試合を一意に識別するためのdatetimeフォーマット。
+// MatchID未設定のlegacyデータ用フォールバックキー（分精度のため同一分に複数試合があると区別できない。#358）。
 const MatchKeyFormat = "2006-01-02T1504"
 
 // MSInfo は機体情報（画像URL → 機体名のマッピング）
@@ -60,8 +61,20 @@ type MatchTimeline struct {
 type DatedScore struct {
 	PlayerNo      int
 	Datetime      time.Time
+	MatchID       string // 試合の一意ID(detailURL由来。同一試合の4人で共有。legacyデータでは空。#358)
 	PlayerScore   PlayerScore
 	MatchTimeline *MatchTimeline // 試合経過(PlayerNo==1のときのみセット、4人で共有)
+}
+
+// GroupKey は試合をグルーピング/重複排除するためのキーを返す。
+// MatchIDがあればそれを使い、同一分に複数試合があっても正しく区別する。
+// legacyデータ(MatchID未設定)ではMatchKeyFormatの分精度キーにフォールバックする。
+// grouping/dedupを行う全箇所(firestore/pipeline)はこのメソッドに一元化して重複を避ける。
+func (d DatedScore) GroupKey() string {
+	if d.MatchID != "" {
+		return d.MatchID
+	}
+	return d.Datetime.Format(MatchKeyFormat)
 }
 
 // TagPartner はタッグ戦歴の固定相方情報
@@ -104,5 +117,21 @@ type DatedScores []DatedScore
 // SHA256ハッシュの先頭8バイト（16進数16文字）を返す。
 func UserKey(username string) string {
 	hash := sha256.Sum256([]byte(username))
+	return fmt.Sprintf("%x", hash[:8])
+}
+
+// MatchIDFromURL は試合詳細ページのdetailURLから安定した一意キー（16進数16文字）を導出する。
+// 1 detailURL = 1試合 = 4プレイヤーで共有、が前提（#358調査済み）。
+//
+// クエリ文字列の扱い: 実運用URLのサンプルを認証なしに確認できなかったため、安全側に倒し
+// URL全体（クエリ含む）をハッシュ対象とする。クエリを機械的にstripしてしまい、もし試合IDが
+// クエリ側にしか無かった場合、複数試合が同一MatchIDに衝突してGroupKey()のグルーピングで
+// 本issue(#358)の「同一分の複数試合が丸ごと欠落する」症状を再発させてしまう。
+// 既知のリスクは、クエリに真に揮発性のトークン（セッションIDなど）が含まれていた場合、
+// 再スクレイプのたびにMatchIDが変わりFirestoreのdoc IDが変わることだが、これは
+// SaveScoresのmigrateLegacy経路で旧docを削除・再作成するだけで自己回復的であり、
+// サイレントなデータ欠落より許容できると判断した。
+func MatchIDFromURL(detailURL string) string {
+	hash := sha256.Sum256([]byte(detailURL))
 	return fmt.Sprintf("%x", hash[:8])
 }

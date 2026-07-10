@@ -47,6 +47,7 @@ type MatchData struct {
 	Actions         []ActionJSON `json:"actions"`
 	PartnerActions  []ActionJSON `json:"partner_actions"`
 	GameEndSec      float64      `json:"game_end_sec,omitempty"`
+	MatchID         string       `json:"match_id,omitempty"`
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
@@ -101,7 +102,7 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 		if !after.IsZero() && !d.Datetime.After(after) {
 			continue
 		}
-		key := d.Datetime.Format(model.MatchKeyFormat)
+		key := d.GroupKey()
 		groups[key] = append(groups[key], d)
 	}
 
@@ -109,7 +110,16 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 	for k := range groups {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	// #358: GroupKey()はMatchIDありだとdetailURL由来のhexになり文字列としては時系列順でない
+	// ため、sort.Stringsではなく各グループのdatetimeで明示的に昇順ソートする。
+	// 同一分の複数試合（datetime同値）はkey文字列で決定的にタイブレークする。
+	sort.Slice(keys, func(i, j int) bool {
+		di, dj := groups[keys[i]][0].Datetime, groups[keys[j]][0].Datetime
+		if !di.Equal(dj) {
+			return di.Before(dj)
+		}
+		return keys[i] < keys[j]
+	})
 
 	matches := make([]MatchData, 0, len(keys))
 	for _, key := range keys {
@@ -165,6 +175,7 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			Actions:         buildActions(timeline, "team1-1"),
 			PartnerActions:  buildActions(timeline, "team1-2"),
 			GameEndSec:      gameEndSec,
+			MatchID:         entries[0].MatchID,
 		})
 	}
 

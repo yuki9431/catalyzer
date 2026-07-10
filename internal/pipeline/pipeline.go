@@ -356,8 +356,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		gradelist.CheckUnknownGrades(datedScores, gradeMap)
 	}
 
-	// Firestoreにscoresを書き込み
-	fs.SaveScores(j.UserKey, datedScores)
+	// Firestoreにscoresを書き込み。バックフィル時のみ旧「分精度doc」を新doc IDへ移行する
+	fs.SaveScores(j.UserKey, datedScores, len(backfillDates) > 0)
 
 	// 既存 + 新規をメモリ上でマージ（Firestoreの再読み取りを省略）
 	allScores := mergeScores(existingScores, datedScores)
@@ -448,20 +448,28 @@ func CleanupJobs(ttl time.Duration) {
 }
 
 // mergeScores は既存のscoresに新規scoresをマージする。
-// バックフィル時に同じdatetimeのレコードがある場合は新規側で上書きする。
+// バックフィル時に同じ試合のレコードがある場合は新規側で上書きする。
+// #358: 分精度dedupは同一分の別試合まで巻き添えで破棄してしまうため、MatchID対応にしている。
+// 既存にMatchIDがあれば精密一致（GroupKey）でのみ破棄し、同一分の兄弟試合は保持する。
+// 既存がlegacy（MatchID未設定）なら、その分が新規側で再スクレイプされた場合にのみ置換する。
 func mergeScores(existing, newScores model.DatedScores) model.DatedScores {
-	newKeys := make(map[string]bool)
+	newGroupKeys := make(map[string]bool)
+	newMinutes := make(map[string]bool)
 	for _, s := range newScores {
-		key := s.Datetime.Format(model.MatchKeyFormat)
-		newKeys[key] = true
+		newGroupKeys[s.GroupKey()] = true
+		newMinutes[s.Datetime.Format(model.MatchKeyFormat)] = true
 	}
 
 	merged := make(model.DatedScores, 0, len(existing)+len(newScores))
 	for _, s := range existing {
-		key := s.Datetime.Format(model.MatchKeyFormat)
-		if !newKeys[key] {
-			merged = append(merged, s)
+		if s.MatchID != "" {
+			if newGroupKeys[s.GroupKey()] {
+				continue
+			}
+		} else if newMinutes[s.Datetime.Format(model.MatchKeyFormat)] {
+			continue
 		}
+		merged = append(merged, s)
 	}
 	merged = append(merged, newScores...)
 

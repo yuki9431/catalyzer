@@ -614,15 +614,18 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 		return nil, fmt.Errorf("HTML解析失敗: url=%s: %w", e.detailURL, err)
 	}
 
+	// detailURL由来のMatchIDを算出し4プレイヤー全員に伝播する（#358: 同一分の複数試合を区別するキー）
+	matchID := model.MatchIDFromURL(e.detailURL)
+
 	var scores model.DatedScores
 	doc.Find("div.panel_area").Each(func(_ int, s *goquery.Selection) {
-		scores = parseDetailPage(s, e.date, e.hour, e.wins, e.shopName)
+		scores = parseDetailPage(s, e.date, e.hour, e.wins, e.shopName, matchID)
 	})
 	return scores, nil
 }
 
 // parseDetailPage は試合詳細ページからスコアを抽出する
-func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopName string) model.DatedScores {
+func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopName, matchID string) model.DatedScores {
 	var scores model.DatedScores
 
 	// スコアタブ(panel3)からの既存データ
@@ -721,6 +724,7 @@ func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopN
 		result := model.DatedScore{
 			PlayerNo: i + 1,
 			Datetime: datetime,
+			MatchID:  matchID,
 			PlayerScore: model.PlayerScore{
 				City:            city,
 				Name:            name,

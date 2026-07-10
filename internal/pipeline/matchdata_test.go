@@ -24,6 +24,16 @@ func match(dt time.Time, p1Win bool) model.DatedScores {
 	return ds
 }
 
+// matchWithID はmatch()の結果にMatchIDを付与するテストヘルパー
+// （同一分の複数試合を区別するケースの検証用。#358）。
+func matchWithID(dt time.Time, p1Win bool, matchID string) model.DatedScores {
+	ds := match(dt, p1Win)
+	for i := range ds {
+		ds[i].MatchID = matchID
+	}
+	return ds
+}
+
 func TestBuildMatchData_AfterBoundaryIsStrict(t *testing.T) {
 	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
 
@@ -74,5 +84,24 @@ func TestBuildMatchData_IncompleteMatchDropped(t *testing.T) {
 
 	if len(got) != 0 {
 		t.Fatalf("4人揃わない試合はスキップされるはず: want 0, got %d", len(got))
+	}
+}
+
+// TestBuildMatchData_SameMinuteTwoMatches は#358の核リグレッション。
+// 同一分に2試合あっても、MatchIDが異なれば両方とも集計に含まれるべき（欠落ゼロ）。
+func TestBuildMatchData_SameMinuteTwoMatches(t *testing.T) {
+	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
+
+	var scores model.DatedScores
+	scores = append(scores, matchWithID(base, true, "match-a")...)
+	scores = append(scores, matchWithID(base, false, "match-b")...)
+
+	got := BuildMatchData(scores, nil, time.Time{})
+
+	if len(got) != 2 {
+		t.Fatalf("同一分でもMatchIDが異なれば両試合とも集計に含まれるはず(#358): want 2 matches, got %d", len(got))
+	}
+	if got[0].MatchID == got[1].MatchID {
+		t.Errorf("2試合のMatchIDは異なるはず: got[0]=%q got[1]=%q", got[0].MatchID, got[1].MatchID)
 	}
 }

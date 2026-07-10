@@ -16,6 +16,7 @@ import (
 type matchDoc struct {
 	Datetime   time.Time   `firestore:"datetime"`
 	GameEndSec float64     `firestore:"game_end_sec"`
+	MatchID    string      `firestore:"match_id"`
 	Players    []playerDoc `firestore:"players"`
 }
 
@@ -64,7 +65,9 @@ var actionMapping = map[string]string{
 
 // SaveScores はDatedScoresをFirestoreのmatchesサブコレクションに書き込む。
 // タイムラインデータがある場合は各プレイヤーのactionsとして埋め込む。
-func SaveScores(userKey string, scores model.DatedScores) {
+// migrateLegacyがtrueの場合（バックフィル時）、新doc IDと異なる旧「分精度doc」があれば
+// 削除して二重化を防ぐ（#358: doc ID方式変更に伴う移行。同一保存内での置換のためnetで非破壊）。
+func SaveScores(userKey string, scores model.DatedScores, migrateLegacy bool) {
 	c := getClient()
 	if c == nil {
 		return
@@ -83,22 +86,34 @@ func SaveScores(userKey string, scores model.DatedScores) {
 		return
 	}
 
-	groups := groupByDatetime(scores)
+	groups := groupByMatch(scores)
 	matchesCol := userRef.Collection("matches")
 
 	var count int
 	bw := c.BulkWriter(ctx)
 
-	for key, entries := range groups {
+	for _, entries := range groups {
 		if len(entries) != 4 {
-			log.Printf("[WARN] Firestore: match %s has %d players (expected 4), skipping", key, len(entries))
+			log.Printf("[WARN] Firestore: match %s has %d players (expected 4), skipping",
+				entries[0].Datetime.Format(model.MatchKeyFormat), len(entries))
 			continue
 		}
 		doc := buildMatchDoc(entries)
-		if _, err := bw.Set(matchesCol.Doc(key), doc); err != nil {
-			log.Printf("[WARN] Firestore: failed to enqueue match %s: %v", key, err)
+		docID := matchDocID(entries)
+		if _, err := bw.Set(matchesCol.Doc(docID), doc); err != nil {
+			log.Printf("[WARN] Firestore: failed to enqueue match %s: %v", docID, err)
 			continue
 		}
+
+		if migrateLegacy && entries[0].MatchID != "" {
+			legacyID := entries[0].Datetime.Format(model.MatchKeyFormat)
+			if legacyID != docID {
+				if _, err := bw.Delete(matchesCol.Doc(legacyID)); err != nil {
+					log.Printf("[WARN] Firestore: failed to enqueue legacy doc delete %s: %v", legacyID, err)
+				}
+			}
+		}
+
 		count++
 	}
 
@@ -171,6 +186,7 @@ func docsToScores(docs []*firestore.DocumentSnapshot) model.DatedScores {
 			ds := model.DatedScore{
 				PlayerNo: p.PlayerNo,
 				Datetime: md.Datetime,
+				MatchID:  md.MatchID,
 				PlayerScore: model.PlayerScore{
 					City:            p.City,
 					Name:            p.Name,
@@ -265,14 +281,27 @@ func BackfillDates(userKey string) map[string]bool {
 	return dates
 }
 
-// groupByDatetime はDatedScoresをdatetimeでグルーピングする。
-func groupByDatetime(scores model.DatedScores) map[string][]model.DatedScore {
+// groupByMatch はDatedScoresをGroupKey()（MatchIDがあればそれ、無ければ分精度）でグルーピングする。
+// #358: 分精度単独でグルーピングすると同一分の複数試合が1グループ8件に混ざり、
+// len(entries)!=4判定で両試合とも欠落してしまう。
+func groupByMatch(scores model.DatedScores) map[string][]model.DatedScore {
 	groups := make(map[string][]model.DatedScore)
 	for _, s := range scores {
-		key := s.Datetime.Format(model.MatchKeyFormat)
+		key := s.GroupKey()
 		groups[key] = append(groups[key], s)
 	}
 	return groups
+}
+
+// matchDocID は試合のFirestore doc IDを構築する。
+// 分精度の日時をベースに、MatchIDがあれば"_"+MatchIDを付与して同一分の複数試合を区別する。
+// legacy（MatchID未設定）は従来通りsuffixなし（既存doc IDとの後方互換）。
+func matchDocID(entries []model.DatedScore) string {
+	base := entries[0].Datetime.Format(model.MatchKeyFormat)
+	if entries[0].MatchID != "" {
+		return base + "_" + entries[0].MatchID
+	}
+	return base
 }
 
 // buildMatchDoc はグルーピングされたDatedScoresからmatchDocを構築する。
@@ -331,6 +360,7 @@ func buildMatchDoc(entries []model.DatedScore) matchDoc {
 	return matchDoc{
 		Datetime:   entries[0].Datetime,
 		GameEndSec: gameEndSec,
+		MatchID:    entries[0].MatchID,
 		Players:    players,
 	}
 }
