@@ -7,7 +7,7 @@ import { esc, num } from '../lib/format.js';
 
 var PAGE_SIZE = 20;
 
-// タイムラインのアクション種別 → 表示ラベル。
+// 試合経過のアクション種別 → 表示ラベル。
 var ACTION_LABELS = {
   death: '被撃墜',
   'exbst-f': 'F覚醒',
@@ -160,7 +160,7 @@ function ResultItem({ match, onOpen }) {
   </button>`;
 }
 
-// 詳細モーダル内の統合タイムライン（自分・相方の被撃墜/覚醒を時系列で表示）。
+// 詳細モーダル内の統合「試合経過」（自分・相方の被撃墜/覚醒を時系列で表示）。
 function Timeline({ match }) {
   var events = [];
   function collect(actions, who) {
@@ -174,7 +174,7 @@ function Timeline({ match }) {
   events.sort(function (a, b) { return (a.sec || 0) - (b.sec || 0); });
 
   if (!events.length) {
-    return html`<p class="search-detail-empty">タイムラインデータがありません。</p>`;
+    return html`<p class="search-detail-empty">試合経過データがありません。</p>`;
   }
   return html`<ul class="search-timeline">
     ${events.map(function (ev) {
@@ -235,7 +235,7 @@ function DetailModal({ match, onClose }) {
         </tbody>
       </table></div>
 
-      <h3 class="search-detail-tl-title">タイムライン</h3>
+      <h3 class="search-detail-tl-title">試合経過</h3>
       <${Timeline} match=${match} />
     </div>
   </div>`;
