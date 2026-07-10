@@ -653,3 +653,52 @@ export function BurstCountContent({ countData }) {
     <${Tips} tips=${countData.tips} />
   </div>`;
 }
+
+// レーダーの最低描画半径(%)。全軸が最低評価(0)でも中心の点に潰れず六角形の厚みを残すための底上げ。
+var RADAR_FLOOR_PCT = 15;
+// 0-100の正規化値を [RADAR_FLOOR_PCT, 100] に写像する（順序は保つ）。
+function radarFloor(v) {
+  var n = Math.max(0, Math.min(100, Number(v) || 0));
+  return RADAR_FLOOR_PCT + n / 100 * (100 - RADAR_FLOOR_PCT);
+}
+
+// 基本データ比較レーダー（複数系列を重ねて表示）。series は {label,data,color,bg,hidden} の配列。
+// 軸は0-100正規化済みの値を渡す前提。最低評価でも六角形を保つため内部で底上げする。
+export function CompareRadar({ labels, series, showLegend }) {
+  var containerRef = useRef(null);
+  var canvasRef = useRef(null);
+  var chartRef = useRef(null);
+  var inView = useInView(containerRef);
+
+  useEffect(function () {
+    if (!inView || !canvasRef.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'radar',
+      data: {
+        labels: labels,
+        datasets: series.map(function (s) {
+          return {
+            label: s.label, data: s.data.map(radarFloor), hidden: !!s.hidden,
+            backgroundColor: s.bg, borderColor: s.color,
+            pointBackgroundColor: s.color, borderWidth: 2,
+          };
+        }),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: showLegend === false ? { display: false } : { labels: { color: '#8aa0b3' } } },
+        scales: {
+          r: {
+            min: 0, max: 100, ticks: { display: false, stepSize: 25 },
+            grid: { color: 'rgba(255,255,255,0.1)' }, angleLines: { color: 'rgba(255,255,255,0.1)' },
+            pointLabels: { color: '#aaa', font: { size: 12 } },
+          },
+        },
+      },
+    });
+    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [labels, series, inView, showLegend]);
+
+  return html`<div class="chart-container chart-radar" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+}
