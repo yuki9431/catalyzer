@@ -1466,18 +1466,25 @@ if (rememberInfoBtn && rememberModal) {
     hasSession = !!localStorage.getItem('catalyzer_has_session');
   } catch (e) {}
 
+  var renderedFromCache = false;
   if (cachedUserKey) {
     try {
       var cachedMatches = await loadMatchesFromDB(cachedUserKey);
       if (cachedMatches && cachedMatches.length > 0) {
         renderReport({ matches: cachedMatches }, cachedUserKey);
+        renderedFromCache = true;
       }
     } catch (e) {}
   }
 
+  // キャッシュからレポートを表示したらログイン画面を隠す。
+  // セッション有無に関わらず、レポートの上にログイン画面が残るのを防ぐ
+  // （ログインが必要な場合は再分析ボタン経由で reAnalyze が再表示する）。
+  if (renderedFromCache && loginForm) loginForm.style.display = 'none';
+
   if (hasSession) {
     if (loginForm) loginForm.style.display = 'none';
-    var hasLocalData = cachedUserKey && document.getElementById('report').children.length > 0;
+    var hasLocalData = renderedFromCache;
 
     fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
       if (!data.valid) {
