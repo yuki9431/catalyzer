@@ -5,7 +5,7 @@ import {
 } from '../analysis/search.js';
 import {
   esc, num, cellDisplay,
-  colorKills, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg,
+  colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
@@ -411,8 +411,8 @@ function DetailModal({ match, msImages, onClose }) {
   // color は分析画面と同じ色分け関数。スコアは基準が無いため色分けしない。
   var rows = [
     { label: 'スコア', vals: [match.score, match.partner_score, match.opponent1_score, match.opponent2_score], color: null },
-    { label: '撃墜', vals: [match.kills, match.partner_kills, match.opponent1_kills, match.opponent2_kills], color: colorKills },
-    { label: '被撃墜', vals: [match.deaths, match.partner_deaths, match.opponent1_deaths, match.opponent2_deaths], color: colorDeaths },
+    { label: '撃墜', vals: [match.kills, match.partner_kills, match.opponent1_kills, match.opponent2_kills], color: colorKillsInt },
+    { label: '被撃墜', vals: [match.deaths, match.partner_deaths, match.opponent1_deaths, match.opponent2_deaths], color: colorDeathsInt },
     { label: '与ダメージ', vals: [match.dmg_given, match.partner_dmg_given, match.opponent1_dmg_given, match.opponent2_dmg_given], color: colorDmgGiven },
     { label: '被ダメージ', vals: [match.dmg_taken, match.partner_dmg_taken, match.opponent1_dmg_taken, match.opponent2_dmg_taken], color: colorDmgTaken },
     { label: 'EXダメージ', vals: [match.ex_dmg, match.partner_ex_dmg, match.opponent1_ex_dmg, match.opponent2_ex_dmg], color: colorExDmg },

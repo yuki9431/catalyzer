@@ -55,8 +55,14 @@ export function colorDE(n, d) {
 
 export function colorDmgGiven(n) { return colorVal(n, 1100, 900, 900, 700, true, 0); }
 export function colorDmgTaken(n) { return colorVal(n, 700, 800, 800, 900, false, 0); }
-export function colorKills(n) { return colorVal(n, 1.8, 1.5, 1.5, 1.0, true, 2); }
-export function colorDeaths(n) { return colorVal(n, 1.0, 1.5, 1.5, 2.5, false, 2); }
+// 撃墜/被撃墜のしきい値[great,good,bad,terrible]。平均用(小数2桁)と単発試合用(整数)で共有する。
+var KILLS_T = [1.8, 1.5, 1.5, 1.0];
+var DEATHS_T = [1.0, 1.5, 1.5, 2.5];
+export function colorKills(n) { return colorVal(n, KILLS_T[0], KILLS_T[1], KILLS_T[2], KILLS_T[3], true, 2); }
+export function colorDeaths(n) { return colorVal(n, DEATHS_T[0], DEATHS_T[1], DEATHS_T[2], DEATHS_T[3], false, 2); }
+// 整数表示版（単発試合のスコア表など。色分けは同じ、小数点なし）
+export function colorKillsInt(n) { return colorVal(n, KILLS_T[0], KILLS_T[1], KILLS_T[2], KILLS_T[3], true, 0); }
+export function colorDeathsInt(n) { return colorVal(n, DEATHS_T[0], DEATHS_T[1], DEATHS_T[2], DEATHS_T[3], false, 0); }
 export function colorKD(n) { return colorVal(n, 1.5, 1.0, 1.0, 0.6, true, 2); }
 export function colorExDmg(n) { return colorVal(n, 200, 160, 160, 100, true, 0); }
 export function colorBursts(n) { return colorVal(n, 2.0, 1.5, 1.5, 1.0, true, 2); }
