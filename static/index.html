@@ -421,14 +421,16 @@
     .search-detail-date { margin-left: 8px; color: var(--muted); font-size: 0.88em; font-variant-numeric: tabular-nums; }
     .search-detail-close { width: auto; background: none; border: none; color: var(--muted); font-size: 1.1em; cursor: pointer; padding: 4px 8px; line-height: 1; }
     .search-detail-close:hover { color: var(--text); }
-    .search-detail-matchup { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 0.92em; }
-    .search-detail-tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.72em; font-weight: 700; background: rgba(79,195,247,0.15); color: var(--accent); margin-right: 4px; }
-    .search-detail-tag.enemy { background: rgba(255,138,101,0.15); color: var(--bad); }
     .search-detail-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
-    .search-detail-table th, .search-detail-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; }
-    .search-detail-table thead th { color: var(--accent); font-weight: 600; }
+    .search-detail-table th, .search-detail-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+    .search-detail-table thead th { color: var(--accent); font-weight: 600; vertical-align: bottom; }
     .search-detail-table tbody th { color: var(--muted); font-weight: 400; }
     .search-detail-table td.num, .search-detail-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .search-detail-col { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .search-detail-col-role { font-weight: 700; }
+    .search-detail-col-ms { font-size: 0.72em; font-weight: 400; color: var(--muted); max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .search-detail-col.enemy .search-detail-col-role { color: var(--accent-2); }
+    .search-detail-table td.enemy { color: var(--accent-2); }
     .search-detail-tl-title { font-size: 0.95em; color: var(--accent-2); margin: 18px 0 8px; }
     .search-detail-empty { color: var(--muted); font-size: 0.88em; }
     .search-timeline { list-style: none; display: flex; flex-direction: column; gap: 4px; padding: 0; }

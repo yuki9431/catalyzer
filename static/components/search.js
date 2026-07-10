@@ -199,13 +199,22 @@ function DetailModal({ match, onClose }) {
     };
   }, []);
 
-  var enemies = [
-    nameWithMs(match.opponent1_name, match.opponent1_ms),
-    nameWithMs(match.opponent2_name, match.opponent2_ms),
-  ].join(' / ');
-  function row(label, mine, partner) {
-    return html`<tr><th>${label}</th><td class="num">${mine}</td><td class="num">${partner}</td></tr>`;
-  }
+  // 4人分のスコア列（自分・相方・敵1・敵2）。プレイヤー名は出さず、役割＋機体で識別する。
+  var cols = [
+    { role: '自分', ms: match.ms, enemy: false },
+    { role: '相方', ms: match.partner_ms, enemy: false },
+    { role: '敵1', ms: match.opponent1_ms, enemy: true },
+    { role: '敵2', ms: match.opponent2_ms, enemy: true },
+  ];
+  // 公式「スコア」画面と同じ項目（覚醒回数は試合経過側で表示するため含めない）。
+  var rows = [
+    ['スコア', [match.score, match.partner_score, match.opponent1_score, match.opponent2_score]],
+    ['撃墜', [match.kills, match.partner_kills, match.opponent1_kills, match.opponent2_kills]],
+    ['被撃墜', [match.deaths, match.partner_deaths, match.opponent1_deaths, match.opponent2_deaths]],
+    ['与ダメージ', [match.dmg_given, match.partner_dmg_given, match.opponent1_dmg_given, match.opponent2_dmg_given]],
+    ['被ダメージ', [match.dmg_taken, match.partner_dmg_taken, match.opponent1_dmg_taken, match.opponent2_dmg_taken]],
+    ['EXダメージ', [match.ex_dmg, match.partner_ex_dmg, match.opponent1_ex_dmg, match.opponent2_ex_dmg]],
+  ];
 
   return html`<div class="modal-backdrop" onClick=${function (e) { if (e.target === e.currentTarget) onClose(); }}>
     <div class="search-detail">
@@ -217,21 +226,22 @@ function DetailModal({ match, onClose }) {
         <button class="search-detail-close" onClick=${onClose} aria-label="閉じる">✕</button>
       </div>
 
-      <div class="search-detail-matchup">
-        <div><span class="search-detail-tag">自軍</span> ${esc(match.ms || '?')} ＋ ${esc(nameWithMs(match.partner_name, match.partner_ms))}</div>
-        <div><span class="search-detail-tag enemy">敵軍</span> ${esc(enemies)}</div>
-      </div>
-
       <div class="table-wrap"><table class="search-detail-table">
-        <thead><tr><th></th><th class="num">自分</th><th class="num">相方 (${esc(match.partner_name || '-')})</th></tr></thead>
+        <thead><tr>
+          <th></th>
+          ${cols.map(function (c) {
+            return html`<th class=${'num search-detail-col' + (c.enemy ? ' enemy' : '')}>
+              <span class="search-detail-col-role">${c.role}</span>
+              <span class="search-detail-col-ms">${esc(c.ms || '?')}</span>
+            </th>`;
+          })}
+        </tr></thead>
         <tbody>
-          ${row('スコア', num(match.score), num(match.partner_score))}
-          ${row('撃墜', num(match.kills), num(match.partner_kills))}
-          ${row('被撃墜', num(match.deaths), num(match.partner_deaths))}
-          ${row('与ダメージ', num(match.dmg_given), num(match.partner_dmg_given))}
-          ${row('被ダメージ', num(match.dmg_taken), num(match.partner_dmg_taken))}
-          ${row('EXダメージ', num(match.ex_dmg), num(match.partner_ex_dmg))}
-          ${row('覚醒回数', num(match.bursts), num(match.partner_bursts))}
+          ${rows.map(function (r) {
+            return html`<tr><th>${r[0]}</th>${r[1].map(function (v, i) {
+              return html`<td class=${'num' + (cols[i].enemy ? ' enemy' : '')}>${num(v)}</td>`;
+            })}</tr>`;
+          })}
         </tbody>
       </table></div>
 

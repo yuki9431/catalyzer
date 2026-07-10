@@ -102,7 +102,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜と勝率（自分×相方の2軸・回数ベース）/覚醒回数/先落ち後落ち/覚醒タイミング（発動時の被撃墜数で1機目/2機目/3機目に分類）/覚醒タイプ別傾向（F/S/E）/固定相方/SNS共有データ/MS別サマリー
 - `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え）。IndexedDBの全試合をフロントエンドでフィルタ
 - `static/components/ui.js` — 汎用UIコンポーネント（Tips/SortableTable/Table/SubSection）
-- `static/components/search.js` — 試合検索ビュー（SearchView）。フィルタフォーム＋結果一覧（ソート・ページネーション）＋試合詳細モーダル（自分/相方のスコア比較・タイムライン）
+- `static/components/search.js` — 試合検索ビュー（SearchView）。フィルタフォーム＋結果一覧（ソート・ページネーション）＋試合詳細モーダル（4人分のスコア一覧・試合経過）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
