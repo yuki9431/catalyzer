@@ -238,17 +238,18 @@ export function SearchView({ matches }) {
     return sortMatches(filterMatches(matches, filters), sortKey, desc);
   }, [matches, filters, sortKey, desc]);
 
-  // 条件・並び順が変わったら1ページ目に戻す。
-  useEffect(function () { setPage(1); }, [filters, sortKey, desc]);
-
+  // 条件・並び順の変更時は1ページ目に戻す（各操作ハンドラで明示的にリセット）。
   function onField(key, value) {
     setFilters(function (prev) {
       var next = Object.assign({}, prev);
       next[key] = value;
       return next;
     });
+    setPage(1);
   }
-  function onReset() { setFilters(emptyFilters()); }
+  function onReset() { setFilters(emptyFilters()); setPage(1); }
+  function onSortKey(key) { setSortKey(key); setPage(1); }
+  function onToggleDir() { setDesc(!desc); setPage(1); }
 
   var total = filtered.length;
   var totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -265,10 +266,10 @@ export function SearchView({ matches }) {
         <h2><span class="dot" />検索結果 <span class="search-result-count">${total}件</span></h2>
         <div class="search-sort">
           <select class="search-select" value=${sortKey}
-            onChange=${function (e) { setSortKey(e.target.value); }}>
+            onChange=${function (e) { onSortKey(e.target.value); }}>
             ${SORT_OPTIONS.map(function (o) { return html`<option value=${o.key}>${o.label}</option>`; })}
           </select>
-          <button class="search-dir" onClick=${function () { setDesc(!desc); }}
+          <button class="search-dir" onClick=${onToggleDir}
             aria-label="並び順">${desc ? '降順 ↓' : '昇順 ↑'}</button>
         </div>
       </div>

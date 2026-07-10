@@ -2,15 +2,15 @@
 // IndexedDBキャッシュから読み込んだ試合データ配列を、条件で絞り込み・並べ替える純粋関数群。
 // UI（components/search.js）から切り離すことで単体テスト可能にしている。
 
-// 並べ替えの選択肢。key はソート対象のフィールド、num はソート方向の既定（true=降順が自然）。
+// 並べ替えの選択肢。key はソート対象のフィールド。並び順（昇順/降順）はUI側のトグルで制御する。
 export var SORT_OPTIONS = [
-  { key: 'date', label: '日付', desc: true },
-  { key: 'dmg_given', label: '与ダメージ', desc: true },
-  { key: 'dmg_taken', label: '被ダメージ', desc: true },
-  { key: 'kills', label: '撃墜数', desc: true },
-  { key: 'deaths', label: '被撃墜数', desc: true },
-  { key: 'ex_dmg', label: 'EXダメージ', desc: true },
-  { key: 'score', label: 'スコア', desc: true },
+  { key: 'date', label: '日付' },
+  { key: 'dmg_given', label: '与ダメージ' },
+  { key: 'dmg_taken', label: '被ダメージ' },
+  { key: 'kills', label: '撃墜数' },
+  { key: 'deaths', label: '被撃墜数' },
+  { key: 'ex_dmg', label: 'EXダメージ' },
+  { key: 'score', label: 'スコア' },
 ];
 
 // フィルタの初期値。UI側はこれを複製して状態の初期値に使う。
@@ -40,17 +40,20 @@ export function hasActiveFilters(filters) {
   return false;
 }
 
-// 出現頻度つきで機体名の一覧を作る内部ヘルパー。
+// 出現「試合数」つきで機体名の一覧を作る内部ヘルパー。
 // getters は各試合から機体名（複数可）を取り出す関数の配列。
+// 同一試合内で同じ機体名が複数回出ても（例: 敵2機が同一機体）1試合として数える。
 function tally(matches, getters) {
   var counts = {};
   for (var i = 0; i < matches.length; i++) {
     var m = matches[i];
+    var seen = {};
     for (var g = 0; g < getters.length; g++) {
       var names = getters[g](m);
       for (var n = 0; n < names.length; n++) {
         var name = names[n];
-        if (!name) continue;
+        if (!name || seen[name]) continue;
+        seen[name] = true;
         counts[name] = (counts[name] || 0) + 1;
       }
     }

@@ -64,6 +64,16 @@ describe('collectMsOptions', function () {
     var names = opts.enemies.map(function (e) { return e.name; });
     assert.equal(names.indexOf(''), -1);
   });
+  it('counts a mirror matchup (same ms on both opponents) once per match', function () {
+    var matches = [
+      makeMatch({ opponent1_ms: 'ザクII', opponent2_ms: 'ザクII' }),
+      makeMatch({ opponent1_ms: 'ザクII', opponent2_ms: 'グフ' }),
+    ];
+    var opts = collectMsOptions(matches);
+    var zaku = opts.enemies.find(function (e) { return e.name === 'ザクII'; });
+    // 1試合目で2回出現するが、試合数としては2（各試合1回）
+    assert.equal(zaku.matches, 2);
+  });
   it('handles empty input', function () {
     var opts = collectMsOptions([]);
     assert.deepEqual(opts, { mine: [], partners: [], enemies: [] });
