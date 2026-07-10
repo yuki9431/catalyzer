@@ -90,6 +90,16 @@ function inRange(value, min, max) {
   return true;
 }
 
+// 試合内のプレイヤー名（相方・敵1・敵2）のいずれかが needle を部分一致で含むか。
+// needle は呼び出し側で trim + toLowerCase 済みであること。
+function nameMatches(m, needle) {
+  var names = [m.partner_name, m.opponent1_name, m.opponent2_name];
+  for (var i = 0; i < names.length; i++) {
+    if (String(names[i] || '').toLowerCase().indexOf(needle) >= 0) return true;
+  }
+  return false;
+}
+
 // 試合配列を filters で絞り込む。元配列は変更しない。
 export function filterMatches(matches, filters) {
   var f = filters || {};
@@ -98,7 +108,7 @@ export function filterMatches(matches, filters) {
   var myMs = f.myMs || '';
   var partnerMs = f.partnerMs || '';
   var enemyMs = f.enemyMs || '';
-  // プレイヤー名は部分一致・大小文字無視の曖昧検索（相方名が対象）
+  // プレイヤー名は部分一致・大小文字無視の曖昧検索（相方・敵の名前が対象）
   var playerName = (f.playerName || '').trim().toLowerCase();
   var result = f.result || 'all';
   var dgMin = toNum(f.dmgGivenMin), dgMax = toNum(f.dmgGivenMax);
@@ -113,7 +123,7 @@ export function filterMatches(matches, filters) {
     if (myMs && m.ms !== myMs) return false;
     if (partnerMs && m.partner_ms !== partnerMs) return false;
     if (enemyMs && m.opponent1_ms !== enemyMs && m.opponent2_ms !== enemyMs) return false;
-    if (playerName && String(m.partner_name || '').toLowerCase().indexOf(playerName) < 0) return false;
+    if (playerName && !nameMatches(m, playerName)) return false;
     if (result === 'win' && !m.win) return false;
     if (result === 'loss' && m.win) return false;
     if (!inRange(m.dmg_given, dgMin, dgMax)) return false;

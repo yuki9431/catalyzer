@@ -91,7 +91,7 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
       </div>
 
       <div class="search-field">
-        <label class="search-label">相方プレイヤー名（部分一致）</label>
+        <label class="search-label">プレイヤー名（相方・敵／部分一致）</label>
         <input type="text" class="search-text" placeholder="名前の一部を入力"
           value=${filters.playerName} onInput=${function (e) { onField('playerName', e.target.value); }} />
       </div>
@@ -123,9 +123,20 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
   </div>`;
 }
 
+// 名前と機体を「名前（機体）」形式に整形する。名前が無ければ機体のみ。
+function nameWithMs(name, ms) {
+  var n = (name || '').trim();
+  var m = (ms || '').trim();
+  if (n && m) return n + '（' + m + '）';
+  return n || m || '?';
+}
+
 // 1試合分のサマリー行。クリックで詳細を開く。
 function ResultItem({ match, onOpen }) {
-  var enemies = [match.opponent1_ms, match.opponent2_ms].filter(Boolean).join(' / ');
+  var enemies = [
+    nameWithMs(match.opponent1_name, match.opponent1_ms),
+    nameWithMs(match.opponent2_name, match.opponent2_ms),
+  ].join(' / ');
   return html`<button class="search-item" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
@@ -134,9 +145,11 @@ function ResultItem({ match, onOpen }) {
     </div>
     <div class="search-item-ms">
       <span class="search-item-self">${esc(match.ms || '?')}</span>
-      <span class="search-item-partner">+ ${esc(match.partner_ms || '?')}</span>
+      <span class="search-item-partner">+ ${esc(nameWithMs(match.partner_name, match.partner_ms))}</span>
+    </div>
+    <div class="search-item-foes">
       <span class="search-item-vs">vs</span>
-      <span class="search-item-enemy">${esc(enemies || '?')}</span>
+      <span class="search-item-enemy">${esc(enemies)}</span>
     </div>
     <div class="search-item-stats">
       <span>撃墜 <b>${num(match.kills)}</b></span>
@@ -186,7 +199,10 @@ function DetailModal({ match, onClose }) {
     };
   }, []);
 
-  var enemies = [match.opponent1_ms, match.opponent2_ms].filter(Boolean).join(' / ');
+  var enemies = [
+    nameWithMs(match.opponent1_name, match.opponent1_ms),
+    nameWithMs(match.opponent2_name, match.opponent2_ms),
+  ].join(' / ');
   function row(label, mine, partner) {
     return html`<tr><th>${label}</th><td class="num">${mine}</td><td class="num">${partner}</td></tr>`;
   }
@@ -202,8 +218,8 @@ function DetailModal({ match, onClose }) {
       </div>
 
       <div class="search-detail-matchup">
-        <div><span class="search-detail-tag">自軍</span> ${esc(match.ms || '?')} ＋ ${esc(match.partner_ms || '?')}</div>
-        <div><span class="search-detail-tag enemy">敵軍</span> ${esc(enemies || '?')}</div>
+        <div><span class="search-detail-tag">自軍</span> ${esc(match.ms || '?')} ＋ ${esc(nameWithMs(match.partner_name, match.partner_ms))}</div>
+        <div><span class="search-detail-tag enemy">敵軍</span> ${esc(enemies)}</div>
       </div>
 
       <div class="table-wrap"><table class="search-detail-table">

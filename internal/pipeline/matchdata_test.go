@@ -46,6 +46,26 @@ func TestBuildMatchData_AfterBoundaryIsStrict(t *testing.T) {
 	}
 }
 
+func TestBuildMatchData_PopulatesPlayerNames(t *testing.T) {
+	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
+
+	got := BuildMatchData(match(base, true), nil, time.Time{})
+	if len(got) != 1 {
+		t.Fatalf("want 1 match, got %d", len(got))
+	}
+	// match ヘルパーは PlayerNo 1..4 に 'a'..'d' を割り当てる。
+	// 相方=PlayerNo2='b'、敵1=PlayerNo3='c'、敵2=PlayerNo4='d'。
+	if got[0].PartnerName != "b" {
+		t.Errorf("PartnerName: want %q, got %q", "b", got[0].PartnerName)
+	}
+	if got[0].Opponent1Name != "c" {
+		t.Errorf("Opponent1Name: want %q, got %q", "c", got[0].Opponent1Name)
+	}
+	if got[0].Opponent2Name != "d" {
+		t.Errorf("Opponent2Name: want %q, got %q", "d", got[0].Opponent2Name)
+	}
+}
+
 func TestBuildMatchData_ZeroAfterReturnsAll(t *testing.T) {
 	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
 

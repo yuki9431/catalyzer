@@ -26,8 +26,10 @@ type MatchData struct {
 	PartnerCost     int          `json:"partner_cost,omitempty"`
 	Opponent1MS     string       `json:"opponent1_ms"`
 	Opponent1Cost   int          `json:"opponent1_cost,omitempty"`
+	Opponent1Name   string       `json:"opponent1_name"`
 	Opponent2MS     string       `json:"opponent2_ms"`
 	Opponent2Cost   int          `json:"opponent2_cost,omitempty"`
+	Opponent2Name   string       `json:"opponent2_name"`
 	Win             bool         `json:"win"`
 	Score           int          `json:"score"`
 	Kills           int          `json:"kills"`
@@ -144,8 +146,10 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			PartnerCost:     costsMap[mslist.StripQuery(partner.MsImageURL)],
 			Opponent1MS:     opp1.MsName,
 			Opponent1Cost:   costsMap[mslist.StripQuery(opp1.MsImageURL)],
+			Opponent1Name:   opp1.Name,
 			Opponent2MS:     opp2.MsName,
 			Opponent2Cost:   costsMap[mslist.StripQuery(opp2.MsImageURL)],
+			Opponent2Name:   opp2.Name,
 			Win:             me.Win,
 			Score:           me.Score,
 			Kills:           me.Kills,

@@ -108,23 +108,33 @@ describe('filterMatches', function () {
     var f = emptyFilters(); f.enemyMs = 'Y';
     assert.equal(filterMatches(matches, f).length, 2);
   });
-  it('filters by partner player name (partial, case-insensitive)', function () {
+  it('filters by player name (partner or enemy, partial, case-insensitive)', function () {
     var ms = [
-      makeMatch({ partner_name: 'ガンダムマスター' }),
-      makeMatch({ partner_name: 'Red Comet' }),
-      makeMatch({ partner_name: 'しゃあ専用' }),
+      makeMatch({ partner_name: 'ガンダムマスター', opponent1_name: '敵A', opponent2_name: '敵B' }),
+      makeMatch({ partner_name: 'Red Comet', opponent1_name: 'シャア', opponent2_name: 'ララァ' }),
+      makeMatch({ partner_name: 'しゃあ専用', opponent1_name: 'アムロ', opponent2_name: 'ブライト' }),
     ];
+    // 相方名にヒット
     var partial = emptyFilters(); partial.playerName = 'マスター';
     assert.equal(filterMatches(ms, partial).length, 1);
+    // 大小文字無視（相方名）
     var ci = emptyFilters(); ci.playerName = 'red';
     assert.equal(filterMatches(ms, ci).length, 1);
+    // 前後空白は無視
     var trimmed = emptyFilters(); trimmed.playerName = '  Comet  ';
     assert.equal(filterMatches(ms, trimmed).length, 1);
+    // 敵1の名前にヒット
+    var enemy1 = emptyFilters(); enemy1.playerName = 'シャア';
+    assert.equal(filterMatches(ms, enemy1).length, 1);
+    // 敵2の名前にヒット
+    var enemy2 = emptyFilters(); enemy2.playerName = 'ブライト';
+    assert.equal(filterMatches(ms, enemy2).length, 1);
+    // どこにも無ければ0件
     var none = emptyFilters(); none.playerName = '存在しない';
     assert.equal(filterMatches(ms, none).length, 0);
   });
-  it('player name filter treats missing partner_name safely', function () {
-    var ms = [makeMatch({ partner_name: undefined })];
+  it('player name filter treats missing names safely', function () {
+    var ms = [makeMatch({ partner_name: undefined, opponent1_name: undefined, opponent2_name: undefined })];
     var f = emptyFilters(); f.playerName = 'a';
     assert.equal(filterMatches(ms, f).length, 0);
   });
