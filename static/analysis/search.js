@@ -107,6 +107,9 @@ export function collectMsOptions(matches) {
     enemies: tally(ms, [function (m) { return [m.opponent1_ms, m.opponent2_ms]; }]),
     myTags: tally(ms, [function (m) { return [m.team_name]; }]),
     enemyCostPairs: costPairs,
+    // 曖昧検索入力の候補用（相方・敵のプレイヤー名／相手タッグ名）。
+    playerNames: tally(ms, [function (m) { return [m.partner_name, m.opponent1_name, m.opponent2_name]; }]),
+    enemyTags: tally(ms, [function (m) { return [m.opponent_team_name]; }]),
   };
 }
 

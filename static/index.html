@@ -394,6 +394,12 @@
       width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
       background: var(--bg); color: var(--text); font-size: 0.9em; color-scheme: dark;
     }
+    /* 自前の候補ドロップダウン（入力直下に表示） */
+    .search-ac { position: relative; }
+    .search-ac-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; max-height: 220px; overflow-y: auto;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); padding: 4px; }
+    .search-ac-item { width: 100%; text-align: left; background: none; border: none; border-radius: 6px; color: var(--text); font-size: 0.9em; padding: 8px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-ac-item:hover, .search-ac-item:focus { background: var(--panel-2); }
     /* 絞り込みのプルダウンはレポート画面の .panel-select-* を流用。フォーム内では下マージンを詰め、
        文字サイズは他の入力欄(0.9em)に合わせて統一する（モバイルの1emも上書き） */
     .search-field .panel-select-wrap { margin-bottom: 0; }

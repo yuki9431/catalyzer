@@ -270,3 +270,35 @@ export function MultiSelect({ values, options, onChange, placeholder }) {
     </div>`}
   </div>`;
 }
+
+// --- テキスト入力＋自前の候補ドロップダウン（部分一致・入力直下に表示） ---
+// options は候補文字列の配列。入力が空のときは候補を出さない。
+export function Autocomplete({ value, onChange, options, placeholder }) {
+  var openRef = useState(false);
+  var open = openRef[0], setOpen = openRef[1];
+  var ref = useRef(null);
+  useEffect(function () {
+    if (!open) return;
+    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('click', onDoc, true);
+    return function () { document.removeEventListener('click', onDoc, true); };
+  }, [open]);
+
+  var q = (value || '').trim().toLowerCase();
+  var matches = q
+    ? (options || []).filter(function (o) { return String(o).toLowerCase().indexOf(q) >= 0; }).slice(0, 30)
+    : [];
+  var showMenu = open && q && matches.length > 0;
+
+  return html`<div class="search-ac" ref=${ref}>
+    <input type="text" class="search-text" placeholder=${placeholder} value=${value}
+      onInput=${function (e) { onChange(e.target.value); setOpen(true); }}
+      onFocus=${function () { setOpen(true); }} />
+    ${showMenu && html`<div class="search-ac-menu">
+      ${matches.map(function (m) {
+        return html`<button type="button" class="search-ac-item"
+          onClick=${function () { onChange(m); setOpen(false); }}>${esc(m)}</button>`;
+      })}
+    </div>`}
+  </div>`;
+}

@@ -8,7 +8,7 @@ import {
   colorKills, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
-import { RangeCalendar, Dropdown, MultiSelect } from './ui.js';
+import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
 import { PERIOD_DAYS, filterByPlayDays } from '../analysis/stats.js';
 
 var PAGE_SIZE = 20;
@@ -126,8 +126,9 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
 
       <div class="search-field">
         <label class="search-label">プレイヤー名（相方・相手／部分一致）</label>
-        <input type="text" class="search-text" placeholder="名前の一部を入力"
-          value=${filters.playerName} onInput=${function (e) { onField('playerName', e.target.value); }} />
+        <${Autocomplete} value=${filters.playerName} placeholder="名前の一部を入力"
+          options=${options.playerNames.map(function (o) { return o.name; })}
+          onChange=${function (v) { onField('playerName', v); }} />
       </div>
 
       <div class="search-field">
@@ -167,8 +168,9 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
           </div>
           <div class="search-field search-field-wide">
             <label class="search-label">相手タッグ名（部分一致）</label>
-            <input type="text" class="search-text" placeholder="タッグ名の一部を入力"
-              value=${filters.enemyTagName} onInput=${function (e) { onField('enemyTagName', e.target.value); }} />
+            <${Autocomplete} value=${filters.enemyTagName} placeholder="タッグ名の一部を入力"
+              options=${options.enemyTags.map(function (o) { return o.name; })}
+              onChange=${function (v) { onField('enemyTagName', v); }} />
           </div>
           <div class="search-field">
             <label class="search-label">自機コスト（複数選択可）</label>

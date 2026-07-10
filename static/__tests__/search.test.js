@@ -76,7 +76,7 @@ describe('collectMsOptions', function () {
   });
   it('handles empty input', function () {
     var opts = collectMsOptions([]);
-    assert.deepEqual(opts, { mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [] });
+    assert.deepEqual(opts, { mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [], playerNames: [], enemyTags: [] });
   });
   it('orders enemyCostPairs by cost descending (not by match count)', function () {
     var matches = [
