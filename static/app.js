@@ -21,6 +21,7 @@ import {
 import {
   Tips, SortableTable, Table, SubSection,
 } from './components/ui.js';
+import { SearchView } from './components/search.js';
 import {
   useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
@@ -318,7 +319,7 @@ function ShareArea({ shareData }) {
 
 // --- Hamburger menu & topbar controls ---
 
-function HamburgerMenu({ isOpen, onClose, shareData, onLogout }) {
+function HamburgerMenu({ isOpen, onClose, shareData, onLogout, currentView, onNavigate }) {
   useEffect(function () {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -329,14 +330,19 @@ function HamburgerMenu({ isOpen, onClose, shareData, onLogout }) {
   }, [isOpen]);
 
   if (!isOpen) return null;
+  var view = currentView || 'report';
+  function go(target) {
+    if (onNavigate) onNavigate(target);
+    onClose();
+  }
   return html`<div>
     <div class="menu-backdrop" onClick=${onClose} />
     <div class=${'menu-drawer' + (isOpen ? ' open' : '')}>
       <div class="menu-header"><img src="logo.svg" alt="catalyzer" style="height:24px;width:auto;" /></div>
       <div class="menu-body">
         <div class="menu-section">メニュー</div>
-        <button class="menu-item active" onClick=${onClose}><span class="menu-icon">📊</span>分析レポート</button>
-        <button class="menu-item disabled"><span class="menu-icon">🔍</span>試合検索<span class="coming-soon">coming soon</span></button>
+        <button class=${'menu-item' + (view === 'report' ? ' active' : '')} onClick=${function () { go('report'); }}><span class="menu-icon">📊</span>分析レポート</button>
+        <button class=${'menu-item' + (view === 'search' ? ' active' : '')} onClick=${function () { go('search'); }}><span class="menu-icon">🔍</span>試合検索</button>
         <button class="menu-item disabled"><span class="menu-icon">📈</span>モバイル総合戦歴<span class="coming-soon">coming soon</span></button>
         <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
         <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
@@ -1106,6 +1112,8 @@ function Report({ data, userKey }) {
   var lens = lensRef[0], setLens = lensRef[1];
   var menuRef = useState(false);
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
+  var viewRef = useState('report');
+  var view = viewRef[0], setView = viewRef[1];
   var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
@@ -1219,6 +1227,21 @@ function Report({ data, userKey }) {
     return { basic_stats: null, win_loss_pattern: null };
   }, [frontendData]);
 
+  // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
+  // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
+  if (view === 'search') {
+    return html`
+      <div class="topbar">
+        <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+        <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
+        <button class="topbar-refresh" onClick=${function () { setView('report'); }}>レポートへ戻る</button>
+      </div>
+      <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
+        shareData=${shareData} onLogout=${logout} currentView=${view} onNavigate=${setView} />
+      <${SearchView} matches=${allMatches || []} />
+    `;
+  }
+
   if (!frontendData) {
     return html`<${Skeleton} />`;
   }
@@ -1256,7 +1279,7 @@ function Report({ data, userKey }) {
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
       shareData=${shareData}
-      onLogout=${logout} />
+      onLogout=${logout} currentView=${view} onNavigate=${setView} />
 
     <${KpiGrid} stats=${fePd.basic_stats} />
 
