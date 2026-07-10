@@ -108,6 +108,26 @@ describe('filterMatches', function () {
     var f = emptyFilters(); f.enemyMs = 'Y';
     assert.equal(filterMatches(matches, f).length, 2);
   });
+  it('filters by partner player name (partial, case-insensitive)', function () {
+    var ms = [
+      makeMatch({ partner_name: 'ガンダムマスター' }),
+      makeMatch({ partner_name: 'Red Comet' }),
+      makeMatch({ partner_name: 'しゃあ専用' }),
+    ];
+    var partial = emptyFilters(); partial.playerName = 'マスター';
+    assert.equal(filterMatches(ms, partial).length, 1);
+    var ci = emptyFilters(); ci.playerName = 'red';
+    assert.equal(filterMatches(ms, ci).length, 1);
+    var trimmed = emptyFilters(); trimmed.playerName = '  Comet  ';
+    assert.equal(filterMatches(ms, trimmed).length, 1);
+    var none = emptyFilters(); none.playerName = '存在しない';
+    assert.equal(filterMatches(ms, none).length, 0);
+  });
+  it('player name filter treats missing partner_name safely', function () {
+    var ms = [makeMatch({ partner_name: undefined })];
+    var f = emptyFilters(); f.playerName = 'a';
+    assert.equal(filterMatches(ms, f).length, 0);
+  });
   it('filters by result', function () {
     var win = emptyFilters(); win.result = 'win';
     assert.equal(filterMatches(matches, win).length, 2);

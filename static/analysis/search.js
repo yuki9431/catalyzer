@@ -18,6 +18,7 @@ export function emptyFilters() {
   return {
     dateFrom: '', dateTo: '',
     myMs: '', partnerMs: '', enemyMs: '',
+    playerName: '',          // 相方プレイヤー名の部分一致（曖昧検索）
     result: 'all',           // 'all' | 'win' | 'loss'
     dmgGivenMin: '', dmgGivenMax: '',
     dmgTakenMin: '', dmgTakenMax: '',
@@ -30,7 +31,7 @@ export function emptyFilters() {
 export function hasActiveFilters(filters) {
   var f = filters || {};
   if (f.result && f.result !== 'all') return true;
-  var keys = ['dateFrom', 'dateTo', 'myMs', 'partnerMs', 'enemyMs',
+  var keys = ['dateFrom', 'dateTo', 'myMs', 'partnerMs', 'enemyMs', 'playerName',
     'dmgGivenMin', 'dmgGivenMax', 'dmgTakenMin', 'dmgTakenMax',
     'killsMin', 'killsMax', 'deathsMin', 'deathsMax'];
   for (var i = 0; i < keys.length; i++) {
@@ -97,6 +98,8 @@ export function filterMatches(matches, filters) {
   var myMs = f.myMs || '';
   var partnerMs = f.partnerMs || '';
   var enemyMs = f.enemyMs || '';
+  // プレイヤー名は部分一致・大小文字無視の曖昧検索（相方名が対象）
+  var playerName = (f.playerName || '').trim().toLowerCase();
   var result = f.result || 'all';
   var dgMin = toNum(f.dmgGivenMin), dgMax = toNum(f.dmgGivenMax);
   var dtMin = toNum(f.dmgTakenMin), dtMax = toNum(f.dmgTakenMax);
@@ -110,6 +113,7 @@ export function filterMatches(matches, filters) {
     if (myMs && m.ms !== myMs) return false;
     if (partnerMs && m.partner_ms !== partnerMs) return false;
     if (enemyMs && m.opponent1_ms !== enemyMs && m.opponent2_ms !== enemyMs) return false;
+    if (playerName && String(m.partner_name || '').toLowerCase().indexOf(playerName) < 0) return false;
     if (result === 'win' && !m.win) return false;
     if (result === 'loss' && m.win) return false;
     if (!inRange(m.dmg_given, dgMin, dgMax)) return false;

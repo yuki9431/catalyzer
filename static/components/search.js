@@ -91,6 +91,12 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
       </div>
 
       <div class="search-field">
+        <label class="search-label">相方プレイヤー名（部分一致）</label>
+        <input type="text" class="search-text" placeholder="名前の一部を入力"
+          value=${filters.playerName} onInput=${function (e) { onField('playerName', e.target.value); }} />
+      </div>
+
+      <div class="search-field">
         <label class="search-label">勝敗</label>
         <div class="lens-toggle">
           ${[['all', '全て'], ['win', '勝利'], ['loss', '敗北']].map(function (o) {
