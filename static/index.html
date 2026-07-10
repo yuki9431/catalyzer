@@ -346,7 +346,7 @@
     .info-icon:hover { color: var(--accent-2); }
 
     /* ===== Modal ===== */
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; overscroll-behavior: contain; }
     .modal-content { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; max-width: 400px; margin: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
     .modal-content p { color: var(--text); font-size: 0.9em; line-height: 1.7; margin-bottom: 10px; }
     .modal-close { margin-top: 12px; padding: 10px 24px; border: none; border-radius: 8px; background: var(--accent); color: #062536; font-size: 0.95em; font-weight: bold; cursor: pointer; }
@@ -372,7 +372,7 @@
     .search-chevron { width: 9px; height: 9px; flex-shrink: 0; margin-right: 4px; margin-top: -3px;
       border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
       transform: rotate(45deg); transition: transform 0.2s ease; }
-    .search-filter-head.open .search-chevron, .search-adv-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
+    .search-filter-head.open .search-chevron, .search-adv-toggle.open .search-chevron, .search-detail-tl-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
     .search-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 6px; padding: 0 10px 8px; }
     .search-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
     .search-field-wide { grid-column: 1 / -1; }
@@ -480,7 +480,7 @@
     .search-detail {
       background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px;
       max-width: 520px; width: 100%; margin: 16px; max-height: calc(100vh - 32px); overflow-y: auto;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      overscroll-behavior: contain; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
     }
     .search-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
     .search-detail-date { margin-left: 8px; color: var(--muted); font-size: 0.88em; font-variant-numeric: tabular-nums; }
@@ -510,7 +510,11 @@
     .search-radar-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
     .search-radar-toggle .search-detail-thumb { width: 26px; height: 26px; margin: 0; border-radius: 5px; }
     .search-radar-toggle .search-detail-thumb-text { font-size: 0.42em; }
-    .search-detail-tl-title { font-size: 0.95em; color: var(--accent-2); margin: 18px 0 8px; }
+    /* 試合経過の折りたたみトグル（既定は畳む） */
+    .search-detail-tl-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: none; border: none; border-top: 1px solid var(--line); margin-top: 14px; padding: 12px 2px 4px; cursor: pointer; color: inherit; font-size: 1em; }
+    .search-detail-tl-toggle:hover, .search-detail-tl-toggle:focus { background: none; }
+    .search-detail-tl-toggle:hover .search-detail-tl-title { color: var(--accent); }
+    .search-detail-tl-title { font-size: 0.95em; color: var(--accent-2); margin: 0; }
     .search-detail-empty { color: var(--muted); font-size: 0.88em; }
     /* 試合経過ガント（公式風の横棒タイムライン） */
     .gantt { display: flex; flex-direction: column; gap: 6px; }

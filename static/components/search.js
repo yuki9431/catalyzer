@@ -9,7 +9,7 @@ import {
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
-import { PERIOD_DAYS, filterByPlayDays } from '../analysis/stats.js';
+import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 
 var PAGE_SIZE = 20;
 
@@ -93,7 +93,7 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
       <span class="search-chevron" aria-hidden="true"></span>
     </button>
     ${open && html`<div class="search-form">
-      <div class="search-field">
+      <div class="search-field search-field-wide">
         <label class="search-label">期間</label>
         <${Dropdown} value=${filters.playDays} placeholder="全データ"
           options=${Object.keys(PERIOD_DAYS).map(function (k) { return { value: k, label: PERIOD_DAYS[k] + '日' }; })}
@@ -110,7 +110,7 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
         <${MsMulti} values=${filters.partnerMsList} options=${options.partners}
           onChange=${function (vs) { onField('partnerMsList', vs); }} />
       </div>
-      <div class="search-field search-field-wide">
+      <div class="search-field">
         <div class="search-label search-label-row">
           <span>敵機（複数選択可）</span>
           <span class="search-andor">
@@ -335,30 +335,28 @@ function Timeline({ match, msImages }) {
   </div>`;
 }
 
-// 基本データ比較レーダーの軸（基本データ画面と同趣旨。4人全員が持つ6指標）。
-var RADAR_LABELS = ['スコア', '撃墜', '与ダメ', 'EXダメ', '被ダメ', '被撃墜'];
-// 各軸が「高いほど良い」か。被ダメ・被撃墜は低いほど良いので反転する。
-var RADAR_GOOD_HIGH = [true, true, true, true, false, false];
+// 基本データ比較レーダーの軸（基本データ画面と同じ6指標）。スコアは基準が無いため除外。
+// 正規化の重み付け(基準レンジ)は基本データ分析と同じものを stats.js の METRIC_RANGE で共有する。
+var RADAR_AXES = [
+  { label: '与ダメ', key: 'dmgGiven' },
+  { label: '撃墜', key: 'kills' },
+  { label: '覚醒', key: 'bursts' },
+  { label: '被ダメ', key: 'dmgTaken' },
+  { label: '被撃墜', key: 'deaths' },
+  { label: 'EXダメ', key: 'exDmg' },
+];
+var RADAR_LABELS = RADAR_AXES.map(function (a) { return a.label; });
 
-// 4人分のレーダー系列を作る。各軸をその試合の4人中の最大値で0-100に正規化し、
-// 守備系(被ダメ・被撃墜)は反転して「外側=優秀」に統一する。
+// 4人分のレーダー系列を作る。各軸を基本データと同じ基準(clampMetric)で0-100に正規化（絶対評価）。
 function radarPlayers(match) {
   var players = [
-    { label: '自分', color: '#4fc3f7', bg: 'rgba(79,195,247,.25)', raw: [match.score, match.kills, match.dmg_given, match.ex_dmg, match.dmg_taken, match.deaths] },
-    { label: '相方', color: '#69f0ae', bg: 'rgba(105,240,174,.25)', raw: [match.partner_score, match.partner_kills, match.partner_dmg_given, match.partner_ex_dmg, match.partner_dmg_taken, match.partner_deaths] },
-    { label: '相手1', color: '#ef5350', bg: 'rgba(239,83,80,.22)', raw: [match.opponent1_score, match.opponent1_kills, match.opponent1_dmg_given, match.opponent1_ex_dmg, match.opponent1_dmg_taken, match.opponent1_deaths] },
-    { label: '相手2', color: '#ffca28', bg: 'rgba(255,202,40,.22)', raw: [match.opponent2_score, match.opponent2_kills, match.opponent2_dmg_given, match.opponent2_ex_dmg, match.opponent2_dmg_taken, match.opponent2_deaths] },
+    { label: '自分', color: '#4fc3f7', bg: 'rgba(79,195,247,.25)', raw: [match.dmg_given, match.kills, match.bursts, match.dmg_taken, match.deaths, match.ex_dmg] },
+    { label: '相方', color: '#69f0ae', bg: 'rgba(105,240,174,.25)', raw: [match.partner_dmg_given, match.partner_kills, match.partner_bursts, match.partner_dmg_taken, match.partner_deaths, match.partner_ex_dmg] },
+    { label: '相手1', color: '#ef5350', bg: 'rgba(239,83,80,.22)', raw: [match.opponent1_dmg_given, match.opponent1_kills, match.opponent1_bursts, match.opponent1_dmg_taken, match.opponent1_deaths, match.opponent1_ex_dmg] },
+    { label: '相手2', color: '#ffca28', bg: 'rgba(255,202,40,.22)', raw: [match.opponent2_dmg_given, match.opponent2_kills, match.opponent2_bursts, match.opponent2_dmg_taken, match.opponent2_deaths, match.opponent2_ex_dmg] },
   ];
-  var maxes = RADAR_LABELS.map(function (_, a) {
-    return players.reduce(function (mx, p) { return Math.max(mx, Number(p.raw[a]) || 0); }, 0);
-  });
   players.forEach(function (p) {
-    p.data = p.raw.map(function (v, a) {
-      var mx = maxes[a];
-      if (mx <= 0) return RADAR_GOOD_HIGH[a] ? 0 : 100;
-      var frac = (Number(v) || 0) / mx;
-      return Math.round((RADAR_GOOD_HIGH[a] ? frac : (1 - frac)) * 100);
-    });
+    p.data = p.raw.map(function (v, a) { return clampMetric(v, RADAR_AXES[a].key); });
   });
   return players;
 }
@@ -378,12 +376,21 @@ function DetailModal({ match, msImages, onClose }) {
   useEffect(function () {
     function onKey(e) { if (e.key === 'Escape') onClose(); }
     document.addEventListener('keydown', onKey);
+    // モーダル表示中は背景（body/html）のスクロールを止める。
+    var prevBody = document.body.style.overflow;
+    var prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
     return function () {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
     };
   }, []);
+
+  // 試合経過は既定で畳む（スマホで閉じる×のスペースに余裕を持たせる）。
+  var tlOpenRef = useState(false);
+  var tlOpen = tlOpenRef[0], setTlOpen = tlOpenRef[1];
 
   // レーダー: 4人分の系列とトグルによる表示切替（既定は自分＋相方＝自陣）。
   var players = useMemo(function () { return radarPlayers(match); }, [match]);
@@ -452,8 +459,12 @@ function DetailModal({ match, msImages, onClose }) {
         </tbody>
       </table></div>
 
-      <h3 class="search-detail-tl-title">試合経過</h3>
-      <${Timeline} match=${match} msImages=${msImages} />
+      <button type="button" class=${'search-detail-tl-toggle' + (tlOpen ? ' open' : '')}
+        onClick=${function () { setTlOpen(!tlOpen); }} aria-expanded=${tlOpen}>
+        <span class="search-detail-tl-title">試合経過</span>
+        <span class="search-chevron" aria-hidden="true"></span>
+      </button>
+      ${tlOpen && html`<${Timeline} match=${match} msImages=${msImages} />`}
     </div>
   </div>`;
 }

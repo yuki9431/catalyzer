@@ -8,6 +8,7 @@ import {
   computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
   computeFixedPartners,
   computeShareData, computeMsSummary,
+  clampMetric,
 } from './analysis/stats.js';
 import {
   loadMatchesFromDB, saveMatchesToDB,
@@ -322,12 +323,6 @@ function LensToggle({ lens, onSelect }) {
 
 // --- Dashboard building blocks ---
 
-// 値を min..max の範囲で 0-100 に正規化（レーダー用）
-function clampN(v, min, max) {
-  if (v == null) return 0;
-  return Math.max(0, Math.min(100, (v - min) / (max - min) * 100));
-}
-
 // KPIカードの色クラス。higher=trueは大きいほど良い
 function kpiClass(n, great, good, terrible, higher) {
   if (n == null) return '';
@@ -376,7 +371,7 @@ function BasicLensSection({ basic, pattern, lens }) {
   // 攻めを上半分・守りを下半分に固めつつ3ペアを対極配置: 与ダメ↔被ダメ, 撃墜↔被撃墜, EXダメ↔覚醒回数
   // 軸順(idx): 0=与ダメ(上), 1=撃墜(右上), 2=覚醒回数(右下), 3=被ダメ(下), 4=被撃墜(左下), 5=EXダメ(左上)
   function vec(dgv, kv, bv, dtv, dthv, exv) {
-    return [clampN(dgv, 600, 1200), clampN(kv, 0.5, 2.5), clampN(bv, 0, 2.5), clampN(dtv, 1200, 600), clampN(dthv, 2.5, 0.5), clampN(exv, 80, 250)];
+    return [clampMetric(dgv, 'dmgGiven'), clampMetric(kv, 'kills'), clampMetric(bv, 'bursts'), clampMetric(dtv, 'dmgTaken'), clampMetric(dthv, 'deaths'), clampMetric(exv, 'exDmg')];
   }
   var seriesByLens = {
     all: { label: '全体', color: '#81d4fa', bg: 'rgba(129,212,250,.2)', data: vec(basic.avg_dmg_given, basic.avg_kills, basic.avg_bursts, basic.avg_dmg_taken, basic.avg_deaths, basic.avg_ex_dmg) },
@@ -560,12 +555,12 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
   function pVec(stats, wlMetrics) {
     function v(label, allVal) { return valFor(wlMetrics, label, allVal); }
     return [
-      clampN(v('平均与ダメージ', stats.avg_dmg_given), 600, 1200),
-      clampN(v('平均撃墜', stats.avg_kills), 0.5, 2.5),
-      clampN(v('平均覚醒回数', stats.avg_bursts), 0, 2.5),
-      clampN(v('平均被ダメージ', stats.avg_dmg_taken), 1200, 600),
-      clampN(v('平均被撃墜', stats.avg_deaths), 2.5, 0.5),
-      clampN(v('平均EXダメージ', stats.avg_ex_dmg), 80, 250),
+      clampMetric(v('平均与ダメージ', stats.avg_dmg_given), 'dmgGiven'),
+      clampMetric(v('平均撃墜', stats.avg_kills), 'kills'),
+      clampMetric(v('平均覚醒回数', stats.avg_bursts), 'bursts'),
+      clampMetric(v('平均被ダメージ', stats.avg_dmg_taken), 'dmgTaken'),
+      clampMetric(v('平均被撃墜', stats.avg_deaths), 'deaths'),
+      clampMetric(v('平均EXダメージ', stats.avg_ex_dmg), 'exDmg'),
     ];
   }
 
@@ -991,8 +986,18 @@ function Report({ data, userKey }) {
   var lens = lensRef[0], setLens = lensRef[1];
   var menuRef = useState(false);
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
-  var viewRef = useState('report');
+  // 再分析はReportを再マウントするため、view(report/search)をlocalStorageで永続化して復元する。
+  var viewRef = useState(function () { try { return localStorage.getItem('catalyzer_view') || 'report'; } catch (e) { return 'report'; } });
   var view = viewRef[0], setView = viewRef[1];
+  function navigate(v) {
+    setView(v);
+    try { localStorage.setItem('catalyzer_view', v); } catch (e) {}
+    // 画面切替時に、メニューで残ったスクロールロックを確実に解除し先頭へ戻す
+    // （ヘッダーが下に固定されスクロール不能になる不具合の対処）。
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, 0);
+  }
   var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
@@ -1048,6 +1053,15 @@ function Report({ data, userKey }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     return function () { window.removeEventListener('scroll', onScroll); };
   }, []);
+
+  // 画面(view)が変わるたびに、メニュー由来のスクロールロックを確実に解除し先頭へ戻す。
+  // 再分析中はReportが再描画(再マウント)されるため、navigate内だけでなくここでも保証する
+  // （切替時にヘッダーが下に固定されスクロール不能になる不具合の対処）。
+  useEffect(function () {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, 0);
+  }, [view]);
 
   var PERIOD_LABELS = { all: '全データ', '90d': '90日', '60d': '60日', '30d': '30日', '14d': '14日', '7d': '7日', '3d': '3日', '1d': '1日' };
   var periods = {};
@@ -1124,16 +1138,16 @@ function Report({ data, userKey }) {
   // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
   // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
   if (view === 'search') {
-    return html`
+    return html`<div class="view-root">
       <div class="topbar">
         <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
         <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-        <button class="topbar-refresh" onClick=${function () { setView('report'); }}>レポートへ戻る</button>
+        <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
       </div>
       <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
-        shareData=${shareData} onLogout=${logout} currentView=${view} onNavigate=${setView} />
+        shareData=${shareData} onLogout=${logout} currentView=${view} onNavigate=${navigate} />
       <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
-    `;
+    </div>`;
   }
 
   if (!frontendData) {
@@ -1154,7 +1168,7 @@ function Report({ data, userKey }) {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;
   }
 
-  return html`
+  return html`<div class="view-root">
     <div class="topbar" ref=${topbarRef}>
       <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
@@ -1173,13 +1187,12 @@ function Report({ data, userKey }) {
 
     <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
       shareData=${shareData}
-      onLogout=${logout} currentView=${view} onNavigate=${setView} />
+      onLogout=${logout} currentView=${view} onNavigate=${navigate} />
 
     <${KpiGrid} stats=${fePd.basic_stats} />
 
     ${pane}
-
-  `;
+  </div>`;
 }
 
 // --- Main app logic ---
@@ -1191,7 +1204,7 @@ function Skeleton() {
   function bar(w, h, mb) {
     return html`<div class="skel" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
-  return html`
+  return html`<div class="view-root">
     <div class="topbar">
       <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
@@ -1220,7 +1233,7 @@ function Skeleton() {
       ${bar('24%', 16, 14)}
       ${[0, 1, 2, 3].map(function () { return bar('100%', 14, 10); })}
     </div>
-  `;
+  </div>`;
 }
 
 function showSkeleton() {
