@@ -1488,8 +1488,14 @@ if (rememberInfoBtn && rememberModal) {
 
     fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
       if (!data.valid) {
+        // セッション失効時は、キャッシュから描画済みのレポートを隠さないと
+        // ログイン画面の下に古いレポートが残る（reanalyzeWithSession の401経路と同じ後始末）。
         localStorage.removeItem('catalyzer_has_session');
+        var rep = document.getElementById('report');
+        if (rep) { render(null, rep); rep.style.display = 'none'; }
         if (loginForm) loginForm.style.display = 'block';
+        var t = document.getElementById('pageTitle');
+        if (t) t.style.display = '';
       } else if (!hasLocalData) {
         reanalyzeWithSession();
       }
