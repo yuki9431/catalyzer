@@ -65,9 +65,7 @@ var actionMapping = map[string]string{
 
 // SaveScores はDatedScoresをFirestoreのmatchesサブコレクションに書き込む。
 // タイムラインデータがある場合は各プレイヤーのactionsとして埋め込む。
-// migrateLegacyがtrueの場合（バックフィル時）、新doc IDと異なる旧「分精度doc」があれば
-// 削除して二重化を防ぐ（#358: doc ID方式変更に伴う移行。同一保存内での置換のためnetで非破壊）。
-func SaveScores(userKey string, scores model.DatedScores, migrateLegacy bool) {
+func SaveScores(userKey string, scores model.DatedScores) {
 	c := getClient()
 	if c == nil {
 		return
@@ -104,16 +102,6 @@ func SaveScores(userKey string, scores model.DatedScores, migrateLegacy bool) {
 			log.Printf("[WARN] Firestore: failed to enqueue match %s: %v", docID, err)
 			continue
 		}
-
-		if migrateLegacy && entries[0].MatchID != "" {
-			legacyID := entries[0].Datetime.Format(model.MatchKeyFormat)
-			if legacyID != docID {
-				if _, err := bw.Delete(matchesCol.Doc(legacyID)); err != nil {
-					log.Printf("[WARN] Firestore: failed to enqueue legacy doc delete %s: %v", legacyID, err)
-				}
-			}
-		}
-
 		count++
 	}
 
@@ -244,41 +232,6 @@ func GetLatestDatetime(userKey string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("parse latest match: %w", err)
 	}
 	return md.Datetime, nil
-}
-
-// BackfillDates は直近30日以内でms_proficiencyが空のmatchesの日付セットを返す。
-func BackfillDates(userKey string) map[string]bool {
-	dates := make(map[string]bool)
-
-	c := getClient()
-	if c == nil {
-		return dates
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-
-	cutoff := time.Now().AddDate(0, 0, -30)
-	userRef := c.Collection("users").Doc(userKey)
-	docs, err := userRef.Collection("matches").Where("datetime", ">=", cutoff).Documents(ctx).GetAll()
-	if err != nil {
-		log.Printf("[WARN] Firestore: failed to get backfill dates: %v", err)
-		return dates
-	}
-
-	for _, doc := range docs {
-		var md matchDoc
-		if err := doc.DataTo(&md); err != nil {
-			continue
-		}
-		for _, p := range md.Players {
-			if p.MsProficiency == "" {
-				dates[md.Datetime.Format("2006/01/02")] = true
-				break
-			}
-		}
-	}
-	return dates
 }
 
 // groupByMatch はDatedScoresをGroupKey()（MatchIDがあればそれ、無ければ分精度）でグルーピングする。

@@ -153,26 +153,13 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 	exists := len(existingScores) > 0
 
-	// バックフィル判定: Firestoreから新フィールドが空のレコードがある日付を特定
-	var backfillDates map[string]bool
 	if exists {
-		backfillDates = fs.BackfillDates(j.UserKey)
-		if len(backfillDates) > 0 {
-			log.Printf("[INFO] Backfill needed: %d dates with missing data", len(backfillDates))
+		since, err = fs.GetLatestDatetime(j.UserKey)
+		if err != nil {
+			log.Printf("[WARN] Failed to read latest datetime from Firestore: %v", err)
 		}
-	}
-
-	if exists {
-		if len(backfillDates) > 0 {
-			log.Printf("[INFO] Backfill mode: targeting specific dates")
-		} else {
-			since, err = fs.GetLatestDatetime(j.UserKey)
-			if err != nil {
-				log.Printf("[WARN] Failed to read latest datetime from Firestore: %v", err)
-			}
-			if !since.IsZero() {
-				log.Printf("[INFO] Fetching scores after %s", since.Format("2006-01-02 15:04"))
-			}
+		if !since.IsZero() {
+			log.Printf("[INFO] Fetching scores after %s", since.Format("2006-01-02 15:04"))
 		}
 
 		// 既存データから速報マッチデータを生成
@@ -238,9 +225,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		},
 		SavedJar: j.SavedJar,
 		Context:  j.ctx,
-	}
-	if len(backfillDates) > 0 {
-		scrapingOpt.BackfillDates = backfillDates
 	}
 
 	var datedScores model.DatedScores
@@ -356,8 +340,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		gradelist.CheckUnknownGrades(datedScores, gradeMap)
 	}
 
-	// Firestoreにscoresを書き込み。バックフィル時のみ旧「分精度doc」を新doc IDへ移行する
-	fs.SaveScores(j.UserKey, datedScores, len(backfillDates) > 0)
+	// Firestoreにscoresを書き込み
+	fs.SaveScores(j.UserKey, datedScores)
 
 	// 既存 + 新規をメモリ上でマージ（Firestoreの再読み取りを省略）
 	allScores := mergeScores(existingScores, datedScores)

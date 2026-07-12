@@ -133,7 +133,6 @@ type ProgressFunc func(current, total int)
 // ScrapingOption はスクレイピングのオプション
 type ScrapingOption struct {
 	OnProgress     ProgressFunc
-	BackfillDates  map[string]bool                // バックフィル対象日付セット（"2006/01/02"形式）。nilなら全日付対象
 	OnBatchReady   func(scores model.DatedScores) // BatchSize試合ごとに蓄積スコアのスナップショットを通知
 	BatchSize      int                            // OnBatchReady発火間隔（試合数）。0の場合は通知しない
 	FirstBatchSize int                            // 初回OnBatchReadyを発火する試合数。0でBatchSizeと同じ。初回だけ早めに速報を出す用途
@@ -197,18 +196,6 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 	dailyLinks, err := collectDailyLinks(jar, since)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	// バックフィル対象日付が指定されている場合はフィルタリング
-	if opt.BackfillDates != nil {
-		var filtered []dailyLink
-		for _, dl := range dailyLinks {
-			if opt.BackfillDates[dl.date] {
-				filtered = append(filtered, dl)
-			}
-		}
-		log.Printf("[INFO] Backfill: filtered %d/%d daily links to target dates", len(filtered), len(dailyLinks))
-		dailyLinks = filtered
 	}
 
 	// 403検出時に全処理を即座に打ち切るためのcontext。呼び出し元Contextを親にすることで、
