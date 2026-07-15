@@ -452,9 +452,12 @@
     /* 対戦カード: 自陣（自機＋相方）VS 敵陣（敵1＋敵2）を機体画像で並べる */
     /* 画像行: 自陣(自機+相方) VS 敵陣(敵1+敵2)。画像は枠内で伸縮し被らない */
     .search-item-battle { display: flex; align-items: center; gap: 10px; }
-    .search-ms-imgs { flex: 1; min-width: 0; display: flex; gap: 6px; }
+    .search-ms-imgs { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: center; }
     .search-ms-imgs.enemy { justify-content: flex-end; }
-    .search-ms-thumb { flex: 0 1 74px; min-width: 0; width: auto; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
+    /* 幅はフレックス配分(basis 0)で決め、intrinsicサイズを基準にしない。
+       iOS Safariは aspect-ratio + flex-basis:auto の img で intrinsic 幅を採用して縮まず、
+       カードから溢れてレイアウトが崩れる（#iphone15-ios18）。basis 0 + max-width で回避する。 */
+    .search-ms-thumb { flex: 1 1 0; min-width: 0; max-width: 74px; width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
     .search-ms-thumb-text { display: flex; align-items: center; justify-content: center; text-align: center; padding: 3px; font-size: 0.66em; line-height: 1.2; color: var(--muted); overflow: hidden; }
     /* 公式スプライト win_lose_vs.png(451x138) から VS 部分だけを background-position で切り出す */
     .search-item-vs { flex-shrink: 0; width: 54px; height: 44px;
