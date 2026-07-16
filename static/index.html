@@ -454,10 +454,12 @@
     .search-item-battle { display: flex; align-items: center; gap: 10px; }
     .search-ms-imgs { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: center; }
     .search-ms-imgs.enemy { justify-content: flex-end; }
-    /* 幅はフレックス配分(basis 0)で決め、intrinsicサイズを基準にしない。
-       iOS18以前のSafariは aspect-ratio + flex-basis:74px の img で intrinsic 幅を採用して縮まず、
-       カードから溢れてレイアウトが崩れる（iOS26では修正済み）。basis 0 + max-width で回避する。 */
-    .search-ms-thumb { flex: 1 1 0; min-width: 0; max-width: 74px; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
+    /* フレックスアイテムはラッパー(.search-ms-slot)側。幅はフレックス配分(basis 0)で確定させ、
+       画像/テキストは width:100% で内側に収める。img自体をフレックスアイテム＋aspect-ratioにすると
+       iOS18以前のSafariが min-width:0 を無視して本来サイズで min-content を算出し、カードから
+       溢れてレイアウトが崩れる（iOS26では解消）。ラッパー方式でそのバグ経路を避ける。 */
+    .search-ms-slot { flex: 1 1 0; min-width: 0; max-width: 74px; }
+    .search-ms-thumb { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
     .search-ms-thumb-text { display: flex; align-items: center; justify-content: center; text-align: center; padding: 3px; font-size: 0.66em; line-height: 1.2; color: var(--muted); overflow: hidden; }
     /* 公式スプライト win_lose_vs.png(451x138) から VS 部分だけを background-position で切り出す */
     .search-item-vs { flex-shrink: 0; width: 54px; height: 44px;

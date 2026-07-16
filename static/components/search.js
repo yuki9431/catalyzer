@@ -224,13 +224,16 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
 var METRIC_LABELS = SORT_OPTIONS.reduce(function (m, o) { m[o.key] = o.label; return m; }, {});
 
 // 機体サムネイル。画像URLが引ければ画像、無ければ機体名テキストにフォールバック。
+// フレックスアイテムはラッパー(.search-ms-slot)側にし、画像/テキストは width:100% で内側に収める。
+// img自体をフレックスアイテム＋aspect-ratioにすると iOS18 Safari が min-width:0 を無視して
+// 本来サイズで min-content を算出し、カードから溢れるため（iOS26では解消）。
 function MsThumb({ name, msImages }) {
   var nm = (name || '').trim();
   var url = nm && msImages ? msImages[nm] : '';
-  if (url) {
-    return html`<img class="search-ms-thumb" src=${url} alt=${nm} title=${nm} loading="lazy" />`;
-  }
-  return html`<span class="search-ms-thumb search-ms-thumb-text" title=${nm}>${esc(nm || '?')}</span>`;
+  var inner = url
+    ? html`<img class="search-ms-thumb" src=${url} alt=${nm} title=${nm} loading="lazy" />`
+    : html`<span class="search-ms-thumb search-ms-thumb-text" title=${nm}>${esc(nm || '?')}</span>`;
+  return html`<span class="search-ms-slot">${inner}</span>`;
 }
 
 // プレイヤー名を整形（空は「—」）。名前は最大12文字。
