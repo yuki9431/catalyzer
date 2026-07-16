@@ -263,10 +263,11 @@ function ResultItem({ match, msImages, sortKey, onOpen }) {
       </div>
     </div>
     <div class="search-item-namesrow">
-      <div class="search-item-names">
-        <div class="search-name-line self" title=${playerName(match.name)}>${esc(playerName(match.name))}</div>
+      <div class="search-item-names self">
+        <div class="search-name-line" title=${playerName(match.name)}>${esc(playerName(match.name))}</div>
         <div class="search-name-line" title=${playerName(match.partner_name)}>${esc(playerName(match.partner_name))}</div>
       </div>
+      <span class="search-names-vs" aria-hidden="true"></span>
       <div class="search-item-names enemy">
         <div class="search-name-line" title=${playerName(match.opponent1_name)}>${esc(playerName(match.opponent1_name))}</div>
         <div class="search-name-line" title=${playerName(match.opponent2_name)}>${esc(playerName(match.opponent2_name))}</div>
