@@ -459,7 +459,9 @@
        iOS18以前のSafariが min-width:0 を無視して本来サイズで min-content を算出し、カードから
        溢れてレイアウトが崩れる（iOS26では解消）。ラッパー方式でそのバグ経路を避ける。 */
     .search-ms-slot { flex: 1 1 0; min-width: 0; max-width: 74px; }
-    .search-ms-thumb { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
+    /* max-width はスロットで効くが、アセット混在（古いJSでラッパー無し等）でも巨大化しないよう
+       サムネイル自身にも上限を持たせる保険。 */
+    .search-ms-thumb { display: block; width: 100%; max-width: 74px; height: auto; aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
     .search-ms-thumb-text { display: flex; align-items: center; justify-content: center; text-align: center; padding: 3px; font-size: 0.66em; line-height: 1.2; color: var(--muted); overflow: hidden; }
     /* 公式スプライト win_lose_vs.png(451x138) から VS 部分だけを background-position で切り出す */
     .search-item-vs { flex-shrink: 0; width: 54px; height: 44px;
