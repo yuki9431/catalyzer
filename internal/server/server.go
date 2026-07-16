@@ -11,6 +11,7 @@ import (
 	"net/mail"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -268,7 +269,7 @@ func StartServer() {
 		log.Printf("[WARN] Failed to register webmanifest MIME type: %v", err)
 	}
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
+	http.Handle("/", staticCacheControl(fs))
 
 	log.Printf("[INFO] Server starting on port %s", port)
 	handler := basicAuth(securityHeaders(http.DefaultServeMux), "/health")
@@ -382,6 +383,21 @@ func handleMatches(w http.ResponseWriter, r *http.Request) {
 }
 
 // securityHeaders は全レスポンスにセキュリティヘッダーを付与する
+// staticCacheControl は HTML/JS を常に再検証（no-cache）させる。
+// アセットにバージョニングが無いため、デプロイ直後にブラウザが古いHTMLと新しいJS
+// （またはその逆）を混在してキャッシュし、レイアウトが崩れるのを防ぐ。FileServer の
+// Last-Modified / If-Modified-Since により実体が変わらなければ 304 で返るため負荷は小さい。
+// 画像や webmanifest 等は変更頻度が低くヒューリスティックキャッシュで問題ないため対象外。
+func staticCacheControl(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if p == "/" || strings.HasSuffix(p, ".html") || strings.HasSuffix(p, ".js") {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
