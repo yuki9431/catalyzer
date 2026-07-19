@@ -17,6 +17,15 @@ export function boldText(s) {
 export function pct(n) { return n != null ? n.toFixed(1) + '%' : '-'; }
 export function num(n, d) { return n != null ? n.toFixed(d != null ? d : 0) : '-'; }
 
+// 試合の制限時間（秒）。この時間まで経過した試合はタイムアップとなり、勝敗はスコアで決まる。
+export var TIMEUP_SEC = 240;
+
+// タイムアップ（制限時間切れ）で決着した試合か。game_end_secが制限時間に達していれば真。
+// 勝敗自体は既に正しく判定済みで、これは表示用の付加情報。
+export function isTimeUp(match) {
+  return !!(match && match.game_end_sec != null && match.game_end_sec >= TIMEUP_SEC);
+}
+
 function valClass4(n, great, good, bad, terrible, higherIsBetter) {
   if (n == null) return '';
   if (higherIsBetter) {
