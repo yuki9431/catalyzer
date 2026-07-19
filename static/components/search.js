@@ -308,32 +308,41 @@ function Timeline({ match, msImages }) {
     }
     return barEl;
   }
-  // 10秒刻みの目盛り（実終了時刻まで。余白部分には目盛りを出さない）。
-  var ticks = [];
-  for (var t = 0; t <= raw; t += 10) ticks.push(t);
+  // 補助線＋目盛り。30秒ごとに点線の補助線、1分ごと(major)にラベルを付ける。
+  // 以前は10秒刻みでラベルを出しており、隣同士が重なって判読できなかった（公式は分刻み）。
+  var grid = [];
+  for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
+  var labels = grid.filter(function (g) { return g.major; });
 
   return html`<div class="gantt">
-    ${rows.map(function (r) {
-      var acts = r.actions || [];
-      var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
-      var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
-      var deaths = acts.filter(function (a) { return a.action === 'death'; });
-      return html`<div class="gantt-row">
-        <${DetailThumb} name=${r.ms} msImages=${msImages} />
-        <div class="gantt-track">
-          <div class="gantt-lane">
-            ${lane0.map(bar)}
-            ${deaths.map(function (a) {
-              return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
-            })}
+    <div class="gantt-rows">
+      <div class="gantt-grid">
+        ${grid.map(function (g) {
+          return html`<span class=${'gantt-gridline' + (g.major ? ' gantt-gridline-major' : '')} style=${'left:' + pct(g.sec) + '%'}></span>`;
+        })}
+      </div>
+      ${rows.map(function (r) {
+        var acts = r.actions || [];
+        var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
+        var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
+        var deaths = acts.filter(function (a) { return a.action === 'death'; });
+        return html`<div class="gantt-row">
+          <${DetailThumb} name=${r.ms} msImages=${msImages} />
+          <div class="gantt-track">
+            <div class="gantt-lane">
+              ${lane0.map(bar)}
+              ${deaths.map(function (a) {
+                return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
+              })}
+            </div>
+            <div class="gantt-lane">${lane1.map(bar)}</div>
           </div>
-          <div class="gantt-lane">${lane1.map(bar)}</div>
-        </div>
-      </div>`;
-    })}
+        </div>`;
+      })}
+    </div>
     <div class="gantt-axis">
-      ${ticks.map(function (t) {
-        return html`<span class="gantt-tick" style=${'left:' + pct(t) + '%'}>${fmtSec(t)}</span>`;
+      ${labels.map(function (g) {
+        return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${fmtSec(g.sec)}</span>`;
       })}
     </div>
     <div class="gantt-legend">
