@@ -527,6 +527,11 @@
     .search-detail-empty { color: var(--muted); font-size: 0.88em; }
     /* 試合経過ガント（公式風の横棒タイムライン） */
     .gantt { display: flex; flex-direction: column; gap: 6px; }
+    /* 行の重なり領域。縦の補助線（点線）を全行にまたがって重ねる */
+    .gantt-rows { position: relative; display: flex; flex-direction: column; gap: 6px; }
+    .gantt-grid { position: absolute; top: 0; bottom: 0; left: 42px; right: 0; pointer-events: none; z-index: 4; }
+    .gantt-gridline { position: absolute; top: -2px; bottom: -2px; width: 0; border-left: 1px dashed rgba(255,255,255,0.09); }
+    .gantt-gridline-major { border-left-color: rgba(255,255,255,0.20); }
     .gantt-row { display: flex; align-items: center; gap: 8px; }
     .gantt-row .search-detail-thumb { width: 34px; height: 34px; margin: 0; flex-shrink: 0; }
     .gantt-track { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }

@@ -30,14 +30,6 @@ var GANTT_LEGEND = [
   ['ov', 'OLスタンバイ'], ['ov-on', 'OL発動'],
 ];
 
-// 秒数を M:SS 形式に整形する。
-function fmtSec(sec) {
-  if (sec == null || isNaN(sec)) return '';
-  var s = Math.max(0, Math.round(sec));
-  var m = Math.floor(s / 60);
-  return m + ':' + String(s % 60).padStart(2, '0');
-}
-
 // 機体/タッグ/コスト編成用の複数選択（OR）。集計結果 [{name, matches}] を渡す。
 // 選択後のトリガーは名前のみ（chip）、ドロップダウン内は「名前（N戦）」を出す。
 function MsMulti({ values, onChange, options }) {
@@ -308,32 +300,41 @@ function Timeline({ match, msImages }) {
     }
     return barEl;
   }
-  // 10秒刻みの目盛り（実終了時刻まで。余白部分には目盛りを出さない）。
-  var ticks = [];
-  for (var t = 0; t <= raw; t += 10) ticks.push(t);
+  // 補助線＋目盛り。30秒ごとに点線の補助線、1分ごと(major)に秒数ラベル(60/120/180)を付ける。
+  // 以前は10秒刻みでラベルを出しており、隣同士が重なって判読できなかった。
+  var grid = [];
+  for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
+  var labels = grid.filter(function (g) { return g.major; });
 
   return html`<div class="gantt">
-    ${rows.map(function (r) {
-      var acts = r.actions || [];
-      var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
-      var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
-      var deaths = acts.filter(function (a) { return a.action === 'death'; });
-      return html`<div class="gantt-row">
-        <${DetailThumb} name=${r.ms} msImages=${msImages} />
-        <div class="gantt-track">
-          <div class="gantt-lane">
-            ${lane0.map(bar)}
-            ${deaths.map(function (a) {
-              return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
-            })}
+    <div class="gantt-rows">
+      <div class="gantt-grid">
+        ${grid.map(function (g) {
+          return html`<span class=${'gantt-gridline' + (g.major ? ' gantt-gridline-major' : '')} style=${'left:' + pct(g.sec) + '%'}></span>`;
+        })}
+      </div>
+      ${rows.map(function (r) {
+        var acts = r.actions || [];
+        var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
+        var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
+        var deaths = acts.filter(function (a) { return a.action === 'death'; });
+        return html`<div class="gantt-row">
+          <${DetailThumb} name=${r.ms} msImages=${msImages} />
+          <div class="gantt-track">
+            <div class="gantt-lane">
+              ${lane0.map(bar)}
+              ${deaths.map(function (a) {
+                return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
+              })}
+            </div>
+            <div class="gantt-lane">${lane1.map(bar)}</div>
           </div>
-          <div class="gantt-lane">${lane1.map(bar)}</div>
-        </div>
-      </div>`;
-    })}
+        </div>`;
+      })}
+    </div>
     <div class="gantt-axis">
-      ${ticks.map(function (t) {
-        return html`<span class="gantt-tick" style=${'left:' + pct(t) + '%'}>${fmtSec(t)}</span>`;
+      ${labels.map(function (g) {
+        return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${g.sec}</span>`;
       })}
     </div>
     <div class="gantt-legend">
