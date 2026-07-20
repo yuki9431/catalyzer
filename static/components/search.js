@@ -30,14 +30,6 @@ var GANTT_LEGEND = [
   ['ov', 'OLスタンバイ'], ['ov-on', 'OL発動'],
 ];
 
-// 秒数を M:SS 形式に整形する。
-function fmtSec(sec) {
-  if (sec == null || isNaN(sec)) return '';
-  var s = Math.max(0, Math.round(sec));
-  var m = Math.floor(s / 60);
-  return m + ':' + String(s % 60).padStart(2, '0');
-}
-
 // 機体/タッグ/コスト編成用の複数選択（OR）。集計結果 [{name, matches}] を渡す。
 // 選択後のトリガーは名前のみ（chip）、ドロップダウン内は「名前（N戦）」を出す。
 function MsMulti({ values, onChange, options }) {
@@ -308,8 +300,8 @@ function Timeline({ match, msImages }) {
     }
     return barEl;
   }
-  // 補助線＋目盛り。30秒ごとに点線の補助線、1分ごと(major)にラベルを付ける。
-  // 以前は10秒刻みでラベルを出しており、隣同士が重なって判読できなかった（公式は分刻み）。
+  // 補助線＋目盛り。30秒ごとに点線の補助線、1分ごと(major)に秒数ラベル(60/120/180)を付ける。
+  // 以前は10秒刻みでラベルを出しており、隣同士が重なって判読できなかった。
   var grid = [];
   for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
   var labels = grid.filter(function (g) { return g.major; });
@@ -342,7 +334,7 @@ function Timeline({ match, msImages }) {
     </div>
     <div class="gantt-axis">
       ${labels.map(function (g) {
-        return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${fmtSec(g.sec)}</span>`;
+        return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${g.sec}</span>`;
       })}
     </div>
     <div class="gantt-legend">
