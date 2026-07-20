@@ -4,7 +4,7 @@ import {
   filterMatches, sortMatches, SORT_OPTIONS,
 } from '../analysis/search.js';
 import {
-  esc, num, cellDisplay,
+  esc, num, cellDisplay, isTimeUp,
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
@@ -240,6 +240,7 @@ function ResultItem({ match, msImages, sortKey, onOpen }) {
   return html`<button class="search-item" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
+      ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
       <span class="search-item-date">${esc(match.date)}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
@@ -435,6 +436,7 @@ function DetailModal({ match, msImages, onClose }) {
       <div class="search-detail-head">
         <div>
           <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
+          ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
           <span class="search-detail-date">${esc(match.date)}</span>
         </div>
         <button class="search-detail-close" onClick=${onClose} aria-label="閉じる">✕</button>
