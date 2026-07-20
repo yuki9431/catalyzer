@@ -573,7 +573,7 @@ export function SearchView({ matches, msImages }) {
 
     <div class="panel">
       <div class="search-result-head">
-        <h2><span class="dot" /><span class="search-result-label">検索結果 </span><span class="search-result-count">${total}戦（${winRate}%）</span></h2>
+        <h2><span class="dot" /><span class="search-result-label">検索結果 </span><span class="search-result-count">${total}戦（${winRate.toFixed(1)}%）</span></h2>
         <div class="search-result-tools">
           <div class="search-pagesize">
             <${Dropdown} value=${String(pageSize)} noClear=${true}

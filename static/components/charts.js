@@ -605,12 +605,12 @@ export function FallOrderContent({ fallOrder }) {
   var s = fallOrder.second_fall;
   var st = fallOrder.same_time;
   var rows = [
-    ['0落ち', n.count + '戦 (' + n.rate + '%)', colorPct(n.win_rate), colorDmgGiven(n.avg_dmg_given), colorDmgTaken(n.avg_dmg_taken), colorDE(n.dmg_efficiency, 3)],
-    ['先落ち', f.count + '戦 (' + f.rate + '%)', colorPct(f.win_rate), colorDmgGiven(f.avg_dmg_given), colorDmgTaken(f.avg_dmg_taken), colorDE(f.dmg_efficiency, 3)],
-    ['後落ち', s.count + '戦 (' + s.rate + '%)', colorPct(s.win_rate), colorDmgGiven(s.avg_dmg_given), colorDmgTaken(s.avg_dmg_taken), colorDE(s.dmg_efficiency, 3)],
+    ['0落ち', n.count + '戦', colorPct(n.win_rate), colorDmgGiven(n.avg_dmg_given), colorDmgTaken(n.avg_dmg_taken), colorDE(n.dmg_efficiency, 3)],
+    ['先落ち', f.count + '戦', colorPct(f.win_rate), colorDmgGiven(f.avg_dmg_given), colorDmgTaken(f.avg_dmg_taken), colorDE(f.dmg_efficiency, 3)],
+    ['後落ち', s.count + '戦', colorPct(s.win_rate), colorDmgGiven(s.avg_dmg_given), colorDmgTaken(s.avg_dmg_taken), colorDE(s.dmg_efficiency, 3)],
   ];
   if (st.count > 0) {
-    rows.push(['同時落ち', st.count + '戦 (' + st.rate + '%)', colorPct(st.win_rate), colorDmgGiven(st.avg_dmg_given), colorDmgTaken(st.avg_dmg_taken), colorDE(st.dmg_efficiency, 3)]);
+    rows.push(['同時落ち', st.count + '戦', colorPct(st.win_rate), colorDmgGiven(st.avg_dmg_given), colorDmgTaken(st.avg_dmg_taken), colorDE(st.dmg_efficiency, 3)]);
   }
   return html`<div>
     <p>対象: ${fallOrder.total}戦</p>
@@ -622,10 +622,10 @@ export function FallOrderContent({ fallOrder }) {
 export function BurstTimingContent({ timingData }) {
   if (!timingData || !timingData.by_timing || !timingData.by_timing.length) return null;
   var rows = timingData.by_timing.map(function (t) {
-    return [t.label, t.count + '戦 (' + t.rate + '%)', colorPct(t.win_rate)];
+    return [t.label, t.count + '戦', colorPct(t.win_rate)];
   });
   return html`<div>
-    <p>覚醒発動時の被撃墜数で分類（対象: ${timingData.total}戦）<br />1試合で複数のタイミングに覚醒した場合は各タイミングに計上（割合の合計は100%を超えることがあります）</p>
+    <p>覚醒発動時の被撃墜数で分類（対象: ${timingData.total}戦）<br />1試合で複数のタイミングに覚醒した場合は各タイミングに計上</p>
     <${Table} headers=${['タイミング', '試合数', '勝率']} rows=${rows} />
     <${Tips} tips=${timingData.tips} />
   </div>`;
@@ -634,7 +634,7 @@ export function BurstTimingContent({ timingData }) {
 export function BurstTypeContent({ typeData }) {
   if (!typeData || !typeData.by_type || !typeData.by_type.length) return null;
   var rows = typeData.by_type.map(function (t) {
-    return [t.label, t.count + '回 (' + t.rate + '%)', t.matches + '戦', colorPct(t.win_rate)];
+    return [t.label, t.count + '回', t.matches + '戦', colorPct(t.win_rate)];
   });
   return html`<div>
     <p>F/S/E覚醒の使用傾向（対象: ${typeData.total_bursts}回発動）</p>
