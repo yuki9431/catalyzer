@@ -253,8 +253,11 @@ func StartServer() {
 			return
 		}
 		stats := nationalstats.Get()
-		if stats == nil {
-			stats = []model.MSNationalStat{}
+		if len(stats) == 0 {
+			// 未取得の空配列を長く持たせると、キャッシュが埋まった後も比較が出ないままになる
+			w.Header().Set("Cache-Control", "no-store")
+			sendJSON(w, http.StatusOK, []model.MSNationalStat{})
+			return
 		}
 		w.Header().Set("Cache-Control", "public, max-age=600")
 		sendJSON(w, http.StatusOK, stats)

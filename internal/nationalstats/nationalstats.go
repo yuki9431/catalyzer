@@ -22,7 +22,8 @@ var (
 	refreshing bool
 )
 
-// Get は現在キャッシュされている全国統計を返す。未取得なら空スライス。
+// Get は現在キャッシュされている全国統計を返す。未取得なら nil。
+// 返すのは内部スライスそのものなので、呼び出し元は書き換えてはいけない。
 func Get() []model.MSNationalStat {
 	mu.Lock()
 	defer mu.Unlock()
@@ -32,7 +33,7 @@ func Get() []model.MSNationalStat {
 // MaybeRefresh はキャッシュが古い場合のみ再取得する。失敗しても既存キャッシュを保持する。
 func MaybeRefresh(jar http.CookieJar) {
 	mu.Lock()
-	if refreshing || !isStale(cached, fetchedAt, time.Now(), maxAge) {
+	if refreshing || !isStale(fetchedAt, time.Now(), maxAge) {
 		mu.Unlock()
 		return
 	}
@@ -54,6 +55,7 @@ func MaybeRefresh(jar http.CookieJar) {
 }
 
 // isStale はキャッシュを再取得すべきか判定する（未取得、または maxAge を超過）。
-func isStale(cached []model.MSNationalStat, fetchedAt, now time.Time, maxAge time.Duration) bool {
-	return cached == nil || now.Sub(fetchedAt) >= maxAge
+// 0件の取得成功を「未取得」と誤判定しないよう、件数ではなく取得時刻で判定する。
+func isStale(fetchedAt, now time.Time, maxAge time.Duration) bool {
+	return fetchedAt.IsZero() || now.Sub(fetchedAt) >= maxAge
 }

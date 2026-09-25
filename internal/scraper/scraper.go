@@ -1022,6 +1022,8 @@ func crawlMSUsedRate(jar http.CookieJar, onItem func(e *colly.HTMLElement, cost 
 
 		c := colly.NewCollector(colly.AllowedDomains(vsmobile))
 		c.SetCookieJar(jar)
+		// 他ジョブのスクレイピングと重なっても403を誘発しないよう直列＋待機で巡回する
+		_ = c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 1, Delay: throttleDelay()})
 
 		var costErr error
 		c.OnError(func(r *colly.Response, err error) {
@@ -1089,28 +1091,36 @@ func ScrapeNationalMSStats(jar http.CookieJar) ([]model.MSNationalStat, error) {
 	var stats []model.MSNationalStat
 	seen := make(map[string]bool)
 	err := crawlMSUsedRate(jar, func(e *colly.HTMLElement, cost int) {
-		name := strings.TrimSpace(e.ChildText("div.prompt-area > p.fz-s"))
-		if name == "" || seen[name] {
+		stat, ok := parseNationalStatItem(e.DOM, cost)
+		if !ok || seen[stat.Name] {
 			return
 		}
-		// 勝率がパースできない(0)機体はデータ不在とみなしスキップする。
-		// 「抽出失敗の0」と「実績0%」の混同を避ける（ランキング掲載機体の勝率が実際に0になることはない）。
-		winRate := extractRateByLabel(e.DOM, "勝率")
-		if winRate <= 0 {
-			return
-		}
-		seen[name] = true
-		stats = append(stats, model.MSNationalStat{
-			Name:      name,
-			Cost:      cost,
-			WinRate:   winRate,
-			UsageRate: extractRateByLabel(e.DOM, "使用率"),
-		})
+		seen[stat.Name] = true
+		stats = append(stats, stat)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return stats, nil
+}
+
+// parseNationalStatItem は機体アイテム要素から全国統計を取り出す。
+// 勝率0はデータ不在（抽出失敗と実績0%を区別できない）とみなし false を返す。
+func parseNationalStatItem(s *goquery.Selection, cost int) (model.MSNationalStat, bool) {
+	name := strings.TrimSpace(s.Find("div.prompt-area > p.fz-s").Text())
+	if name == "" {
+		return model.MSNationalStat{}, false
+	}
+	winRate := extractRateByLabel(s, "勝率")
+	if winRate <= 0 {
+		return model.MSNationalStat{}, false
+	}
+	return model.MSNationalStat{
+		Name:      name,
+		Cost:      cost,
+		WinRate:   winRate,
+		UsageRate: extractRateByLabel(s, "使用率"),
+	}, true
 }
 
 // extractRateByLabel は機体アイテム要素の <dl> から、指定ラベル(例:"勝率")の

@@ -715,7 +715,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
     <//>`}
 
-    ${selectedMs && selNatl && pd.basic_stats && html`<${Panel} title="全国平均との比較">
+    ${selectedMs && selNatl && lens === 'all' && pd.basic_stats && html`<${Panel} title="全国平均との比較">
       ${(function () {
         var own = pd.basic_stats.win_rate;
         var natlWr = selNatl.win_rate;
@@ -1141,18 +1141,29 @@ function Report({ data, userKey }) {
   }, []);
 
   // 機体名→全国統計（勝率・使用率）のマップを取得（自分の勝率との比較表示用）。
-  // 揮発データのためサーバーキャッシュから取得。未取得時は空で、自分の勝率のみ表示にフォールバック。
+  // 速報→完了は同一コンポーネントの再renderで effect が再実行されないため data 依存で取り直す。
+  // キャッシュは分析ジョブ完了後に非同期で埋まるので、空なら一度だけ遅延リトライする。
   useEffect(function () {
-    fetch('/national-ms-stats')
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (list) {
-        if (!list) return;
-        var map = {};
-        list.forEach(function (m) { if (m && m.name) map[m.name] = m; });
-        setMsNational(map);
-      })
-      .catch(function () {});
-  }, []);
+    var cancelled = false;
+    var timer = null;
+    function load(retry) {
+      fetch('/national-ms-stats')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (list) {
+          if (cancelled || !list) return;
+          if (!list.length) {
+            if (retry) timer = setTimeout(function () { load(false); }, 15000);
+            return;
+          }
+          var map = {};
+          list.forEach(function (m) { if (m && m.name) map[m.name] = m; });
+          setMsNational(map);
+        })
+        .catch(function () {});
+    }
+    load(true);
+    return function () { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [data]);
 
   useEffect(function () {
     if (!userKey) return;
