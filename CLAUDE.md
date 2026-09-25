@@ -98,15 +98,16 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
-- `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー・レポート/試合検索の画面切替）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・レポート/検索ビュー切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンドで全統計を計算
+- `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: ActionPlanPanel（今やるべきこと）、Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー・レポート/試合検索の画面切替）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・レポート/検索ビュー切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンドで全統計を計算
 - `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜と勝率（自分×相方の2軸・回数ベース）/覚醒回数/先落ち後落ち/覚醒タイミング（発動時の被撃墜数で1機目/2機目/3機目に分類）/覚醒タイプ別傾向（F/S/E）/固定相方/SNS共有データ/MS別サマリー
+- `static/analysis/coach.js` — アクションプラン（今やるべきこと）の純粋関数。試合を「負け筋の状態（コストオーバー落ち・先落ち/後落ち・1機目覚醒なし・被ダメ/与ダメ・苦手機体・連敗直後）」とそれ以外に二分し、勝率差×頻度で影響度を見積もって上位3件を返す。直近20戦とそれ以前の比較（悪化指標）も算出。総合タブ先頭の ActionPlanPanel が勝敗レンズ適用前の試合で表示
 - `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え）。IndexedDBの全試合をフロントエンドでフィルタ
 - `static/components/ui.js` — 汎用UIコンポーネント（Tips/SortableTable/Table/SubSection）
 - `static/components/search.js` — 試合検索ビュー（SearchView）。フィルタフォーム＋結果一覧（ソート・ページネーション）＋試合詳細モーダル（4人分のスコア一覧・試合経過）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/format/searchの純粋関数テスト）
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/searchの純粋関数テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
