@@ -16,6 +16,7 @@ import (
 	"github.com/yuki9431/catalyzer/internal/gradelist"
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/mslist"
+	"github.com/yuki9431/catalyzer/internal/nationalstats"
 	"github.com/yuki9431/catalyzer/internal/scraper"
 	"github.com/yuki9431/catalyzer/internal/session"
 )
@@ -313,6 +314,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
 			fs.SaveTagPartners(j.UserKey, tagPartners)
 		}
+		refreshNationalStats(jar)
 
 		matchesJSON := buildMatchesJSON(existingScores, costsMap)
 		if matchesJSON == "" {
@@ -353,6 +355,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			log.Printf("[INFO] Found %d tag partners", len(tagPartners))
 			fs.SaveTagPartners(j.UserKey, tagPartners)
 		}
+		refreshNationalStats(jar)
 	}
 
 	// マッチデータJSON生成
@@ -372,6 +375,14 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		log.Printf("[INFO] Job %s completed with partial data (403 during scraping)", j.ID)
 	} else {
 		log.Printf("[INFO] Job %s completed", j.ID)
+	}
+}
+
+// refreshNationalStats は全国統計キャッシュを非同期更新する。
+// 403回避のため他のスクレイピング完了後に呼ぶこと。
+func refreshNationalStats(jar http.CookieJar) {
+	if jar != nil {
+		go nationalstats.MaybeRefresh(jar)
 	}
 }
 

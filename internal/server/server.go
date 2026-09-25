@@ -18,6 +18,7 @@ import (
 	"github.com/yuki9431/catalyzer/internal/firestore"
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/mslist"
+	"github.com/yuki9431/catalyzer/internal/nationalstats"
 	"github.com/yuki9431/catalyzer/internal/pipeline"
 	"github.com/yuki9431/catalyzer/internal/session"
 	"golang.org/x/time/rate"
@@ -242,6 +243,21 @@ func StartServer() {
 		}
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		sendJSON(w, http.StatusOK, msList)
+	})
+
+	// GET /national-ms-stats → 機体ごとの全国統計をメモリキャッシュから配信。
+	// 未取得時は空配列を返し、フロントは自分の勝率のみ表示にフォールバックする。
+	http.HandleFunc("/national-ms-stats", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		stats := nationalstats.Get()
+		if stats == nil {
+			stats = []model.MSNationalStat{}
+		}
+		w.Header().Set("Cache-Control", "public, max-age=600")
+		sendJSON(w, http.StatusOK, stats)
 	})
 
 	// GET /session → セッションの有効性チェック（キャッシュレポート付き）
