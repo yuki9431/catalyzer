@@ -577,7 +577,7 @@ function MsCompareChart({ entries }) {
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         layout: { padding: { right: 4 } },
-        plugins: { legend: { display: hasNational, labels: { color: '#888', font: { size: 11 } } } },
+        plugins: { legend: { display: hasNational, labels: { color: '#aaa', font: { size: 12 } } } },
         scales: {
           x: { min: 0, max: 100, ticks: { color: '#888', font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } },
           y: { ticks: { display: false }, grid: { display: false } },
