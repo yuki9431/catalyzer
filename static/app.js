@@ -11,6 +11,7 @@ import {
   burstKpi, bestWorstHour, partnerKpi,
   clampMetric,
 } from './analysis/stats.js';
+import { computeActionPlan } from './analysis/coach.js';
 import {
   loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild,
 } from './lib/db.js';
@@ -674,6 +675,42 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
   <//>`;
 }
 
+// --- Action plan ---
+
+// 「今やるべきこと」: 勝率への影響が大きい順に最大3件の処方を示す。
+// 機体未選択時は全機体混合の診断になるため、機体選択を促す一文を添える。
+var IMPACT_LABEL = { high: '大', mid: '中', low: '小' };
+
+function ActionPlanPanel({ plan, selectedMs }) {
+  if (!plan) return null;
+  var title = selectedMs ? selectedMs + 'で今やるべきこと' : '今やるべきこと';
+  if (plan.insufficient) {
+    return html`<${Panel} title=${title}>
+      <p class="action-empty">診断には${plan.min_matches}試合以上が必要です（現在${plan.matches}試合）。期間を広げてください。</p>
+    <//>`;
+  }
+  var recent = plan.recent;
+  var down = recent && recent.win_rate < recent.before_win_rate;
+  return html`<${Panel} title=${title}>
+    <div class="action-summary">
+      <span>${plan.matches}戦 勝率 <strong>${pct(plan.win_rate)}</strong></span>
+      ${recent && html`<span class=${down ? 'action-down' : 'action-up'}>直近${recent.matches}戦 ${pct(recent.win_rate)}（それ以前 ${pct(recent.before_win_rate)}）</span>`}
+    </div>
+    ${recent && recent.worsened.length > 0 && html`<div class="action-worsened">直近で悪化:
+      ${recent.worsened.map(function (w) {
+        return html`<span class="action-chip">${w.label} ${w.before}→${w.recent}</span>`;
+      })}
+    </div>`}
+    ${plan.actions.length ? html`<ol class="action-list">${plan.actions.map(function (a) {
+      return html`<li>
+        <div class="action-title">${a.title}<span class=${'action-impact ' + a.level}>影響度 ${IMPACT_LABEL[a.level]}</span></div>
+        <div class="action-detail">${a.detail}</div>
+      </li>`;
+    })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。今の立ち回りを継続しましょう。</p>`}
+    ${!selectedMs && html`<p class="action-hint">上部で機体を選ぶと、その機体に絞って診断します。</p>`}
+  <//>`;
+}
+
 // --- Tab panes ---
 
 function OverviewPane({ pd, selectedMs, lens, frontendData }) {
@@ -689,6 +726,8 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
   var fpItems = Array.isArray(fpList) ? fpList : [];
 
   return html`<div class="tabpane">
+    <${ActionPlanPanel} plan=${frontendData && frontendData.action_plan} selectedMs=${selectedMs} />
+
     ${pd.basic_stats && html`<${Panel} title="基本データ">
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
     <//>`}
@@ -1165,13 +1204,16 @@ function Report({ data, userKey }) {
     var shareItems = computeShareData(periodFiltered);
     var filtered = periodFiltered;
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
+    // アクションプランは勝ち負け両方の比較が必要なので勝敗レンズ適用前の試合で計算する
+    var actionPlan = computeActionPlan(filtered);
     // 勝敗レンズ: 選択時はレポート全体を勝ち/負け試合のみに絞る（MS一覧・共有データは母集団のまま）
     if (lens === 'win') filtered = filtered.filter(function (m) { return m.win; });
     else if (lens === 'loss') filtered = filtered.filter(function (m) { return !m.win; });
-    if (!filtered.length) return { ms_summary: msSummary, share_data: shareItems };
+    if (!filtered.length) return { ms_summary: msSummary, share_data: shareItems, action_plan: actionPlan };
     return {
       ms_summary: msSummary,
       share_data: shareItems,
+      action_plan: actionPlan,
       time_of_day: computeTimeOfDay(filtered),
       day_of_week: computeDayOfWeek(filtered),
       daily_trend: computeDailyTrend(filtered),

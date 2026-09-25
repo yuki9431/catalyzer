@@ -132,6 +132,23 @@
     }
     .panel > h2 { font-size: 1.05em; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .panel > h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+    .action-summary { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .9em; margin-bottom: 8px; }
+    .action-summary strong { color: var(--accent); }
+    .action-up { color: var(--good); }
+    .action-down { color: var(--bad); }
+    .action-worsened { font-size: .82em; color: var(--muted); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .action-chip { border: 1px solid var(--bad); color: var(--bad); border-radius: 999px; padding: 1px 8px; }
+    .panel .action-list { list-style: none; counter-reset: action; display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; }
+    .panel .action-list li { counter-increment: action; position: relative; padding: 10px 12px 10px 42px; border: 1px solid var(--line); border-radius: 10px; background: rgba(79,195,247,.05); }
+    .panel .action-list li::before { content: counter(action); position: absolute; left: 12px; top: 10px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #062536; font-weight: 800; font-size: .8em; display: flex; align-items: center; justify-content: center; }
+    .action-title { font-weight: 700; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+    .action-impact { font-size: .72em; font-weight: 700; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; }
+    .action-impact.high { color: var(--bad); }
+    .action-impact.mid { color: #ffd54f; }
+    .action-impact.low { color: var(--muted); }
+    .action-detail { font-size: .82em; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+    .action-empty, .action-hint { font-size: .85em; color: var(--muted); }
+    .action-hint { margin-top: 10px; }
     .two-col { display: grid; grid-template-columns: 360px 1fr; gap: 18px; align-items: center; }
 
     /* ===== Tabs ===== */
