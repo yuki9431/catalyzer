@@ -721,14 +721,21 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 
 // --- Tab panes ---
 
+// 機体別の勝率比較グラフに並べる最低試合数
+var msCompareMinMatches = 10;
+
 function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
   var seasons = (frontendData && frontendData.season) || [];
   var msSummary = (frontendData && frontendData.ms_summary) || {};
   var natl = msNational || {};
   var msEntries = Object.keys(msSummary).sort(function (a, b) { return msSummary[b].matches - msSummary[a].matches; });
-  var compareEntries = msEntries.map(function (name) {
-    var e = { name: name, winRate: (msSummary[name].basic_stats && msSummary[name].basic_stats.win_rate) || 0 };
-    // win_rate は 0 = データ不在（パース失敗）としてスキップ。「実績0%」との混同を避ける。
+  // 母数の小さい機体と勝ち星0の機体は比較の材料にならないので並べない
+  var compareEntries = msEntries.filter(function (name) {
+    var s = msSummary[name];
+    return s.matches >= msCompareMinMatches && s.basic_stats && s.basic_stats.wins > 0;
+  }).map(function (name) {
+    var e = { name: name, winRate: msSummary[name].basic_stats.win_rate };
+    // 全国側の win_rate 0 は抽出失敗なので重ねない
     if (natl[name] && natl[name].win_rate > 0) e.nationalWinRate = natl[name].win_rate;
     return e;
   });

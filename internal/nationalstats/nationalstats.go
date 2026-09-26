@@ -1,5 +1,5 @@
 // Package nationalstats は機体ごとの全国統計（勝率・使用率）をメモリ上でキャッシュする。
-// 毎日更新される揮発データのため永続化しない。
+// 週1で更新される揮発データのため永続化しない。
 package nationalstats
 
 import (
@@ -12,8 +12,8 @@ import (
 	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
-// maxAge はキャッシュの有効期間。全国統計は1日1回更新されるため、数時間の鮮度で十分。
-const maxAge = 6 * time.Hour
+// maxAge はキャッシュの有効期間。全国統計は週1回更新されるため、1日の鮮度で十分。
+const maxAge = 24 * time.Hour
 
 var (
 	mu         sync.Mutex

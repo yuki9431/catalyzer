@@ -96,7 +96,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）。分析成功時に全国統計キャッシュを非同期更新
-- `internal/nationalstats/` — 機体ごとの全国統計（勝率・使用率）のメモリキャッシュ（`MaybeRefresh`, `Get`）。毎日更新される揮発データのため永続化せず、分析時のログイン済みCookieでライブ取得しTTL付きでキャッシュ
+- `internal/nationalstats/` — 機体ごとの全国統計（勝率・使用率）のメモリキャッシュ（`MaybeRefresh`, `Get`）。週1で更新される揮発データのため永続化せず、分析時のログイン済みCookieでライブ取得しTTL付きでキャッシュ
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
 - `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー・レポート/試合検索の画面切替）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・レポート/検索ビュー切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンドで全統計を計算

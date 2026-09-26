@@ -19,7 +19,7 @@ type MSInfo struct {
 }
 
 // MSNationalStat は機体ごとの全国統計（勝率・使用率）。
-// 公式サイトで毎日更新される揮発データのため永続化せず、ライブ取得してメモリ上でのみ扱う。
+// 公式サイトで週1更新される揮発データのため永続化せず、ライブ取得してメモリ上でのみ扱う。
 type MSNationalStat struct {
 	Name      string  `json:"name"`
 	Cost      int     `json:"cost,omitempty"`

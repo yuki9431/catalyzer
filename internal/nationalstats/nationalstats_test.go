@@ -15,9 +15,9 @@ func TestIsStale(t *testing.T) {
 	}{
 		{"未取得(ゼロ値)はstale", time.Time{}, true},
 		{"0件取得でも取得直後はfresh(再クロールを繰り返さない)", now, false},
-		{"maxAge未満はfresh", now.Add(-3 * time.Hour), false},
+		{"maxAge未満はfresh", now.Add(-maxAge / 2), false},
 		{"maxAgeちょうどはstale", now.Add(-maxAge), true},
-		{"maxAge超過はstale", now.Add(-7 * time.Hour), true},
+		{"maxAge超過はstale", now.Add(-maxAge - time.Hour), true},
 	}
 
 	for _, tt := range tests {
