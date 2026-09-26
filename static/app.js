@@ -1165,28 +1165,27 @@ function Report({ data, userKey }) {
   }, []);
 
   // 機体名→全国統計（勝率・使用率）のマップを取得（自分の勝率との比較表示用）。
-  // 速報→完了は同一コンポーネントの再renderで effect が再実行されないため data 依存で取り直す。
-  // キャッシュは分析ジョブ完了後に非同期で埋まるので、空なら一度だけ遅延リトライする。
+  // サーバーが起動時に読み込む静的データなので一度だけでよい。
   useEffect(function () {
-    var cancelled = false;
-    var timer = null;
-    function load(retry) {
-      fetch('/national-ms-stats')
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (list) {
-          if (cancelled || !list) return;
-          if (!list.length) {
-            if (retry) timer = setTimeout(function () { load(false); }, 15000);
-            return;
-          }
-          var map = {};
-          list.forEach(function (m) { if (m && m.name) map[m.name] = m; });
-          setMsNational(map);
-        })
-        .catch(function () {});
-    }
-    load(true);
-    return function () { cancelled = true; if (timer) clearTimeout(timer); };
+    fetch('/national-ms-stats')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (list) {
+        if (!list || !list.length) return;
+        var map = {};
+        list.forEach(function (m) { if (m && m.name) map[m.name] = m; });
+        setMsNational(map);
+      })
+      .catch(function () {});
+  }, []);
+
+  // renderReport は同じインスタンスを再利用するため useState の初期値は初回しか効かない。
+  // 速報の段階更新を受け取るには data の差し替えを明示的に取り込む必要がある。
+  useEffect(function () {
+    var m = data.matches;
+    if (!m || !m.length) return;
+    setAllMatches(function (prev) {
+      return prev && prev.length >= m.length ? prev : m;
+    });
   }, [data]);
 
   useEffect(function () {
