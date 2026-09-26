@@ -18,6 +18,15 @@ type MSInfo struct {
 	Cost     int `json:",omitempty"`
 }
 
+// MSNationalStat は機体ごとの全国統計（勝率・使用率）。
+// 全プレイヤー共通のデータなので深夜バッチが取得し data/national_ms_stats.json に保存する。
+type MSNationalStat struct {
+	Name      string  `json:"name"`
+	Cost      int     `json:"cost,omitempty"`
+	WinRate   float64 `json:"win_rate"`   // 全国平均勝率(%)
+	UsageRate float64 `json:"usage_rate"` // 全国使用率(%)
+}
+
 // PlayerScore はスコア
 type PlayerScore struct {
 	City            string

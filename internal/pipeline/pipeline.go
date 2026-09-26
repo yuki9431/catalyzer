@@ -23,6 +23,9 @@ import (
 // DefaultMSListPath はデフォルトのMSリストパス
 const DefaultMSListPath = "data/ms_list.json"
 
+// DefaultNationalStatsPath はデフォルトの全国統計パス
+const DefaultNationalStatsPath = "data/national_ms_stats.json"
+
 // DefaultGradeListPath はデフォルトのグレードリストパス
 const DefaultGradeListPath = "data/grade_list.json"
 
@@ -313,7 +316,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
 			fs.SaveTagPartners(j.UserKey, tagPartners)
 		}
-
 		matchesJSON := buildMatchesJSON(existingScores, costsMap)
 		if matchesJSON == "" {
 			matchesJSON = j.PreliminaryReport

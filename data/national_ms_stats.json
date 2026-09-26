@@ -1,0 +1,1520 @@
+[
+  {
+    "name": "Ex-Sガンダム",
+    "cost": 3000,
+    "win_rate": 44.1,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "G-セルフ（パーフェクトパック）",
+    "cost": 3000,
+    "win_rate": 50.4,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "Hi-νガンダム",
+    "cost": 3000,
+    "win_rate": 44.8,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "N-EXTREMEガンダム エクスプロージョン",
+    "cost": 3000,
+    "win_rate": 48.1,
+    "usage_rate": 3.7
+  },
+  {
+    "name": "RX-93ff νガンダム",
+    "cost": 3000,
+    "win_rate": 50.6,
+    "usage_rate": 8.3
+  },
+  {
+    "name": "V2ガンダム",
+    "cost": 3000,
+    "win_rate": 51.4,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "Ξガンダム",
+    "cost": 3000,
+    "win_rate": 45.9,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "νガンダム",
+    "cost": 3000,
+    "win_rate": 49.7,
+    "usage_rate": 3
+  },
+  {
+    "name": "νガンダムHWS",
+    "cost": 3000,
+    "win_rate": 50.1,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "∀ガンダム",
+    "cost": 3000,
+    "win_rate": 42.9,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "インフィニットジャスティスガンダム",
+    "cost": 3000,
+    "win_rate": 45.3,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "インフィニットジャスティスガンダム弐式",
+    "cost": 3000,
+    "win_rate": 46.2,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ウイングガンダムゼロ",
+    "cost": 3000,
+    "win_rate": 52.6,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ウイングガンダムゼロ（EW版）",
+    "cost": 3000,
+    "win_rate": 50.6,
+    "usage_rate": 1.3
+  },
+  {
+    "name": "エクストリームガンダム type-レオスⅡ Vs.",
+    "cost": 3000,
+    "win_rate": 48,
+    "usage_rate": 1
+  },
+  {
+    "name": "カバカーリー",
+    "cost": 3000,
+    "win_rate": 46.7,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "ガンダムAGE-2 ダークハウンド",
+    "cost": 3000,
+    "win_rate": 45.3,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ガンダムAGE-FX",
+    "cost": 3000,
+    "win_rate": 48.4,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダムDX",
+    "cost": 3000,
+    "win_rate": 48.3,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダムエピオン",
+    "cost": 3000,
+    "win_rate": 47.4,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダムサバーニャ",
+    "cost": 3000,
+    "win_rate": 51.6,
+    "usage_rate": 2
+  },
+  {
+    "name": "ガンダムダブルオースカイ",
+    "cost": 3000,
+    "win_rate": 48.4,
+    "usage_rate": 7.3
+  },
+  {
+    "name": "ガンダムハルート",
+    "cost": 3000,
+    "win_rate": 52,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ガンダムレギルス",
+    "cost": 3000,
+    "win_rate": 47.7,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ガンダムヴァサーゴ・チェストブレイク",
+    "cost": 3000,
+    "win_rate": 47.6,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ガンダム・キマリスヴィダール",
+    "cost": 3000,
+    "win_rate": 47.4,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダム・バエル",
+    "cost": 3000,
+    "win_rate": 49.9,
+    "usage_rate": 4.9
+  },
+  {
+    "name": "ガンダム・バルバトスルプスレクス",
+    "cost": 3000,
+    "win_rate": 48,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "キュベレイ",
+    "cost": 3000,
+    "win_rate": 46.9,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "クロスボーン・ガンダムX1フルクロス",
+    "cost": 3000,
+    "win_rate": 56,
+    "usage_rate": 1.3
+  },
+  {
+    "name": "ゴッドガンダム",
+    "cost": 3000,
+    "win_rate": 46.4,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "サザビー",
+    "cost": 3000,
+    "win_rate": 50.8,
+    "usage_rate": 2.8
+  },
+  {
+    "name": "シナンジュ",
+    "cost": 3000,
+    "win_rate": 48.4,
+    "usage_rate": 1.8
+  },
+  {
+    "name": "スタービルドストライクガンダム",
+    "cost": 3000,
+    "win_rate": 49.3,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "ストライクフリーダムガンダム",
+    "cost": 3000,
+    "win_rate": 46.4,
+    "usage_rate": 1.7
+  },
+  {
+    "name": "ターンX",
+    "cost": 3000,
+    "win_rate": 50.5,
+    "usage_rate": 2.9
+  },
+  {
+    "name": "ダブルオーガンダム",
+    "cost": 3000,
+    "win_rate": 50,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "ダブルオーガンダム セブンソード/G",
+    "cost": 3000,
+    "win_rate": 48.1,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ダブルオークアンタ",
+    "cost": 3000,
+    "win_rate": 46.9,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "ダブルオークアンタ フルセイバー",
+    "cost": 3000,
+    "win_rate": 46.3,
+    "usage_rate": 2.8
+  },
+  {
+    "name": "デスティニーガンダム",
+    "cost": 3000,
+    "win_rate": 45.6,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "トールギスⅢ",
+    "cost": 3000,
+    "win_rate": 53.1,
+    "usage_rate": 3.8
+  },
+  {
+    "name": "ナイチンゲール",
+    "cost": 3000,
+    "win_rate": 48.4,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "バンシィ・ノルン",
+    "cost": 3000,
+    "win_rate": 44.2,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "フルアーマーZZガンダム",
+    "cost": 3000,
+    "win_rate": 50.1,
+    "usage_rate": 1.4
+  },
+  {
+    "name": "フルアーマー・ユニコーンガンダム",
+    "cost": 3000,
+    "win_rate": 48.3,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "ブラックナイトスコード カルラ",
+    "cost": 3000,
+    "win_rate": 50.4,
+    "usage_rate": 20.1
+  },
+  {
+    "name": "ペーネロペー",
+    "cost": 3000,
+    "win_rate": 50.9,
+    "usage_rate": 2.2
+  },
+  {
+    "name": "ホットスクランブルガンダム",
+    "cost": 3000,
+    "win_rate": 52,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "マイティーストライクフリーダムガンダム",
+    "cost": 3000,
+    "win_rate": 42.3,
+    "usage_rate": 2.5
+  },
+  {
+    "name": "マスターガンダム",
+    "cost": 3000,
+    "win_rate": 48.4,
+    "usage_rate": 1.4
+  },
+  {
+    "name": "ヤークトアルケーガンダム",
+    "cost": 3000,
+    "win_rate": 53.6,
+    "usage_rate": 2.4
+  },
+  {
+    "name": "ユニコーンガンダム",
+    "cost": 3000,
+    "win_rate": 47.3,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "リボーンズガンダム",
+    "cost": 3000,
+    "win_rate": 49.8,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "G-セルフ",
+    "cost": 2500,
+    "win_rate": 49.7,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "GQuuuuuuX",
+    "cost": 2500,
+    "win_rate": 46.9,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "N-EXTREMEガンダム ヴィシャス",
+    "cost": 2500,
+    "win_rate": 50.9,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "RX-零丸",
+    "cost": 2500,
+    "win_rate": 45.1,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "TX-ff104 アリュゼウス",
+    "cost": 2500,
+    "win_rate": 53.7,
+    "usage_rate": 2.4
+  },
+  {
+    "name": "ZZガンダム",
+    "cost": 2500,
+    "win_rate": 50.4,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "Zガンダム",
+    "cost": 2500,
+    "win_rate": 48.4,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "∫エクストリームガンダム",
+    "cost": 2500,
+    "win_rate": 48,
+    "usage_rate": 2.4
+  },
+  {
+    "name": "アカツキ",
+    "cost": 2500,
+    "win_rate": 52.7,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "アストレイゴールドフレーム天ミナ",
+    "cost": 2500,
+    "win_rate": 47.8,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "アストレイブルーフレームD",
+    "cost": 2500,
+    "win_rate": 45,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "アストレイレッドフレーム改",
+    "cost": 2500,
+    "win_rate": 48.2,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "アストレイレッドフレーム（レッドドラゴン）",
+    "cost": 2500,
+    "win_rate": 46,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "アトラスガンダム",
+    "cost": 2500,
+    "win_rate": 48.7,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "アリオスガンダム",
+    "cost": 2500,
+    "win_rate": 54.1,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "アルケーガンダム",
+    "cost": 2500,
+    "win_rate": 48.8,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "アルトロンガンダム",
+    "cost": 2500,
+    "win_rate": 48,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "アヴァランチエクシア",
+    "cost": 2500,
+    "win_rate": 54.3,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "アースリィガンダム",
+    "cost": 2500,
+    "win_rate": 51,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "インパルスガンダム",
+    "cost": 2500,
+    "win_rate": 44.9,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ウイングガンダムフェニーチェ",
+    "cost": 2500,
+    "win_rate": 54.4,
+    "usage_rate": 1.5
+  },
+  {
+    "name": "ウォドムポッド＋",
+    "cost": 2500,
+    "win_rate": 48.2,
+    "usage_rate": 2.1
+  },
+  {
+    "name": "エクストリームガンダム アイオス-F",
+    "cost": 2500,
+    "win_rate": 49,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "エクストリームガンダム エクセリア",
+    "cost": 2500,
+    "win_rate": 47.4,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "エクストリームガンダム エクリプス-F",
+    "cost": 2500,
+    "win_rate": 50.3,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "エクストリームガンダム ゼノン-F",
+    "cost": 2500,
+    "win_rate": 46.7,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "オーヴェロン",
+    "cost": 2500,
+    "win_rate": 51.7,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ガンダムAGE-1 フルグランサ",
+    "cost": 2500,
+    "win_rate": 50.2,
+    "usage_rate": 1.6
+  },
+  {
+    "name": "ガンダムAGE-2",
+    "cost": 2500,
+    "win_rate": 50.6,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "ガンダムAGE-3",
+    "cost": 2500,
+    "win_rate": 53.2,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "ガンダムF91",
+    "cost": 2500,
+    "win_rate": 48.5,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "ガンダムXディバイダー",
+    "cost": 2500,
+    "win_rate": 49.4,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "ガンダムアシュタロン・ハーミットクラブ",
+    "cost": 2500,
+    "win_rate": 50.6,
+    "usage_rate": 8.6
+  },
+  {
+    "name": "ガンダムシュピーゲル",
+    "cost": 2500,
+    "win_rate": 53.9,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ガンダムデスサイズヘル（EW版）",
+    "cost": 2500,
+    "win_rate": 54.4,
+    "usage_rate": 4.7
+  },
+  {
+    "name": "ガンダムヘビーアームズ改（EW版）",
+    "cost": 2500,
+    "win_rate": 50.2,
+    "usage_rate": 1
+  },
+  {
+    "name": "ガンダム・エアリアル（改修型）",
+    "cost": 2500,
+    "win_rate": 48.6,
+    "usage_rate": 4.2
+  },
+  {
+    "name": "ガンダム・エアリアル（改修型） パーメットスコア・エイト",
+    "cost": 2500,
+    "win_rate": 47.8,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ガンダム・グシオンリベイクフルシティ",
+    "cost": 2500,
+    "win_rate": 44.4,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ガンダム・バルバトスルプス",
+    "cost": 2500,
+    "win_rate": 49.9,
+    "usage_rate": 2.1
+  },
+  {
+    "name": "ガンダム試作2号機",
+    "cost": 2500,
+    "win_rate": 50.6,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ガンダム試作3号機",
+    "cost": 2500,
+    "win_rate": 50.6,
+    "usage_rate": 3.3
+  },
+  {
+    "name": "キュベレイパピヨン",
+    "cost": 2500,
+    "win_rate": 48.6,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "クロスボーン・ガンダムX1改",
+    "cost": 2500,
+    "win_rate": 48.3,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "クロスボーン・ガンダムX2改",
+    "cost": 2500,
+    "win_rate": 48.8,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "クロスボーン・ガンダムX3",
+    "cost": 2500,
+    "win_rate": 50.4,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ケルディムガンダム",
+    "cost": 2500,
+    "win_rate": 49.6,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ゴトラタン",
+    "cost": 2500,
+    "win_rate": 46.9,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ゴールドスモー",
+    "cost": 2500,
+    "win_rate": 50.9,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "サイコ・ザク",
+    "cost": 2500,
+    "win_rate": 51.4,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ジオング",
+    "cost": 2500,
+    "win_rate": 53.1,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "ジャスティスガンダム",
+    "cost": 2500,
+    "win_rate": 47.7,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ジ・O",
+    "cost": 2500,
+    "win_rate": 44.6,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "スサノオ",
+    "cost": 2500,
+    "win_rate": 53.6,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "スターウイニングガンダム",
+    "cost": 2500,
+    "win_rate": 51.3,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "ストライクノワール",
+    "cost": 2500,
+    "win_rate": 45.7,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "セラヴィーガンダム",
+    "cost": 2500,
+    "win_rate": 54,
+    "usage_rate": 1.4
+  },
+  {
+    "name": "ゼイドラ",
+    "cost": 2500,
+    "win_rate": 50,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ダハック",
+    "cost": 2500,
+    "win_rate": 51.4,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ダリルバルデ",
+    "cost": 2500,
+    "win_rate": 51.2,
+    "usage_rate": 7.6
+  },
+  {
+    "name": "デスティニーガンダム（ハイネ機）",
+    "cost": 2500,
+    "win_rate": 50.5,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "トライバーニングガンダム",
+    "cost": 2500,
+    "win_rate": 47,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "トランジェントガンダム",
+    "cost": 2500,
+    "win_rate": 54,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "トーリスリッター",
+    "cost": 2500,
+    "win_rate": 50.9,
+    "usage_rate": 1.4
+  },
+  {
+    "name": "トールギス",
+    "cost": 2500,
+    "win_rate": 56.1,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "トールギスⅡ",
+    "cost": 2500,
+    "win_rate": 49.9,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ドレッドノートイータ",
+    "cost": 2500,
+    "win_rate": 48.4,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "ハンブラビ",
+    "cost": 2500,
+    "win_rate": 52.3,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "バウンド・ドック",
+    "cost": 2500,
+    "win_rate": 49.5,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "バンシィ",
+    "cost": 2500,
+    "win_rate": 52.5,
+    "usage_rate": 2.9
+  },
+  {
+    "name": "パーフェクトストライクガンダム",
+    "cost": 2500,
+    "win_rate": 52.1,
+    "usage_rate": 2
+  },
+  {
+    "name": "ビギナ・ギナⅡ（木星決戦仕様）",
+    "cost": 2500,
+    "win_rate": 46.9,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ファントムガンダム",
+    "cost": 2500,
+    "win_rate": 52,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "フォーンファルシア",
+    "cost": 2500,
+    "win_rate": 53.5,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "フリーダムガンダム",
+    "cost": 2500,
+    "win_rate": 51.5,
+    "usage_rate": 1.3
+  },
+  {
+    "name": "フルアーマー・ガンダム",
+    "cost": 2500,
+    "win_rate": 51,
+    "usage_rate": 3.3
+  },
+  {
+    "name": "ブレイヴ指揮官用試験機",
+    "cost": 2500,
+    "win_rate": 52.6,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "プロヴィデンスガンダム",
+    "cost": 2500,
+    "win_rate": 37.9,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ユニコーンガンダム3号機フェネクス",
+    "cost": 2500,
+    "win_rate": 53.1,
+    "usage_rate": 2.2
+  },
+  {
+    "name": "ライジングフリーダムガンダム",
+    "cost": 2500,
+    "win_rate": 45.9,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ライトニングガンダムフルバーニアン",
+    "cost": 2500,
+    "win_rate": 50.5,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "ラファエルガンダム",
+    "cost": 2500,
+    "win_rate": 40.9,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "リグ・コンティオ",
+    "cost": 2500,
+    "win_rate": 48.1,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "レジェンドガンダム",
+    "cost": 2500,
+    "win_rate": 50.4,
+    "usage_rate": 9.6
+  },
+  {
+    "name": "戦国アストレイ頑駄無",
+    "cost": 2500,
+    "win_rate": 48.4,
+    "usage_rate": 1
+  },
+  {
+    "name": "百式",
+    "cost": 2500,
+    "win_rate": 48.7,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "騎士ガンダム",
+    "cost": 2500,
+    "win_rate": 50,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "G-アルケイン（フルドレス）",
+    "cost": 2000,
+    "win_rate": 47.3,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "N-EXTREMEガンダム ザナドゥ",
+    "cost": 2000,
+    "win_rate": 48.9,
+    "usage_rate": 1.5
+  },
+  {
+    "name": "Zガンダム（ルー搭乗）",
+    "cost": 2000,
+    "win_rate": 53.6,
+    "usage_rate": 3.6
+  },
+  {
+    "name": "アストレイゴールドフレーム天",
+    "cost": 2000,
+    "win_rate": 53.9,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "アストレイブルーフレームセカンドL",
+    "cost": 2000,
+    "win_rate": 45.8,
+    "usage_rate": 1
+  },
+  {
+    "name": "アストレイレッドフレーム",
+    "cost": 2000,
+    "win_rate": 49.3,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "アッガイ（ダリル搭乗）",
+    "cost": 2000,
+    "win_rate": 43.4,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "アッガイ（ハマーン搭乗）",
+    "cost": 2000,
+    "win_rate": 34.7,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "イフリート（シュナイド機）",
+    "cost": 2000,
+    "win_rate": 44.5,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "インパルスガンダム(ルナマリア搭乗)",
+    "cost": 2000,
+    "win_rate": 50,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "インフィニットジャスティスガンダム（ラクス搭乗）",
+    "cost": 2000,
+    "win_rate": 47.6,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "イージスガンダム",
+    "cost": 2000,
+    "win_rate": 40.6,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ウイングガンダム",
+    "cost": 2000,
+    "win_rate": 49,
+    "usage_rate": 1.5
+  },
+  {
+    "name": "カラミティガンダム",
+    "cost": 2000,
+    "win_rate": 47,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ガイアガンダム",
+    "cost": 2000,
+    "win_rate": 46.3,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ガナーザクウォーリア",
+    "cost": 2000,
+    "win_rate": 44,
+    "usage_rate": 1
+  },
+  {
+    "name": "ガブスレイ",
+    "cost": 2000,
+    "win_rate": 47,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ガラッゾ (ヒリング・ケア機)",
+    "cost": 2000,
+    "win_rate": 49.9,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "ガンダム",
+    "cost": 2000,
+    "win_rate": 49.2,
+    "usage_rate": 4.3
+  },
+  {
+    "name": "ガンダムAGE-1",
+    "cost": 2000,
+    "win_rate": 54.8,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ガンダムMk-Ⅱ",
+    "cost": 2000,
+    "win_rate": 49.1,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ガンダムX（ガロード＆ティファ）",
+    "cost": 2000,
+    "win_rate": 50.1,
+    "usage_rate": 11.5
+  },
+  {
+    "name": "ガンダムエクシア",
+    "cost": 2000,
+    "win_rate": 47.5,
+    "usage_rate": 3.5
+  },
+  {
+    "name": "ガンダムキュリオス",
+    "cost": 2000,
+    "win_rate": 47.4,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "ガンダムサンドロック改",
+    "cost": 2000,
+    "win_rate": 51.5,
+    "usage_rate": 2.5
+  },
+  {
+    "name": "ガンダムスローネツヴァイ",
+    "cost": 2000,
+    "win_rate": 47.2,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダムスローネドライ",
+    "cost": 2000,
+    "win_rate": 56.4,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "ガンダムダブルオーダイバーエース",
+    "cost": 2000,
+    "win_rate": 50.4,
+    "usage_rate": 3
+  },
+  {
+    "name": "ガンダムデスサイズヘル",
+    "cost": 2000,
+    "win_rate": 52.9,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ガンダムデュナメス",
+    "cost": 2000,
+    "win_rate": 45,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ガンダムヘビーアームズ改",
+    "cost": 2000,
+    "win_rate": 48.9,
+    "usage_rate": 1.8
+  },
+  {
+    "name": "ガンダムマックスター",
+    "cost": 2000,
+    "win_rate": 48.2,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "ガンダムローズ",
+    "cost": 2000,
+    "win_rate": 51,
+    "usage_rate": 3
+  },
+  {
+    "name": "ガンダムヴァーチェ",
+    "cost": 2000,
+    "win_rate": 49.2,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ガンダム・エアリアル",
+    "cost": 2000,
+    "win_rate": 47.2,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ガンダム・キマリストルーパー",
+    "cost": 2000,
+    "win_rate": 50.2,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ガンダム・バルバトス",
+    "cost": 2000,
+    "win_rate": 51.9,
+    "usage_rate": 2.5
+  },
+  {
+    "name": "ガンダム・ファラクト",
+    "cost": 2000,
+    "win_rate": 53.7,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダム・フラウロス",
+    "cost": 2000,
+    "win_rate": 49.1,
+    "usage_rate": 1
+  },
+  {
+    "name": "ガンダム試作1号機フルバーニアン",
+    "cost": 2000,
+    "win_rate": 48.9,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ガンダム（Gメカ）",
+    "cost": 2000,
+    "win_rate": 52.2,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "ガンダムＸ魔王",
+    "cost": 2000,
+    "win_rate": 48.6,
+    "usage_rate": 5.5
+  },
+  {
+    "name": "ガーベラ・テトラ",
+    "cost": 2000,
+    "win_rate": 53.6,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "キュベレイMk-Ⅱ（プル）",
+    "cost": 2000,
+    "win_rate": 46.7,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ギャプラン",
+    "cost": 2000,
+    "win_rate": 48.1,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ギャン",
+    "cost": 2000,
+    "win_rate": 53.8,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "クシャトリヤ",
+    "cost": 2000,
+    "win_rate": 54.8,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "グフイグナイテッド",
+    "cost": 2000,
+    "win_rate": 50.2,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "グラハム専用ユニオンフラッグカスタム",
+    "cost": 2000,
+    "win_rate": 44.5,
+    "usage_rate": 0.2
+  },
+  {
+    "name": "ゲドラフ",
+    "cost": 2000,
+    "win_rate": 57.4,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "コレンカプル",
+    "cost": 2000,
+    "win_rate": 56.3,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "ザクⅢ改",
+    "cost": 2000,
+    "win_rate": 43.5,
+    "usage_rate": 1.1
+  },
+  {
+    "name": "ザクアメイジング",
+    "cost": 2000,
+    "win_rate": 46.7,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "シナンジュ・スタイン",
+    "cost": 2000,
+    "win_rate": 48.7,
+    "usage_rate": 1.9
+  },
+  {
+    "name": "シャア専用ゲルググ",
+    "cost": 2000,
+    "win_rate": 54.5,
+    "usage_rate": 1.3
+  },
+  {
+    "name": "シャイニングガンダム",
+    "cost": 2000,
+    "win_rate": 49.7,
+    "usage_rate": 1
+  },
+  {
+    "name": "スターゲイザー",
+    "cost": 2000,
+    "win_rate": 49.7,
+    "usage_rate": 0.1
+  },
+  {
+    "name": "ストライクガンダム",
+    "cost": 2000,
+    "win_rate": 49.1,
+    "usage_rate": 1.3
+  },
+  {
+    "name": "ストライクルージュ（オオトリ装備）",
+    "cost": 2000,
+    "win_rate": 47.8,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ディジェ",
+    "cost": 2000,
+    "win_rate": 53.9,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "デルタプラス",
+    "cost": 2000,
+    "win_rate": 52.6,
+    "usage_rate": 1.4
+  },
+  {
+    "name": "ドラゴンガンダム",
+    "cost": 2000,
+    "win_rate": 44.3,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ドレッドノートガンダム（Xアストレイ）",
+    "cost": 2000,
+    "win_rate": 47.8,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ドーベン・ウルフ",
+    "cost": 2000,
+    "win_rate": 46.6,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "ナラティブガンダム",
+    "cost": 2000,
+    "win_rate": 49.7,
+    "usage_rate": 2.5
+  },
+  {
+    "name": "ノーベルガンダム",
+    "cost": 2000,
+    "win_rate": 43.9,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ハイペリオンガンダム",
+    "cost": 2000,
+    "win_rate": 54.4,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "ビルドストライクガンダム（フルパッケージ）",
+    "cost": 2000,
+    "win_rate": 51.9,
+    "usage_rate": 2.3
+  },
+  {
+    "name": "ファルシア",
+    "cost": 2000,
+    "win_rate": 47.2,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "フォビドゥンガンダム",
+    "cost": 2000,
+    "win_rate": 47,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ブリッツガンダム",
+    "cost": 2000,
+    "win_rate": 50,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ブルーディスティニー1号機",
+    "cost": 2000,
+    "win_rate": 49.1,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "ヘカテー",
+    "cost": 2000,
+    "win_rate": 50.1,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "ベルティゴ",
+    "cost": 2000,
+    "win_rate": 53,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "ペイルライダー（陸戦重装仕様）",
+    "cost": 2000,
+    "win_rate": 50,
+    "usage_rate": 0.9
+  },
+  {
+    "name": "マックナイフ（マスク機）",
+    "cost": 2000,
+    "win_rate": 50.5,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "マラサイ",
+    "cost": 2000,
+    "win_rate": 48.7,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "メッサーラ",
+    "cost": 2000,
+    "win_rate": 44.8,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "モンテーロ",
+    "cost": 2000,
+    "win_rate": 46.3,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "ヤクト・ドーガ",
+    "cost": 2000,
+    "win_rate": 55.2,
+    "usage_rate": 1
+  },
+  {
+    "name": "レイダーガンダム",
+    "cost": 2000,
+    "win_rate": 53.9,
+    "usage_rate": 1.2
+  },
+  {
+    "name": "ローゼン・ズール",
+    "cost": 2000,
+    "win_rate": 44.4,
+    "usage_rate": 0.3
+  },
+  {
+    "name": "ヴィクトリーガンダム",
+    "cost": 2000,
+    "win_rate": 51.2,
+    "usage_rate": 0.4
+  },
+  {
+    "name": "赤いガンダム",
+    "cost": 2000,
+    "win_rate": 50.4,
+    "usage_rate": 2.5
+  },
+  {
+    "name": "高機動型ゲルググ（ヴィンセント機）",
+    "cost": 2000,
+    "win_rate": 56.5,
+    "usage_rate": 0.6
+  },
+  {
+    "name": "高機動型ザクⅡ 後期型（ジョニー・ライデン機）",
+    "cost": 2000,
+    "win_rate": 50.1,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "高機動型ザクⅡ改（シン・マツナガ機）",
+    "cost": 2000,
+    "win_rate": 50,
+    "usage_rate": 0.5
+  },
+  {
+    "name": "G-ルシファー",
+    "cost": 1500,
+    "win_rate": 51.7,
+    "usage_rate": 2.1
+  },
+  {
+    "name": "N-EXTREMEガンダム スプレマシー",
+    "cost": 1500,
+    "win_rate": 41.2,
+    "usage_rate": 2.9
+  },
+  {
+    "name": "アッガイ",
+    "cost": 1500,
+    "win_rate": 47.8,
+    "usage_rate": 0.7
+  },
+  {
+    "name": "アヘッド脳量子波対応型（スマルトロン）",
+    "cost": 1500,
+    "win_rate": 46.2,
+    "usage_rate": 2.7
+  },
+  {
+    "name": "アレックス",
+    "cost": 1500,
+    "win_rate": 51.4,
+    "usage_rate": 7.8
+  },
+  {
+    "name": "イフリート改",
+    "cost": 1500,
+    "win_rate": 49.7,
+    "usage_rate": 12.7
+  },
+  {
+    "name": "カプル",
+    "cost": 1500,
+    "win_rate": 50.6,
+    "usage_rate": 4.8
+  },
+  {
+    "name": "ガンイージ",
+    "cost": 1500,
+    "win_rate": 41.7,
+    "usage_rate": 1.8
+  },
+  {
+    "name": "ガンキャノン",
+    "cost": 1500,
+    "win_rate": 44.2,
+    "usage_rate": 2
+  },
+  {
+    "name": "ガンダムEz8",
+    "cost": 1500,
+    "win_rate": 51.4,
+    "usage_rate": 2.5
+  },
+  {
+    "name": "キュベレイMk-Ⅱ（プルツー）",
+    "cost": 1500,
+    "win_rate": 47.9,
+    "usage_rate": 1.7
+  },
+  {
+    "name": "グフ・カスタム",
+    "cost": 1500,
+    "win_rate": 48.5,
+    "usage_rate": 4.1
+  },
+  {
+    "name": "ケンプファー",
+    "cost": 1500,
+    "win_rate": 50.3,
+    "usage_rate": 23.8
+  },
+  {
+    "name": "ザクⅡ",
+    "cost": 1500,
+    "win_rate": 54,
+    "usage_rate": 4.4
+  },
+  {
+    "name": "ザクⅡ改",
+    "cost": 1500,
+    "win_rate": 55.5,
+    "usage_rate": 3.1
+  },
+  {
+    "name": "シャア専用ザクⅡ",
+    "cost": 1500,
+    "win_rate": 51.5,
+    "usage_rate": 3.4
+  },
+  {
+    "name": "ヅダ",
+    "cost": 1500,
+    "win_rate": 46.9,
+    "usage_rate": 3
+  },
+  {
+    "name": "ティエレンタオツー",
+    "cost": 1500,
+    "win_rate": 52.6,
+    "usage_rate": 1.7
+  },
+  {
+    "name": "デュエルガンダムアサルトシュラウド",
+    "cost": 1500,
+    "win_rate": 50,
+    "usage_rate": 3.7
+  },
+  {
+    "name": "バスターガンダム",
+    "cost": 1500,
+    "win_rate": 53.4,
+    "usage_rate": 3.1
+  },
+  {
+    "name": "ヒルドルブ",
+    "cost": 1500,
+    "win_rate": 50.5,
+    "usage_rate": 2.9
+  },
+  {
+    "name": "ベルガ・ギロス",
+    "cost": 1500,
+    "win_rate": 48.5,
+    "usage_rate": 1.6
+  },
+  {
+    "name": "ライジングガンダム",
+    "cost": 1500,
+    "win_rate": 61.2,
+    "usage_rate": 2
+  },
+  {
+    "name": "ラゴゥ",
+    "cost": 1500,
+    "win_rate": 38.4,
+    "usage_rate": 0.8
+  },
+  {
+    "name": "リ・ガズィ",
+    "cost": 1500,
+    "win_rate": 50,
+    "usage_rate": 0.7
+  }
+]

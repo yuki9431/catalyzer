@@ -508,7 +508,9 @@ var inBarLabel = {
     var x0 = chart.scales.x.getPixelForValue(0);
     var areaRight = chart.chartArea.right;
     ctx.save();
-    ctx.font = '700 12px system-ui, -apple-system, sans-serif';
+    var mainFont = '700 12px system-ui, -apple-system, sans-serif';
+    var diffFont = '700 11px system-ui, -apple-system, sans-serif';
+    ctx.font = mainFont;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#e6edf3';
     var ellipsize = function (text, maxWidth) {
@@ -517,22 +519,50 @@ var inBarLabel = {
       while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
       return t + '…';
     };
+    var natlRates = chart.data.datasets[0].nationalWinRates;
     meta.data.forEach(function (bar, i) {
-      var pct = chart.data.datasets[0].data[i].toFixed(1) + '%';
+      var own = chart.data.datasets[0].data[i];
+      var pct = own.toFixed(1) + '%';
       var pctWidth = ctx.measureText(pct).width;
-      // 描画領域から勝率ぶんの幅を確保した上で、収まらない機体名は省略（…）する
-      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12);
+      // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
+      var natl = natlRates ? natlRates[i] : null;
+      var diff = typeof natl === 'number' ? own - natl : null;
+      var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
+      ctx.font = diffFont;
+      var diffWidth = diffText ? ctx.measureText(diffText).width + 8 : 0;
+      ctx.font = mainFont;
+      // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
+      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12 - diffWidth);
       ctx.textAlign = 'left';
       ctx.fillText(name, x0 + 8, bar.y);
       var nameRight = x0 + 8 + ctx.measureText(name).width;
+      var endX;
       // 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
       if (bar.x - 8 - pctWidth > nameRight + 6) {
         ctx.textAlign = 'right';
         ctx.fillText(pct, bar.x - 8, bar.y);
+        endX = bar.x;
       } else {
         ctx.textAlign = 'left';
-        ctx.fillText(pct, Math.max(bar.x + 6, nameRight + 6), bar.y);
+        var pctX = Math.max(bar.x + 6, nameRight + 6);
+        ctx.fillText(pct, pctX, bar.y);
+        endX = pctX + pctWidth;
       }
+      if (!diffText) return;
+      ctx.font = diffFont;
+      var diffWidth2 = ctx.measureText(diffText).width;
+      // 全国平均との差分は棒の右外に出す
+      if (endX + 8 + diffWidth2 <= areaRight) {
+        ctx.fillStyle = diff >= 0 ? '#a8e6cf' : '#ff8a65';
+        ctx.textAlign = 'left';
+        ctx.fillText(diffText, endX + 8, bar.y);
+      } else if (bar.x - 8 - pctWidth - 6 - diffWidth2 > nameRight + 6) {
+        // 右外に収まらない行は棒内の勝率の左隣へ。棒の色と競合するため配色は付けない
+        ctx.textAlign = 'right';
+        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
+      }
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = mainFont;
     });
     ctx.restore();
   },
@@ -558,6 +588,8 @@ function MsCompareChart({ entries }) {
           backgroundColor: values.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.35)'; }),
           borderWidth: 0,
           borderRadius: 4,
+          // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
+          nationalWinRates: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
         }],
       },
       options: {
@@ -676,13 +708,27 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 
 // --- Tab panes ---
 
-function OverviewPane({ pd, selectedMs, lens, frontendData }) {
+// 機体別の勝率比較グラフに並べる最低試合数
+var msCompareMinMatches = 10;
+
+function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
   var seasons = (frontendData && frontendData.season) || [];
   var msSummary = (frontendData && frontendData.ms_summary) || {};
+  var natl = msNational || {};
   var msEntries = Object.keys(msSummary).sort(function (a, b) { return msSummary[b].matches - msSummary[a].matches; });
-  var compareEntries = msEntries.map(function (name) {
-    return { name: name, winRate: (msSummary[name].basic_stats && msSummary[name].basic_stats.win_rate) || 0 };
+  // 母数の小さい機体と勝ち星0の機体は比較の材料にならないので並べない
+  var compareEntries = msEntries.filter(function (name) {
+    var s = msSummary[name];
+    return s.matches >= msCompareMinMatches && s.basic_stats && s.basic_stats.wins > 0;
+  }).map(function (name) {
+    var e = { name: name, winRate: msSummary[name].basic_stats.win_rate };
+    // 全国側の win_rate 0 は抽出失敗なので重ねない
+    if (natl[name] && natl[name].win_rate > 0) e.nationalWinRate = natl[name].win_rate;
+    return e;
   });
+
+  // 特定機体を選択中は、その機体の全国平均勝率と自分の勝率を比較表示する（勝率>0のデータのみ）。
+  var selNatl = (selectedMs && natl[selectedMs] && natl[selectedMs].win_rate > 0) ? natl[selectedMs] : null;
 
   var fp = (frontendData && frontendData.fixed_partners) || {};
   var fpList = fp ? (fp.partners || fp) : [];
@@ -691,6 +737,21 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
   return html`<div class="tabpane">
     ${pd.basic_stats && html`<${Panel} title="基本データ">
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
+    <//>`}
+
+    ${selectedMs && selNatl && lens === 'all' && pd.basic_stats && html`<${Panel} title="全国平均との比較">
+      ${(function () {
+        var own = pd.basic_stats.win_rate;
+        var natlWr = selNatl.win_rate;
+        var diff = own - natlWr;
+        var diffCls = diff >= 0 ? 'val-good' : 'val-bad';
+        var diffText = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+        return html`<${Table} headers=${['', '勝率']} rows=${[
+          ['あなた', colorPct(own)],
+          ['全国平均', natlWr.toFixed(1) + '%'],
+          ['差', { sortValue: diff, display: html`<span class=${diffCls}>${diffText}</span>` }],
+        ]} />`;
+      })()}
     <//>`}
 
     ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
@@ -706,7 +767,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
       })}
     <//>`}
 
-    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title="機体別の勝率比較">
+    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title=${compareEntries.some(function (e) { return typeof e.nationalWinRate === 'number'; }) ? '機体別の勝率比較（全国平均と比較）' : '機体別の勝率比較'}>
       <${MsCompareChart} entries=${compareEntries} />
     <//>`}
 
@@ -1086,6 +1147,8 @@ function Report({ data, userKey }) {
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
   var msImagesRef = useState(null);
   var msImages = msImagesRef[0], setMsImages = msImagesRef[1];
+  var msNationalRef = useState(null);
+  var msNational = msNationalRef[0], setMsNational = msNationalRef[1];
   var topbarRef = useRef(null);
 
   // 機体名→画像URLのマップを一度だけ取得（試合検索一覧のサムネイル表示用）。
@@ -1100,6 +1163,30 @@ function Report({ data, userKey }) {
       })
       .catch(function () {});
   }, []);
+
+  // 機体名→全国統計（勝率・使用率）のマップを取得（自分の勝率との比較表示用）。
+  // サーバーが起動時に読み込む静的データなので一度だけでよい。
+  useEffect(function () {
+    fetch('/national-ms-stats')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (list) {
+        if (!list || !list.length) return;
+        var map = {};
+        list.forEach(function (m) { if (m && m.name) map[m.name] = m; });
+        setMsNational(map);
+      })
+      .catch(function () {});
+  }, []);
+
+  // renderReport は同じインスタンスを再利用するため useState の初期値は初回しか効かない。
+  // 速報の段階更新を受け取るには data の差し替えを明示的に取り込む必要がある。
+  useEffect(function () {
+    var m = data.matches;
+    if (!m || !m.length) return;
+    setAllMatches(function (prev) {
+      return prev && prev.length >= m.length ? prev : m;
+    });
+  }, [data]);
 
   useEffect(function () {
     if (!userKey) return;
@@ -1247,7 +1334,7 @@ function Report({ data, userKey }) {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
-    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;
+    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} />`;
   }
 
   return html`<div class="view-root">
