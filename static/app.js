@@ -508,7 +508,9 @@ var inBarLabel = {
     var x0 = chart.scales.x.getPixelForValue(0);
     var areaRight = chart.chartArea.right;
     ctx.save();
-    ctx.font = '700 12px system-ui, -apple-system, sans-serif';
+    var mainFont = '700 12px system-ui, -apple-system, sans-serif';
+    var diffFont = '700 11px system-ui, -apple-system, sans-serif';
+    ctx.font = mainFont;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#e6edf3';
     var ellipsize = function (text, maxWidth) {
@@ -517,22 +519,50 @@ var inBarLabel = {
       while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
       return t + '…';
     };
+    var natlDs = chart.data.datasets[1];
     meta.data.forEach(function (bar, i) {
-      var pct = chart.data.datasets[0].data[i].toFixed(1) + '%';
+      var own = chart.data.datasets[0].data[i];
+      var pct = own.toFixed(1) + '%';
       var pctWidth = ctx.measureText(pct).width;
-      // 描画領域から勝率ぶんの幅を確保した上で、収まらない機体名は省略（…）する
-      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12);
+      // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
+      var natl = natlDs ? natlDs.data[i] : null;
+      var diff = typeof natl === 'number' ? own - natl : null;
+      var diffText = diff == null ? '' : (diff >= 0 ? '+' : '') + diff.toFixed(1);
+      ctx.font = diffFont;
+      var diffWidth = diffText ? ctx.measureText(diffText).width + 8 : 0;
+      ctx.font = mainFont;
+      // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
+      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12 - diffWidth);
       ctx.textAlign = 'left';
       ctx.fillText(name, x0 + 8, bar.y);
       var nameRight = x0 + 8 + ctx.measureText(name).width;
+      var endX;
       // 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
       if (bar.x - 8 - pctWidth > nameRight + 6) {
         ctx.textAlign = 'right';
         ctx.fillText(pct, bar.x - 8, bar.y);
+        endX = bar.x;
       } else {
         ctx.textAlign = 'left';
-        ctx.fillText(pct, Math.max(bar.x + 6, nameRight + 6), bar.y);
+        var pctX = Math.max(bar.x + 6, nameRight + 6);
+        ctx.fillText(pct, pctX, bar.y);
+        endX = pctX + pctWidth;
       }
+      if (!diffText) return;
+      ctx.font = diffFont;
+      var diffWidth2 = ctx.measureText(diffText).width;
+      // 全国平均との差分は棒の右外に出す
+      if (endX + 8 + diffWidth2 <= areaRight) {
+        ctx.fillStyle = diff >= 0 ? '#a8e6cf' : '#ff8a65';
+        ctx.textAlign = 'left';
+        ctx.fillText(diffText, endX + 8, bar.y);
+      } else if (bar.x - 8 - pctWidth - 6 - diffWidth2 > nameRight + 6) {
+        // 右外に収まらない行は棒内の勝率の左隣へ。棒の色と競合するため配色は付けない
+        ctx.textAlign = 'right';
+        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
+      }
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = mainFont;
     });
     ctx.restore();
   },
@@ -721,7 +751,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
         var natlWr = selNatl.win_rate;
         var diff = own - natlWr;
         var diffCls = diff >= 0 ? 'val-good' : 'val-bad';
-        var diffText = (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'pt';
+        var diffText = (diff >= 0 ? '+' : '') + diff.toFixed(1);
         return html`<${Table} headers=${['', '勝率']} rows=${[
           ['あなた', colorPct(own)],
           ['全国平均', natlWr.toFixed(1) + '%'],
