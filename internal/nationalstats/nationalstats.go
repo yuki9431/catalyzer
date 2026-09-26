@@ -1,61 +1,55 @@
-// Package nationalstats は機体ごとの全国統計（勝率・使用率）をメモリ上でキャッシュする。
-// 週1で更新される揮発データのため永続化しない。
+// Package nationalstats は機体ごとの全国統計（勝率・使用率）の読み書きを扱う。
+// 全プレイヤー共通のデータなので、深夜バッチが取得したものをJSONで持ち回る。
 package nationalstats
 
 import (
-	"log"
-	"net/http"
-	"sync"
-	"time"
+	"encoding/json"
+	"os"
+	"sort"
 
 	"github.com/yuki9431/catalyzer/internal/model"
-	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
-// maxAge はキャッシュの有効期間。全国統計は週1回更新されるため、1日の鮮度で十分。
-const maxAge = 24 * time.Hour
-
-var (
-	mu         sync.Mutex
-	cached     []model.MSNationalStat
-	fetchedAt  time.Time
-	refreshing bool
-)
-
-// Get は現在キャッシュされている全国統計を返す。未取得なら nil。
-// 返すのは内部スライスそのものなので、呼び出し元は書き換えてはいけない。
-func Get() []model.MSNationalStat {
-	mu.Lock()
-	defer mu.Unlock()
-	return cached
-}
-
-// MaybeRefresh はキャッシュが古い場合のみ再取得する。失敗しても既存キャッシュを保持する。
-func MaybeRefresh(jar http.CookieJar) {
-	mu.Lock()
-	if refreshing || !isStale(fetchedAt, time.Now(), maxAge) {
-		mu.Unlock()
-		return
-	}
-	refreshing = true
-	mu.Unlock()
-
-	stats, err := scraper.ScrapeNationalMSStats(jar)
-
-	mu.Lock()
-	defer mu.Unlock()
-	refreshing = false
+// Load は全国統計JSONを読み込む。
+func Load(path string) (_ []model.MSNationalStat, err error) {
+	f, err := os.Open(path)
 	if err != nil {
-		log.Printf("[WARN] 全国統計の更新に失敗: %v", err)
-		return
+		return nil, err
 	}
-	cached = stats
-	fetchedAt = time.Now()
-	log.Printf("[INFO] 全国統計を更新: %d件", len(stats))
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	var stats []model.MSNationalStat
+	if err := json.NewDecoder(f).Decode(&stats); err != nil {
+		return nil, err
+	}
+	return stats, nil
 }
 
-// isStale はキャッシュを再取得すべきか判定する（未取得、または maxAge を超過）。
-// 0件の取得成功を「未取得」と誤判定しないよう、件数ではなく取得時刻で判定する。
-func isStale(fetchedAt, now time.Time, maxAge time.Duration) bool {
-	return fetchedAt.IsZero() || now.Sub(fetchedAt) >= maxAge
+// Save は全国統計JSONを書き出す。
+// コスト降順・機体名昇順に固定し、週次更新の差分が値だけに収まるようにする。
+func Save(stats []model.MSNationalStat, path string) (err error) {
+	sort.Slice(stats, func(i, j int) bool {
+		if stats[i].Cost != stats[j].Cost {
+			return stats[i].Cost > stats[j].Cost
+		}
+		return stats[i].Name < stats[j].Name
+	})
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	return enc.Encode(stats)
 }

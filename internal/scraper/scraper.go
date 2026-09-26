@@ -1022,7 +1022,7 @@ func crawlMSUsedRate(jar http.CookieJar, onItem func(e *colly.HTMLElement, cost 
 
 		c := colly.NewCollector(colly.AllowedDomains(vsmobile))
 		c.SetCookieJar(jar)
-		// 他ジョブのスクレイピングと重なっても403を誘発しないよう直列＋待機で巡回する
+		// 全機体ぶんの一括巡回なので直列＋待機で403を回避する
 		_ = c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 1, Delay: throttleDelay()})
 
 		var costErr error
@@ -1059,49 +1059,38 @@ func crawlMSUsedRate(jar http.CookieJar, onItem func(e *colly.HTMLElement, cost 
 	return nil
 }
 
-// ScrapeMSList は機体使用率ランキングページから画像URLと機体名の一覧を取得する
-func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
+// ScrapeMSUsedRate は機体使用率ランキングページを1回巡回し、MSリストと全国統計を同時に取得する。
+// 両者は同じ要素から読めるため、別々にクロールしない。
+func ScrapeMSUsedRate(username, password string) ([]model.MSInfo, []model.MSNationalStat, error) {
 	m := NewClient(username, password)
 	if err := m.Login(); err != nil {
-		return nil, fmt.Errorf("ログインに失敗: %w", err)
+		return nil, nil, fmt.Errorf("ログインに失敗: %w", err)
 	}
 
 	var msList []model.MSInfo
-	seen := make(map[string]bool)
+	var stats []model.MSNationalStat
+	seenImage := make(map[string]bool)
+	seenName := make(map[string]bool)
 	err := crawlMSUsedRate(m.HTTPClient.Jar, func(e *colly.HTMLElement, cost int) {
 		imageURL := e.ChildAttr("img.item-icon-img", "data-original")
 		name := strings.TrimSpace(e.ChildText("div.prompt-area > p.fz-s"))
-		if imageURL != "" && name != "" && !seen[imageURL] {
-			seen[imageURL] = true
+		if imageURL != "" && name != "" && !seenImage[imageURL] {
+			seenImage[imageURL] = true
 			msList = append(msList, model.MSInfo{
 				Name:     name,
 				ImageURL: imageURL,
 				Cost:     cost,
 			})
 		}
-	})
-	if err != nil {
-		return nil, err
-	}
-	return msList, nil
-}
-
-// ScrapeNationalMSStats はログイン済みjarで機体ごとの全国平均勝率・使用率を取得する。
-func ScrapeNationalMSStats(jar http.CookieJar) ([]model.MSNationalStat, error) {
-	var stats []model.MSNationalStat
-	seen := make(map[string]bool)
-	err := crawlMSUsedRate(jar, func(e *colly.HTMLElement, cost int) {
-		stat, ok := parseNationalStatItem(e.DOM, cost)
-		if !ok || seen[stat.Name] {
-			return
+		if stat, ok := parseNationalStatItem(e.DOM, cost); ok && !seenName[stat.Name] {
+			seenName[stat.Name] = true
+			stats = append(stats, stat)
 		}
-		seen[stat.Name] = true
-		stats = append(stats, stat)
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return stats, nil
+	return msList, stats, nil
 }
 
 // parseNationalStatItem は機体アイテム要素から全国統計を取り出す。

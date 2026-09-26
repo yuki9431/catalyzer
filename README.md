@@ -130,7 +130,7 @@
 | `internal/session/` | セッション暗号化（AES-256-GCM）・CookieJarシリアライズ |
 | `internal/firestore/` | Firestoreクライアント・データの読み書き・セッション保存 |
 | `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・JSON生成・セッション永続化） |
-| `internal/nationalstats/` | 機体ごとの全国統計（勝率・使用率）のメモリキャッシュ（揮発データのため非永続・ライブ取得） |
+| `internal/nationalstats/` | 機体ごとの全国統計（勝率・使用率）JSONの読み書き |
 | `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |

@@ -17,6 +17,7 @@ COPY --from=builder /app/server .
 
 # データファイル
 COPY data/ms_list.json data/
+COPY data/national_ms_stats.json data/
 COPY data/grade_list.json data/
 
 # フロントエンド
