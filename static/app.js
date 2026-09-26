@@ -519,15 +519,15 @@ var inBarLabel = {
       while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
       return t + '…';
     };
-    var natlDs = chart.data.datasets[1];
+    var natlRates = chart.data.datasets[0].nationalWinRates;
     meta.data.forEach(function (bar, i) {
       var own = chart.data.datasets[0].data[i];
       var pct = own.toFixed(1) + '%';
       var pctWidth = ctx.measureText(pct).width;
       // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
-      var natl = natlDs ? natlDs.data[i] : null;
+      var natl = natlRates ? natlRates[i] : null;
       var diff = typeof natl === 'number' ? own - natl : null;
-      var diffText = diff == null ? '' : (diff >= 0 ? '+' : '') + diff.toFixed(1);
+      var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
       ctx.font = diffFont;
       var diffWidth = diffText ? ctx.measureText(diffText).width + 8 : 0;
       ctx.font = mainFont;
@@ -579,35 +579,23 @@ function MsCompareChart({ entries }) {
     if (!inView || !canvasRef.current || !entries.length) return;
     if (chartRef.current) chartRef.current.destroy();
     var values = entries.map(function (e) { return e.winRate; });
-    // 全国平均勝率を持つentryがあれば第2系列（全国平均）を重ねる。
-    // 持たない既存の呼び出し元（先落ち/敵相性/相方など）は従来通り単系列で描画される。
-    var hasNational = entries.some(function (e) { return typeof e.nationalWinRate === 'number'; });
-    var datasets = [{
-      label: 'あなた',
-      data: values,
-      backgroundColor: values.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.35)'; }),
-      borderWidth: 0,
-      borderRadius: 4,
-    }];
-    if (hasNational) {
-      datasets.push({
-        label: '全国平均',
-        data: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
-        backgroundColor: 'rgba(180, 190, 200, 0.45)',
-        borderWidth: 0,
-        borderRadius: 4,
-      });
-    }
     chartRef.current = new Chart(canvasRef.current, {
       type: 'bar',
       data: {
         labels: entries.map(function (e) { return e.name; }),
-        datasets: datasets,
+        datasets: [{
+          data: values,
+          backgroundColor: values.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.35)'; }),
+          borderWidth: 0,
+          borderRadius: 4,
+          // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
+          nationalWinRates: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
+        }],
       },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         layout: { padding: { right: 4 } },
-        plugins: { legend: { display: hasNational, labels: { color: '#aaa', font: { size: 12 } } } },
+        plugins: { legend: { display: false } },
         scales: {
           x: { min: 0, max: 100, ticks: { color: '#888', font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } },
           y: { ticks: { display: false }, grid: { display: false } },
@@ -618,8 +606,7 @@ function MsCompareChart({ entries }) {
     return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
   }, [entries, inView]);
 
-  var hasNat = entries.some(function (e) { return typeof e.nationalWinRate === 'number'; });
-  var h = Math.max(160, entries.length * (hasNat ? 60 : 46));
+  var h = Math.max(160, entries.length * 46);
   return html`<div class="chart-container" style=${'height:' + h + 'px'} ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }
 
