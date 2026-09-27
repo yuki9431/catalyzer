@@ -1510,11 +1510,5 @@
     "cost": 1500,
     "win_rate": 38.4,
     "usage_rate": 0.8
-  },
-  {
-    "name": "リ・ガズィ",
-    "cost": 1500,
-    "win_rate": 50,
-    "usage_rate": 0.7
   }
 ]
