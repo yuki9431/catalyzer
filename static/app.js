@@ -24,6 +24,7 @@ import {
   Tips, SortableTable, Table, SubSection, RangeCalendar,
 } from './components/ui.js';
 import { SearchView } from './components/search.js';
+import { ClassRecordView } from './components/classrecord.js';
 import {
   useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
@@ -269,7 +270,7 @@ function HamburgerMenu({ isOpen, onClose, shareData, onLogout, currentView, onNa
         <div class="menu-section">メニュー</div>
         <button class=${'menu-item' + (view === 'report' ? ' active' : '')} onClick=${function () { go('report'); }}><span class="menu-icon">📊</span>分析レポート</button>
         <button class=${'menu-item' + (view === 'search' ? ' active' : '')} onClick=${function () { go('search'); }}><span class="menu-icon">🔍</span>試合検索</button>
-        <button class="menu-item disabled"><span class="menu-icon">📈</span>モバイル総合戦歴<span class="coming-soon">coming soon</span></button>
+        <button class=${'menu-item' + (view === 'classrecord' ? ' active' : '')} onClick=${function () { go('classrecord'); }}><span class="menu-icon">📈</span>モバイル総合戦歴</button>
         <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
         <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
         <div class="menu-divider" />
@@ -1078,7 +1079,7 @@ async function reanalyzeWithSession() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
-        renderReport({ matches: resultData.matches }, resultData.user_key);
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         break;
       }
     }
@@ -1104,6 +1105,7 @@ async function logout() {
   } catch (e) {}
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
+  localStorage.removeItem(CLASS_RECORD_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
   var rep = document.getElementById('report');
@@ -1147,6 +1149,19 @@ function Report({ data, userKey }) {
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
   var msImagesRef = useState(null);
   var msImages = msImagesRef[0], setMsImages = msImagesRef[1];
+  // Report は再描画で使い回されるため、どの userKey の値かを持ち、別ユーザーの値を表示しない
+  var classRecordRef = useState(function () { return { key: userKey, record: loadClassRecord(userKey) }; });
+  var classRecordState = classRecordRef[0], setClassRecordState = classRecordRef[1];
+  var classRecord = classRecordState.key === userKey ? classRecordState.record : null;
+  // class_record を含まない再描画（速報・キャッシュ再構築）では消さない
+  useEffect(function () {
+    if (data.class_record) {
+      setClassRecordState({ key: userKey, record: data.class_record });
+      saveClassRecord(userKey, data.class_record);
+    } else if (classRecordState.key !== userKey) {
+      setClassRecordState({ key: userKey, record: loadClassRecord(userKey) });
+    }
+  }, [data, userKey]);
   var msNationalRef = useState(null);
   var msNational = msNationalRef[0], setMsNational = msNationalRef[1];
   var topbarRef = useRef(null);
@@ -1319,6 +1334,19 @@ function Report({ data, userKey }) {
     </div>`;
   }
 
+  if (view === 'classrecord') {
+    return html`<div class="view-root">
+      <div class="topbar">
+        <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+        <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
+        <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
+      </div>
+      <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
+        shareData=${shareData} onLogout=${logout} currentView=${view} onNavigate=${navigate} onRebuildCache=${rebuildCache} />
+      <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
+    </div>`;
+  }
+
   if (!frontendData) {
     return html`<${Skeleton} />`;
   }
@@ -1411,6 +1439,23 @@ function showSkeleton() {
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = 'none';
   render(html`<${Skeleton} />`, reportEl);
+}
+
+// 通算戦績は /result でしか届かないため、リロード後も表示できるよう最終取得値を user_key 付きで保持する
+var CLASS_RECORD_KEY = 'catalyzer_class_record';
+
+function loadClassRecord(userKey) {
+  try {
+    var v = JSON.parse(localStorage.getItem(CLASS_RECORD_KEY));
+    return userKey && v && v.user_key === userKey && v.record && v.record.total ? v.record : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveClassRecord(userKey, record) {
+  if (!userKey) return;
+  try { localStorage.setItem(CLASS_RECORD_KEY, JSON.stringify({ user_key: userKey, record: record })); } catch (e) {}
 }
 
 function renderReport(data, userKey) {
@@ -1634,7 +1679,7 @@ async function analyze() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
-        renderReport({ matches: resultData.matches }, resultData.user_key);
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         renderedReal = true;
         if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}

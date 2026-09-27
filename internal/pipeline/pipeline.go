@@ -56,6 +56,8 @@ type Job struct {
 	completedAt        time.Time
 	ctx                context.Context    // スクレイピングのキャンセル用Context（NewJobで生成）
 	cancel             context.CancelFunc // ctxのキャンセル関数。CancelJobから呼ばれる
+
+	ClassRecord *model.ClassRecord `json:"-"` // 公式サイトのクラスマッチ通算戦績（取得失敗時nil）
 }
 
 // ジョブストア（インメモリ）
@@ -115,6 +117,7 @@ func (j *Job) Snapshot() model.JobSnapshot {
 		PartialData:        j.PartialData,
 		LoggedIn:           j.LoggedIn,
 		UserKey:            j.UserKey,
+		ClassRecord:        j.ClassRecord,
 	}
 }
 
@@ -309,6 +312,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		return
 	}
 
+	// 通算戦績は付加情報なので失敗しても分析は続行する（403途中保存時は追加リクエストを控える）
+	if !is403WithPartialData {
+		fetchClassRecord(j, jar)
+	}
+
 	// 新規データがない場合はタッグ情報を保存して完了
 	if len(datedScores) == 0 && j.PreliminaryReport != "" {
 		tagPartners := scraper.ScrapeTagPartners(jar)
@@ -411,6 +419,21 @@ func setError(j *Job, clientMsg, detail string) {
 	j.completedAt = time.Now()
 	jobsMu.Unlock()
 	log.Printf("[ERROR] Job %s failed: %s", j.ID, detail)
+}
+
+// fetchClassRecord は公式サイトのクラスマッチ通算戦績を取得してジョブに載せる。
+func fetchClassRecord(j *Job, jar http.CookieJar) {
+	if jar == nil || (j.ctx != nil && j.ctx.Err() != nil) {
+		return
+	}
+	rec, err := scraper.ScrapeClassRecord(jar)
+	if err != nil {
+		log.Printf("[WARN] Job %s: failed to scrape class record: %v", j.ID, err)
+		return
+	}
+	jobsMu.Lock()
+	j.ClassRecord = rec
+	jobsMu.Unlock()
 }
 
 // CleanupJobs は完了済みジョブを定期的に削除する
