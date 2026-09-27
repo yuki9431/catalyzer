@@ -5,7 +5,7 @@ config:
   exvs-app:domain: www.exvs-analyzer.com
   exvs-app:firestoreDatabase: exvs-analyzer
   exvs-app:image:
-    secure: v1:ut2tf0SkDrFpjW+r:8zDtMvarN+cMjRX/hKLc5n6HBX5rZYgr3dHvOafBfIv5VyufAyemQ6lpOoEBp539Gqz4crSopA8D9jUH6jBJinWgG8HovIRmktYd+huNMsc9AiwDpqsLYRKVhpg5Gd7T8x0wrYhBdoOSHahkR5N6jXL9OySNBg==
+    secure: v1:MEPH0GZQWWJZjnQU:5JU3+R21IHQzeWGWnFJt0i0erzbLxqQJiANP9RnOIca8JVo5c4SnSfGsYfE7KQU9sDJHYhvQVBYPuPDRsQBws4Z6YXnXd2xNzsiLFzDhBhAPQb6PKlYE/SlvRlAtV8uiPFQ5Ql9RVAyWNSCOJlInBmw/rQysow==
   exvs-app:maxInstances: "3"
   exvs-app:memory: 1Gi
   exvs-app:serviceName: exvs-analyzer
