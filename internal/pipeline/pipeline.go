@@ -423,7 +423,7 @@ func setError(j *Job, clientMsg, detail string) {
 
 // fetchClassRecord は公式サイトのクラスマッチ通算戦績を取得してジョブに載せる。
 func fetchClassRecord(j *Job, jar http.CookieJar) {
-	if jar == nil {
+	if jar == nil || (j.ctx != nil && j.ctx.Err() != nil) {
 		return
 	}
 	rec, err := scraper.ScrapeClassRecord(jar)

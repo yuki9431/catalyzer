@@ -1149,14 +1149,19 @@ function Report({ data, userKey }) {
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
   var msImagesRef = useState(null);
   var msImages = msImagesRef[0], setMsImages = msImagesRef[1];
-  var classRecordRef = useState(function () { return loadClassRecord(userKey); });
-  var classRecord = classRecordRef[0], setClassRecord = classRecordRef[1];
-  // class_record を含まない再描画（速報・キャッシュ再構築）で消さない
+  // Report は再描画で使い回されるため、どの userKey の値かを持ち、別ユーザーの値を表示しない
+  var classRecordRef = useState(function () { return { key: userKey, record: loadClassRecord(userKey) }; });
+  var classRecordState = classRecordRef[0], setClassRecordState = classRecordRef[1];
+  var classRecord = classRecordState.key === userKey ? classRecordState.record : null;
+  // class_record を含まない再描画（速報・キャッシュ再構築）では消さない
   useEffect(function () {
-    if (!data.class_record) return;
-    setClassRecord(data.class_record);
-    saveClassRecord(userKey, data.class_record);
-  }, [data]);
+    if (data.class_record) {
+      setClassRecordState({ key: userKey, record: data.class_record });
+      saveClassRecord(userKey, data.class_record);
+    } else if (classRecordState.key !== userKey) {
+      setClassRecordState({ key: userKey, record: loadClassRecord(userKey) });
+    }
+  }, [data, userKey]);
   var msNationalRef = useState(null);
   var msNational = msNationalRef[0], setMsNational = msNationalRef[1];
   var topbarRef = useRef(null);
@@ -1442,13 +1447,14 @@ var CLASS_RECORD_KEY = 'catalyzer_class_record';
 function loadClassRecord(userKey) {
   try {
     var v = JSON.parse(localStorage.getItem(CLASS_RECORD_KEY));
-    return v && v.user_key === userKey && v.record && v.record.total ? v.record : null;
+    return userKey && v && v.user_key === userKey && v.record && v.record.total ? v.record : null;
   } catch (e) {
     return null;
   }
 }
 
 function saveClassRecord(userKey, record) {
+  if (!userKey) return;
   try { localStorage.setItem(CLASS_RECORD_KEY, JSON.stringify({ user_key: userKey, record: record })); } catch (e) {}
 }
 

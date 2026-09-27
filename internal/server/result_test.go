@@ -12,12 +12,11 @@ import (
 
 func TestHandleResult_ClassRecord(t *testing.T) {
 	tests := []struct {
-		name  string
-		rec   *model.ClassRecord
-		wantN int // class_record.total.matches（nilなら0かつキー省略）
+		name string
+		rec  *model.ClassRecord // nil なら class_record キーを省略
 	}{
-		{"取得成功", &model.ClassRecord{Total: model.WinRecord{Label: "クラスマッチG", Matches: 1234, Wins: 700, WinRate: 56.7}}, 1234},
-		{"取得失敗", nil, 0},
+		{"取得成功", &model.ClassRecord{Total: model.WinRecord{Label: "クラスマッチG", Matches: 1234, Wins: 700, WinRate: 56.7}}},
+		{"取得失敗", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,8 +46,8 @@ func TestHandleResult_ClassRecord(t *testing.T) {
 			if err := json.Unmarshal(raw, &got); err != nil {
 				t.Fatalf("failed to decode class_record: %v", err)
 			}
-			if got.Total.Matches != tt.wantN {
-				t.Errorf("class_record.total.matches = %d, want %d", got.Total.Matches, tt.wantN)
+			if got.Total.Matches != tt.rec.Total.Matches {
+				t.Errorf("class_record.total.matches = %d, want %d", got.Total.Matches, tt.rec.Total.Matches)
 			}
 		})
 	}
