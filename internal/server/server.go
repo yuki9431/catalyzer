@@ -339,6 +339,7 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 		Partial:       snap.PartialData,
 		SessionSaved:  sessionSaved,
 		SchemaVersion: pipeline.MatchDataSchemaVersion,
+		ClassRecord:   snap.ClassRecord,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -454,6 +455,8 @@ type matchesResponse struct {
 	UserKey       string          `json:"user_key,omitempty"`
 	SessionSaved  bool            `json:"session_saved,omitempty"`
 	SchemaVersion int             `json:"schema_version"`
+
+	ClassRecord *model.ClassRecord `json:"class_record,omitempty"`
 }
 
 func sendMatchesResponse(w http.ResponseWriter, code int, matchesJSON, status, userKey string, preliminary bool) {

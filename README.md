@@ -54,6 +54,7 @@
 │   │   └── gradelist.go           # グレードリストの読み込み・未知URL検出
 │   ├── scraper/
 │   │   ├── scraper.go             # スクレイピング処理
+│   │   ├── classrecord.go         # 戦績ページのクラスマッチ通算戦績取得
 │   │   └── login.go               # ログイン処理
 │   ├── firestore/
 │   │   ├── client.go              # Firestoreクライアント初期化
@@ -71,9 +72,11 @@
 │   ├── index.html                 # フロントエンド
 │   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
 │   ├── analysis/
-│   │   └── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
+│   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
+│   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
+│   │   ├── classrecord.js         # モバイル総合戦歴ビュー
 │   │   └── charts.js              # Chart.jsグラフ・レポートセクション
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
