@@ -18,6 +18,15 @@ type MSInfo struct {
 	Cost     int `json:",omitempty"`
 }
 
+// MSNationalStat は機体ごとの全国統計（勝率・使用率）。
+// 全プレイヤー共通のデータなので深夜バッチが取得し data/national_ms_stats.json に保存する。
+type MSNationalStat struct {
+	Name      string  `json:"name"`
+	Cost      int     `json:"cost,omitempty"`
+	WinRate   float64 `json:"win_rate"`   // 全国平均勝率(%)
+	UsageRate float64 `json:"usage_rate"` // 全国使用率(%)
+}
+
 // PlayerScore はスコア
 type PlayerScore struct {
 	City            string
@@ -108,6 +117,29 @@ type JobSnapshot struct {
 	PartialData        bool
 	LoggedIn           bool
 	UserKey            string
+	ClassRecord        *ClassRecord
+}
+
+// WinRecord は公式サイト戦績ページの戦数・勝数・勝率(%)の1行
+type WinRecord struct {
+	Label   string  `json:"label"`
+	Matches int     `json:"matches"`
+	Wins    int     `json:"wins"`
+	WinRate float64 `json:"win_rate"`
+}
+
+// CountStat は公式サイト戦績ページの通算回数系スタッツ（敵撃破数など）
+type CountStat struct {
+	Label string `json:"label"`
+	Value int    `json:"value"`
+	Unit  string `json:"unit"`
+}
+
+// ClassRecord は公式サイト戦績ページのクラスマッチ通算戦績（自分のみ・非永続）
+type ClassRecord struct {
+	Total     WinRecord   `json:"total"`
+	Breakdown []WinRecord `json:"breakdown"`
+	Counts    []CountStat `json:"counts"`
 }
 
 // DatedScores は日付付きスコアのリスト

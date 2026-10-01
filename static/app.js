@@ -25,6 +25,7 @@ import {
   Tips, SortableTable, Table, SubSection, RangeCalendar,
 } from './components/ui.js';
 import { SearchView } from './components/search.js';
+import { ClassRecordView } from './components/classrecord.js';
 import {
   useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
@@ -270,7 +271,7 @@ function HamburgerMenu({ isOpen, onClose, shareData, onLogout, currentView, onNa
         <div class="menu-section">メニュー</div>
         <button class=${'menu-item' + (view === 'report' ? ' active' : '')} onClick=${function () { go('report'); }}><span class="menu-icon">📊</span>分析レポート</button>
         <button class=${'menu-item' + (view === 'search' ? ' active' : '')} onClick=${function () { go('search'); }}><span class="menu-icon">🔍</span>試合検索</button>
-        <button class="menu-item disabled"><span class="menu-icon">📈</span>モバイル総合戦歴<span class="coming-soon">coming soon</span></button>
+        <button class=${'menu-item' + (view === 'classrecord' ? ' active' : '')} onClick=${function () { go('classrecord'); }}><span class="menu-icon">📈</span>モバイル総合戦歴</button>
         <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
         <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
         <div class="menu-divider" />
@@ -509,7 +510,9 @@ var inBarLabel = {
     var x0 = chart.scales.x.getPixelForValue(0);
     var areaRight = chart.chartArea.right;
     ctx.save();
-    ctx.font = '700 12px system-ui, -apple-system, sans-serif';
+    var mainFont = '700 12px system-ui, -apple-system, sans-serif';
+    var diffFont = '700 11px system-ui, -apple-system, sans-serif';
+    ctx.font = mainFont;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#e6edf3';
     var ellipsize = function (text, maxWidth) {
@@ -518,22 +521,50 @@ var inBarLabel = {
       while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
       return t + '…';
     };
+    var natlRates = chart.data.datasets[0].nationalWinRates;
     meta.data.forEach(function (bar, i) {
-      var pct = chart.data.datasets[0].data[i].toFixed(1) + '%';
+      var own = chart.data.datasets[0].data[i];
+      var pct = own.toFixed(1) + '%';
       var pctWidth = ctx.measureText(pct).width;
-      // 描画領域から勝率ぶんの幅を確保した上で、収まらない機体名は省略（…）する
-      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12);
+      // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
+      var natl = natlRates ? natlRates[i] : null;
+      var diff = typeof natl === 'number' ? own - natl : null;
+      var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
+      ctx.font = diffFont;
+      var diffWidth = diffText ? ctx.measureText(diffText).width + 8 : 0;
+      ctx.font = mainFont;
+      // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
+      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12 - diffWidth);
       ctx.textAlign = 'left';
       ctx.fillText(name, x0 + 8, bar.y);
       var nameRight = x0 + 8 + ctx.measureText(name).width;
+      var endX;
       // 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
       if (bar.x - 8 - pctWidth > nameRight + 6) {
         ctx.textAlign = 'right';
         ctx.fillText(pct, bar.x - 8, bar.y);
+        endX = bar.x;
       } else {
         ctx.textAlign = 'left';
-        ctx.fillText(pct, Math.max(bar.x + 6, nameRight + 6), bar.y);
+        var pctX = Math.max(bar.x + 6, nameRight + 6);
+        ctx.fillText(pct, pctX, bar.y);
+        endX = pctX + pctWidth;
       }
+      if (!diffText) return;
+      ctx.font = diffFont;
+      var diffWidth2 = ctx.measureText(diffText).width;
+      // 全国平均との差分は棒の右外に出す
+      if (endX + 8 + diffWidth2 <= areaRight) {
+        ctx.fillStyle = diff >= 0 ? '#a8e6cf' : '#ff8a65';
+        ctx.textAlign = 'left';
+        ctx.fillText(diffText, endX + 8, bar.y);
+      } else if (bar.x - 8 - pctWidth - 6 - diffWidth2 > nameRight + 6) {
+        // 右外に収まらない行は棒内の勝率の左隣へ。棒の色と競合するため配色は付けない
+        ctx.textAlign = 'right';
+        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
+      }
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = mainFont;
     });
     ctx.restore();
   },
@@ -559,6 +590,8 @@ function MsCompareChart({ entries }) {
           backgroundColor: values.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.35)'; }),
           borderWidth: 0,
           borderRadius: 4,
+          // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
+          nationalWinRates: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
         }],
       },
       options: {
@@ -713,13 +746,27 @@ function ActionPlanPanel({ plan, selectedMs }) {
 
 // --- Tab panes ---
 
-function OverviewPane({ pd, selectedMs, lens, frontendData }) {
+// 機体別の勝率比較グラフに並べる最低試合数
+var msCompareMinMatches = 10;
+
+function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
   var seasons = (frontendData && frontendData.season) || [];
   var msSummary = (frontendData && frontendData.ms_summary) || {};
+  var natl = msNational || {};
   var msEntries = Object.keys(msSummary).sort(function (a, b) { return msSummary[b].matches - msSummary[a].matches; });
-  var compareEntries = msEntries.map(function (name) {
-    return { name: name, winRate: (msSummary[name].basic_stats && msSummary[name].basic_stats.win_rate) || 0 };
+  // 母数の小さい機体と勝ち星0の機体は比較の材料にならないので並べない
+  var compareEntries = msEntries.filter(function (name) {
+    var s = msSummary[name];
+    return s.matches >= msCompareMinMatches && s.basic_stats && s.basic_stats.wins > 0;
+  }).map(function (name) {
+    var e = { name: name, winRate: msSummary[name].basic_stats.win_rate };
+    // 全国側の win_rate 0 は抽出失敗なので重ねない
+    if (natl[name] && natl[name].win_rate > 0) e.nationalWinRate = natl[name].win_rate;
+    return e;
   });
+
+  // 特定機体を選択中は、その機体の全国平均勝率と自分の勝率を比較表示する（勝率>0のデータのみ）。
+  var selNatl = (selectedMs && natl[selectedMs] && natl[selectedMs].win_rate > 0) ? natl[selectedMs] : null;
 
   var fp = (frontendData && frontendData.fixed_partners) || {};
   var fpList = fp ? (fp.partners || fp) : [];
@@ -730,6 +777,21 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
 
     ${pd.basic_stats && html`<${Panel} title="基本データ">
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
+    <//>`}
+
+    ${selectedMs && selNatl && lens === 'all' && pd.basic_stats && html`<${Panel} title="全国平均との比較">
+      ${(function () {
+        var own = pd.basic_stats.win_rate;
+        var natlWr = selNatl.win_rate;
+        var diff = own - natlWr;
+        var diffCls = diff >= 0 ? 'val-good' : 'val-bad';
+        var diffText = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+        return html`<${Table} headers=${['', '勝率']} rows=${[
+          ['あなた', colorPct(own)],
+          ['全国平均', natlWr.toFixed(1) + '%'],
+          ['差', { sortValue: diff, display: html`<span class=${diffCls}>${diffText}</span>` }],
+        ]} />`;
+      })()}
     <//>`}
 
     ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
@@ -745,7 +807,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
       })}
     <//>`}
 
-    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title="機体別の勝率比較">
+    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title=${compareEntries.some(function (e) { return typeof e.nationalWinRate === 'number'; }) ? '機体別の勝率比較（全国平均と比較）' : '機体別の勝率比較'}>
       <${MsCompareChart} entries=${compareEntries} />
     <//>`}
 
@@ -1056,7 +1118,7 @@ async function reanalyzeWithSession() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
-        renderReport({ matches: resultData.matches }, resultData.user_key);
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         break;
       }
     }
@@ -1082,6 +1144,7 @@ async function logout() {
   } catch (e) {}
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
+  localStorage.removeItem(CLASS_RECORD_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
   var rep = document.getElementById('report');
@@ -1125,6 +1188,21 @@ function Report({ data, userKey }) {
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
   var msImagesRef = useState(null);
   var msImages = msImagesRef[0], setMsImages = msImagesRef[1];
+  // Report は再描画で使い回されるため、どの userKey の値かを持ち、別ユーザーの値を表示しない
+  var classRecordRef = useState(function () { return { key: userKey, record: loadClassRecord(userKey) }; });
+  var classRecordState = classRecordRef[0], setClassRecordState = classRecordRef[1];
+  var classRecord = classRecordState.key === userKey ? classRecordState.record : null;
+  // class_record を含まない再描画（速報・キャッシュ再構築）では消さない
+  useEffect(function () {
+    if (data.class_record) {
+      setClassRecordState({ key: userKey, record: data.class_record });
+      saveClassRecord(userKey, data.class_record);
+    } else if (classRecordState.key !== userKey) {
+      setClassRecordState({ key: userKey, record: loadClassRecord(userKey) });
+    }
+  }, [data, userKey]);
+  var msNationalRef = useState(null);
+  var msNational = msNationalRef[0], setMsNational = msNationalRef[1];
   var topbarRef = useRef(null);
 
   // 機体名→画像URLのマップを一度だけ取得（試合検索一覧のサムネイル表示用）。
@@ -1139,6 +1217,30 @@ function Report({ data, userKey }) {
       })
       .catch(function () {});
   }, []);
+
+  // 機体名→全国統計（勝率・使用率）のマップを取得（自分の勝率との比較表示用）。
+  // サーバーが起動時に読み込む静的データなので一度だけでよい。
+  useEffect(function () {
+    fetch('/national-ms-stats')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (list) {
+        if (!list || !list.length) return;
+        var map = {};
+        list.forEach(function (m) { if (m && m.name) map[m.name] = m; });
+        setMsNational(map);
+      })
+      .catch(function () {});
+  }, []);
+
+  // renderReport は同じインスタンスを再利用するため useState の初期値は初回しか効かない。
+  // 速報の段階更新を受け取るには data の差し替えを明示的に取り込む必要がある。
+  useEffect(function () {
+    var m = data.matches;
+    if (!m || !m.length) return;
+    setAllMatches(function (prev) {
+      return prev && prev.length >= m.length ? prev : m;
+    });
+  }, [data]);
 
   useEffect(function () {
     if (!userKey) return;
@@ -1274,6 +1376,19 @@ function Report({ data, userKey }) {
     </div>`;
   }
 
+  if (view === 'classrecord') {
+    return html`<div class="view-root">
+      <div class="topbar">
+        <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+        <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
+        <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
+      </div>
+      <${HamburgerMenu} isOpen=${menuOpen} onClose=${function () { setMenuOpen(false); }}
+        shareData=${shareData} onLogout=${logout} currentView=${view} onNavigate=${navigate} onRebuildCache=${rebuildCache} />
+      <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
+    </div>`;
+  }
+
   if (!frontendData) {
     return html`<${Skeleton} />`;
   }
@@ -1289,7 +1404,7 @@ function Report({ data, userKey }) {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
-    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;
+    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} />`;
   }
 
   return html`<div class="view-root">
@@ -1366,6 +1481,23 @@ function showSkeleton() {
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = 'none';
   render(html`<${Skeleton} />`, reportEl);
+}
+
+// 通算戦績は /result でしか届かないため、リロード後も表示できるよう最終取得値を user_key 付きで保持する
+var CLASS_RECORD_KEY = 'catalyzer_class_record';
+
+function loadClassRecord(userKey) {
+  try {
+    var v = JSON.parse(localStorage.getItem(CLASS_RECORD_KEY));
+    return userKey && v && v.user_key === userKey && v.record && v.record.total ? v.record : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveClassRecord(userKey, record) {
+  if (!userKey) return;
+  try { localStorage.setItem(CLASS_RECORD_KEY, JSON.stringify({ user_key: userKey, record: record })); } catch (e) {}
 }
 
 function renderReport(data, userKey) {
@@ -1589,7 +1721,7 @@ async function analyze() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
-        renderReport({ matches: resultData.matches }, resultData.user_key);
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         renderedReal = true;
         if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}

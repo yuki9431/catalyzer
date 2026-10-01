@@ -58,6 +58,89 @@ func TestParseNumber(t *testing.T) {
 	}
 }
 
+func TestParsePercent(t *testing.T) {
+	tests := []struct {
+		input string
+		want  float64
+	}{
+		{"51.3％", 51.3},
+		{"12.0％", 12.0},
+		{"0.0％", 0.0},
+		{"100％", 100.0},
+		{"", 0},
+		{"abc", 0},
+		{"勝率", 0},
+	}
+
+	for _, tt := range tests {
+		got := parsePercent(tt.input)
+		if got != tt.want {
+			t.Errorf("parsePercent(%q) = %f, want %f", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestExtractRateByLabel(t *testing.T) {
+	// ms_used_rate ページの機体アイテム相当のフラグメント
+	html := `<div class="ds-fx fx-va-s fx-hz-s">
+		<div class="w80">
+			<div class="prompt-area"><p class="fz-s">ダブルオークアンタ フルセイバー</p></div>
+			<dl class="ds-fx fx-va-b">
+				<dt class="col-sub fz-ss">使用率</dt>
+				<dd class="col-stand fz-ll fw-b">12.0<span class="col-sub fz-ss fw-n">％</span></dd>
+				<dt class="col-sub fz-ss">勝率</dt>
+				<dd class="fz-m fw-b">51.3<span class="col-sub fz-ss fw-n">％</span></dd>
+			</dl>
+		</div>
+	</div>`
+
+	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(html))
+
+	if got := extractRateByLabel(doc.Selection, "勝率"); got != 51.3 {
+		t.Errorf("勝率: got %f, want 51.3", got)
+	}
+	if got := extractRateByLabel(doc.Selection, "使用率"); got != 12.0 {
+		t.Errorf("使用率: got %f, want 12.0", got)
+	}
+	if got := extractRateByLabel(doc.Selection, "存在しない"); got != 0 {
+		t.Errorf("存在しないラベル: got %f, want 0", got)
+	}
+}
+
+func TestParseNationalStatItem(t *testing.T) {
+	item := func(name, winRate string) *goquery.Selection {
+		html := `<div class="ds-fx fx-va-s fx-hz-s">
+			<div class="w80">
+				<div class="prompt-area"><p class="fz-s">` + name + `</p></div>
+				<dl class="ds-fx fx-va-b">
+					<dt class="col-sub fz-ss">使用率</dt>
+					<dd class="col-stand fz-ll fw-b">12.0<span>％</span></dd>
+					<dt class="col-sub fz-ss">勝率</dt>
+					<dd class="fz-m fw-b">` + winRate + `<span>％</span></dd>
+				</dl>
+			</div>
+		</div>`
+		doc, _ := goquery.NewDocumentFromReader(strings.NewReader(html))
+		return doc.Selection
+	}
+
+	got, ok := parseNationalStatItem(item("ダブルオークアンタ フルセイバー", "51.3"), 3000)
+	if !ok {
+		t.Fatal("勝率のある機体はtrueを返すはず")
+	}
+	if got.Name != "ダブルオークアンタ フルセイバー" || got.Cost != 3000 || got.WinRate != 51.3 || got.UsageRate != 12.0 {
+		t.Errorf("got %+v", got)
+	}
+
+	// 勝率0は「抽出失敗」と「実績0%」を区別できないためデータ不在として弾く
+	if _, ok := parseNationalStatItem(item("テスト機体", "0.0"), 2500); ok {
+		t.Error("勝率0の機体はfalseを返すはず")
+	}
+	if _, ok := parseNationalStatItem(item("", "51.3"), 2500); ok {
+		t.Error("機体名が空ならfalseを返すはず")
+	}
+}
+
 func TestDatePartsToSec(t *testing.T) {
 	tests := []struct {
 		min, sec, centi string

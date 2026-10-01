@@ -982,23 +982,16 @@ func ScrapeTagPartners(jar http.CookieJar) []model.TagPartner {
 	return partners
 }
 
-// ScrapeMSList は機体使用率ランキングページから画像URLと機体名の一覧を取得する
-func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
-	var msList []model.MSInfo
-	seen := make(map[string]bool)
-
-	m := NewClient(username, password)
-	if err := m.Login(); err != nil {
-		return nil, fmt.Errorf("ログインに失敗: %w", err)
-	}
-
+// crawlMSUsedRate は機体使用率ランキングページを巡回し、各機体アイテムをコスト付きで onItem に渡す。
+// CSRFトークン取得→コスト別POST→ページネーションの作法を ScrapeMSList と ScrapeNationalMSStats で共用する。
+func crawlMSUsedRate(jar http.CookieJar, onItem func(e *colly.HTMLElement, cost int)) error {
 	// まずCSRFトークンを取得
 	var csrfToken string
 	var tokenErr error
 	var tokenResponseBody []byte
 	var tokenStatusCode int
 	tokenCollector := colly.NewCollector(colly.AllowedDomains(vsmobile))
-	tokenCollector.SetCookieJar(m.HTTPClient.Jar)
+	tokenCollector.SetCookieJar(jar)
 	tokenCollector.OnError(func(r *colly.Response, err error) {
 		tokenErr = classifyHTTPError(r.StatusCode, mobileMSUsedRate, err)
 	})
@@ -1012,25 +1005,25 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 	_ = tokenCollector.Visit(mobileMSUsedRate)
 
 	if tokenErr != nil {
-		return nil, fmt.Errorf("CSRFトークン取得に失敗: %w", tokenErr)
+		return fmt.Errorf("CSRFトークン取得に失敗: %w", tokenErr)
 	}
 	if csrfToken == "" {
 		body := string(tokenResponseBody)
 		if len(body) > 2000 {
 			body = body[:2000]
 		}
-		return nil, fmt.Errorf("CSRFトークンが見つかりません: url=%s status=%d body=%s", mobileMSUsedRate, tokenStatusCode, body)
+		return fmt.Errorf("CSRFトークンが見つかりません: url=%s status=%d body=%s", mobileMSUsedRate, tokenStatusCode, body)
 	}
 
-	// 各コストでPOSTしてMS一覧を取得
+	// 各コストでPOSTして一覧を取得
 	costs := []int{3000, 2500, 2000, 1500}
 	for _, cost := range costs {
 		currentCost := cost
 
-		c := colly.NewCollector(
-			colly.AllowedDomains(vsmobile),
-		)
-		c.SetCookieJar(m.HTTPClient.Jar)
+		c := colly.NewCollector(colly.AllowedDomains(vsmobile))
+		c.SetCookieJar(jar)
+		// 全機体ぶんの一括巡回なので直列＋待機で403を回避する
+		_ = c.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 1, Delay: throttleDelay()})
 
 		var costErr error
 		c.OnError(func(r *colly.Response, err error) {
@@ -1040,17 +1033,7 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 		})
 
 		c.OnHTML("li.item div.ds-fx.fx-va-s.fx-hz-s", func(e *colly.HTMLElement) {
-			imageURL := e.ChildAttr("img.item-icon-img", "data-original")
-			name := strings.TrimSpace(e.ChildText("div.prompt-area > p.fz-s"))
-
-			if imageURL != "" && name != "" && !seen[imageURL] {
-				seen[imageURL] = true
-				msList = append(msList, model.MSInfo{
-					Name:     name,
-					ImageURL: imageURL,
-					Cost:     currentCost,
-				})
-			}
+			onItem(e, currentCost)
 		})
 
 		c.OnHTML("div.page-send ul.clearfix", func(e *colly.HTMLElement) {
@@ -1069,16 +1052,102 @@ func ScrapeMSList(username, password string) ([]model.MSInfo, error) {
 		})
 
 		if costErr != nil {
-			return nil, fmt.Errorf("コスト%dのMS一覧取得に失敗: %w", currentCost, costErr)
+			return fmt.Errorf("コスト%dの取得に失敗: %w", currentCost, costErr)
 		}
 	}
 
-	return msList, nil
+	return nil
+}
+
+// ScrapeMSUsedRate は機体使用率ランキングページを1回巡回し、MSリストと全国統計を同時に取得する。
+// 両者は同じ要素から読めるため、別々にクロールしない。
+func ScrapeMSUsedRate(username, password string) ([]model.MSInfo, []model.MSNationalStat, error) {
+	m := NewClient(username, password)
+	if err := m.Login(); err != nil {
+		return nil, nil, fmt.Errorf("ログインに失敗: %w", err)
+	}
+
+	var msList []model.MSInfo
+	var stats []model.MSNationalStat
+	seenImage := make(map[string]bool)
+	seenName := make(map[string]bool)
+	err := crawlMSUsedRate(m.HTTPClient.Jar, func(e *colly.HTMLElement, cost int) {
+		imageURL := e.ChildAttr("img.item-icon-img", "data-original")
+		name := strings.TrimSpace(e.ChildText("div.prompt-area > p.fz-s"))
+		if imageURL != "" && name != "" && !seenImage[imageURL] {
+			seenImage[imageURL] = true
+			msList = append(msList, model.MSInfo{
+				Name:     name,
+				ImageURL: imageURL,
+				Cost:     cost,
+			})
+		}
+		if stat, ok := parseNationalStatItem(e.DOM, cost); ok && !seenName[stat.Name] {
+			seenName[stat.Name] = true
+			stats = append(stats, stat)
+		}
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return msList, stats, nil
+}
+
+// parseNationalStatItem は機体アイテム要素から全国統計を取り出す。
+// 勝率0はデータ不在（抽出失敗と実績0%を区別できない）とみなし false を返す。
+func parseNationalStatItem(s *goquery.Selection, cost int) (model.MSNationalStat, bool) {
+	name := strings.TrimSpace(s.Find("div.prompt-area > p.fz-s").Text())
+	if name == "" {
+		return model.MSNationalStat{}, false
+	}
+	winRate := extractRateByLabel(s, "勝率")
+	if winRate <= 0 {
+		return model.MSNationalStat{}, false
+	}
+	return model.MSNationalStat{
+		Name:      name,
+		Cost:      cost,
+		WinRate:   winRate,
+		UsageRate: extractRateByLabel(s, "使用率"),
+	}, true
+}
+
+// extractRateByLabel は機体アイテム要素の <dl> から、指定ラベル(例:"勝率")の
+// <dt> の直後の <dd>（例:"51.3％"）を読み、数値(51.3)を返す。見つからなければ0。
+func extractRateByLabel(s *goquery.Selection, label string) float64 {
+	var rate float64
+	s.Find("dl dt").EachWithBreak(func(_ int, dt *goquery.Selection) bool {
+		if strings.TrimSpace(dt.Text()) == label {
+			rate = parsePercent(dt.Next().Text())
+			return false
+		}
+		return true
+	})
+	return rate
+}
+
+// parsePercent は "51.3％" のようなパーセント文字列から数値(51.3)を抽出する。
+// 数字と小数点以外を除去してからパースする。パースできなければ0を返す。
+func parsePercent(s string) float64 {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= '0' && r <= '9') || r == '.' {
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return 0
+	}
+	f, err := strconv.ParseFloat(b.String(), 64)
+	if err != nil {
+		return 0
+	}
+	return f
 }
 
 // classifyHTTPError はHTTPステータスコードに応じた適切なエラーを返す
 func classifyHTTPError(statusCode int, url string, originalErr error) error {
-	log.Printf("[ERROR] ScrapeMSList: HTTP %d url=%s err=%v", statusCode, url, originalErr)
+	log.Printf("[ERROR] HTTP %d url=%s err=%v", statusCode, url, originalErr)
 	switch {
 	case statusCode == http.StatusUnauthorized:
 		return ErrUnauthorized

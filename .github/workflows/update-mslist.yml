@@ -49,34 +49,35 @@ jobs:
         id: diff
         if: steps.existing-pr.outputs.skip == 'false'
         run: |
-          if git diff --quiet data/ms_list.json; then
+          if git diff --quiet data/ms_list.json data/national_ms_stats.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # GITHUB_TOKEN で作ったPRはワークフローを起動しないため、PR作成とマージはPATで行う
       - name: Create PR
         id: create-pr
         if: steps.existing-pr.outputs.skip == 'false' && steps.diff.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           BRANCH="auto/update-mslist-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ms_list.json
-          git commit -m "chore: MSリストを自動更新"
+          git add data/ms_list.json data/national_ms_stats.json
+          git commit -m "chore: MSリストを自動更新（全国統計含む）"
           git push origin "$BRANCH"
           PR_URL=$(gh pr create \
-            --title "chore: MSリストを自動更新" \
+            --title "chore: MSリストを自動更新（全国統計含む）" \
             --body "GitHub Actionsによる自動更新です。CIのバリデーション通過後に自動マージされます。")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Wait for checks and merge
         if: steps.create-pr.outputs.pr_url
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           # CIチェックが登録されるまでポーリング（最大5分）
@@ -101,7 +102,7 @@ jobs:
       - name: Trigger prod deploy
         if: steps.create-pr.outputs.pr_url
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           # push to main で stg build（build.yml）は自動トリガーされる

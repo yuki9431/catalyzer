@@ -54,6 +54,7 @@
 │   │   └── gradelist.go           # グレードリストの読み込み・未知URL検出
 │   ├── scraper/
 │   │   ├── scraper.go             # スクレイピング処理
+│   │   ├── classrecord.go         # 戦績ページのクラスマッチ通算戦績取得
 │   │   └── login.go               # ログイン処理
 │   ├── firestore/
 │   │   ├── client.go              # Firestoreクライアント初期化
@@ -72,9 +73,11 @@
 │   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
-│   │   └── coach.js               # アクションプラン（今やるべきこと）の診断
+│   │   ├── coach.js               # アクションプラン（今やるべきこと）の診断
+│   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
+│   │   ├── classrecord.js         # モバイル総合戦歴ビュー
 │   │   └── charts.js              # Chart.jsグラフ・レポートセクション
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
@@ -132,6 +135,7 @@
 | `internal/session/` | セッション暗号化（AES-256-GCM）・CookieJarシリアライズ |
 | `internal/firestore/` | Firestoreクライアント・データの読み書き・セッション保存 |
 | `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・JSON生成・セッション永続化） |
+| `internal/nationalstats/` | 機体ごとの全国統計（勝率・使用率）JSONの読み書き |
 | `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |

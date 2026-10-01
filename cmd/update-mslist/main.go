@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/yuki9431/catalyzer/internal/mslist"
+	"github.com/yuki9431/catalyzer/internal/nationalstats"
 	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
@@ -21,16 +22,20 @@ func main() {
 	if len(os.Args) > 1 {
 		outputPath = os.Args[1]
 	}
+	statsPath := "data/national_ms_stats.json"
+	if len(os.Args) > 2 {
+		statsPath = os.Args[2]
+	}
 
 	existing, err := mslist.LoadMSList(outputPath)
 	if err != nil {
 		log.Printf("No existing MS list found, starting fresh: %v", err)
 	}
 
-	log.Println("Scraping MS list...")
-	scraped, err := scraper.ScrapeMSList(username, password)
+	log.Println("Scraping MS used rate ranking...")
+	scraped, stats, err := scraper.ScrapeMSUsedRate(username, password)
 	if err != nil {
-		log.Fatalf("Failed to scrape MS list: %v", err)
+		log.Fatalf("Failed to scrape MS used rate ranking: %v", err)
 	}
 
 	if len(scraped) == 0 {
@@ -45,4 +50,14 @@ func main() {
 
 	fmt.Printf("Saved %d MS entries (%d scraped + %d kept from existing) to %s\n",
 		len(merged), len(scraped), len(merged)-len(scraped), outputPath)
+
+	// 全国統計が0件なら既存ファイルを上書きしない（抽出失敗で全消しするのを避ける）
+	if len(stats) == 0 {
+		log.Printf("[WARN] No national stats found, keeping existing %s", statsPath)
+		return
+	}
+	if err := nationalstats.Save(stats, statsPath); err != nil {
+		log.Fatalf("Failed to save national MS stats: %v", err)
+	}
+	fmt.Printf("Saved %d national MS stats to %s\n", len(stats), statsPath)
 }

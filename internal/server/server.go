@@ -18,6 +18,7 @@ import (
 	"github.com/yuki9431/catalyzer/internal/firestore"
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/mslist"
+	"github.com/yuki9431/catalyzer/internal/nationalstats"
 	"github.com/yuki9431/catalyzer/internal/pipeline"
 	"github.com/yuki9431/catalyzer/internal/session"
 	"golang.org/x/time/rate"
@@ -244,6 +245,23 @@ func StartServer() {
 		sendJSON(w, http.StatusOK, msList)
 	})
 
+	// GET /national-ms-stats → 機体ごとの全国統計（全国平均勝率・使用率）を配信。
+	// 深夜バッチが取得した静的データ。起動時に一度だけ読み込む。
+	// 読めなければ空を返し、フロントは自分の勝率のみ表示にフォールバックする。
+	natStats, naterr := nationalstats.Load(pipeline.DefaultNationalStatsPath)
+	if naterr != nil {
+		log.Printf("[WARN] Failed to load national MS stats: %v", naterr)
+		natStats = []model.MSNationalStat{}
+	}
+	http.HandleFunc("/national-ms-stats", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		sendJSON(w, http.StatusOK, natStats)
+	})
+
 	// GET /session → セッションの有効性チェック（キャッシュレポート付き）
 	http.HandleFunc("/session", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -321,6 +339,7 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 		Partial:       snap.PartialData,
 		SessionSaved:  sessionSaved,
 		SchemaVersion: pipeline.MatchDataSchemaVersion,
+		ClassRecord:   snap.ClassRecord,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -436,6 +455,8 @@ type matchesResponse struct {
 	UserKey       string          `json:"user_key,omitempty"`
 	SessionSaved  bool            `json:"session_saved,omitempty"`
 	SchemaVersion int             `json:"schema_version"`
+
+	ClassRecord *model.ClassRecord `json:"class_record,omitempty"`
 }
 
 func sendMatchesResponse(w http.ResponseWriter, code int, matchesJSON, status, userKey string, preliminary bool) {
