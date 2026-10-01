@@ -813,6 +813,8 @@ function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
       <span>${plan.matches}戦 勝率 <strong>${pct(plan.win_rate)}</strong></span>
       ${recent && html`<span class=${down ? 'action-down' : 'action-up'}>直近${recent.matches}戦 ${pct(recent.win_rate)}（それ以前 ${pct(recent.before_win_rate)}）</span>`}
     </div>
+    ${plan.weak_enemy && html`<div class="action-enemy">苦手機体: <strong>${plan.weak_enemy.enemy}</strong>（${plan.weak_enemy.matches}戦 勝率${plan.weak_enemy.win_rate}%、それ以外 ${plan.weak_enemy.other_win_rate}%）${plan.weak_enemy.fact && '。' + plan.weak_enemy.fact}</div>`}
+    ${plan.after_streak && html`<div class="action-enemy">${plan.after_streak.streak}連敗直後の試合: ${plan.after_streak.total}戦中${plan.after_streak.matches}戦（勝率${plan.after_streak.win_rate}%、それ以外 ${plan.after_streak.other_win_rate}%）</div>`}
     ${recent && recent.worsened.length > 0 && html`<div class="action-worsened">直近で悪化:
       ${recent.worsened.map(function (w) {
         return html`<span class="action-chip">${w.label} ${w.before}→${w.recent}</span>`;

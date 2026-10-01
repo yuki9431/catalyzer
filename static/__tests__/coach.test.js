@@ -86,7 +86,7 @@ describe('computeActionPlan', function () {
     var plan = computeActionPlan(ms);
     var fo = plan.actions.find(function (a) { return a.key === 'fall_order'; });
     assert.ok(fo, 'fall_order action expected');
-    assert.equal(fo.title, '相方より先に撃墜されない');
+    assert.equal(fo.title, '自分が後落ちする');
     assert.deepEqual(fo.goal, { key: 'fall_order', avoid: 'first' });
     assert.match(fo.condition, /^相方より先に撃墜されない/);
   });
@@ -108,7 +108,58 @@ describe('computeActionPlan', function () {
     assert.ok(keys(plan).indexOf('burst') >= 0);
   });
 
-  it('flags the worst enemy with a distance hint when damage taken is high', function () {
+  it('omits the death-count mission when costs are mixed', function () {
+    var ms = [];
+    for (var i = 0; i < 20; i++) {
+      var fatal = i < 6;
+      ms.push(makeMatch({ date: dateAt(i), ms_cost: i % 2 ? 3000 : 2000, deaths: fatal ? 3 : 1, win: !fatal }));
+    }
+    assert.equal(keys(computeActionPlan(ms)).indexOf('deaths'), -1);
+  });
+
+  it('flags consecutive falls within 15 seconds', function () {
+    var ms = [];
+    for (var i = 0; i < 20; i++) {
+      var cf = i < 8;
+      ms.push(makeMatch({
+        date: dateAt(i),
+        win: cf ? i === 0 : i % 6 !== 0,
+        actions: [{ action: 'death', action_start_sec: 60 }],
+        partner_actions: [{ action: 'death', action_start_sec: cf ? 72 : 120 }],
+      }));
+    }
+    var a = computeActionPlan(ms).actions.find(function (x) { return x.key === 'consecutive_fall'; });
+    assert.ok(a, 'consecutive_fall action expected');
+    assert.equal(a.title, '順落ちしない');
+    assert.match(a.detail, /^順落ちした試合は20戦中8戦/);
+  });
+
+  it('flags deaths during burst and burst count / EX damage below win medians', function () {
+    var ms = [];
+    for (var i = 0; i < 20; i++) {
+      var bad = i % 2 === 0;
+      ms.push(makeMatch({
+        date: dateAt(i),
+        win: bad ? i % 10 === 0 : i % 10 !== 1,
+        bursts: bad ? 1 : 2,
+        ex_dmg: bad ? 100 : 400,
+        actions: [
+          { action: 'exbst-s', action_start_sec: 50, action_end_sec: bad ? 70 : 62 },
+          { action: 'death', action_start_sec: 70 },
+        ],
+      }));
+    }
+    var plan = computeActionPlan(ms);
+    var ks = keys(plan);
+    ['burst_death', 'burst_count', 'ex_dmg'].forEach(function (k) { assert.ok(ks.indexOf(k) >= 0, k); });
+    var count = plan.actions.find(function (x) { return x.key === 'burst_count'; });
+    assert.equal(count.title, '覚醒を2回以上使う');
+    assert.deepEqual(count.goal, { key: 'burst_count', line: 2 });
+    var ex = plan.actions.find(function (x) { return x.key === 'ex_dmg'; });
+    assert.match(ex.detail, /^覚醒した試合のうちEXダメ400未満は20戦中10戦/);
+  });
+
+  it('reports the worst enemy as info, not as a mission', function () {
     var ms = [];
     for (var i = 0; i < 20; i++) {
       var vsEnemy = i < 6;
@@ -120,23 +171,20 @@ describe('computeActionPlan', function () {
       }));
     }
     var plan = computeActionPlan(ms);
-    var enemy = plan.actions.find(function (a) { return a.key === 'enemy'; });
-    assert.ok(enemy, 'enemy action expected');
-    assert.equal(enemy.enemy, 'ストライクフリーダム');
-    assert.match(enemy.detail, /^ストライクフリーダム戦は20戦中6戦（勝率0%）。.*被ダメは平均より\d+多い$/);
+    assert.equal(keys(plan).indexOf('enemy'), -1);
+    assert.equal(plan.weak_enemy.enemy, 'ストライクフリーダム');
+    assert.equal(plan.weak_enemy.matches, 6);
+    assert.equal(plan.weak_enemy.win_rate, 0);
+    assert.match(plan.weak_enemy.fact, /^被ダメは平均より\d+多い$/);
   });
 
-  it('flags matches played right after a losing streak', function () {
+  it('reports matches right after a 3-loss streak as info, not as a mission', function () {
     var ms = [];
-    // 各日: 負, 負, (連敗直後)負, 負, 勝 のパターン + 勝ちが続く日
-    for (var i = 0; i < 25; i++) {
-      var pos = i % 5;
-      var day = Math.floor(i / 5);
-      var win = day % 2 === 0 ? pos === 4 : true;
-      ms.push(makeMatch({ date: dateAt(i), win: win }));
-    }
+    // 負けが続く日（3連敗後の2試合も負け）と勝ちが続く日を交互に
+    for (var i = 0; i < 25; i++) ms.push(makeMatch({ date: dateAt(i), win: Math.floor(i / 5) % 2 === 1 }));
     var plan = computeActionPlan(ms);
-    assert.ok(keys(plan).indexOf('tilt') >= 0);
+    assert.equal(keys(plan).indexOf('tilt'), -1);
+    assert.deepEqual(plan.after_streak, { streak: 3, total: 25, matches: 6, win_rate: 0, other_win_rate: 53 });
   });
 
   it('returns all actions sorted by impact', function () {
@@ -153,7 +201,7 @@ describe('computeActionPlan', function () {
       }));
     }
     var plan = computeActionPlan(ms);
-    assert.ok(plan.actions.length > 3);
+    assert.deepEqual(keys(plan).slice().sort(), ['deaths', 'dmg_given', 'dmg_taken']);
     for (var j = 1; j < plan.actions.length; j++) {
       assert.ok(plan.actions[j - 1].impact >= plan.actions[j].impact);
     }
@@ -220,13 +268,22 @@ describe('evaluateGoal', function () {
     });
   });
 
-  it('judges only matches against the target enemy', function () {
-    var ms = [
-      makeMatch({ date: dateAt(0), opponent1_ms: 'X', win: true }),
-      makeMatch({ date: dateAt(1), opponent1_ms: 'Y', win: false }),
-      makeMatch({ date: dateAt(2), opponent2_ms: 'X', win: false }),
-    ];
-    var ev = evaluateGoal({ key: 'enemy', enemy: 'X' }, ms);
+  it('judges consecutive falls and deaths during burst per match', function () {
+    var cf = makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }], partner_actions: [{ action: 'death', action_start_sec: 75 }] });
+    var apart = makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }], partner_actions: [{ action: 'death', action_start_sec: 76 }] });
+    var ev = evaluateGoal({ key: 'consecutive_fall' }, [cf, apart]);
+    assert.deepEqual(ev.marks.map(function (x) { return x.ok; }), [false, true]);
+    // 撃墜で覚醒が終わるため、終了時刻ちょうどの撃墜は覚醒中とみなす
+    var inBurst = makeMatch({ actions: [{ action: 'exbst-f', action_start_sec: 50, action_end_sec: 70 }, { action: 'death', action_start_sec: 70 }] });
+    var after = makeMatch({ actions: [{ action: 'exbst-f', action_start_sec: 50, action_end_sec: 62 }, { action: 'death', action_start_sec: 70 }] });
+    var noBurst = makeMatch({ actions: [{ action: 'death', action_start_sec: 70 }] });
+    ev = evaluateGoal({ key: 'burst_death' }, [inBurst, after, noBurst]);
+    assert.deepEqual(ev.marks.map(function (x) { return x.ok; }), [false, true]);
+  });
+
+  it('excludes matches without burst from the EX damage goal', function () {
+    var ms = [makeMatch({ bursts: 0, ex_dmg: 0 }), makeMatch({ bursts: 1, ex_dmg: 250 }), makeMatch({ bursts: 2, ex_dmg: 300 })];
+    var ev = evaluateGoal({ key: 'ex_dmg', line: 300 }, ms);
     assert.equal(ev.total, 2);
     assert.equal(ev.achieved, 1);
   });
@@ -236,18 +293,5 @@ describe('evaluateGoal', function () {
     assert.equal(evaluateGoal({ key: 'burst' }, [m]).achieved, 1);
     assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'first' }, [m]).achieved, 1);
     assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'second' }, [m]).total, 0);
-  });
-
-  it('judges a break of 15+ minutes after a losing streak', function () {
-    var ms = [
-      makeMatch({ date: '2025-06-01 20:00', win: false }),
-      makeMatch({ date: '2025-06-01 20:05', win: false }),
-      makeMatch({ date: '2025-06-01 20:10', win: false }), // 休憩なし → 未達成
-      makeMatch({ date: '2025-06-01 20:30', win: true }),  // 15分以上空けた → 達成
-      makeMatch({ date: '2025-06-01 20:35', win: false }),
-      makeMatch({ date: '2025-06-01 20:40', win: false }), // 次の試合がまだ無い → 判定しない
-    ];
-    var ev = evaluateGoal({ key: 'tilt' }, ms);
-    assert.deepEqual(ev.marks.map(function (x) { return x.ok; }), [false, true]);
   });
 });
