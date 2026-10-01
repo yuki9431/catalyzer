@@ -531,10 +531,9 @@ describe('computeConsecutiveFall', function () {
   function deaths(secs) {
     return secs.map(function (t) { return { action: 'death', action_start_sec: t }; });
   }
-  // actions は空だとタイムライン無し扱いになるため、自機0落ちでも ex イベントを置く
   function fall(mySec, partnerSec) {
     return makeMatch({
-      actions: mySec == null ? [{ action: 'ex', action_start_sec: 5 }] : deaths([mySec]),
+      actions: mySec == null ? [] : deaths([mySec]),
       partner_actions: partnerSec == null ? [] : deaths([partnerSec]),
     });
   }
@@ -543,6 +542,11 @@ describe('computeConsecutiveFall', function () {
     var result = computeConsecutiveFall([fall(60, 75), fall(75, 60), fall(60, 60)]);
     assert.equal(result.with_fall.count, 3);
     assert.equal(result.without_fall.count, 0);
+  });
+
+  it('counts exactly 15s apart despite floating point error', function () {
+    var result = computeConsecutiveFall([fall(60.23, 75.23)]);
+    assert.equal(result.with_fall.count, 1);
   });
 
   it('does not count deaths more than 15s apart', function () {
@@ -575,6 +579,17 @@ describe('computeConsecutiveFall', function () {
     assert.equal(result.with_fall.dmg_efficiency, 1.25);
     assert.equal(result.without_fall.win_rate, 100);
     assert.equal(result.tips.length, 1);
+  });
+
+  it('suppresses tips when win rate gap is under 5% or reversed', function () {
+    function build(withWins, withoutWins) {
+      return [].concat(
+        makeMatches(3, function (i) { return Object.assign(fall(60, 65), { win: i < withWins }); }),
+        makeMatches(3, function (i) { return Object.assign(fall(60, 100), { win: i < withoutWins }); })
+      );
+    }
+    assert.equal(computeConsecutiveFall(build(2, 2)).tips.length, 0);
+    assert.equal(computeConsecutiveFall(build(3, 0)).tips.length, 0);
   });
 
   it('suppresses tips when a group has fewer than 3 matches', function () {

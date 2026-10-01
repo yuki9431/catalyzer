@@ -802,13 +802,13 @@ var CONSECUTIVE_FALL_WINDOW_SEC = 15;
 export function computeConsecutiveFall(matches) {
   var withFall = [], withoutFall = [];
   matches.forEach(function (d) {
-    if (!d.actions || !d.actions.length) return;
     var myDeaths = jsGetDeathEvents(d.actions);
     var partnerDeaths = jsGetDeathEvents(d.partner_actions);
     if (!myDeaths.length && !partnerDeaths.length) return;
     var hit = myDeaths.some(function (m) {
       return partnerDeaths.some(function (p) {
-        return Math.abs(p.action_start_sec - m.action_start_sec) <= CONSECUTIVE_FALL_WINDOW_SEC;
+        // 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比較する
+        return Math.round(Math.abs(p.action_start_sec - m.action_start_sec) * 100) <= CONSECUTIVE_FALL_WINDOW_SEC * 100;
       });
     });
     (hit ? withFall : withoutFall).push(d);
