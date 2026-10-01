@@ -65,6 +65,9 @@ describe('computeActionPlan', function () {
     assert.ok(death, 'deaths action expected');
     assert.equal(death.title, '被撃墜を1回以内に抑える');
     assert.match(death.detail, /^2回以上撃墜された試合は20戦中6戦（勝率0%）。/);
+    // 20戦12勝。2回撃墜の6戦がそれ以外(14戦12勝)並みに勝てれば約17.1勝
+    assert.equal(death.win_rate_from, 60);
+    assert.equal(death.win_rate_to, 85.7);
     assert.ok(death.impact > 0);
     assert.ok(['high', 'mid', 'low'].indexOf(death.level) >= 0);
   });
@@ -135,7 +138,7 @@ describe('computeActionPlan', function () {
     assert.ok(keys(plan).indexOf('tilt') >= 0);
   });
 
-  it('returns at most 3 actions sorted by impact', function () {
+  it('returns all actions sorted by impact', function () {
     var ms = [];
     for (var i = 0; i < 40; i++) {
       var bad = i % 3 === 0;
@@ -149,7 +152,7 @@ describe('computeActionPlan', function () {
       }));
     }
     var plan = computeActionPlan(ms);
-    assert.ok(plan.actions.length <= 3);
+    assert.ok(plan.actions.length > 3);
     for (var j = 1; j < plan.actions.length; j++) {
       assert.ok(plan.actions[j - 1].impact >= plan.actions[j].impact);
     }

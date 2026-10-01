@@ -1,13 +1,12 @@
 // --- アクションプラン（今やるべきこと） ---
 // 試合データを「悪い状態の試合」と「そうでない試合」に二分し、勝率差 × 悪い状態の頻度で
-// 「改善したときに取り戻せる勝率」を見積もる。見積もりの大きい順に最大3件を処方として返す。
+// 「改善したときに取り戻せる勝率」を見積もる。見積もりの大きい順に全件を処方として返す。
 // 統計画面を読み解かなくても、次の試合で意識することが端的に分かることを目的とする。
 
 var MIN_MATCHES = 10;     // これ未満は診断しない
 var MIN_SIDE = 4;         // 二分した各側の最低試合数
 var MIN_GAP = 8;          // 採用する最低勝率差（%pt）
 var MIN_ENEMY = 5;        // 苦手機体として扱う最低対戦数
-var MAX_ACTIONS = 3;
 var RECENT_N = 20;        // 直近比較の試合数（上限）
 var TILT_STREAK = 2;      // この回数連敗した直後の試合を「連敗直後」とみなす
 var TILT_BREAK_MIN = 15;  // 連敗後の休憩とみなす次の試合までの間隔（分）
@@ -83,6 +82,7 @@ function candidate(key, bad, good, total, build, weight) {
   if (!c.goal) c.goal = { key: key };
   c.impact = Math.round(share * gap / 100 * (weight || 1) * 10) / 10;
   c.level = c.impact >= IMPACT_HIGH ? 'high' : c.impact >= IMPACT_MID ? 'mid' : 'low';
+  c.gain_wins = bad.length * gap / 100 * (weight || 1);
   return c;
 }
 
@@ -262,7 +262,7 @@ function recentTrend(ms) {
   };
 }
 
-// 試合配列から「今やるべきこと」を最大 MAX_ACTIONS 件返す。
+// 試合配列から「今やるべきこと」を影響度の大きい順に返す。
 // 戻り値: { matches, win_rate, actions: [{key,title,detail,impact,level}], recent } / データ不足時は { matches, insufficient: true }
 export function computeActionPlan(matches) {
   var ms = matches || [];
@@ -277,10 +277,17 @@ export function computeActionPlan(matches) {
     tiltCandidate(ms),
   ].filter(Boolean);
   candidates.sort(function (a, b) { return b.impact - a.impact; });
+  var wr = winRate(ms);
+  // 課題の試合がそれ以外の試合と同じ勝率で勝てた場合の全体勝率（割り引き後）
+  candidates.forEach(function (c) {
+    c.win_rate_from = Math.round(wr * 10) / 10;
+    c.win_rate_to = Math.round(Math.min(100, wr + c.gain_wins / ms.length * 100) * 10) / 10;
+    delete c.gain_wins;
+  });
   return {
     matches: ms.length,
-    win_rate: Math.round(winRate(ms) * 10) / 10,
-    actions: candidates.slice(0, MAX_ACTIONS),
+    win_rate: Math.round(wr * 10) / 10,
+    actions: candidates,
     recent: recentTrend(ms),
   };
 }
