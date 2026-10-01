@@ -823,19 +823,11 @@ export function computeConsecutiveFall(matches) {
       dmg_efficiency: ms.length ? round3(jsDmgEfficiency(ms)) : 0,
     };
   }
-  var tips = [];
-  if (withFall.length >= 3 && withoutFall.length >= 3) {
-    var diff = jsWinRate(withoutFall) - jsWinRate(withFall);
-    if (diff >= 5) {
-      tips.push('順落ちした試合は勝率が **' + Math.round(diff) + '%** 低い → 片方が落ちると残った方が1対2で孤立しやすい。落ちる前に僚機との距離を意識しよう');
-    }
-  }
   return {
     total: total,
     window_sec: CONSECUTIVE_FALL_WINDOW_SEC,
     with_fall: buildStats(withFall),
     without_fall: buildStats(withoutFall),
-    tips: tips,
   };
 }
 

@@ -630,7 +630,6 @@ export function ConsecutiveFallContent({ consecutiveFall }) {
   return html`<div>
     <p>対象: ${consecutiveFall.total}戦（順落ち = ${consecutiveFall.window_sec}秒以内に2機とも撃墜）</p>
     <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
-    <${Tips} tips=${consecutiveFall.tips} />
   </div>`;
 }
 

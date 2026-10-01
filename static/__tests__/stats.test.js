@@ -578,26 +578,6 @@ describe('computeConsecutiveFall', function () {
     assert.equal(result.with_fall.win_rate, 33.3);
     assert.equal(result.with_fall.dmg_efficiency, 1.25);
     assert.equal(result.without_fall.win_rate, 100);
-    assert.equal(result.tips.length, 1);
-  });
-
-  it('suppresses tips when win rate gap is under 5% or reversed', function () {
-    function build(withWins, withoutWins) {
-      return [].concat(
-        makeMatches(3, function (i) { return Object.assign(fall(60, 65), { win: i < withWins }); }),
-        makeMatches(3, function (i) { return Object.assign(fall(60, 100), { win: i < withoutWins }); })
-      );
-    }
-    assert.equal(computeConsecutiveFall(build(2, 2)).tips.length, 0);
-    assert.equal(computeConsecutiveFall(build(3, 0)).tips.length, 0);
-  });
-
-  it('suppresses tips when a group has fewer than 3 matches', function () {
-    var matches = [].concat(
-      makeMatches(2, function () { return Object.assign(fall(60, 65), { win: false }); }),
-      makeMatches(3, function () { return Object.assign(fall(60, 100), { win: true }); })
-    );
-    assert.equal(computeConsecutiveFall(matches).tips.length, 0);
   });
 
   it('returns null for no action data', function () {
