@@ -714,14 +714,14 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 // 機体未選択時は全機体混合の診断になるため、機体選択を促す一文を添える。
 var IMPACT_LABEL = { high: '大', mid: '中', low: '小' };
 var FOCUS_KEY = 'catalyzer_focus';
-var FOCUS_MARKS_SHOWN = 20;
+var FOCUS_SLOTS = 10;
 
 function WinRateGain({ from, to }) {
   if (from == null || to == null || to <= from) return null;
   return html`<div class="action-gain">見込み勝率 ${pct(from)} → <strong>${pct(to)}</strong>（+${(to - from).toFixed(1)}）</div>`;
 }
 
-// 集中する課題は利用者・機体ごとに1件。選択時点の最新試合より後の試合で達成を判定する
+// 挑戦中のミッションは利用者・機体ごとに1件。選択時点の最新試合より後の試合で達成を判定する
 function loadFocus(userKey, ms) {
   try {
     var v = JSON.parse(localStorage.getItem(FOCUS_KEY));
@@ -744,25 +744,36 @@ function primaryActions(actions) {
   return main.length ? main : actions.slice(0, 1);
 }
 
-function FocusCard({ focus, matches, selectedMs, onClear }) {
+function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
   var targets = (matches || []).filter(function (m) { return m.date > focus.since && (!selectedMs || m.ms === selectedMs); });
-  var ev = evaluateGoal(focus.goal, targets);
-  var marks = ev.marks.slice(-FOCUS_MARKS_SHOWN);
-  var last = ev.marks[ev.marks.length - 1];
-  return html`<div class=${'focus-card' + (last && last.ok ? ' done' : '')}>
-    <div class="focus-label">集中中の課題</div>
+  var marks = evaluateGoal(focus.goal, targets).marks.slice(0, FOCUS_SLOTS);
+  var achieved = marks.filter(function (x) { return x.ok; }).length;
+  var streak = 0;
+  for (var i = marks.length - 1; i >= 0 && marks[i].ok; i--) streak++;
+  var complete = marks.length >= FOCUS_SLOTS;
+  var last = marks[marks.length - 1];
+  var slots = [];
+  for (var j = 0; j < FOCUS_SLOTS; j++) slots.push(marks[j] || null);
+  return html`<div class=${'focus-card' + (complete || (last && last.ok) ? ' done' : '')}>
+    <div class=${'focus-label' + (complete ? ' complete' : '')}>${complete ? '🎉 ミッション完了' : '挑戦中のミッション'}</div>
     <div class="focus-title">${focus.title}</div>
     <${WinRateGain} from=${focus.win_rate_from} to=${focus.win_rate_to} />
-    ${ev.total ? html`<div class="focus-progress">
-        <span><strong>${ev.total}戦中${ev.achieved}戦</strong> 達成</span>
-        ${ev.streak > 0 && html`<span class="focus-streak">${ev.streak}戦連続達成中</span>`}
-      </div>
-      <div class="focus-marks">${marks.map(function (x) {
-        return html`<span class=${'focus-mark' + (x.ok ? ' ok' : '')} title=${x.date}>${x.ok ? '✓' : '✗'}</span>`;
-      })}</div>
-      ${last && html`<div class="focus-last">${last.ok ? '前回の試合で達成' : '前回の試合は未達成'}</div>`}`
-    : html`<div class="focus-progress">選択後の対象試合はまだありません。次の試合から判定します。</div>`}
-    <button class="focus-btn ghost" onClick=${onClear}>課題を選び直す</button>
+    ${focus.condition && html`<div class="focus-condition">達成条件: ${focus.condition}</div>`}
+    <div class="focus-progress">
+      ${complete
+        ? html`<span><strong>${FOCUS_SLOTS}戦中${achieved}戦</strong> 達成</span>`
+        : html`<span><strong>${achieved}戦達成</strong>（${FOCUS_SLOTS}戦中${marks.length}戦終了）</span>`}
+      ${!complete && streak > 0 && html`<span class="focus-streak">${streak}戦連続達成中</span>`}
+    </div>
+    <div class="focus-marks">${slots.map(function (x, k) {
+      if (!x) return html`<span class="focus-mark empty">${k + 1}</span>`;
+      return html`<span class=${'focus-mark' + (x.ok ? ' ok' : '')} title=${x.date}>${x.ok ? '✓' : '✗'}</span>`;
+    })}</div>
+    <div class="focus-caption">${marks.length ? '✓ 達成 / ✗ 未達成。試合ごとに左から埋まります' : '次の試合から、試合ごとに左から埋まります'}</div>
+    <div class="focus-actions">
+      ${complete && html`<button class="focus-btn" onClick=${function () { onContinue(last.date); }}>もう${FOCUS_SLOTS}戦続ける</button>`}
+      <button class="focus-btn ghost" onClick=${onClear}>ミッションを選び直す</button>
+    </div>
   </div>`;
 }
 
@@ -781,12 +792,13 @@ function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
   function choose(a) {
     var since = '';
     (matches || []).forEach(function (m) { if (m.date > since) since = m.date; });
-    setFocus({ goal: a.goal, title: a.title, since: since, win_rate_from: a.win_rate_from, win_rate_to: a.win_rate_to });
+    setFocus({ goal: a.goal, title: a.title, condition: a.condition, since: since, win_rate_from: a.win_rate_from, win_rate_to: a.win_rate_to });
   }
   var title = selectedMs ? selectedMs + 'で今やるべきこと' : '今やるべきこと';
   if (focus) {
     return html`<${Panel} title=${title}>
-      <${FocusCard} focus=${focus} matches=${matches} selectedMs=${selectedMs} onClear=${function () { setFocus(null); }} />
+      <${FocusCard} focus=${focus} matches=${matches} selectedMs=${selectedMs} onClear=${function () { setFocus(null); }}
+        onContinue=${function (since) { setFocus(Object.assign({}, focus, { since: since })); }} />
     <//>`;
   }
   if (plan.insufficient) {
@@ -811,13 +823,13 @@ function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
         <div class="action-title">${a.title}<span class=${'action-impact ' + a.level}>影響度 ${IMPACT_LABEL[a.level]}</span></div>
         <div class="action-detail">${a.detail}</div>
         <${WinRateGain} from=${a.win_rate_from} to=${a.win_rate_to} />
-        <button class="focus-btn" onClick=${function () { choose(a); }}>これに集中する</button>
+        <button class="focus-btn" onClick=${function () { choose(a); }}>このミッションに挑戦</button>
       </li>`;
     })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。</p>`}
     ${plan.actions.length > primaryActions(plan.actions).length && html`<button class="action-more" onClick=${function () { setShowMore(!showMore); }}>
       ${showMore ? '閉じる' : 'もっと見る（影響度 小 あと' + (plan.actions.length - primaryActions(plan.actions).length) + '件）'}
     </button>`}
-    ${plan.actions.length > 0 && html`<p class="action-hint">1つ選ぶと、次の試合から達成状況を記録します。</p>`}
+    ${plan.actions.length > 0 && html`<p class="action-hint">ミッションを1つ選ぶと、次の試合から${FOCUS_SLOTS}戦分の達成状況を記録します。</p>`}
     ${!selectedMs && html`<p class="action-hint">上部で機体を選ぶと、その機体に絞って診断します。</p>`}
   <//>`;
 }
@@ -858,19 +870,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, allMatch
     <//>`}
 
     ${selectedMs && selNatl && lens === 'all' && pd.basic_stats && html`<${Panel} title="全国平均との比較">
-      ${(function () {
-        var own = pd.basic_stats.win_rate;
-        var natlWr = selNatl.win_rate;
-        var diff = own - natlWr;
-        var diffCls = diff >= 0 ? 'val-good' : 'val-bad';
-        var diffText = (diff >= 0 ? '+' : '') + diff.toFixed(1);
-        return html`<${MsCompareChart} entries=${[{ name: selectedMs, winRate: own, nationalWinRate: natlWr }]} />
-        <${Table} headers=${['', '勝率']} rows=${[
-          ['あなた', colorPct(own)],
-          ['全国平均', natlWr.toFixed(1) + '%'],
-          ['差', { sortValue: diff, display: html`<span class=${diffCls}>${diffText}</span>` }],
-        ]} />`;
-      })()}
+      <${MsCompareChart} entries=${[{ name: selectedMs, winRate: pd.basic_stats.win_rate, nationalWinRate: selNatl.win_rate }]} />
     <//>`}
 
     ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">

@@ -98,9 +98,11 @@ function deathCandidate(ms) {
   return candidate('deaths', valid.filter(fatal), valid.filter(function (m) { return !fatal(m); }), valid.length, function (s) {
     return limit ? {
       title: '被撃墜を' + (limit - 1) + '回以内に抑える',
+      condition: '被撃墜が' + (limit - 1) + '回以内',
       detail: limit + '回以上撃墜された試合は' + s.count + '（勝率' + s.badWr + '%）。' + (limit - 1) + '回以内の試合は勝率' + s.goodWr + '%',
     } : {
       title: 'コストオーバーになるまで撃墜されない',
+      condition: 'コストオーバーになる回数未満の被撃墜',
       detail: 'コストオーバーになるまで撃墜された試合は' + s.count + '（勝率' + s.badWr + '%）。それ以外の試合は勝率' + s.goodWr + '%',
     };
   });
@@ -121,10 +123,12 @@ function fallOrderCandidate(ms) {
   return candidate('fall_order', bad, good, total, function (s) {
     return firstWorse ? {
       title: '相方より先に撃墜されない',
+      condition: '相方より先に撃墜されない（撃墜されなかった試合も達成）',
       detail: '相方より先に撃墜された試合は' + s.count + '（勝率' + s.badWr + '%）。相方より後の試合は勝率' + s.goodWr + '%',
       goal: { key: 'fall_order', avoid: 'first' },
     } : {
       title: '相方より先に撃墜される側になる',
+      condition: '相方より先に撃墜される（自分が撃墜されなかった試合は対象外）',
       detail: '相方より後に撃墜された試合は' + s.count + '（勝率' + s.badWr + '%）。相方より先の試合は勝率' + s.goodWr + '%',
       goal: { key: 'fall_order', avoid: 'second' },
     };
@@ -139,6 +143,7 @@ function burstCandidate(ms) {
   return candidate('burst', late, early, valid.length, function (s) {
     return {
       title: '1回目の被撃墜より前に覚醒を使う',
+      condition: '1回目の被撃墜より前に覚醒（撃墜されなかった試合も達成）',
       detail: '覚醒を使う前に撃墜された試合は' + s.count + '（勝率' + s.badWr + '%）。撃墜される前に覚醒を使えた試合は勝率' + s.goodWr + '%',
     };
   });
@@ -153,6 +158,7 @@ function dmgTakenCandidate(ms) {
     ms.filter(function (m) { return m.dmg_taken <= line; }), ms.length, function (s) {
       return {
         title: '被ダメを' + line + '以下に抑える',
+        condition: '被ダメ' + line + '以下',
         detail: '被ダメ' + line + '超の試合は' + s.count + '（勝率' + s.badWr + '%）。' + line + '以下の試合は勝率' + s.goodWr + '%',
         goal: { key: 'dmg_taken', line: line },
       };
@@ -168,6 +174,7 @@ function dmgGivenCandidate(ms) {
     ms.filter(function (m) { return m.dmg_given >= line; }), ms.length, function (s) {
       return {
         title: '与ダメ' + line + '以上を取る',
+        condition: '与ダメ' + line + '以上',
         detail: '与ダメ' + line + '未満の試合は' + s.count + '（勝率' + s.badWr + '%）。' + line + '以上の試合は勝率' + s.goodWr + '%',
         goal: { key: 'dmg_given', line: line },
       };
@@ -200,6 +207,7 @@ function enemyCandidate(ms) {
         : avgGiven - given >= 100 ? '与ダメは平均より' + Math.round(avgGiven - given) + '少ない' : '';
       return {
         title: enemy + 'に勝つ',
+        condition: enemy + '戦で勝利（' + enemy + 'と当たった試合のみ対象）',
         detail: enemy + '戦は' + s.count + '（勝率' + s.badWr + '%）。それ以外の試合は勝率' + s.goodWr + '%' + (fact ? '。' + enemy + '戦の' + fact : ''),
         enemy: enemy,
         goal: { key: 'enemy', enemy: enemy },
@@ -224,6 +232,7 @@ function tiltCandidate(ms) {
   return candidate('tilt', after, normal, ms.length, function (s) {
     return {
       title: TILT_STREAK + '連敗したら' + TILT_BREAK_MIN + '分以上休憩する',
+      condition: TILT_STREAK + '連敗した後、次の試合まで' + TILT_BREAK_MIN + '分以上空ける（' + TILT_STREAK + '連敗した場面のみ対象）',
       detail: TILT_STREAK + '連敗直後の試合は' + s.count + '（勝率' + s.badWr + '%）。それ以外の試合は勝率' + s.goodWr + '%',
     };
   });

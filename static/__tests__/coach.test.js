@@ -88,6 +88,7 @@ describe('computeActionPlan', function () {
     assert.ok(fo, 'fall_order action expected');
     assert.equal(fo.title, '相方より先に撃墜されない');
     assert.deepEqual(fo.goal, { key: 'fall_order', avoid: 'first' });
+    assert.match(fo.condition, /^相方より先に撃墜されない/);
   });
 
   it('flags holding burst until after the first death', function () {
