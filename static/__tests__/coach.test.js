@@ -106,8 +106,12 @@ describe('computeActionPlan', function () {
         ],
       }));
     }
+    // スコア上は撃墜ありでも自機タイムラインに撃墜が無い試合は母数に入れない
+    ms.push(makeMatch({ date: dateAt(20), deaths: 1, actions: [], partner_actions: [{ action: 'death', action_start_sec: 40 }] }));
     var plan = computeActionPlan(ms);
-    assert.ok(keys(plan).indexOf('burst') >= 0);
+    var burst = plan.actions.find(function (x) { return x.key === 'burst'; });
+    assert.ok(burst, 'burst action expected');
+    assert.match(burst.detail, /^覚醒を使う前に撃墜された試合は20戦中10戦/);
   });
 
   it('omits the death-count mission when costs are mixed', function () {
@@ -378,5 +382,10 @@ describe('isValidGoal', function () {
     assert.equal(isValidGoal({ key: 'fall_order' }), false);
     assert.equal(isValidGoal({ key: 'enemy', enemy: 'X' }), false);
     assert.equal(isValidGoal(null), false);
+    assert.equal(isValidGoal({ key: 'dmg_taken', line: '700' }), false);
+    assert.equal(isValidGoal({ key: 'ex_dmg', line: Infinity }), false);
+    assert.equal(isValidGoal({ key: 'fall_order', avoid: 'none' }), false);
+    assert.equal(isValidGoal({ key: 'valueOf', line: 1 }), false);
+    assert.equal(evaluateGoal({ key: 'valueOf', line: 1 }, [makeMatch()]).total, 0);
   });
 });

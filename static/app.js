@@ -716,7 +716,7 @@ var FOCUS_KEY = 'catalyzer_focus';
 var FOCUS_SLOTS = 10;
 
 function WinRateGain({ from, to }) {
-  if (typeof from !== 'number' || typeof to !== 'number' || to <= from) return null;
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
   return html`<div class="action-gain">見込み勝率 ${pct(from)} → <strong>${pct(to)}</strong>（+${(to - from).toFixed(1)}）</div>`;
 }
 

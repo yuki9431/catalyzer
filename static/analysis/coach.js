@@ -378,9 +378,10 @@ var GOAL_JUDGES = {
 
 // 保存値などから復元した goal が判定に必要な項目を備えているか
 var GOAL_LINE_KEYS = { dmg_taken: true, dmg_given: true, burst_count: true, ex_dmg: true };
+function hasOwn(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
 export function isValidGoal(goal) {
-  if (!goal || !GOAL_JUDGES[goal.key]) return false;
-  if (GOAL_LINE_KEYS[goal.key]) return typeof goal.line === 'number' && isFinite(goal.line);
+  if (!goal || !hasOwn(GOAL_JUDGES, goal.key)) return false;
+  if (hasOwn(GOAL_LINE_KEYS, goal.key)) return Number.isFinite(goal.line);
   if (goal.key === 'fall_order') return goal.avoid === 'first' || goal.avoid === 'second';
   return true;
 }
