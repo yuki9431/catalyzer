@@ -17,6 +17,7 @@ import {
   computeSeason,
   computeBurstCount,
   computeFallOrder,
+  computeConsecutiveFall,
   computeBurstTiming,
   computeBurstType,
   computeFixedPartners,
@@ -521,6 +522,71 @@ describe('computeFallOrder', function () {
   it('returns null for no action data', function () {
     var result = computeFallOrder([makeMatch({ actions: [], partner_actions: [] })]);
     assert.equal(result, null);
+  });
+});
+
+// --- computeConsecutiveFall ---
+
+describe('computeConsecutiveFall', function () {
+  function fall(mySec, partnerSec) {
+    return makeMatch({
+      actions: [{ action: 'death', action_start_sec: mySec }],
+      partner_actions: partnerSec == null ? [] : [{ action: 'death', action_start_sec: partnerSec }],
+    });
+  }
+
+  it('counts partner death exactly 10s after own death as consecutive', function () {
+    var result = computeConsecutiveFall([fall(60, 70)]);
+    assert.equal(result.with_fall.count, 1);
+    assert.equal(result.without_fall.count, 0);
+  });
+
+  it('does not count partner death more than 10s after', function () {
+    var result = computeConsecutiveFall([fall(60, 70.1)]);
+    assert.equal(result.with_fall.count, 0);
+    assert.equal(result.without_fall.count, 1);
+  });
+
+  it('does not count simultaneous or earlier partner death', function () {
+    var result = computeConsecutiveFall([fall(60, 60), fall(60, 55), fall(60, null)]);
+    assert.equal(result.with_fall.count, 0);
+    assert.equal(result.without_fall.count, 3);
+  });
+
+  it('checks every own death, not just the first', function () {
+    var m = makeMatch({
+      actions: [{ action: 'death', action_start_sec: 30 }, { action: 'death', action_start_sec: 120 }],
+      partner_actions: [{ action: 'death', action_start_sec: 125 }],
+    });
+    assert.equal(computeConsecutiveFall([m]).with_fall.count, 1);
+  });
+
+  it('excludes matches without own death and aggregates win rate', function () {
+    var matches = [
+      makeMatch({ actions: [{ action: 'ex', action_start_sec: 10 }], partner_actions: [{ action: 'death', action_start_sec: 20 }] }),
+    ].concat(
+      makeMatches(3, function (i) { return Object.assign(fall(60, 65), { win: i === 0 }); }),
+      makeMatches(3, function () { return Object.assign(fall(60, 100), { win: true }); })
+    );
+    var result = computeConsecutiveFall(matches);
+    assert.equal(result.total, 6);
+    assert.equal(result.with_fall.rate, 50);
+    assert.equal(result.with_fall.win_rate, 33.3);
+    assert.equal(result.with_fall.dmg_efficiency, 1.25);
+    assert.equal(result.without_fall.win_rate, 100);
+    assert.equal(result.tips.length, 1);
+  });
+
+  it('suppresses tips when a group has fewer than 3 matches', function () {
+    var matches = [].concat(
+      makeMatches(2, function () { return Object.assign(fall(60, 65), { win: false }); }),
+      makeMatches(3, function () { return Object.assign(fall(60, 100), { win: true }); })
+    );
+    assert.equal(computeConsecutiveFall(matches).tips.length, 0);
+  });
+
+  it('returns null for no action data', function () {
+    assert.equal(computeConsecutiveFall([makeMatch({ actions: [], partner_actions: [] })]), null);
   });
 });
 

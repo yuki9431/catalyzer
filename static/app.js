@@ -5,7 +5,7 @@ import {
   computeBasicStats, computeWinLossPattern,
   computeEnemyMatchup, computePartner, computeCostPair, computeMsPair,
   computeDmgContribution, computeTeamDeathsImpact,
-  computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
+  computeBurstCount, computeFallOrder, computeConsecutiveFall, computeBurstTiming, computeBurstType,
   computeFixedPartners,
   computeShareData, computeMsSummary,
   burstKpi, bestWorstHour, partnerKpi,
@@ -31,7 +31,7 @@ import {
   DmgContributionSubSection, TeamDeathsImpactSection, TeamDeathsHeatmap,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
-  FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
+  FallOrderContent, ConsecutiveFallContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
   CompareRadar,
 } from './components/charts.js';
 
@@ -827,6 +827,7 @@ function PlaystylePane({ frontendData }) {
   var teamDeaths = frontendData.team_deaths;
   var dmg = frontendData.dmg_contribution;
   var fallOrder = frontendData.fall_order;
+  var consecutiveFall = frontendData.consecutive_fall;
 
   var fallItems = [];
   if (fallOrder) {
@@ -849,12 +850,16 @@ function PlaystylePane({ frontendData }) {
       <${FallOrderContent} fallOrder=${fallOrder} />
     <//>`}
 
+    ${consecutiveFall && html`<${Panel} title="連続落ち分析">
+      <${ConsecutiveFallContent} consecutiveFall=${consecutiveFall} />
+    <//>`}
+
     ${dmg && html`<${Panel} title="ダメージ貢献率">
       <${DmgContributionChart} dmg=${dmg} />
       <${DmgContributionSubSection} dmg=${dmg} />
     <//>`}
 
-    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
+    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !consecutiveFall && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
   </div>`;
 }
 
@@ -1288,6 +1293,7 @@ function Report({ data, userKey }) {
       team_deaths: computeTeamDeathsImpact(filtered),
       burst_count: computeBurstCount(filtered),
       fall_order: computeFallOrder(filtered),
+      consecutive_fall: computeConsecutiveFall(filtered),
       burst_timing: computeBurstTiming(filtered),
       burst_type: computeBurstType(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),

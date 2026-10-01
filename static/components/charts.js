@@ -619,6 +619,21 @@ export function FallOrderContent({ fallOrder }) {
   </div>`;
 }
 
+export function ConsecutiveFallContent({ consecutiveFall }) {
+  if (!consecutiveFall) return null;
+  var rows = [['連続落ちあり', consecutiveFall.with_fall], ['連続落ちなし', consecutiveFall.without_fall]].map(function (r) {
+    var s = r[1];
+    // 0戦の群は勝率0%と区別するため '-' にする
+    var has = s.count > 0;
+    return [r[0], s.count + '戦', pct(s.rate), colorPct(has ? s.win_rate : null), colorDE(has ? s.dmg_efficiency : null, 3)];
+  });
+  return html`<div>
+    <p>対象: 自機が撃墜された${consecutiveFall.total}戦（撃墜後${consecutiveFall.window_sec}秒以内に僚機も撃墜 = 連続落ち）</p>
+    <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
+    <${Tips} tips=${consecutiveFall.tips} />
+  </div>`;
+}
+
 export function BurstTimingContent({ timingData }) {
   if (!timingData || !timingData.by_timing || !timingData.by_timing.length) return null;
   var rows = timingData.by_timing.map(function (t) {

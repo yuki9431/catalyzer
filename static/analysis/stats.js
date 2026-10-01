@@ -796,6 +796,50 @@ export function computeFallOrder(matches) {
   };
 }
 
+var CONSECUTIVE_FALL_WINDOW_SEC = 10;
+
+// 自機の撃墜後 CONSECUTIVE_FALL_WINDOW_SEC 秒以内に僚機も撃墜された試合を連続落ちとする。自機0落ちの試合は対象外。
+export function computeConsecutiveFall(matches) {
+  var withFall = [], withoutFall = [];
+  matches.forEach(function (d) {
+    if (!d.actions || !d.actions.length) return;
+    var myDeaths = jsGetDeathEvents(d.actions);
+    if (!myDeaths.length) return;
+    var partnerDeaths = jsGetDeathEvents(d.partner_actions);
+    var hit = myDeaths.some(function (m) {
+      return partnerDeaths.some(function (p) {
+        return p.action_start_sec > m.action_start_sec &&
+          p.action_start_sec <= m.action_start_sec + CONSECUTIVE_FALL_WINDOW_SEC;
+      });
+    });
+    (hit ? withFall : withoutFall).push(d);
+  });
+  var total = withFall.length + withoutFall.length;
+  if (total === 0) return null;
+  function buildStats(ms) {
+    return {
+      count: ms.length,
+      rate: round1(ms.length / total * 100),
+      win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
+      dmg_efficiency: ms.length ? round3(jsDmgEfficiency(ms)) : 0,
+    };
+  }
+  var tips = [];
+  if (withFall.length >= 3 && withoutFall.length >= 3) {
+    var diff = jsWinRate(withoutFall) - jsWinRate(withFall);
+    if (diff >= 5) {
+      tips.push('連続落ちした試合は勝率が **' + Math.round(diff) + '%** 低い → 自機が落ちた直後は僚機が1対2で孤立しやすい。落ちる前に僚機との距離を意識しよう');
+    }
+  }
+  return {
+    total: total,
+    window_sec: CONSECUTIVE_FALL_WINDOW_SEC,
+    with_fall: buildStats(withFall),
+    without_fall: buildStats(withoutFall),
+    tips: tips,
+  };
+}
+
 // 覚醒発動時の被撃墜数で分類する。1機目に覚醒できた試合ほど勝率が高い傾向がある。
 export function computeBurstTiming(matches) {
   var categories = {};
