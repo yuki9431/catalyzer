@@ -73,7 +73,7 @@
 │   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
-│   │   ├── coach.js               # アクションプラン（今やるべきこと）の診断
+│   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）

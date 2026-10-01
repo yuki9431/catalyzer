@@ -1,4 +1,4 @@
-// --- アクションプラン（今やるべきこと） ---
+// --- 勝率アップミッション ---
 // 試合データを「悪い状態の試合」と「そうでない試合」に二分し、勝率差 × 悪い状態の頻度で
 // 「改善したときに取り戻せる勝率」を見積もる。見積もりの大きい順に全件を処方として返す。
 // 統計画面を読み解かなくても、次の試合で意識することが端的に分かることを目的とする。
@@ -344,7 +344,7 @@ function recentTrend(ms) {
   };
 }
 
-// 試合配列から「今やるべきこと」を影響度の大きい順に返す。
+// 試合配列からミッションを影響度の大きい順に返す。
 // 戻り値: { matches, win_rate, actions: [{key,title,detail,impact,level}], recent } / データ不足時は { matches, insufficient: true }
 export function computeActionPlan(matches) {
   var ms = matches || [];

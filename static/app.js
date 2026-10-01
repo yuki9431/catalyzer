@@ -710,7 +710,7 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 
 // --- Action plan ---
 
-// 「今やるべきこと」: 勝率への影響が大きい順に処方を示す。影響度「小」は「もっと見る」に畳む。
+// 「勝率アップミッション」: 勝率への影響が大きい順にミッションを示す。影響度「小」は「もっと見る」に畳む。
 // 機体未選択時は全機体混合の診断になるため、機体選択を促す一文を添える。
 var IMPACT_LABEL = { high: '大', mid: '中', low: '小' };
 var FOCUS_KEY = 'catalyzer_focus';
@@ -794,7 +794,7 @@ function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
     (matches || []).forEach(function (m) { if (m.date > since) since = m.date; });
     setFocus({ goal: a.goal, title: a.title, condition: a.condition, since: since, win_rate_from: a.win_rate_from, win_rate_to: a.win_rate_to });
   }
-  var title = selectedMs ? selectedMs + 'で今やるべきこと' : '今やるべきこと';
+  var title = '勝率アップミッション';
   if (focus) {
     return html`<${Panel} title=${title}>
       <${FocusCard} focus=${focus} matches=${matches} selectedMs=${selectedMs} onClear=${function () { setFocus(null); }}
