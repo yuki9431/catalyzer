@@ -47,7 +47,6 @@ function fallOrder(m) {
 
 // 自分と相方が CONSECUTIVE_FALL_SEC 秒以内に続けて撃墜されたか（順不同）。チーム0落ち・判定不能は null
 function consecutiveFall(m) {
-  if (!hasTimeline(m)) return null;
   var mine = deathsOf(m.actions), partner = deathsOf(m.partner_actions);
   if (!mine.length && !partner.length) return null;
   return mine.some(function (a) {
@@ -135,7 +134,7 @@ function fallOrderCandidate(ms) {
 
 // 覚醒を1回目の被撃墜より前に使えているか
 function burstCandidate(ms) {
-  var valid = ms.filter(function (m) { return hasTimeline(m) && m.deaths > 0; });
+  var valid = ms.filter(function (m) { return deathsOf(m.actions).length > 0; });
   var early = [], late = [];
   valid.forEach(function (m) { (burstBeforeDeath(m) ? early : late).push(m); });
   return candidate('burst', late, early, valid.length, function (s) {
@@ -377,9 +376,18 @@ var GOAL_JUDGES = {
   ex_dmg: function (g, m) { return m.bursts > 0 ? m.ex_dmg >= g.line : null; },
 };
 
+// 保存値などから復元した goal が判定に必要な項目を備えているか
+var GOAL_LINE_KEYS = { dmg_taken: true, dmg_given: true, burst_count: true, ex_dmg: true };
+export function isValidGoal(goal) {
+  if (!goal || !GOAL_JUDGES[goal.key]) return false;
+  if (GOAL_LINE_KEYS[goal.key]) return typeof goal.line === 'number' && isFinite(goal.line);
+  if (goal.key === 'fall_order') return goal.avoid === 'first' || goal.avoid === 'second';
+  return true;
+}
+
 // 選択したミッション（goal）の達成状況を古い順に最大 limit 件で返す: { total, achieved, streak（末尾からの連続達成）, marks: [{date, ok}] }
 export function evaluateGoal(goal, matches, limit) {
-  var judge = goal && GOAL_JUDGES[goal.key];
+  var judge = isValidGoal(goal) && GOAL_JUDGES[goal.key];
   var marks = [];
   if (judge) {
     sortByDate(matches || []).forEach(function (m) {

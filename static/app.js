@@ -11,7 +11,7 @@ import {
   burstKpi, bestWorstHour, partnerKpi,
   clampMetric,
 } from './analysis/stats.js';
-import { computeActionPlan, evaluateGoal } from './analysis/coach.js';
+import { computeActionPlan, evaluateGoal, isValidGoal } from './analysis/coach.js';
 import {
   loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild,
 } from './lib/db.js';
@@ -716,13 +716,13 @@ var FOCUS_KEY = 'catalyzer_focus';
 var FOCUS_SLOTS = 10;
 
 function WinRateGain({ from, to }) {
-  if (from == null || to == null || to <= from) return null;
+  if (typeof from !== 'number' || typeof to !== 'number' || to <= from) return null;
   return html`<div class="action-gain">見込み勝率 ${pct(from)} → <strong>${pct(to)}</strong>（+${(to - from).toFixed(1)}）</div>`;
 }
 
 // 挑戦中のミッションは利用者・機体ごとに1件。選択時点の最新試合より後の試合で達成を判定する
 function isValidFocus(f) {
-  return !!f && !!f.goal && typeof f.goal.key === 'string' && typeof f.title === 'string' && typeof f.since === 'string';
+  return !!f && isValidGoal(f.goal) && typeof f.title === 'string' && typeof f.since === 'string';
 }
 function loadFocus(userKey, ms) {
   if (!userKey) return null;

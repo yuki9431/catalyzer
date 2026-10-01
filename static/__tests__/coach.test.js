@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeActionPlan, evaluateGoal } from '../analysis/coach.js';
+import { computeActionPlan, evaluateGoal, isValidGoal } from '../analysis/coach.js';
 
 function makeMatch(overrides) {
   return Object.assign({
@@ -351,5 +351,32 @@ describe('computeActionPlan thresholds', function () {
     for (var i = 0; i < 3; i++) ms.push(makeMatch({ date: dateAt(i), deaths: 2, win: false }));
     for (var j = 0; j < 17; j++) ms.push(makeMatch({ date: dateAt(3 + j), deaths: 1, win: true }));
     assert.equal(keys(computeActionPlan(ms)).indexOf('deaths'), -1);
+  });
+
+  it('uses all matches as the impact denominator even when a mission covers a subset', function () {
+    // 覚醒した30戦（EXダメ低い10戦は全敗、高い20戦は全勝）＋覚醒なし30戦（半々）
+    var ms = [];
+    for (var i = 0; i < 60; i++) {
+      var burst = i < 30;
+      var low = burst && i < 10;
+      ms.push(makeMatch({ date: dateAt(i), bursts: burst ? 1 : 0, ex_dmg: burst ? (low ? 100 : 400) : 0, win: burst ? !low : i % 2 === 0 }));
+    }
+    var ex = computeActionPlan(ms).actions.find(function (x) { return x.key === 'ex_dmg'; });
+    // 10戦 × 勝率差100pt × 割引0.5 = 5勝 → 全60戦に対して +8.3pt（部分集合30戦が分母なら16.7）
+    assert.equal(ex.impact, 8.3);
+    assert.equal(ex.level, 'mid');
+    assert.equal(Math.round((ex.win_rate_to - ex.win_rate_from) * 10) / 10, 8.3);
+  });
+});
+
+describe('isValidGoal', function () {
+  it('requires the fields each judge needs', function () {
+    assert.equal(isValidGoal({ key: 'deaths' }), true);
+    assert.equal(isValidGoal({ key: 'dmg_taken', line: 700 }), true);
+    assert.equal(isValidGoal({ key: 'dmg_taken' }), false);
+    assert.equal(isValidGoal({ key: 'fall_order', avoid: 'first' }), true);
+    assert.equal(isValidGoal({ key: 'fall_order' }), false);
+    assert.equal(isValidGoal({ key: 'enemy', enemy: 'X' }), false);
+    assert.equal(isValidGoal(null), false);
   });
 });
