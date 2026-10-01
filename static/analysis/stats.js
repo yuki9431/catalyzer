@@ -796,20 +796,19 @@ export function computeFallOrder(matches) {
   };
 }
 
-var CONSECUTIVE_FALL_WINDOW_SEC = 10;
+var CONSECUTIVE_FALL_WINDOW_SEC = 15;
 
-// 自機の撃墜後 CONSECUTIVE_FALL_WINDOW_SEC 秒以内に僚機も撃墜された試合を連続落ちとする。自機0落ちの試合は対象外。
+// 自機・僚機の撃墜が順不同で CONSECUTIVE_FALL_WINDOW_SEC 秒以内に続いた試合を順落ちとする。チーム0落ちの試合は対象外。
 export function computeConsecutiveFall(matches) {
   var withFall = [], withoutFall = [];
   matches.forEach(function (d) {
     if (!d.actions || !d.actions.length) return;
     var myDeaths = jsGetDeathEvents(d.actions);
-    if (!myDeaths.length) return;
     var partnerDeaths = jsGetDeathEvents(d.partner_actions);
+    if (!myDeaths.length && !partnerDeaths.length) return;
     var hit = myDeaths.some(function (m) {
       return partnerDeaths.some(function (p) {
-        return p.action_start_sec > m.action_start_sec &&
-          p.action_start_sec <= m.action_start_sec + CONSECUTIVE_FALL_WINDOW_SEC;
+        return Math.abs(p.action_start_sec - m.action_start_sec) <= CONSECUTIVE_FALL_WINDOW_SEC;
       });
     });
     (hit ? withFall : withoutFall).push(d);
@@ -828,7 +827,7 @@ export function computeConsecutiveFall(matches) {
   if (withFall.length >= 3 && withoutFall.length >= 3) {
     var diff = jsWinRate(withoutFall) - jsWinRate(withFall);
     if (diff >= 5) {
-      tips.push('連続落ちした試合は勝率が **' + Math.round(diff) + '%** 低い → 自機が落ちた直後は僚機が1対2で孤立しやすい。落ちる前に僚機との距離を意識しよう');
+      tips.push('順落ちした試合は勝率が **' + Math.round(diff) + '%** 低い → 片方が落ちると残った方が1対2で孤立しやすい。落ちる前に僚機との距離を意識しよう');
     }
   }
   return {

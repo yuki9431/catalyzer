@@ -850,7 +850,7 @@ function PlaystylePane({ frontendData }) {
       <${FallOrderContent} fallOrder=${fallOrder} />
     <//>`}
 
-    ${consecutiveFall && html`<${Panel} title="連続落ち分析">
+    ${consecutiveFall && html`<${Panel} title="順落ち分析">
       <${ConsecutiveFallContent} consecutiveFall=${consecutiveFall} />
     <//>`}
 

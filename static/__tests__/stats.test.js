@@ -528,48 +528,48 @@ describe('computeFallOrder', function () {
 // --- computeConsecutiveFall ---
 
 describe('computeConsecutiveFall', function () {
+  function deaths(secs) {
+    return secs.map(function (t) { return { action: 'death', action_start_sec: t }; });
+  }
+  // actions は空だとタイムライン無し扱いになるため、自機0落ちでも ex イベントを置く
   function fall(mySec, partnerSec) {
     return makeMatch({
-      actions: [{ action: 'death', action_start_sec: mySec }],
-      partner_actions: partnerSec == null ? [] : [{ action: 'death', action_start_sec: partnerSec }],
+      actions: mySec == null ? [{ action: 'ex', action_start_sec: 5 }] : deaths([mySec]),
+      partner_actions: partnerSec == null ? [] : deaths([partnerSec]),
     });
   }
 
-  it('counts partner death exactly 10s after own death as consecutive', function () {
-    var result = computeConsecutiveFall([fall(60, 70)]);
-    assert.equal(result.with_fall.count, 1);
+  it('counts deaths within 15s in either order, including simultaneous', function () {
+    var result = computeConsecutiveFall([fall(60, 75), fall(75, 60), fall(60, 60)]);
+    assert.equal(result.with_fall.count, 3);
     assert.equal(result.without_fall.count, 0);
   });
 
-  it('does not count partner death more than 10s after', function () {
-    var result = computeConsecutiveFall([fall(60, 70.1)]);
+  it('does not count deaths more than 15s apart', function () {
+    var result = computeConsecutiveFall([fall(60, 75.1), fall(75.1, 60)]);
     assert.equal(result.with_fall.count, 0);
-    assert.equal(result.without_fall.count, 1);
+    assert.equal(result.without_fall.count, 2);
   });
 
-  it('does not count simultaneous or earlier partner death', function () {
-    var result = computeConsecutiveFall([fall(60, 60), fall(60, 55), fall(60, null)]);
-    assert.equal(result.with_fall.count, 0);
-    assert.equal(result.without_fall.count, 3);
-  });
-
-  it('checks every own death, not just the first', function () {
-    var m = makeMatch({
-      actions: [{ action: 'death', action_start_sec: 30 }, { action: 'death', action_start_sec: 120 }],
-      partner_actions: [{ action: 'death', action_start_sec: 125 }],
-    });
+  it('checks every death pair, not just the first', function () {
+    var m = makeMatch({ actions: deaths([30, 120]), partner_actions: deaths([125]) });
     assert.equal(computeConsecutiveFall([m]).with_fall.count, 1);
   });
 
-  it('excludes matches without own death and aggregates win rate', function () {
-    var matches = [
-      makeMatch({ actions: [{ action: 'ex', action_start_sec: 10 }], partner_actions: [{ action: 'death', action_start_sec: 20 }] }),
-    ].concat(
+  it('includes matches where only one side died and excludes team zero-death matches', function () {
+    var result = computeConsecutiveFall([fall(60, null), fall(null, 60), fall(null, null)]);
+    assert.equal(result.total, 2);
+    assert.equal(result.without_fall.count, 2);
+  });
+
+  it('aggregates win rate and dmg efficiency', function () {
+    var matches = [].concat(
       makeMatches(3, function (i) { return Object.assign(fall(60, 65), { win: i === 0 }); }),
       makeMatches(3, function () { return Object.assign(fall(60, 100), { win: true }); })
     );
     var result = computeConsecutiveFall(matches);
     assert.equal(result.total, 6);
+    assert.equal(result.window_sec, 15);
     assert.equal(result.with_fall.rate, 50);
     assert.equal(result.with_fall.win_rate, 33.3);
     assert.equal(result.with_fall.dmg_efficiency, 1.25);
