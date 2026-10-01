@@ -11,7 +11,7 @@ import {
   burstKpi, bestWorstHour, partnerKpi,
   clampMetric,
 } from './analysis/stats.js';
-import { computeActionPlan } from './analysis/coach.js';
+import { computeActionPlan, evaluateGoal } from './analysis/coach.js';
 import {
   loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild,
 } from './lib/db.js';
@@ -713,10 +713,68 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 // 「今やるべきこと」: 勝率への影響が大きい順に最大3件の処方を示す。
 // 機体未選択時は全機体混合の診断になるため、機体選択を促す一文を添える。
 var IMPACT_LABEL = { high: '大', mid: '中', low: '小' };
+var FOCUS_KEY = 'catalyzer_focus';
+var FOCUS_MARKS_SHOWN = 20;
 
-function ActionPlanPanel({ plan, selectedMs }) {
+// 集中する課題は利用者・機体ごとに1件。選択時点の最新試合より後の試合で達成を判定する
+function loadFocus(userKey, ms) {
+  try {
+    var v = JSON.parse(localStorage.getItem(FOCUS_KEY));
+    return v && v.user_key === userKey ? (v.by_ms || {})[ms || ''] || null : null;
+  } catch (e) { return null; }
+}
+function saveFocus(userKey, ms, focus) {
+  try {
+    var v = JSON.parse(localStorage.getItem(FOCUS_KEY));
+    if (!v || v.user_key !== userKey) v = { user_key: userKey, by_ms: {} };
+    if (focus) v.by_ms[ms || ''] = focus;
+    else delete v.by_ms[ms || ''];
+    localStorage.setItem(FOCUS_KEY, JSON.stringify(v));
+  } catch (e) {}
+}
+
+function FocusCard({ focus, matches, selectedMs, onClear }) {
+  var targets = (matches || []).filter(function (m) { return m.date > focus.since && (!selectedMs || m.ms === selectedMs); });
+  var ev = evaluateGoal(focus.goal, targets);
+  var marks = ev.marks.slice(-FOCUS_MARKS_SHOWN);
+  var last = ev.marks[ev.marks.length - 1];
+  return html`<div class=${'focus-card' + (last && last.ok ? ' done' : '')}>
+    <div class="focus-label">集中中の課題</div>
+    <div class="focus-title">${focus.title}</div>
+    ${ev.total ? html`<div class="focus-progress">
+        <span><strong>${ev.total}戦中${ev.achieved}戦</strong> 達成</span>
+        ${ev.streak > 0 && html`<span class="focus-streak">${ev.streak}戦連続達成中</span>`}
+      </div>
+      <div class="focus-marks">${marks.map(function (x) {
+        return html`<span class=${'focus-mark' + (x.ok ? ' ok' : '')} title=${x.date}>${x.ok ? '✓' : '✗'}</span>`;
+      })}</div>
+      ${last && html`<div class="focus-last">${last.ok ? '前回の試合で達成' : '前回の試合は未達成'}</div>`}`
+    : html`<div class="focus-progress">選択後の対象試合はまだありません。次の試合から判定します。</div>`}
+    <button class="focus-btn ghost" onClick=${onClear}>課題を選び直す</button>
+  </div>`;
+}
+
+function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
+  var focusRef = useState(function () { return { scope: userKey + '|' + (selectedMs || ''), value: loadFocus(userKey, selectedMs) }; });
+  var focusState = focusRef[0], setFocusState = focusRef[1];
+  var scope = userKey + '|' + (selectedMs || '');
+  var focus = focusState.scope === scope ? focusState.value : loadFocus(userKey, selectedMs);
   if (!plan) return null;
+  function setFocus(f) {
+    saveFocus(userKey, selectedMs, f);
+    setFocusState({ scope: scope, value: f });
+  }
+  function choose(a) {
+    var since = '';
+    (matches || []).forEach(function (m) { if (m.date > since) since = m.date; });
+    setFocus({ goal: a.goal, title: a.title, since: since });
+  }
   var title = selectedMs ? selectedMs + 'で今やるべきこと' : '今やるべきこと';
+  if (focus) {
+    return html`<${Panel} title=${title}>
+      <${FocusCard} focus=${focus} matches=${matches} selectedMs=${selectedMs} onClear=${function () { setFocus(null); }} />
+    <//>`;
+  }
   if (plan.insufficient) {
     return html`<${Panel} title=${title}>
       <p class="action-empty">診断には${plan.min_matches}試合以上が必要です（現在${plan.matches}試合）。期間を広げてください。</p>
@@ -738,8 +796,10 @@ function ActionPlanPanel({ plan, selectedMs }) {
       return html`<li>
         <div class="action-title">${a.title}<span class=${'action-impact ' + a.level}>影響度 ${IMPACT_LABEL[a.level]}</span></div>
         <div class="action-detail">${a.detail}</div>
+        <button class="focus-btn" onClick=${function () { choose(a); }}>これに集中する</button>
       </li>`;
-    })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。今の立ち回りを継続しましょう。</p>`}
+    })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。</p>`}
+    ${plan.actions.length > 0 && html`<p class="action-hint">1つ選ぶと、次の試合から達成状況を記録します。</p>`}
     ${!selectedMs && html`<p class="action-hint">上部で機体を選ぶと、その機体に絞って診断します。</p>`}
   <//>`;
 }
@@ -749,7 +809,7 @@ function ActionPlanPanel({ plan, selectedMs }) {
 // 機体別の勝率比較グラフに並べる最低試合数
 var msCompareMinMatches = 10;
 
-function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
+function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, allMatches, userKey }) {
   var seasons = (frontendData && frontendData.season) || [];
   var msSummary = (frontendData && frontendData.ms_summary) || {};
   var natl = msNational || {};
@@ -773,7 +833,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
   var fpItems = Array.isArray(fpList) ? fpList : [];
 
   return html`<div class="tabpane">
-    <${ActionPlanPanel} plan=${frontendData && frontendData.action_plan} selectedMs=${selectedMs} />
+    <${ActionPlanPanel} plan=${frontendData && frontendData.action_plan} selectedMs=${selectedMs} matches=${allMatches} userKey=${userKey} />
 
     ${pd.basic_stats && html`<${Panel} title="基本データ">
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
@@ -1145,6 +1205,7 @@ async function logout() {
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
   localStorage.removeItem(CLASS_RECORD_KEY);
+  localStorage.removeItem(FOCUS_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
   var rep = document.getElementById('report');
@@ -1404,7 +1465,7 @@ function Report({ data, userKey }) {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
-    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} />`;
+    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} allMatches=${allMatches} userKey=${userKey} />`;
   }
 
   return html`<div class="view-root">

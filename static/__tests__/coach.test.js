@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeActionPlan } from '../analysis/coach.js';
+import { computeActionPlan, evaluateGoal } from '../analysis/coach.js';
 
 function makeMatch(overrides) {
   return Object.assign({
@@ -63,7 +63,8 @@ describe('computeActionPlan', function () {
     var plan = computeActionPlan(ms);
     var death = plan.actions.find(function (a) { return a.key === 'deaths'; });
     assert.ok(death, 'deaths action expected');
-    assert.match(death.title, /^2落ちしない/);
+    assert.equal(death.title, '被撃墜を1回以内に抑える');
+    assert.match(death.detail, /^2回以上撃墜された試合は20戦中6戦（勝率0%）。/);
     assert.ok(death.impact > 0);
     assert.ok(['high', 'mid', 'low'].indexOf(death.level) >= 0);
   });
@@ -82,7 +83,8 @@ describe('computeActionPlan', function () {
     var plan = computeActionPlan(ms);
     var fo = plan.actions.find(function (a) { return a.key === 'fall_order'; });
     assert.ok(fo, 'fall_order action expected');
-    assert.match(fo.title, /先に落ちない/);
+    assert.equal(fo.title, '相方より先に撃墜されない');
+    assert.deepEqual(fo.goal, { key: 'fall_order', avoid: 'first' });
   });
 
   it('flags holding burst until after the first death', function () {
@@ -117,7 +119,7 @@ describe('computeActionPlan', function () {
     var enemy = plan.actions.find(function (a) { return a.key === 'enemy'; });
     assert.ok(enemy, 'enemy action expected');
     assert.equal(enemy.enemy, 'ストライクフリーダム');
-    assert.match(enemy.detail, /距離を取り/);
+    assert.match(enemy.detail, /^ストライクフリーダム戦は20戦中6戦（勝率0%）。.*被ダメは平均より\d+多い$/);
   });
 
   it('flags matches played right after a losing streak', function () {
@@ -185,5 +187,63 @@ describe('computeActionPlan', function () {
     assert.ok(death && taken);
     assert.ok(Math.abs(taken.impact - death.impact / 2) <= 0.1);
     assert.ok(plan.actions.indexOf(death) < plan.actions.indexOf(taken));
+  });
+
+  it('uses percentages only for win rates', function () {
+    var ms = [];
+    for (var i = 0; i < 40; i++) {
+      var bad = i % 3 === 0;
+      ms.push(makeMatch({ date: dateAt(i), win: !bad, deaths: bad ? 2 : 1, dmg_taken: bad ? 1200 : 700, dmg_given: bad ? 700 : 1100 }));
+    }
+    computeActionPlan(ms).actions.forEach(function (a) {
+      var pcts = a.detail.match(/\d+%/g) || [];
+      var rates = a.detail.match(/勝率\d+%/g) || [];
+      assert.equal(pcts.length, rates.length, a.detail);
+      assert.doesNotMatch(a.title + a.detail, /落ち/);
+    });
+  });
+});
+
+describe('evaluateGoal', function () {
+  it('counts achieved matches and the current streak', function () {
+    var ms = [1, 2, 1, 1].map(function (d, i) { return makeMatch({ date: dateAt(i), deaths: d }); });
+    assert.deepEqual(evaluateGoal({ key: 'deaths' }, ms), {
+      total: 4, achieved: 3, streak: 2,
+      marks: [
+        { date: dateAt(0), ok: true }, { date: dateAt(1), ok: false },
+        { date: dateAt(2), ok: true }, { date: dateAt(3), ok: true },
+      ],
+    });
+  });
+
+  it('judges only matches against the target enemy', function () {
+    var ms = [
+      makeMatch({ date: dateAt(0), opponent1_ms: 'X', win: true }),
+      makeMatch({ date: dateAt(1), opponent1_ms: 'Y', win: false }),
+      makeMatch({ date: dateAt(2), opponent2_ms: 'X', win: false }),
+    ];
+    var ev = evaluateGoal({ key: 'enemy', enemy: 'X' }, ms);
+    assert.equal(ev.total, 2);
+    assert.equal(ev.achieved, 1);
+  });
+
+  it('treats a match without deaths as achieving burst/first-fall goals', function () {
+    var m = makeMatch({ deaths: 0, actions: [{ action: 'exbst-f', action_start_sec: 30 }] });
+    assert.equal(evaluateGoal({ key: 'burst' }, [m]).achieved, 1);
+    assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'first' }, [m]).achieved, 1);
+    assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'second' }, [m]).total, 0);
+  });
+
+  it('judges a break of 15+ minutes after a losing streak', function () {
+    var ms = [
+      makeMatch({ date: '2025-06-01 20:00', win: false }),
+      makeMatch({ date: '2025-06-01 20:05', win: false }),
+      makeMatch({ date: '2025-06-01 20:10', win: false }), // 休憩なし → 未達成
+      makeMatch({ date: '2025-06-01 20:30', win: true }),  // 15分以上空けた → 達成
+      makeMatch({ date: '2025-06-01 20:35', win: false }),
+      makeMatch({ date: '2025-06-01 20:40', win: false }), // 次の試合がまだ無い → 判定しない
+    ];
+    var ev = evaluateGoal({ key: 'tilt' }, ms);
+    assert.deepEqual(ev.marks.map(function (x) { return x.ok; }), [false, true]);
   });
 });
