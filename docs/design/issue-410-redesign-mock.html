@@ -4,9 +4,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- #410 デザイン刷新のモック。数値・名前はすべてサンプル -->
 <title>catalyzer 全画面モック</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap">
 <style>
   /* レイアウト: 左に画面一覧、中央にスマホ幅のアプリ、右にその画面の設計メモ。狭い画面では縦に積む */
   :root {
@@ -14,7 +11,7 @@
     --bg: #0e141b; --surface: #18212b; --surface-2: #212c38; --fg: #e9eef3; --muted: #a2b1bf;
     --line: #2a3644; --accent: #5ec6f2; --on-accent: #06222f; --win: #6fdc9f; --lose: #ff8d80; --warn: #f2c14e;
     --s1: #5ec6f2; --s2: #ff9e7a; --s3: #6fdc9f; --s4: #f2c14e;
-    --font: "Noto Sans JP", -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    --font: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;
   }
   @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
     color-scheme: light; --bg: #f4f6f8; --surface: #ffffff; --surface-2: #e7ecf0; --fg: #17202a; --muted: #4f5d6b; --line: #d5dbe1; --accent: #0a6c99; --on-accent: #ffffff; --win: #13803f; --lose: #c4321f; --warn: #8a5a00; --s1: #0a6c99; --s2: #c2541f; --s3: #13803f; --s4: #8a6a00;
@@ -54,14 +51,14 @@
   .iconbtn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--accent); font-size: 14px; min-height: 44px; padding: 0 4px; cursor: pointer; }
   .iconbtn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .filters { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
-  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 14px; cursor: pointer; white-space: nowrap; }
   .chip .k { color: var(--muted); }
   .chip .cut { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
   .filters .seg { margin-left: auto; }
   .chip.set { border-color: var(--accent); }
   .chip::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg) translateY(-2px); margin-left: 2px; }
   .seg { display: inline-flex; flex: none; background: var(--surface-2); border-radius: 8px; padding: 2px; }
-  .seg button { border: 0; background: none; border-radius: 6px; padding: 0 12px; min-height: 32px; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .seg button { border: 0; background: none; border-radius: 6px; padding: 0 12px; min-height: 40px; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap; }
   .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
   .tabs { display: flex; gap: 20px; overflow-x: auto; scrollbar-width: none; }
   .tab { flex: none; background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 0; min-height: 44px; color: var(--muted); cursor: pointer; white-space: nowrap; }
@@ -109,7 +106,7 @@
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
   th { font-size: 14px; font-weight: 500; color: var(--muted); text-align: left; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th.sort { cursor: pointer; }
-  th.sort::after { content: " ↕"; font-size: 12px; opacity: .6; }
+  th.sort::after { content: " ↕"; font-size: 14px; opacity: .6; }
   td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
   td:first-child { white-space: normal; min-width: 7em; }
   .n { text-align: right; }
@@ -128,7 +125,7 @@
   details.disc[open] > summary::after { transform: rotate(-135deg); }
 
   .chart { width: 100%; height: auto; display: block; margin-top: 8px; }
-  .chart text { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+  .chart text { fill: var(--muted); font-size: 13px; font-family: var(--font); }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--muted); margin-top: 8px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
   .legend i.line { height: 2px; vertical-align: 3px; }
@@ -137,7 +134,7 @@
   .heat td, .heat th { text-align: center; padding: 6px 4px; }
   .heat th:first-child { text-align: left; }
   .heat td b { display: block; font-size: 15px; }
-  .heat td span { font-size: 12px; color: var(--muted); }
+  .heat td span { font-size: 14px; color: var(--muted); }
 
   .partner-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 12px; margin: 8px 0; cursor: pointer; text-align: left; }
   .partner-pick span { color: var(--muted); font-size: 14px; }
@@ -192,7 +189,7 @@
   .match .vs, .match .who { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--muted); }
   .match .meta { grid-row: 1 / span 3; grid-column: 3; text-align: right; font-size: 14px; color: var(--muted); }
   .match .meta b { display: block; color: var(--fg); font-size: 16px; }
-  .tag { display: inline-block; font-size: 12px; border: 1px solid var(--warn); color: var(--warn); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
+  .tag { display: inline-block; font-size: 14px; border: 1px solid var(--warn); color: var(--warn); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
   .daylabel { font-size: 14px; color: var(--muted); padding: 16px 0 4px; border-bottom: 1px solid var(--line); }
   .resulthead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 14px; color: var(--muted); }
@@ -203,9 +200,9 @@
   .player { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: none; text-align: left; cursor: pointer; min-height: 64px; min-width: 0; }
   .player[aria-pressed="true"] { border-color: currentColor; }
   .player i { display: block; width: 100%; height: 3px; border-radius: 2px; margin-bottom: 6px; }
-  .player b { display: block; font-size: 12px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .player span { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sidelabel { font-size: 12px; color: var(--muted); }
+  .player b { display: block; font-size: 14px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player span { display: block; font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidelabel { font-size: 14px; color: var(--muted); }
 
   /* シート */
   .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); z-index: 20; }
@@ -230,13 +227,13 @@
 
   /* 下部タブバー */
   .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
-  .tabbar button { background: none; border: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; min-height: 56px; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .tabbar button { background: none; border: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; min-height: 56px; font-size: 14px; color: var(--muted); cursor: pointer; }
   .tabbar svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .tabbar button[aria-current="page"] { color: var(--accent); font-weight: 700; }
 
   .share { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .share button { min-height: 64px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
-  .share i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; color: #fff; }
+  .share i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 700; color: #fff; }
 
   .confirm { background: var(--surface); border-radius: 12px; padding: 16px; }
   .confirm p { margin: 0 0 12px; }
@@ -248,7 +245,7 @@
   .notes dl { margin: 0; }
   .notes dt { font-weight: 700; padding-top: 12px; border-top: 1px solid var(--line); }
   .notes dd { margin: 4px 0 12px; color: var(--muted); font-size: 15px; }
-  .notes .impl { display: inline-block; font-size: 12px; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 400; vertical-align: 1px; }
+  .notes .impl { display: inline-block; font-size: 14px; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 400; vertical-align: 1px; }
   @media (prefers-reduced-motion: reduce) { .steps .now .st { animation: none; } }
 </style>
 
@@ -257,6 +254,7 @@
     <h1>画面</h1>
     <ul id="screenlist"></ul>
     <p>数値・名前はすべてサンプルです。アプリ内のボタン、タブ、絞り込みは操作できます。</p>
+    <div class="seg" role="group" aria-label="テーマ" style="margin-top:12px"><button type="button" data-theme-set="" aria-pressed="true">端末</button><button type="button" data-theme-set="dark" aria-pressed="false">ダーク</button><button type="button" data-theme-set="light" aria-pressed="false">ライト</button></div>
   </nav>
 
   <div class="app" id="app">
@@ -448,7 +446,7 @@
     h += sec('固定相方', '5試合以上組んだフレンド。', '<button class="partner-pick" type="button" data-sheet="partner"><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '・' + p[2] + '試合・勝率 ' + pct(p[3]) + '</span></button>' +
       radar(['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ'], [{ label: '自機', color: 'var(--s1)', data: [74, 66, 60, 50, 55, 63] }, { label: '僚機（' + p[0] + '）', color: 'var(--s2)', data: [66, 70, 52, 44, 48, 58] }]) +
       table(['項目（' + lensCol + '）', '自機', '僚機'], [['平均与ダメージ', '1,186', '1,074'], ['平均被ダメージ', '781', '842'], ['与被ダメ比', '1.52', '1.28'], ['平均撃墜', '1.54', '1.61'], ['平均被撃墜', '1.29', '1.42'], ['K/D比', '1.19', '1.13']], { limit: 4 }) +
-      '<h4>' + esc(p[0]) + 'の使用機体</h4>' + table(['機体', '試合', '勝率'], [['ガンダム・エアリアル(改修型)', 14, wrc(85.7)], ['νガンダム', 9, wrc(77.8)], ['シナンジュ', 5, wrc(80.0)]]) +
+      '<h4>僚機の内訳（' + esc(p[0]) + '）</h4>' + table(['僚機', '試合', '勝率'], [['ガンダム・エアリアル(改修型)', 14, wrc(85.7)], ['νガンダム', 9, wrc(77.8)], ['シナンジュ', 5, wrc(80.0)]]) +
       facts(['このペアの勝率 82.1% は、あなたの全体勝率より 27.9 ポイント高い。']));
     return h;
   }
@@ -477,14 +475,14 @@
 
   function burst() {
     var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
-    h += summary(['平均覚醒回数', '1.62<small>回</small>', '1試合あたり'], [
+    h += summary(['平均覚醒回数', '1.54<small>回</small>', '1試合あたり'], [
       ['2回覚醒した割合', '58.0%', '', '181試合'], ['2回覚醒時の勝率', '63.5%', 'up', ''],
       ['覚醒しなかった割合', '4.2%', '', '13試合'], ['覚醒しなかった時の勝率', '15.4%', 'down', '']]);
     h += sec('覚醒回数と勝率', '', combo(['0回', '1回', '2回'], [15.4, 44.1, 63.5], [13, 118, 181]) +
       disc('表で見る', table(['覚醒回数', '試合数', '勝率'], [['0回（未覚醒）', 13, wrc(15.4)], ['1回', 118, wrc(44.1)], ['2回', 181, wrc(63.5)]])) +
       facts(['2回覚醒した試合の勝率は、1回の試合より 19.4 ポイント高い。']));
-    h += sec('覚醒タイプ別', '発動 448 回の内訳。', combo(['F覚醒', 'S覚醒', 'E覚醒'], [56.7, 53.1, 47.4], [210, 160, 78]) +
-      disc('表で見る', table(['覚醒タイプ', '発動数', '試合数', '勝率'], [['F覚醒', 210, 142, wrc(56.7)], ['S覚醒', 160, 113, wrc(53.1)], ['E覚醒', 78, 57, wrc(47.4)]])) +
+    h += sec('覚醒タイプ別', '発動 480 回の内訳。', combo(['F覚醒', 'S覚醒', 'E覚醒'], [56.7, 53.1, 47.4], [225, 171, 84]) +
+      disc('表で見る', table(['覚醒タイプ', '発動数', '試合数', '勝率'], [['F覚醒', 225, 142, wrc(56.7)], ['S覚醒', 171, 113, wrc(53.1)], ['E覚醒', 84, 57, wrc(47.4)]])) +
       facts(['最も多く使っているのは F覚醒（発動の 46.9%）。']));
     h += sec('覚醒タイミング', '覚醒した時点の被撃墜数で分類。1試合で複数回覚醒した場合はそれぞれに数える。', combo(['1機目', '2機目', '3機目'], [60.0, 52.5, 40.9], [205, 240, 44]) +
       disc('表で見る', table(['タイミング', '試合数', '勝率'], [['1機目', 205, wrc(60.0)], ['2機目', 240, wrc(52.5)], ['3機目', 44, wrc(40.9)]])) +
@@ -494,8 +492,8 @@
 
   function matchup() {
     var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
-    h += summary(['得意な相手 / 苦手な相手', '7 / 5<small>機体</small>', '3試合以上対戦した 28 機体のうち', '得意は勝率 60% 以上、苦手は 40% 以下'], [
-      ['3試合以上組んだ相方', '12<small style="font-size:14px">人</small>', '', ''], ['最も多く組んだ相方', 'シロー', '', '28試合'], ['相方別の最高勝率', '82.1%', 'up', 'シロー']]);
+    h += summary(['得意な相手 / 苦手な相手', '7 / 5<small>機体</small>', '3試合以上対戦した 13 機体のうち', '得意は勝率 60% 以上、苦手は 40% 以下'], [
+      ['3試合以上組んだ相方', '12<small style="font-size:14px">人</small>', '', ''], ['最も多く組んだ相方', 'シロー', '', '28試合'], ['相方別の最高勝率', '82.1%', 'up', 'シロー'], ['最も勝率が低い敵機', '28.6%', 'down', 'ガンダムエピオン']]);
     var list = ENEMY.slice().sort(function (a, b) { return S.enemyOrder === 'desc' ? b[2] - a[2] : S.enemyOrder === 'n' ? b[1] - a[1] : a[2] - b[2]; });
     h += sec('敵機との相性', '3試合以上対戦した機体。',
       '<div class="seg" role="group" aria-label="並べ替え" style="margin:4px 0 8px">' + [['asc', '勝率が低い順'], ['desc', '高い順'], ['n', '試合数順']].map(function (o) { return '<button type="button" data-eorder="' + o[0] + '" aria-pressed="' + (S.enemyOrder === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
@@ -543,7 +541,7 @@
       return simpleBar('分析中') + '<div class="page">' +
         '<div><p class="note">戦績を取得しています</p><div class="big"><strong>40<small>%</small></strong><span class="aside">412 / 1,020 件</span></div>' +
         '<div class="progress" style="margin-top:12px" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"><i style="width:40%"></i></div>' +
-        '<p class="note" style="margin-top:8px">残り約 4 分。この画面を閉じても取得は続きます。</p></div>' +
+        '</div>' +
         '<ol class="steps"><li class="done"><span class="st"></span>保存済みのデータを読み込み</li><li class="now"><span class="st"></span>新しい試合を取得（412 / 1,020 件）</li><li class="wait"><span class="st"></span>集計してレポートを作成</li></ol>' +
         '<div class="notice"><div><b>速報レポートを見られます</b><p>取得済みの 412 試合で集計しています。取得が進むと自動で更新されます。</p><button class="secondary act" type="button" data-go="report">速報を見る</button></div></div>' +
         '</div>';
@@ -579,7 +577,7 @@
       h += '<div><div class="big"><strong class="' + (m[2] === 'w' ? 'up' : 'down') + '" style="font-size:32px">' + (m[2] === 'w' ? '勝利' : '敗北') + '</strong>' + (m[9] ? '<span class="tag">タイムアップ</span>' : '') + '</div></div>';
       h += '<section><header><h3>4人の比較</h3></header><p class="lead">表示する人を選ぶ。</p><div class="players">' + P.map(function (p, i) {
         return '<button class="player" type="button" data-pon="' + i + '" aria-pressed="' + on[i] + '" style="color:' + p[2] + '"><i style="background:' + p[2] + '"></i><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '</span></button>';
-      }).join('') + '</div><div style="display:flex;justify-content:space-between;margin-top:4px"><span class="sidelabel">味方</span><span class="sidelabel">敵</span></div>' +
+      }).join('') + '</div><div style="display:flex;justify-content:space-between;margin-top:4px"><span class="sidelabel">味方</span><span class="sidelabel">相手</span></div>' +
         radar(['与ダメ', '撃墜', '覚醒', '被ダメ', '被撃墜', 'EXダメ'], [[78, 70, 66, 52, 60, 64], [62, 58, 66, 44, 52, 55], [55, 44, 60, 68, 58, 47], [50, 52, 33, 72, 70, 40]].map(function (d, i) { return on[i] ? { label: P[i][0], color: P[i][2], data: d } : null; }).filter(Boolean)) + '</section>';
       h += sec('スコア', '', table(['', '自分', esc(m[6]), esc(P[2][0]), esc(P[3][0])], [['スコア', '3,840', '3,120', '2,410', '2,180'], ['撃墜', '2', '1', '1', '0'], ['被撃墜', '1', '1', '2', '1'], ['与ダメージ', m[8].toLocaleString(), '1,042', '862', '701'], ['被ダメージ', '701', '862', '1,042', '1,384'], ['EXダメージ', '212', '144', '96', '88']]));
       h += sec('試合経過', '覚醒・オーバーリミット・被撃墜の時刻。', gantt());
@@ -588,17 +586,17 @@
     record: { name: '総合戦歴', tabbar: true, nav: 'record', render: function () {
       return simpleBar('総合戦歴') + '<div class="page"><p class="sample">ガンダムモバイルのクラスマッチ通算戦績</p>' +
         summary(['通算勝率', '52.8<small>%</small>', '2,104勝 1,881敗'], [['通算対戦数', '3,985', '', ''], ['通算 K/D比', '1.12', '', '敵撃破 4,210 / 被撃破 3,762'], ['分析済みの割合', '48.2%', '', '1,920試合を分析済み']]) +
-        sec('クラスマッチ戦績', '', table(['区分', '対戦数', '勝利数', '勝率'], [['通算', '3,985', '2,104', '52.8%'], ['チーム', '1,240', '682', '55.0%'], ['ソロ', '2,745', '1,422', '51.8%'], ['今日', '12', '7', '58.3%'], ['今週', '78', '43', '55.1%'], ['今月', '12', '7', '58.3%']])) +
+        sec('クラスマッチ戦績', '', table(['区分', '対戦数', '勝利数', '勝率'], [['通算', '3,985', '2,104', '52.8%'], ['チーム', '1,240', '682', '55.0%'], ['ソロ', '2,745', '1,422', '51.8%'], ['今日', '12', '7', '58.3%'], ['今週', '78', '43', '55.1%'], ['今月', '96', '52', '54.2%']])) +
         sec('通算記録', '', table(['項目', '記録'], [['敵撃破数', '4,210'], ['被撃破数', '3,762']])) + '</div>';
     } },
     more: { name: 'その他', tabbar: true, nav: 'more', render: function () {
       var h = simpleBar('その他') + '<div class="page">';
-      h += sec('結果を共有', '使用機体と相性の上位を文章にして共有します。', '<div class="share"><button type="button"><i style="background:#000">X</i>X</button><button type="button"><i style="background:#0085ff">B</i>Bluesky</button><button type="button"><i style="background:#06c755">L</i>LINE</button><button type="button"><i style="background:var(--muted)">⧉</i>コピー</button></div>');
+      h += sec('結果を共有', '自機と相性の上位を文章にして共有します。', '<div class="share"><button type="button"><i aria-hidden="true" style="background:#000">X</i>X</button><button type="button"><i aria-hidden="true" style="background:#0085ff">B</i>Bluesky</button><button type="button"><i aria-hidden="true" style="background:#06c755">L</i>LINE</button><button type="button"><i aria-hidden="true" style="background:var(--muted)">⧉</i>コピー</button></div>');
       h += sec('データ', '', '<ul class="rows">' +
         '<li class="row nav" data-act="refetch"><span class="name">試合データを取得し直す</span><span class="val"></span><span class="sub">サーバーから全件を再取得します</span></li>' +
         (S.confirm ? '<li style="padding:8px 0"><div class="confirm"><p>試合データをサーバーから全件取得し直します。数分かかります。</p><div><button class="primary" type="button" style="min-height:44px" data-go="progress">取得し直す</button><button class="secondary" type="button" data-act="refetch">やめる</button></div></div></li>' : '') +
         '<li class="row nav"><span class="name">ガンダムモバイルを開く</span><span class="val"></span><span class="sub">外部サイト</span></li></ul>');
-      h += sec('アカウント', '', '<ul class="rows"><li class="row"><span class="name">ログイン状態</span><span class="val"><span style="color:var(--fg)">保持中（10/31 まで）</span></span></li><li class="row nav" data-go="login"><span class="name danger">ログアウト</span><span class="val"></span><span class="sub">保存したログイン情報も削除します</span></li></ul>');
+      h += sec('アカウント', '', '<ul class="rows"><li class="row nav" data-go="login"><span class="name danger">ログアウト</span><span class="val"></span><span class="sub">保存したログイン情報も削除します</span></li></ul>');
       return h + legal() + '</div>';
     } },
     states: { name: '通知・空の状態', tabbar: true, nav: 'report', render: function () {
@@ -619,7 +617,7 @@
 
   // 4人 × (覚醒レーン / OLレーン)。横軸は試合時間 0〜240秒
   function gantt() {
-    var L = 56, R = 350, top = 10, lane = 14, rowH = 40, tmax = 240, o = '';
+    var L = 56, R = 350, top = 10, lane = 18, rowH = 46, tmax = 240, o = '';
     var x = function (t) { return L + (R - L) * t / tmax; };
     var who = ['自分', 'シロー', 'アムロ', 'シャア'], cols = ['var(--s1)', 'var(--s3)', 'var(--s2)', 'var(--s4)'];
     var ev = [
@@ -632,12 +630,12 @@
     ev.forEach(function (e, i) {
       var y0 = top + i * rowH;
       o += '<text x="0" y="' + (y0 + 16) + '">' + who[i] + '</text>';
-      e.b.forEach(function (b) { o += '<rect x="' + x(b[0]) + '" y="' + y0 + '" width="' + (x(b[1]) - x(b[0])) + '" height="' + (lane - 2) + '" rx="2" fill="' + cols[i] + '"><title>' + b[2] + '覚醒 ' + b[0] + '秒</title></rect><text x="' + (x(b[0]) + 3) + '" y="' + (y0 + 10) + '" style="fill:var(--bg);font-size:9px;font-weight:700">' + b[2] + '</text>'; });
+      e.b.forEach(function (b) { o += '<rect x="' + x(b[0]) + '" y="' + y0 + '" width="' + (x(b[1]) - x(b[0])) + '" height="' + (lane - 2) + '" rx="2" fill="' + cols[i] + '"><title>' + b[2] + '覚醒 ' + b[0] + '秒</title></rect><text x="' + (x(b[0]) + 3) + '" y="' + (y0 + 13) + '" style="fill:var(--bg);font-weight:700">' + b[2] + '</text>'; });
       e.o.forEach(function (b) { o += '<rect x="' + x(b[0]) + '" y="' + (y0 + lane) + '" width="' + (x(b[1]) - x(b[0])) + '" height="' + (lane - 4) + '" rx="2" fill="' + cols[i] + '" opacity=".45"><title>オーバーリミット</title></rect>'; });
       e.d.forEach(function (t) { o += '<path d="M' + (x(t) - 4) + ' ' + (y0 + 2) + 'l8 8M' + (x(t) + 4) + ' ' + (y0 + 2) + 'l-8 8" stroke="var(--lose)" stroke-width="2"/>'; });
       if (i === 1) o += '<line x1="0" x2="' + R + '" y1="' + (y0 + rowH - 6) + '" y2="' + (y0 + rowH - 6) + '" stroke="var(--muted)" stroke-dasharray="3 3"/>';
     });
-    return '<svg class="chart" viewBox="0 0 360 190" role="img" aria-label="試合経過">' + o + '</svg>' +
+    return '<svg class="chart" viewBox="0 0 360 214" role="img" aria-label="試合経過">' + o + '</svg>' +
       '<div class="legend"><span><i style="background:var(--s1)"></i>覚醒（F/S/E）</span><span><i style="background:var(--s1);opacity:.45"></i>オーバーリミット</span><span><b class="down">×</b> 被撃墜</span></div>';
   }
 
@@ -692,13 +690,14 @@
     progress: ['分析中', '今どこまで進み、あとどれくらい待つかを1画面で示す。', [
       ['段階を見せる', '準備中・取得中・分析中の文言切替を、3段階のチェックリストにする。現在の段階と件数が一目で分かる。'],
       ['速報への導線', '速報レポートがあるときは「速報を見る」ボタンを出す。今は分析中表示とレポートが同じ画面に並んでいる。'],
-      ['残り時間', '取得件数とペーシング設定から概算する。<span class="impl">新規実装</span>']]],
+      ]],
     report: ['レポート', '5タブ構成と各パネルは現行のまま。並べ方と見せ方を変える。', [
       ['ハンバーガー → 下部タブバー', 'レポート・試合検索・総合戦歴・その他を1タップで切り替える。'],
       ['KPI 6枚 → 要約1つ', 'タブの主指標を大きく1つ、残り4つを小さく。どのタブにもあった「対戦数」は上部の説明文に移す。値の良し悪しは今のしきい値（目安）を文で示す。'],
       ['絞り込みは常に見える位置', '期間・機体はチップ、全体/勝利/敗北は切り替えボタンにする。スクロールしても隠さない。長い機体名は省略し、シートで全体を表示する。'],
       ['横棒グラフ → 行リスト', '機体別・敵機・僚機・編成の横棒グラフは、名前と勝率を並べた行にして、下に細いバーを付ける。長い機体名でも切れない。'],
       ['表は折りたたみの中', 'グラフや行リストで要点を見せ、全件の表は「表で見る」に入れる。今の SubSection と同じ扱い。'],
+      ['勝率の色分け', '▲▼と行の色は 60% 以上 / 40% 以下（得意・苦手の判定と同じ）。グラフの棒の色は現行どおり 60% 以上 / 50% 未満。'],
       ['アドバイス → 事実の箇条書き', '💡と「圧巻！」をやめ、数値と比較対象だけを書く。'],
       ['用語', '固定相方のレーダーの「自分/相方」は「自機/僚機」にそろえる。']]],
     search: ['試合検索', '結果の一覧を主役にし、条件は全画面のシートで編集する。', [
@@ -717,7 +716,6 @@
     more: ['その他', 'ドロワーにあった項目を1画面にまとめる。', [
       ['準備中の項目は出さない', 'EXランキングと機体使用率ランキングは、使えるようになってから載せる。'],
       ['再取得の確認', 'ブラウザの confirm をやめ、その場で確認を展開する。'],
-      ['ログイン状態', '保持中かどうかと期限を表示する。<span class="impl">新規実装</span>'],
       ['絵文字アイコン', 'メニューの絵文字はやめ、文字だけにする。']]],
     states: ['通知・空の状態', '色の帯と見出し・本文・操作ボタンの3点で書く。', [
       ['警告とエラーを分ける', 'アクセス制限は警告（黄）、ログイン期限切れや取得失敗はエラー（赤）。どちらも次に何をすればよいかをボタンで示す。'],
@@ -741,7 +739,7 @@
     var t = e.target.closest('button, [data-detail], [data-act], [data-close], [data-go]');
     if (!t) return;
     var d = t.dataset, keep = false;
-    if (d.go) { S.screen = d.go; S.sheet = null; S.confirm = false; }
+    if (d.go) { var back = S.screen === 'detail' && d.go === 'search'; S.screen = d.go; S.sheet = null; S.confirm = false; if (back) { render(); scrollEl.scrollTop = S.searchTop || 0; return; } }
     else if (d.tab) { S.tab = d.tab; }
     else if (d.lens) { S.lens = d.lens; keep = true; }
     else if (d.sheet) { S.sheet = d.sheet; keep = true; }
@@ -750,9 +748,10 @@
     else if (d.ms !== undefined) { S.ms = +d.ms || null; S.sheet = null; keep = true; }
     else if (d.partner !== undefined) { S.partner = +d.partner; S.sheet = null; keep = true; }
     else if (d.eorder) { S.enemyOrder = d.eorder; keep = true; }
-    else if (d.detail !== undefined) { S.detail = +d.detail; S.pOn = null; S.screen = 'detail'; }
+    else if (d.detail !== undefined) { S.detail = +d.detail; S.pOn = null; S.searchTop = scrollEl.scrollTop; S.screen = 'detail'; }
     else if (d.pon !== undefined) { S.pOn = (S.pOn || [true, true, false, false]).slice(); S.pOn[+d.pon] = !S.pOn[+d.pon]; keep = true; }
     else if (d.expand) { document.querySelectorAll('[data-more="' + d.expand + '"]').forEach(function (r) { r.hidden = false; }); t.remove(); return; }
+    else if (d.themeSet !== undefined) { if (d.themeSet) document.documentElement.setAttribute('data-theme', d.themeSet); else document.documentElement.removeAttribute('data-theme'); document.querySelectorAll('[data-theme-set]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); }); return; }
     else if (d.act === 'clear') { S.filtersApplied = false; S.sheet = null; keep = true; }
     else if (d.act === 'refetch') { S.confirm = !S.confirm; keep = true; }
     else if (d.act === 'reanalyze') { S.screen = 'progress'; }
