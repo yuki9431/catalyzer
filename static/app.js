@@ -839,6 +839,14 @@ function PlaystylePane({ frontendData }) {
     });
   }
 
+  var consecutiveFallItems = [];
+  if (consecutiveFall) {
+    [['with_fall', '順落ちあり'], ['without_fall', '順落ちなし']].forEach(function (r) {
+      var s = consecutiveFall[r[0]];
+      if (s.count > 0) consecutiveFallItems.push({ name: r[1], winRate: s.win_rate });
+    });
+  }
+
   return html`<div class="tabpane">
     ${teamDeaths && teamDeaths.groups.length > 0 && html`<${Panel} title="被撃墜と勝率（自機×僚機）">
       <${TeamDeathsHeatmap} teamDeaths=${teamDeaths} />
@@ -851,6 +859,7 @@ function PlaystylePane({ frontendData }) {
     <//>`}
 
     ${consecutiveFall && html`<${Panel} title="順落ち分析">
+      ${consecutiveFallItems.length > 0 && html`<${MsCompareChart} entries=${consecutiveFallItems} />`}
       <${ConsecutiveFallContent} consecutiveFall=${consecutiveFall} />
     <//>`}
 
