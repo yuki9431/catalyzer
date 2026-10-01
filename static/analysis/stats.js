@@ -28,12 +28,12 @@ export function clampMetric(v, key) {
 }
 
 var COST_LABEL = {3000: '3000コスト', 2500: '2500コスト', 2000: '2000コスト', 1500: '1500コスト'};
-var COST_FATAL_DEATHS = {3000: 2, 2500: 3, 2000: 3, 1500: 4};
+export var COST_FATAL_DEATHS = {3000: 2, 2500: 3, 2000: 3, 1500: 4};
 var TEAM_DEATH_MAX = 3;   // これ以上は "3+" に集約
 
 // --- Internal Helpers ---
 
-function jsWinRate(matches) {
+export function jsWinRate(matches) {
   if (!matches.length) return 0;
   var w = 0;
   for (var i = 0; i < matches.length; i++) { if (matches[i].win) w++; }
@@ -51,7 +51,7 @@ function round1(n) { return Math.round(n * 10) / 10; }
 function round2(n) { return Math.round(n * 100) / 100; }
 function round3(n) { return Math.round(n * 1000) / 1000; }
 
-function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0; }
+export function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0; }
 function jsWinsLosses(ms) { var w = ms.filter(function (m) { return m.win; }).length; return [w, ms.length - w]; }
 function jsKdRatio(ms) { var k = 0, d = 0; ms.forEach(function (m) { k += m.kills; d += m.deaths; }); return d > 0 ? k / d : 0; }
 function jsAvgBursts(ms) {
@@ -60,10 +60,10 @@ function jsAvgBursts(ms) {
   return jsAvg(valid.map(function (m) { return m.bursts; }));
 }
 
-function jsGetDeathEvents(actions) {
+export function jsGetDeathEvents(actions) {
   return (actions || []).filter(function (a) { return a.action === 'death'; });
 }
-function jsGetBurstEvents(actions) {
+export function jsGetBurstEvents(actions) {
   return (actions || []).filter(function (a) { return a.action === 'exbst-f' || a.action === 'exbst-s' || a.action === 'exbst-e'; });
 }
 

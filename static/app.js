@@ -710,8 +710,7 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 
 // --- Action plan ---
 
-// 「勝率アップミッション」: 勝率への影響が大きい順にミッションを示す。影響度「小」は「もっと見る」に畳む。
-// 機体未選択時は全機体混合の診断になるため、機体選択を促す一文を添える。
+// 「勝率アップミッション」: 勝率への影響が大きい順にミッションを示し、影響度「小」は「もっと見る」に畳む
 var IMPACT_LABEL = { high: '大', mid: '中', low: '小' };
 var FOCUS_KEY = 'catalyzer_focus';
 var FOCUS_SLOTS = 10;
@@ -722,16 +721,22 @@ function WinRateGain({ from, to }) {
 }
 
 // 挑戦中のミッションは利用者・機体ごとに1件。選択時点の最新試合より後の試合で達成を判定する
+function isValidFocus(f) {
+  return !!f && !!f.goal && typeof f.goal.key === 'string' && typeof f.title === 'string' && typeof f.since === 'string';
+}
 function loadFocus(userKey, ms) {
+  if (!userKey) return null;
   try {
     var v = JSON.parse(localStorage.getItem(FOCUS_KEY));
-    return v && v.user_key === userKey ? (v.by_ms || {})[ms || ''] || null : null;
+    var f = v && v.user_key === userKey && v.by_ms ? v.by_ms[ms || ''] : null;
+    return isValidFocus(f) ? f : null;
   } catch (e) { return null; }
 }
 function saveFocus(userKey, ms, focus) {
+  if (!userKey) return;
   try {
     var v = JSON.parse(localStorage.getItem(FOCUS_KEY));
-    if (!v || v.user_key !== userKey) v = { user_key: userKey, by_ms: {} };
+    if (!v || v.user_key !== userKey || !v.by_ms) v = { user_key: userKey, by_ms: {} };
     if (focus) v.by_ms[ms || ''] = focus;
     else delete v.by_ms[ms || ''];
     localStorage.setItem(FOCUS_KEY, JSON.stringify(v));
@@ -746,10 +751,8 @@ function primaryActions(actions) {
 
 function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
   var targets = (matches || []).filter(function (m) { return m.date > focus.since && (!selectedMs || m.ms === selectedMs); });
-  var marks = evaluateGoal(focus.goal, targets).marks.slice(0, FOCUS_SLOTS);
-  var achieved = marks.filter(function (x) { return x.ok; }).length;
-  var streak = 0;
-  for (var i = marks.length - 1; i >= 0 && marks[i].ok; i--) streak++;
+  var ev = evaluateGoal(focus.goal, targets, FOCUS_SLOTS);
+  var marks = ev.marks, achieved = ev.achieved, streak = ev.streak;
   var complete = marks.length >= FOCUS_SLOTS;
   var last = marks[marks.length - 1];
   var slots = [];
@@ -778,11 +781,16 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
 }
 
 function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
-  var focusRef = useState(function () { return { scope: userKey + '|' + (selectedMs || ''), value: loadFocus(userKey, selectedMs) }; });
+  var scope = userKey + '|' + (selectedMs || '');
+  var focusRef = useState(function () { return { scope: scope, value: loadFocus(userKey, selectedMs) }; });
   var focusState = focusRef[0], setFocusState = focusRef[1];
   var moreRef = useState(false);
   var showMore = moreRef[0], setShowMore = moreRef[1];
-  var scope = userKey + '|' + (selectedMs || '');
+  // 利用者・機体が変わったら挑戦中ミッションを読み直し、展開状態を戻す（同期前の1描画は別 scope の値を出さない）
+  useEffect(function () {
+    if (focusState.scope !== scope) setFocusState({ scope: scope, value: loadFocus(userKey, selectedMs) });
+    setShowMore(false);
+  }, [scope]);
   var focus = focusState.scope === scope ? focusState.value : loadFocus(userKey, selectedMs);
   if (!plan) return null;
   function setFocus(f) {
@@ -825,13 +833,13 @@ function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
         <div class="action-title">${a.title}<span class=${'action-impact ' + a.level}>影響度 ${IMPACT_LABEL[a.level]}</span></div>
         <div class="action-detail">${a.detail}</div>
         <${WinRateGain} from=${a.win_rate_from} to=${a.win_rate_to} />
-        <button class="focus-btn" onClick=${function () { choose(a); }}>このミッションに挑戦</button>
+        ${userKey && html`<button class="focus-btn" onClick=${function () { choose(a); }}>このミッションに挑戦</button>`}
       </li>`;
     })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。</p>`}
     ${plan.actions.length > primaryActions(plan.actions).length && html`<button class="action-more" onClick=${function () { setShowMore(!showMore); }}>
       ${showMore ? '閉じる' : 'もっと見る（影響度 小 あと' + (plan.actions.length - primaryActions(plan.actions).length) + '件）'}
     </button>`}
-    ${plan.actions.length > 0 && html`<p class="action-hint">ミッションを1つ選ぶと、次の試合から${FOCUS_SLOTS}戦分の達成状況を記録します。</p>`}
+    ${userKey && plan.actions.length > 0 && html`<p class="action-hint">ミッションを1つ選ぶと、次の試合から${FOCUS_SLOTS}戦分の達成状況を記録します。</p>`}
     ${!selectedMs && html`<p class="action-hint">上部で機体を選ぶと、その機体に絞って診断します。</p>`}
   <//>`;
 }

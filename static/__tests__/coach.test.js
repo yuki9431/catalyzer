@@ -68,8 +68,10 @@ describe('computeActionPlan', function () {
     // 20戦12勝。2回撃墜の6戦がそれ以外(14戦12勝)並みに勝てれば約17.1勝
     assert.equal(death.win_rate_from, 60);
     assert.equal(death.win_rate_to, 85.7);
-    assert.ok(death.impact > 0);
-    assert.ok(['high', 'mid', 'low'].indexOf(death.level) >= 0);
+    // 影響度は全体勝率の見込み上昇 pt で、見込み勝率の上がり幅と一致する
+    assert.equal(death.impact, 25.7);
+    assert.equal(death.level, 'high');
+    assert.equal(Math.round((death.win_rate_to - death.win_rate_from) * 10) / 10, death.impact);
   });
 
   it('flags first-fall when it loses more than second-fall', function () {
@@ -293,5 +295,61 @@ describe('evaluateGoal', function () {
     assert.equal(evaluateGoal({ key: 'burst' }, [m]).achieved, 1);
     assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'first' }, [m]).achieved, 1);
     assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'second' }, [m]).total, 0);
+  });
+
+  it('returns an empty result for a missing goal and caps marks with limit', function () {
+    assert.deepEqual(evaluateGoal(undefined, [makeMatch()]), { total: 0, achieved: 0, streak: 0, marks: [] });
+    var ms = [1, 1, 2, 1].map(function (d, i) { return makeMatch({ date: dateAt(i), deaths: d }); });
+    var ev = evaluateGoal({ key: 'deaths' }, ms, 3);
+    assert.deepEqual([ev.total, ev.achieved, ev.streak], [3, 2, 0]);
+  });
+
+  it('judges damage, burst count and unknown cost', function () {
+    var m = makeMatch({ dmg_taken: 700, dmg_given: 900, bursts: 1, actions: [{ action: 'exbst-f', action_start_sec: 30, action_end_sec: 40 }] });
+    assert.equal(evaluateGoal({ key: 'dmg_taken', line: 700 }, [m]).achieved, 1);
+    assert.equal(evaluateGoal({ key: 'dmg_given', line: 950 }, [m]).achieved, 0);
+    assert.equal(evaluateGoal({ key: 'burst_count', line: 2 }, [m]).total, 1);
+    assert.equal(evaluateGoal({ key: 'burst_count', line: 2 }, [m]).achieved, 0);
+    assert.equal(evaluateGoal({ key: 'deaths' }, [makeMatch({ ms_cost: 0 })]).total, 0);
+  });
+
+  it('judges a match with no own events but a timeline as 0 deaths / 0 bursts', function () {
+    var m = makeMatch({ deaths: 0, bursts: 0, actions: [], partner_actions: [{ action: 'death', action_start_sec: 80 }] });
+    assert.deepEqual(evaluateGoal({ key: 'burst' }, [m]).marks.map(function (x) { return x.ok; }), [true]);
+    assert.deepEqual(evaluateGoal({ key: 'fall_order', avoid: 'first' }, [m]).marks.map(function (x) { return x.ok; }), [true]);
+    assert.deepEqual(evaluateGoal({ key: 'consecutive_fall' }, [m]).marks.map(function (x) { return x.ok; }), [true]);
+    assert.deepEqual(evaluateGoal({ key: 'burst_count', line: 1 }, [m]).marks.map(function (x) { return x.ok; }), [false]);
+    // タイムライン自体が無い試合は判定しない
+    assert.equal(evaluateGoal({ key: 'burst' }, [makeMatch({ actions: [], partner_actions: [] })]).total, 0);
+  });
+
+  it('skips consecutive-fall for team 0 deaths and fall order for simultaneous deaths', function () {
+    var none = makeMatch({ actions: [{ action: 'exbst-f', action_start_sec: 30, action_end_sec: 40 }], partner_actions: [] });
+    assert.equal(evaluateGoal({ key: 'consecutive_fall' }, [none]).total, 0);
+    var same = makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }], partner_actions: [{ action: 'death', action_start_sec: 60 }] });
+    assert.equal(evaluateGoal({ key: 'fall_order', avoid: 'first' }, [same]).total, 0);
+  });
+});
+
+describe('computeActionPlan thresholds', function () {
+  function deathsPlan(badWins, goodWins, goodTotal) {
+    var ms = [];
+    for (var i = 0; i < 4; i++) ms.push(makeMatch({ date: dateAt(i), deaths: 2, win: i < badWins }));
+    for (var j = 0; j < goodTotal; j++) ms.push(makeMatch({ date: dateAt(4 + j), deaths: 1, win: j < goodWins }));
+    return computeActionPlan(ms);
+  }
+
+  it('adopts a gap of exactly 8pt and rejects a smaller one', function () {
+    // bad 4戦2勝(50%) / good 50戦29勝(58%) → 差8pt
+    assert.ok(keys(deathsPlan(2, 29, 50)).indexOf('deaths') >= 0);
+    // good 7戦4勝(57.1%) → 差7.1pt
+    assert.equal(keys(deathsPlan(2, 4, 7)).indexOf('deaths'), -1);
+  });
+
+  it('requires at least 4 matches on each side', function () {
+    var ms = [];
+    for (var i = 0; i < 3; i++) ms.push(makeMatch({ date: dateAt(i), deaths: 2, win: false }));
+    for (var j = 0; j < 17; j++) ms.push(makeMatch({ date: dateAt(3 + j), deaths: 1, win: true }));
+    assert.equal(keys(computeActionPlan(ms)).indexOf('deaths'), -1);
   });
 });
