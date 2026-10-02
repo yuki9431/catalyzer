@@ -93,6 +93,11 @@
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── format.test.js         # format.js テスト
+│   │   ├── search.test.js         # search.js テスト
+│   │   ├── classrecord.test.js    # classrecord.js テスト
+│   │   ├── popover.test.js        # popover.js テスト
+│   │   ├── chart-canvas.test.js   # chart-canvas.js テスト
+│   │   ├── skeleton-actions.test.js # Skeleton への actions 渡し忘れ検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）

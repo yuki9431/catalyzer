@@ -3,8 +3,8 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import { SCREENS } from './screens.js';
 
-// クラス名セレクタ(`.foo`)を検出する。data-ui・id・タグ・ARIA だけで探す規約
-var CLASS_SEL = /(^|[\s>+~,(])\.[A-Za-z_-]/;
+// クラス名セレクタ(`.foo`・`div.foo`)を検出する(属性値内は除く)。data-ui・id・タグ・ARIA だけで探す規約
+var CLASS_SEL = /(^|[^\d])\.[A-Za-z_-]/;
 
 function selectors(screen) {
   var ops = screen.ops.map(function (op) { return op.click ? op.click[0] : op.type ? op.type[0] : op.scroll[0]; });
@@ -15,7 +15,7 @@ describe('screens', () => {
   it('全画面の操作・必須要素がクラス名セレクタを使わない', () => {
     var bad = [];
     SCREENS.forEach(function (s) {
-      selectors(s).forEach(function (sel) { if (CLASS_SEL.test(sel)) bad.push(s.id + ': ' + sel); });
+      selectors(s).forEach(function (sel) { if (CLASS_SEL.test(sel.replace(/\[[^\]]*\]/g, '[]'))) bad.push(s.id + ': ' + sel); });
     });
     assert.deepStrictEqual(bad, []);
   });
