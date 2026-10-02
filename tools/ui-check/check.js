@@ -30,6 +30,15 @@ function countExpr(sel, text) {
     'return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)}).length})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
 }
 
+// 画面の左右端をまたぐ要素（横スクロールする祖先の中と、全体が画面外のものは除く）の最初の1件を返す式
+var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelectorAll("*");' +
+  'for(var i=0;i<all.length;i++){var e=all[i],r=e.getBoundingClientRect();if(r.width<1||r.height<1)continue;' +
+  'if(!((r.left<-1&&r.right>0)||(r.right>W+1&&r.left<W)))continue;if(getComputedStyle(e).visibility==="hidden")continue;' +
+  'for(var p=e.parentElement;p&&p!==document.body;p=p.parentElement){if(getComputedStyle(p).overflowX!=="visible")break}' +
+  'if(p&&p!==document.body)continue;' +
+  'return e.tagName.toLowerCase()+(e.className&&typeof e.className==="string"?"."+e.className.trim().split(/\\s+/).join("."):"")+" (x "+Math.round(r.left)+"〜"+Math.round(r.right)+", 画面幅 "+W+")"}' +
+  'return null})()';
+
 async function runScreen(conn, origin, screen, update) {
   var ctx = await conn.send('Target.createBrowserContext', {});
   var ctxId = ctx.browserContextId;
@@ -147,6 +156,8 @@ async function runScreen(conn, origin, screen, update) {
     if (external.length) return fail('外部リクエスト ' + external[0]);
     if (dialogs.length) return fail('ダイアログ ' + dialogs[0]);
     if (consoleErrors.length) return fail('console エラー ' + consoleErrors[0]);
+    var overflow = await evalJs(OVERFLOW_EXPR);
+    if (overflow) return fail('画面の左右にはみ出し ' + overflow);
 
     var basePath = path.join(BASELINE, screen.id + '.png');
     if (update) {
