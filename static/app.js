@@ -26,6 +26,7 @@ import {
   Tips, SortableTable, Table, SubSection, RangeCalendar,
 } from './components/ui.js';
 import { SearchView } from './components/search.js';
+import { usePopover, useDismiss, Popover } from './components/popover.js';
 import { ClassRecordView } from './components/classrecord.js';
 import {
   useInView,
@@ -85,8 +86,8 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   var keys = PERIOD_KEYS.filter(function (k) { return periods[k]; });
   if (keys.length <= 1 && !userKey) return null;
 
-  var openRef = useState(false);
-  var isOpen = openRef[0], setIsOpen = openRef[1];
+  var pop = usePopover({ mode: 'sheet-top', lockScroll: true });
+  var isOpen = pop.isOpen;
   var customRef = useState(false);
   var showCustom = customRef[0], setShowCustom = customRef[1];
   var errorRef = useState('');
@@ -108,8 +109,6 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   var timeRef = useState(false);
   var showTime = timeRef[0], setShowTime = timeRef[1];
 
-  var containerRef = useRef(null);
-  var triggerRef = useRef(null);
   var customElRef = useRef(null);
 
   // 日付指定を開いたらカレンダーが見えるようドロップダウン内でスクロールする
@@ -119,37 +118,13 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
     }
   }, [showCustom]);
 
-  useEffect(function () {
-    function handleClick(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return function () { document.removeEventListener('mousedown', handleClick); };
-  }, []);
-
-  useEffect(function () {
-    if (isOpen && window.innerWidth <= 720) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return function () { document.body.style.overflow = ''; };
-  }, [isOpen]);
-
-  var dropStyle = {};
-  if (isOpen && triggerRef.current && window.innerWidth <= 720) {
-    dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
-  }
-
   var currentLabel = selected === 'custom'
     ? (periods.custom ? periods.custom.label : '日付指定')
     : (periods[selected] ? periods[selected].label : '全データ');
 
   function selectPreset(k) {
     onSelect(k);
-    setIsOpen(false);
+    pop.close();
     setShowCustom(false);
   }
 
@@ -166,15 +141,14 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
     var end = showTime ? formatDt(endDate, endHour, endMin) : endDate + ' 23:59';
     setCustomError('');
     onCustomReport({ start: start, end: end });
-    setIsOpen(false);
+    pop.close();
   }
 
-  return html`<div class="period-selector" ref=${containerRef}>
-    <button class="period-trigger" data-ui="period-trigger" ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
+  return html`<div class="period-selector" ref=${pop.rootRef}>
+    <button class="period-trigger" data-ui="period-trigger" ref=${pop.triggerRef} onClick=${pop.toggle}>
       ${currentLabel} <span class="period-arrow">${isOpen ? '\u25B2' : '\u25BC'}</span>
     </button>
-    ${isOpen && html`<div class="period-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="period-dropdown" data-ui="period-panel" style=${dropStyle}>
+    <${Popover} pop=${pop} panelClass="period-dropdown" backdropClass="period-backdrop" ui="period-panel">
       <div class="period-dropdown-list">
         ${keys.map(function (k) {
           return html`<button data-ui="period-item" class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
@@ -210,7 +184,7 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
         <button class="period-custom-apply" onClick=${handleCustomApply}>適用</button>
         ${customError && html`<p class="period-custom-error">${customError}</p>`}
       </div>`}
-    </div>`}
+    </${Popover}>
   </div>`;
 }
 
@@ -258,6 +232,7 @@ function HamburgerMenu({ isOpen, onClose, shareData, onLogout, currentView, onNa
     return function () { document.body.style.overflow = ''; };
   }, [isOpen]);
 
+  useDismiss(isOpen, null, onClose);
   if (!isOpen) return null;
   var view = currentView || 'report';
   function go(target) {
@@ -290,35 +265,22 @@ function HamburgerMenu({ isOpen, onClose, shareData, onLogout, currentView, onNa
 }
 
 function MsSelector({ entries, selected, onSelect }) {
-  var ref = useState(false);
-  var isOpen = ref[0], setIsOpen = ref[1];
-  var containerRef = useRef(null);
-  useEffect(function () {
-    if (!isOpen) return;
-    function handleClick(e) { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); }
-    document.addEventListener('click', handleClick, true);
-    return function () { document.removeEventListener('click', handleClick, true); };
-  }, [isOpen]);
+  var pop = usePopover({ mode: 'sheet-top' });
+  var isOpen = pop.isOpen;
   var label = selected ? '1機選択' : '全機体';
   var isSelected = !!selected;
-  var triggerRef = useRef(null);
-  var dropStyle = {};
-  if (isOpen && triggerRef.current && window.innerWidth <= 720) {
-    dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
-  }
-  return html`<div class="ms-topbar-wrap" ref=${containerRef}>
-    <button data-ui="ms-trigger" class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
+  return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
+    <button data-ui="ms-trigger" class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${pop.triggerRef} onClick=${pop.toggle}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="ms-topbar-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="ms-topbar-dropdown" data-ui="ms-panel" style=${dropStyle}>
+    <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="ms-panel">
       <button data-ui="ms-item" class=${'ms-topbar-item' + (!selected ? ' active' : '')}
-        onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
+        onClick=${function () { onSelect(null); pop.close(); }}>全機体</button>
       ${entries.map(function (e) {
         return html`<button data-ui="ms-item" class=${'ms-topbar-item' + (selected === e.name ? ' active' : '')}
-          onClick=${function () { onSelect(e.name); setIsOpen(false); }}>${esc(e.name)} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
+          onClick=${function () { onSelect(e.name); pop.close(); }}>${esc(e.name)} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
       })}
-    </div>`}
+    </${Popover}>
   </div>`;
 }
 
@@ -638,28 +600,21 @@ function MsCompareChart({ entries }) {
 }
 
 function PartnerDropdown({ items, idx, onSelect }) {
-  var ref = useState(false);
-  var isOpen = ref[0], setIsOpen = ref[1];
-  var containerRef = useRef(null);
-  useEffect(function () {
-    if (!isOpen) return;
-    function handleClick(e) { if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false); }
-    document.addEventListener('click', handleClick, true);
-    return function () { document.removeEventListener('click', handleClick, true); };
-  }, [isOpen]);
+  var pop = usePopover({});
+  var isOpen = pop.isOpen;
   var current = items[idx];
   var label = current.partner_name + (current.team_name ? ' 【' + current.team_name + '】' : '');
-  return html`<div class="panel-select-wrap" ref=${containerRef}>
-    <button class="panel-select-trigger" data-ui="select-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+  return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
+    <button class="panel-select-trigger" data-ui="select-trigger" ref=${pop.triggerRef} onClick=${pop.toggle}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-dropdown" data-ui="select-panel">
+    <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
       ${items.map(function (item, i) {
         var itemLabel = item.partner_name + (item.team_name ? ' 【' + item.team_name + '】' : '');
         return html`<button data-ui="select-item" class=${'panel-select-item' + (i === idx ? ' active' : '')}
-          onClick=${function () { onSelect(i); setIsOpen(false); }}>${esc(itemLabel)}</button>`;
+          onClick=${function () { onSelect(i); pop.close(); }}>${esc(itemLabel)}</button>`;
       })}
-    </div>`}
+    </${Popover}>
   </div>`;
 }
 

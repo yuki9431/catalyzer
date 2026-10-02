@@ -10,6 +10,7 @@ import {
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
+import { useDismiss } from './popover.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 
 var PAGE_SIZE = 20;
@@ -387,16 +388,14 @@ function DetailThumb({ name, msImages }) {
 
 // 試合詳細モーダル。
 function DetailModal({ match, msImages, onClose }) {
+  useDismiss(true, null, onClose);
   useEffect(function () {
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
-    document.addEventListener('keydown', onKey);
     // モーダル表示中は背景（body/html）のスクロールを止める。
     var prevBody = document.body.style.overflow;
     var prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
     return function () {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevBody;
       document.documentElement.style.overflow = prevHtml;
     };
@@ -490,12 +489,7 @@ function SortControl({ sortKey, desc, onSortKey, onToggleDir }) {
   var openRef = useState(false);
   var open = openRef[0], setOpen = openRef[1];
   var ref = useRef(null);
-  useEffect(function () {
-    if (!open) return;
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener('mousedown', onDoc);
-    return function () { document.removeEventListener('mousedown', onDoc); };
-  }, [open]);
+  useDismiss(open, ref, function () { setOpen(false); });
   var current = SORT_OPTIONS.find(function (o) { return o.key === sortKey; }) || SORT_OPTIONS[0];
 
   return html`<div class="search-sort" ref=${ref}>

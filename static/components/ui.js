@@ -1,5 +1,6 @@
 import { html, useState, useMemo, useRef, useEffect } from '../htm-preact-standalone.js';
 import { boldText, cellValue, cellDisplay, esc } from '../lib/format.js';
+import { usePopover, useDismiss, Popover } from './popover.js';
 
 export function Tips({ tips }) {
   if (!tips || !tips.length) return null;
@@ -170,22 +171,15 @@ export function RangeCalendar({ startDate, endDate, onSelectStart, onSelectEnd }
 // 項目が多い(8件超)ときは検索ボックスを出し、ラベル部分一致で絞り込める。
 var DROPDOWN_SEARCH_THRESHOLD = 8;
 
-export function Dropdown({ value, options, onChange, placeholder, noClear }) {
-  var openRef = useState(false);
-  var isOpen = openRef[0], setIsOpen = openRef[1];
+export function Dropdown({ value, options, onChange, placeholder, noClear, mode }) {
   var queryRef = useState('');
   var query = queryRef[0], setQuery = queryRef[1];
-  var ref = useRef(null);
   var inputRef = useRef(null);
-
-  function close() { setIsOpen(false); setQuery(''); }
+  var pop = usePopover({ mode: mode, onClose: function () { setQuery(''); } });
+  var isOpen = pop.isOpen, close = pop.close;
 
   useEffect(function () {
-    if (!isOpen) return;
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) close(); }
-    document.addEventListener('click', onDoc, true);
-    if (inputRef.current) inputRef.current.focus();
-    return function () { document.removeEventListener('click', onDoc, true); };
+    if (isOpen && inputRef.current) inputRef.current.focus();
   }, [isOpen]);
 
   var ph = placeholder || '-';
@@ -198,13 +192,13 @@ export function Dropdown({ value, options, onChange, placeholder, noClear }) {
   var q = query.trim().toLowerCase();
   var filtered = q ? options.filter(function (o) { return String(o.label).toLowerCase().indexOf(q) >= 0; }) : options;
 
-  return html`<div class="panel-select-wrap" ref=${ref}>
-    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen}
-      onClick=${function () { isOpen ? close() : setIsOpen(true); }}>
+  return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
+    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen} ref=${pop.triggerRef}
+      onClick=${pop.toggle}>
       <span class="panel-select-label">${esc(label)}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-dropdown" data-ui="select-panel">
+    <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
       ${showSearch && html`<input type="text" class="panel-select-search" ref=${inputRef}
         placeholder="絞り込み..." value=${query}
         onInput=${function (e) { setQuery(e.target.value); }} />`}
@@ -215,28 +209,22 @@ export function Dropdown({ value, options, onChange, placeholder, noClear }) {
           onClick=${function () { pick(o.value); }}>${esc(o.label)}</button>`;
       })}
       ${q && !filtered.length && html`<div class="panel-select-empty">該当なし</div>`}
-    </div>`}
+    </${Popover}>
   </div>`;
 }
 
 // --- 複数選択ドロップダウン（.panel-select-* スタイル。項目内AND/ORは呼び出し側で扱う） ---
 // values は選択済み value の配列。options は [{value,label}]。トグルで追加/削除する。
-export function MultiSelect({ values, options, onChange, placeholder }) {
-  var openRef = useState(false);
-  var isOpen = openRef[0], setIsOpen = openRef[1];
+export function MultiSelect({ values, options, onChange, placeholder, mode }) {
   var queryRef = useState('');
   var query = queryRef[0], setQuery = queryRef[1];
-  var ref = useRef(null);
   var inputRef = useRef(null);
   var sel = values || [];
+  var pop = usePopover({ mode: mode, onClose: function () { setQuery(''); } });
+  var isOpen = pop.isOpen, close = pop.close;
 
-  function close() { setIsOpen(false); setQuery(''); }
   useEffect(function () {
-    if (!isOpen) return;
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) close(); }
-    document.addEventListener('click', onDoc, true);
-    if (inputRef.current) inputRef.current.focus();
-    return function () { document.removeEventListener('click', onDoc, true); };
+    if (isOpen && inputRef.current) inputRef.current.focus();
   }, [isOpen]);
 
   function toggle(v) {
@@ -250,13 +238,13 @@ export function MultiSelect({ values, options, onChange, placeholder }) {
   var q = query.trim().toLowerCase();
   var filtered = q ? options.filter(function (o) { return String(o.label).toLowerCase().indexOf(q) >= 0; }) : options;
 
-  return html`<div class="panel-select-wrap" ref=${ref}>
-    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen}
-      onClick=${function () { isOpen ? close() : setIsOpen(true); }}>
+  return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
+    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen} ref=${pop.triggerRef}
+      onClick=${pop.toggle}>
       <span class="panel-select-label">${esc(triggerLabel)}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-dropdown" data-ui="select-panel">
+    <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
       ${showSearch && html`<input type="text" class="panel-select-search" ref=${inputRef}
         placeholder="絞り込み..." value=${query} onInput=${function (e) { setQuery(e.target.value); }} />`}
       ${filtered.map(function (o) {
@@ -267,7 +255,7 @@ export function MultiSelect({ values, options, onChange, placeholder }) {
         </button>`;
       })}
       ${q && !filtered.length && html`<div class="panel-select-empty">該当なし</div>`}
-    </div>`}
+    </${Popover}>
   </div>`;
 }
 
@@ -277,12 +265,7 @@ export function Autocomplete({ value, onChange, options, placeholder }) {
   var openRef = useState(false);
   var open = openRef[0], setOpen = openRef[1];
   var ref = useRef(null);
-  useEffect(function () {
-    if (!open) return;
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener('click', onDoc, true);
-    return function () { document.removeEventListener('click', onDoc, true); };
-  }, [open]);
+  useDismiss(open, ref, function () { setOpen(false); });
 
   var q = (value || '').trim().toLowerCase();
   var matches = q
