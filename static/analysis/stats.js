@@ -320,11 +320,11 @@ export function computeEnemyMatchup(matches, minMatches) {
   if (weak.length) {
     var highDmgTaken = weak.filter(function (r) { return r.avg_dmg_taken >= 1200; });
     if (highDmgTaken.length) {
-      tips.push({ text: '負け越し（勝率40%以下）で平均被ダメが1200以上の敵機', details: highDmgTaken.slice(0, 3).map(function (r) { return '**' + r.ms + '** 被ダメ ' + r.avg_dmg_taken; }) });
+      tips.push({ text: '負け越し（勝率40%以下）で平均被ダメが1200以上の敵機（試合数の多い順に3件まで）', details: highDmgTaken.slice(0, 3).map(function (r) { return '**' + r.ms + '** 被ダメ ' + r.avg_dmg_taken; }) });
     }
     var lowDmgGiven = weak.filter(function (r) { return r.avg_dmg_given <= 900; });
     if (lowDmgGiven.length) {
-      tips.push({ text: '負け越し（勝率40%以下）で平均与ダメが900以下の敵機', details: lowDmgGiven.slice(0, 3).map(function (r) { return '**' + r.ms + '** 与ダメ ' + r.avg_dmg_given; }) });
+      tips.push({ text: '負け越し（勝率40%以下）で平均与ダメが900以下の敵機（試合数の多い順に3件まで）', details: lowDmgGiven.slice(0, 3).map(function (r) { return '**' + r.ms + '** 与ダメ ' + r.avg_dmg_given; }) });
     }
   }
 
@@ -935,7 +935,7 @@ export function computeBurstType(matches) {
     var byWin = eligible.slice().sort(function (a, b) { return b.win_rate - a.win_rate; });
     var best = byWin[0], worst = byWin[byWin.length - 1];
     if (best.win_rate - worst.win_rate >= 5) {
-      tips.push('5戦以上の覚醒のうち、勝率が最も高いのは **' + best.label + '**（' + best.win_rate + '%）、最も低いのは **' + worst.label + '**（' + worst.win_rate + '%）');
+      tips.push('5試合以上で使った覚醒タイプのうち、勝率が最も高いのは **' + best.label + '**（' + best.win_rate + '%）、最も低いのは **' + worst.label + '**（' + worst.win_rate + '%）');
     }
   }
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
