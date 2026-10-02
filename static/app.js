@@ -1,3 +1,4 @@
+import { cssVar } from './lib/theme.js';
 import { html, render, useState, useMemo, useCallback, useEffect, useRef } from './htm-preact-standalone.js';
 import {
   PERIOD_DAYS, filterByPlayDays,
@@ -458,9 +459,9 @@ function BasicLensSection({ basic, pattern, lens }) {
     return [clampMetric(dgv, 'dmgGiven'), clampMetric(kv, 'kills'), clampMetric(bv, 'bursts'), clampMetric(dtv, 'dmgTaken'), clampMetric(dthv, 'deaths'), clampMetric(exv, 'exDmg')];
   }
   var seriesByLens = {
-    all: { label: '全体', color: '#81d4fa', bg: 'rgba(129,212,250,.2)', data: vec(basic.avg_dmg_given, basic.avg_kills, basic.avg_bursts, basic.avg_dmg_taken, basic.avg_deaths, basic.avg_ex_dmg) },
-    win: { label: '勝利時', color: '#69f0ae', bg: 'rgba(105,240,174,.2)', data: vec(wmVal('平均与ダメージ'), wmVal('平均撃墜'), wmVal('平均覚醒回数'), wmVal('平均被ダメージ'), wmVal('平均被撃墜'), wmVal('平均EXダメージ')) },
-    loss: { label: '敗北時', color: '#ef5350', bg: 'rgba(239,83,80,.18)', data: vec(wmVal('平均与ダメージ'), wmVal('平均撃墜'), wmVal('平均覚醒回数'), wmVal('平均被ダメージ'), wmVal('平均被撃墜'), wmVal('平均EXダメージ')) },
+    all: { label: '全体', color: cssVar('--accent-2'), bg: cssVar('--accent-2-a20'), data: vec(basic.avg_dmg_given, basic.avg_kills, basic.avg_bursts, basic.avg_dmg_taken, basic.avg_deaths, basic.avg_ex_dmg) },
+    win: { label: '勝利時', color: cssVar('--great'), bg: cssVar('--great-a20'), data: vec(wmVal('平均与ダメージ'), wmVal('平均撃墜'), wmVal('平均覚醒回数'), wmVal('平均被ダメージ'), wmVal('平均被撃墜'), wmVal('平均EXダメージ')) },
+    loss: { label: '敗北時', color: cssVar('--terrible'), bg: cssVar('--terrible-a18'), data: vec(wmVal('平均与ダメージ'), wmVal('平均撃墜'), wmVal('平均覚醒回数'), wmVal('平均被ダメージ'), wmVal('平均被撃墜'), wmVal('平均EXダメージ')) },
   };
 
   // [ラベル, 全体値, 色関数]。勝敗時はwin_loss_patternの同名metricから値を引く
@@ -505,6 +506,7 @@ function BasicLensSection({ basic, pattern, lens }) {
 var inBarLabel = {
   id: 'inBarLabel',
   afterDatasetsDraw: function (chart) {
+    var textColor = cssVar('--text'), goodColor = cssVar('--good'), badColor = cssVar('--bad');
     var ctx = chart.ctx;
     var meta = chart.getDatasetMeta(0);
     var x0 = chart.scales.x.getPixelForValue(0);
@@ -514,7 +516,7 @@ var inBarLabel = {
     var diffFont = '700 11px system-ui, -apple-system, sans-serif';
     ctx.font = mainFont;
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#e6edf3';
+    ctx.fillStyle = textColor;
     var ellipsize = function (text, maxWidth) {
       if (ctx.measureText(text).width <= maxWidth) return text;
       var t = text;
@@ -582,11 +584,11 @@ var inBarLabel = {
         ctx.textAlign = 'right';
         ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
       } else {
-        ctx.fillStyle = diff >= 0 ? '#a8e6cf' : '#ff8a65';
+        ctx.fillStyle = diff >= 0 ? goodColor : badColor;
         ctx.textAlign = 'left';
         ctx.fillText(diffText, endX + 8, bar.y);
       }
-      ctx.fillStyle = '#e6edf3';
+      ctx.fillStyle = textColor;
       ctx.font = mainFont;
     });
     ctx.restore();
@@ -610,7 +612,7 @@ function MsCompareChart({ entries }) {
         labels: entries.map(function (e) { return e.name; }),
         datasets: [{
           data: values,
-          backgroundColor: values.map(function (v) { return v >= 60 ? 'rgba(76, 175, 80, 0.7)' : v < 50 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(129, 212, 250, 0.35)'; }),
+          backgroundColor: values.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a35'); }),
           borderWidth: 0,
           borderRadius: 4,
           // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
@@ -622,7 +624,7 @@ function MsCompareChart({ entries }) {
         layout: { padding: { right: 4 } },
         plugins: { legend: { display: false } },
         scales: {
-          x: { min: 0, max: 100, ticks: { color: '#888', font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          x: { min: 0, max: 100, ticks: { color: cssVar('--chart-text-sub'), font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: cssVar('--chart-grid') } },
           y: { ticks: { display: false }, grid: { display: false } },
         },
       },
@@ -722,8 +724,8 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
       <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
     </div>`}
     <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[
-      { label: '自分 (' + lensLabel + ')', color: '#4fc3f7', bg: 'rgba(79,195,247,.2)', data: pVec(p.my_stats, myWl) },
-      { label: '相方 (' + lensLabel + ')', color: '#ff8a65', bg: 'rgba(255,138,101,.18)', data: pVec(p.partner_stats, partnerWl) },
+      { label: '自分 (' + lensLabel + ')', color: cssVar('--accent'), bg: cssVar('--accent-a20'), data: pVec(p.my_stats, myWl) },
+      { label: '相方 (' + lensLabel + ')', color: cssVar('--bad'), bg: cssVar('--bad-a18'), data: pVec(p.partner_stats, partnerWl) },
     ]} />
     <${Table} headers=${['項目 (' + lensLabel + ')', '自分', '相方']} rows=${headerRows.concat(statsRows)} />
     ${msRows.length > 0 && html`<p><strong>相方の使用機体:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
@@ -1858,9 +1860,9 @@ async function analyze() {
         if (resultData.partial) {
           var warning = document.getElementById('error');
           warning.style.display = 'block';
-          warning.style.backgroundColor = '#4a3800';
-          warning.style.borderColor = '#d4a017';
-          warning.style.color = '#ffd54f';
+          warning.style.backgroundColor = 'var(--warn-bg)';
+          warning.style.borderColor = 'var(--warn-border)';
+          warning.style.color = 'var(--warn-text)';
           warning.textContent = 'ガンダムモバイルからアクセスが制限されたため、一部のデータのみで分析しています。時間をおいて再度実行すると続きから取得します。';
         }
         break;

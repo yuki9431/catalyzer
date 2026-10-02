@@ -69,7 +69,8 @@
 │       ├── basicauth.go           # Basic認証ミドルウェア
 │       └── block403.go            # 403時の一時ブロック管理
 ├── static/
-│   ├── index.html                 # フロントエンド
+│   ├── index.html                 # フロントエンドHTML骨格
+│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義、他は画面・部品ごと。全14ファイル）
 │   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
@@ -81,11 +82,13 @@
 │   │   └── charts.js              # Chart.jsグラフ・レポートセクション
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
-│   │   └── format.js              # 書式・色分け・共有テキスト生成
+│   │   ├── format.js              # 書式・色分け・共有テキスト生成
+│   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む cssVar
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
-│   │   └── format.test.js         # format.js テスト
+│   │   ├── format.test.js         # format.js テスト
+│   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
 │   ├── htm-preact-standalone.js   # htm + Preactライブラリ
@@ -139,6 +142,7 @@
 | `internal/nationalstats/` | 機体ごとの全国統計（勝率・使用率）JSONの読み書き |
 | `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
 | `static/` | フロントエンドHTML/JS/CSS |
+| `static/styles/` | CSS（`tokens.css` に色・文字・余白の定義、他は画面・部品ごと） |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |
 | `static/components/` | UIコンポーネント・Chart.jsグラフ |
 | `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー |

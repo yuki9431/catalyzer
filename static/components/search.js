@@ -1,4 +1,5 @@
 import { html, useState, useMemo, useEffect, useRef } from '../htm-preact-standalone.js';
+import { cssVar } from '../lib/theme.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
@@ -363,10 +364,10 @@ var RADAR_LABELS = RADAR_AXES.map(function (a) { return a.label; });
 // 4人分のレーダー系列を作る。各軸を基本データと同じ基準(clampMetric)で0-100に正規化（絶対評価）。
 function radarPlayers(match) {
   var players = [
-    { label: '自分', color: '#4fc3f7', bg: 'rgba(79,195,247,.25)', raw: [match.dmg_given, match.kills, match.bursts, match.dmg_taken, match.deaths, match.ex_dmg] },
-    { label: '相方', color: '#69f0ae', bg: 'rgba(105,240,174,.25)', raw: [match.partner_dmg_given, match.partner_kills, match.partner_bursts, match.partner_dmg_taken, match.partner_deaths, match.partner_ex_dmg] },
-    { label: '相手1', color: '#ef5350', bg: 'rgba(239,83,80,.22)', raw: [match.opponent1_dmg_given, match.opponent1_kills, match.opponent1_bursts, match.opponent1_dmg_taken, match.opponent1_deaths, match.opponent1_ex_dmg] },
-    { label: '相手2', color: '#ffca28', bg: 'rgba(255,202,40,.22)', raw: [match.opponent2_dmg_given, match.opponent2_kills, match.opponent2_bursts, match.opponent2_dmg_taken, match.opponent2_deaths, match.opponent2_ex_dmg] },
+    { label: '自分', color: cssVar('--accent'), bg: cssVar('--accent-a25'), raw: [match.dmg_given, match.kills, match.bursts, match.dmg_taken, match.deaths, match.ex_dmg] },
+    { label: '相方', color: cssVar('--great'), bg: cssVar('--great-a25'), raw: [match.partner_dmg_given, match.partner_kills, match.partner_bursts, match.partner_dmg_taken, match.partner_deaths, match.partner_ex_dmg] },
+    { label: '相手1', color: cssVar('--terrible'), bg: cssVar('--terrible-a22'), raw: [match.opponent1_dmg_given, match.opponent1_kills, match.opponent1_bursts, match.opponent1_dmg_taken, match.opponent1_deaths, match.opponent1_ex_dmg] },
+    { label: '相手2', color: cssVar('--radar-opp2'), bg: cssVar('--radar-opp2-a22'), raw: [match.opponent2_dmg_given, match.opponent2_kills, match.opponent2_bursts, match.opponent2_dmg_taken, match.opponent2_deaths, match.opponent2_ex_dmg] },
   ];
   players.forEach(function (p) {
     p.data = p.raw.map(function (v, a) { return clampMetric(v, RADAR_AXES[a].key); });

@@ -1,0 +1,41 @@
+/* ===== Period selector ===== */
+.period-selector { position: relative; display: inline-block; }
+.period-trigger { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text); font-size: 0.85em; cursor: pointer; transition: all 0.2s; width: auto; }
+.period-trigger:hover { border-color: var(--accent); }
+.period-arrow { font-size: 0.7em; color: var(--muted); }
+.period-dropdown { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-pop); z-index: 100; min-width: 240px; max-height: calc(100vh - 96px); overflow: hidden auto; }
+.period-dropdown-list { display: flex; flex-direction: column; }
+.period-dropdown-item { padding: 10px 16px; border: none; background: none; color: var(--text); font-size: 0.9em; cursor: pointer; text-align: left; transition: all 0.15s; width: 100%; }
+.period-dropdown-item:hover { background: var(--panel-2); }
+.period-dropdown-item.active { color: var(--accent); background: var(--bg); font-weight: bold; }
+.period-dropdown-custom { border-top: 1px solid var(--line); }
+.period-custom { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; min-width: 300px; }
+.period-custom-range { display: flex; gap: 12px; }
+.period-custom-col { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.period-custom-title { color: var(--accent); font-size: 0.85em; font-weight: bold; }
+.period-custom-value { color: var(--text); font-size: 0.8em; min-height: 1.2em; }
+.period-time-toggle { padding: 4px 0; border: none; background: none; color: var(--muted); font-size: 0.8em; cursor: pointer; text-align: left; text-decoration: underline; width: auto; }
+.period-time-toggle:hover { color: var(--accent); }
+.period-custom-apply { padding: 8px 16px; border: none; border-radius: 6px; background: var(--accent); color: var(--on-accent); font-size: 0.9em; font-weight: bold; cursor: pointer; transition: background 0.2s; width: 100%; }
+.period-custom-apply:hover { background: var(--accent-2); }
+.period-custom-apply:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; }
+.period-custom-error { color: var(--error-text); font-size: 0.8em; margin: 0; }
+.cal { user-select: none; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-nav { background: none; border: none; color: var(--text-dim); font-size: 0.85em; cursor: pointer; padding: 4px 8px; border-radius: 4px; width: auto; }
+.cal-nav:hover { background: var(--surface-sub); color: var(--text); }
+.cal-title { color: var(--text); font-size: 0.85em; font-weight: bold; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-dow { font-size: 0.7em; color: var(--text-faint); padding: 2px 0; }
+.cal-empty { padding: 4px; }
+.cal-day { background: none; border: 1px solid transparent; border-radius: 4px; color: var(--text-dim); font-size: 0.8em; padding: 4px 0; cursor: pointer; width: auto; }
+.cal-day:hover { background: var(--surface-sub); color: var(--text); border-color: var(--line); }
+.cal-day.selected { background: var(--accent); color: var(--on-accent); font-weight: bold; border-color: var(--accent); }
+.cal-day.in-range { background: var(--accent-a15); color: var(--text); border-color: transparent; }
+.time-sel { display: flex; align-items: center; gap: 4px; }
+/* color-scheme: dark でネイティブの選択肢ポップアップを暗色描画にする（未指定だと白背景+青ハイライトで文字が読めない） */
+.time-select { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 0.85em; cursor: pointer; color-scheme: dark; }
+.time-select:focus { outline: none; border-color: var(--accent); }
+.time-colon { color: var(--text-faint); }
+.period-backdrop { display: none; }
+

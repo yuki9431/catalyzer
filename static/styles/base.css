@@ -1,0 +1,29 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--bg); overflow-x: hidden; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg) radial-gradient(1200px 600px at 50% -200px, var(--bg-glow) 0%, var(--bg) 60%) no-repeat;
+  color: var(--text); min-height: 100vh; min-height: 100dvh;
+}
+.container { max-width: 1080px; margin: 0 auto; padding: var(--gutter); padding-left: max(var(--gutter), env(safe-area-inset-left)); padding-right: max(var(--gutter), env(safe-area-inset-right)); padding-bottom: max(var(--gutter), env(safe-area-inset-bottom)); }
+h1 { text-align: center; color: var(--accent); margin: 40px 0 10px; font-size: 1.8em; }
+h1.brand { margin: max(48px, calc(env(safe-area-inset-top) + 16px)) 0 32px; line-height: 0; }
+h1.brand img { display: block; width: min(360px, 78%); height: auto; margin: 0 auto; }
+.login-form { background: var(--panel); border-radius: 12px; padding: 30px; margin: 0 auto 30px; max-width: 480px; }
+.login-lead { text-align: center; color: var(--text); font-size: 1.05em; font-weight: 600; margin-bottom: 24px; }
+.form-group { margin-bottom: 20px; }
+label { display: block; margin-bottom: 6px; color: var(--text-dim); font-size: 0.9em; }
+input[type="text"], input[type="password"] {
+  width: 100%; padding: 12px; border: 1px solid var(--input-border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-size: 1em;
+}
+input:focus { outline: none; border-color: var(--accent); }
+button {
+  width: 100%; padding: 14px; border: none; border-radius: 8px;
+  background: var(--accent); color: var(--on-accent); font-size: 1.1em; font-weight: bold;
+  cursor: pointer; transition: background 0.2s;
+}
+button:hover { background: var(--accent-2); }
+button:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; }
+.security-note { margin: 16px 0; padding: 12px; font-size: 0.8em; color: var(--text-dim); line-height: 1.6; background: var(--surface-sub); border-radius: 8px; border-left: 3px solid var(--accent); }
+.note { margin-top: 16px; font-size: 0.8em; color: var(--text-subtle); line-height: 1.6; }
