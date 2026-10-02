@@ -242,7 +242,7 @@ export function Report({ data, userKey, actions }) {
   }
 
   if (!frontendData) {
-    return html`<${Skeleton} />`;
+    return html`<${Skeleton} actions=${actions} />`;
   }
 
   var pane;
