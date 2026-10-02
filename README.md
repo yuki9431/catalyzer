@@ -93,6 +93,7 @@
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── format.test.js         # format.js テスト
+│   │   ├── db.test.js             # db.js テスト
 │   │   ├── search.test.js         # search.js テスト
 │   │   ├── classrecord.test.js    # classrecord.js テスト
 │   │   ├── popover.test.js        # popover.js テスト

@@ -20,7 +20,7 @@ describe('Skeleton', () => {
     jsFiles(root).forEach(function (f) {
       Array.from(fs.readFileSync(f, 'utf8').matchAll(/<\$\{Skeleton\}([^>]*)>/g)).forEach(function (m) {
         found++;
-        if (!/\bactions=/.test(m[1])) bad.push(f);
+        if (!/(^|\s)actions=/.test(m[1])) bad.push(f);
       });
     });
     assert.ok(found >= 2);
