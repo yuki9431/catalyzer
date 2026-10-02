@@ -1,4 +1,4 @@
-import { cssVar } from './lib/theme.js';
+import { themeReader } from './lib/theme.js';
 import { html, render, useState, useMemo, useCallback, useEffect, useRef } from './htm-preact-standalone.js';
 import {
   PERIOD_DAYS, filterByPlayDays,
@@ -29,13 +29,12 @@ import { AppShell } from './components/shell.js';
 import { usePopover, Popover } from './components/popover.js';
 import { ClassRecordView } from './components/classrecord.js';
 import {
-  useInView,
   EnemyMatchupSection, PartnerSection, MsPairSubSection, CostPairSubSection,
   DmgContributionSubSection, TeamDeathsImpactSection, TeamDeathsHeatmap,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
   FallOrderContent, ConsecutiveFallContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
-  CompareRadar,
+  CompareRadar, MsCompareChart,
 } from './components/charts.js';
 
 // --- Constants ---
@@ -332,6 +331,7 @@ function KpiGrid({ activeTab, frontendData }) {
 // 軸はK/D比(頂点)→被ダメ(右)→EXダメ(下)→与ダメ(左)。勝率は分割で無意味なため含めない
 function BasicLensSection({ basic, pattern, lens }) {
   if (!basic) return null;
+  var cssVar = themeReader();
   if (!lens) lens = 'all';
   var metrics = (pattern && pattern.metrics) || [];
   function wmVal(label) {
@@ -388,141 +388,6 @@ function BasicLensSection({ basic, pattern, lens }) {
   </div>`;
 }
 
-// 横棒の内側に名前（左）と勝率（右）を描くプラグイン
-var inBarLabel = {
-  id: 'inBarLabel',
-  afterDatasetsDraw: function (chart) {
-    var textColor = cssVar('--text'), goodColor = cssVar('--good'), badColor = cssVar('--bad');
-    var ctx = chart.ctx;
-    var meta = chart.getDatasetMeta(0);
-    var x0 = chart.scales.x.getPixelForValue(0);
-    var areaRight = chart.chartArea.right;
-    ctx.save();
-    var mainFont = '700 12px system-ui, -apple-system, sans-serif';
-    var diffFont = '700 11px system-ui, -apple-system, sans-serif';
-    ctx.font = mainFont;
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = textColor;
-    var ellipsize = function (text, maxWidth) {
-      if (ctx.measureText(text).width <= maxWidth) return text;
-      var t = text;
-      while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
-      // 1文字も入らない幅では他のラベルと重ならないよう名前を描かない
-      return t ? t + '…' : '';
-    };
-    var natlRates = chart.data.datasets[0].nationalWinRates;
-    meta.data.forEach(function (bar, i) {
-      var own = chart.data.datasets[0].data[i];
-      var pct = own.toFixed(1) + '%';
-      var pctWidth = ctx.measureText(pct).width;
-      // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
-      var natl = natlRates ? natlRates[i] : null;
-      var diff = typeof natl === 'number' ? own - natl : null;
-      var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
-      ctx.font = diffFont;
-      var diffTextWidth = diffText ? ctx.measureText(diffText).width : 0;
-      var diffWidth = diffText ? diffTextWidth + 8 : 0;
-      ctx.font = mainFont;
-      // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
-      var nameLeft = x0 + 8;
-      var name = ellipsize(chart.data.labels[i], areaRight - nameLeft - pctWidth - 12 - diffWidth);
-      var nameRight = nameLeft + ctx.measureText(name).width;
-      var pctInside, pctX, endX;
-      // 暫定配置: 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
-      if (bar.x - 8 - pctWidth > nameRight + 6) {
-        pctInside = true;
-        endX = bar.x;
-      } else {
-        pctInside = false;
-        pctX = Math.max(bar.x + 6, nameRight + 6);
-        endX = pctX + pctWidth;
-      }
-      var diffInside = false;
-      // 棒が長く差分が右外に収まらない行は、勝率を棒内に寄せ機体名を削って差分の場所を作る（差分を落とさない）
-      if (diffText && endX + 8 + diffTextWidth > areaRight) {
-        pctInside = true;
-        endX = bar.x;
-        var nameLimit = bar.x - 8 - pctWidth - 6;
-        if (bar.x + 8 + diffTextWidth > areaRight) {
-          // 機体名を消しても棒内に入らないほど狭い場合だけ差分を諦める
-          if (nameLimit - diffTextWidth - 6 >= nameLeft) {
-            diffInside = true;
-            nameLimit -= diffTextWidth + 6;
-          } else {
-            diffText = '';
-          }
-        }
-        name = ellipsize(chart.data.labels[i], nameLimit - nameLeft);
-      }
-      ctx.textAlign = 'left';
-      ctx.fillText(name, nameLeft, bar.y);
-      if (pctInside) {
-        ctx.textAlign = 'right';
-        ctx.fillText(pct, bar.x - 8, bar.y);
-      } else {
-        ctx.textAlign = 'left';
-        ctx.fillText(pct, pctX, bar.y);
-      }
-      if (!diffText) return;
-      ctx.font = diffFont;
-      if (diffInside) {
-        // 棒内に置く差分は棒の色と競合するため配色は付けない
-        ctx.textAlign = 'right';
-        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
-      } else {
-        ctx.fillStyle = diff >= 0 ? goodColor : badColor;
-        ctx.textAlign = 'left';
-        ctx.fillText(diffText, endX + 8, bar.y);
-      }
-      ctx.fillStyle = textColor;
-      ctx.font = mainFont;
-    });
-    ctx.restore();
-  },
-};
-
-// 機体別の勝率を横棒で比較（棒の内側に機体名と勝率）
-function MsCompareChart({ entries }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !entries.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-    var values = entries.map(function (e) { return e.winRate; });
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: entries.map(function (e) { return e.name; }),
-        datasets: [{
-          data: values,
-          backgroundColor: values.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a35'); }),
-          borderWidth: 0,
-          borderRadius: 4,
-          // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
-          nationalWinRates: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
-        }],
-      },
-      options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        layout: { padding: { right: 4 } },
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { min: 0, max: 100, ticks: { color: cssVar('--chart-text-sub'), font: { size: 11 }, callback: function (v) { return v + '%'; } }, grid: { color: cssVar('--chart-grid') } },
-          y: { ticks: { display: false }, grid: { display: false } },
-        },
-      },
-      plugins: [inBarLabel],
-    });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [entries, inView]);
-
-  var h = Math.max(entries.length > 1 ? 160 : 72, entries.length * 46);
-  return html`<div class="chart-container" style=${'height:' + h + 'px'} ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
-}
-
 function PartnerDropdown({ items, idx, onSelect }) {
   var pop = usePopover({});
   var isOpen = pop.isOpen;
@@ -548,6 +413,7 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
   var p = fpItems[idx];
   if (!p) return null;
   if (!lens) lens = 'all';
+  var cssVar = themeReader();
 
   var myWl = (p.my_win_loss_pattern && p.my_win_loss_pattern.metrics) || [];
   var partnerWl = (p.partner_win_loss_pattern && p.partner_win_loss_pattern.metrics) || [];
