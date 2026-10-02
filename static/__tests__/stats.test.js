@@ -140,6 +140,8 @@ describe('computeDayOfWeek', function () {
     for (var i = 0; i < 10; i++) matches.push(makeMatch({ date: '2025-06-14 10:00', win: false })); // Sat losses
     var result = computeDayOfWeek(matches);
     assert.ok(result.tips.length > 0);
+    assert.ok(result.tips[0].includes('勝率は土日より') && result.tips[0].includes('ポイント'));
+    assert.ok(!result.tips[0].includes('→'));
   });
 });
 
@@ -183,10 +185,10 @@ describe('computeBasicStats', function () {
     assert.equal(result.win_rate, 0);
   });
 
-  it('generates tips for low efficiency', function () {
+  it('does not generate advice tips', function () {
     var matches = makeMatches(5, { dmg_given: 500, dmg_taken: 1000, kills: 0, deaths: 3 });
     var result = computeBasicStats(matches);
-    assert.ok(result.tips.length > 0);
+    assert.deepEqual(result.tips, []);
   });
 
   it('computes avg_bursts when actions present', function () {

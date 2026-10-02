@@ -110,8 +110,8 @@ export function computeTimeOfDay(matches) {
   }
   good.sort(function (a, b) { return a - b; });
   bad.sort(function (a, b) { return a - b; });
-  if (good.length) tips.push('好調 → **' + good.map(function (h) { return h + '時台'; }).join('、') + '**');
-  if (bad.length) tips.push('不調 → **' + bad.map(function (h) { return h + '時台'; }).join('、') + '**（強豪が多い or 疲労の影響）');
+  if (good.length) tips.push('勝率70%以上の時間帯（5戦以上）: **' + good.map(function (h) { return h + '時台'; }).join('、') + '**');
+  if (bad.length) tips.push('勝率40%以下の時間帯（5戦以上）: **' + bad.map(function (h) { return h + '時台'; }).join('、') + '**');
   return { hours: hours, tips: tips };
 }
 
@@ -140,7 +140,7 @@ export function computeDayOfWeek(matches) {
   if (diff >= 10) {
     var better = wdWr > weWr ? '平日' : '土日';
     var worse = wdWr > weWr ? '土日' : '平日';
-    tips.push('**' + better + '**が' + worse + 'より勝率 **' + Math.round(diff) + '%** 高い');
+    tips.push('**' + better + '**の勝率は' + worse + 'より **' + Math.round(diff) + 'ポイント** 高い');
   }
   return {
     weekday: weekdayData.length ? { matches: weekdayData.length, win_rate: round1(wdWr), dmg_efficiency: round3(jsDmgEfficiency(weekdayData)) } : { matches: 0, win_rate: 0, dmg_efficiency: 0 },
@@ -172,7 +172,7 @@ export function computeDailyTrend(matches) {
   });
   var tips = [];
   var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; });
-  if (badDays.length) tips.push('不調日（勝率40%以下）→ **' + badDays.join(', ') + '**。早めの切り上げが有効');
+  if (badDays.length) tips.push('勝率40%以下の日（5戦以上）: **' + badDays.join(', ') + '**');
   return { days: results, tips: tips };
 }
 
@@ -184,16 +184,6 @@ export function computeBasicStats(matches) {
   var kd = jsKdRatio(matches);
   var eff = jsDmgEfficiency(matches);
   var ab = jsAvgBursts(matches);
-
-  var tips = [];
-  if (eff < 1.0) {
-    tips.push('与被ダメ比 **' + round3(eff) + '** → 被ダメ超過。被弾を減らす立ち回りを意識');
-  } else if (eff >= 1.2) {
-    tips.push('与被ダメ比 **' + round3(eff) + '** → 優秀。この調子を維持');
-  }
-  if (kd < 1.0) {
-    tips.push('K/D比 **' + round2(kd) + '** → 1.0未満。撃墜↑ or 被撃墜↓を意識');
-  }
 
   return {
     matches: n,
@@ -208,7 +198,7 @@ export function computeBasicStats(matches) {
     kd_ratio: round2(kd),
     avg_ex_dmg: Math.round(jsAvg(matches.map(function (m) { return m.ex_dmg; }))),
     avg_bursts: ab !== null ? round2(ab) : null,
-    tips: tips,
+    tips: [],
   };
 }
 
@@ -242,16 +232,6 @@ export function computeWinLossPattern(matches) {
   addMetric('K/D比', wins.length ? kdOf(wins) : 0, losses.length ? kdOf(losses) : 0, 2);
   addMetric('平均EXダメージ', avgOf('ex_dmg', wins), avgOf('ex_dmg', losses), 1);
   addMetric('平均覚醒回数', jsAvgBursts(wins), jsAvgBursts(losses), 2);
-
-  var tips = [];
-  var lDeaths = losses.length ? jsAvg(losses.map(function (d) { return d.deaths; })) : 0;
-  var lTaken = losses.length ? jsAvg(losses.map(function (d) { return d.dmg_taken; })) : 0;
-  if (lDeaths >= 1.5) {
-    tips.push('敗北時の平均被撃墜 **' + round1(lDeaths) + '回** → 耐久管理を意識');
-  }
-  if (lTaken >= 1100) {
-    tips.push('敗北時の平均被ダメ **' + Math.round(lTaken) + '** → 無駄な被弾を減らすのが改善の鍵');
-  }
 
   // コスト帯別
   var costGroups = {};
@@ -299,7 +279,7 @@ export function computeWinLossPattern(matches) {
     });
   });
 
-  return { metrics: metrics, tips: tips, cost_patterns: costPatterns };
+  return { metrics: metrics, tips: [], cost_patterns: costPatterns };
 }
 
 export function computeEnemyMatchup(matches, minMatches) {
@@ -340,11 +320,11 @@ export function computeEnemyMatchup(matches, minMatches) {
   if (weak.length) {
     var highDmgTaken = weak.filter(function (r) { return r.avg_dmg_taken >= 1200; });
     if (highDmgTaken.length) {
-      tips.push({ text: '被ダメが多い相手 → 距離管理を見直し', details: highDmgTaken.slice(0, 3).map(function (r) { return '**' + r.ms + '** 被ダメ ' + r.avg_dmg_taken; }) });
+      tips.push({ text: '負け越し（勝率40%以下）で平均被ダメが1200以上の敵機', details: highDmgTaken.slice(0, 3).map(function (r) { return '**' + r.ms + '** 被ダメ ' + r.avg_dmg_taken; }) });
     }
     var lowDmgGiven = weak.filter(function (r) { return r.avg_dmg_given <= 900; });
     if (lowDmgGiven.length) {
-      tips.push({ text: '与ダメが低い相手 → 手数や当て方を工夫', details: lowDmgGiven.slice(0, 3).map(function (r) { return '**' + r.ms + '** 与ダメ ' + r.avg_dmg_given; }) });
+      tips.push({ text: '負け越し（勝率40%以下）で平均与ダメが900以下の敵機', details: lowDmgGiven.slice(0, 3).map(function (r) { return '**' + r.ms + '** 与ダメ ' + r.avg_dmg_given; }) });
     }
   }
 
@@ -602,9 +582,9 @@ export function computeSeason(matches) {
       var diff = sWr - fWr;
       if (Math.abs(diff) >= 5) {
         if (diff > 0) {
-          tips.push('後半が **+' + Math.round(diff) + '%** → シーズン後半に安定');
+          tips.push('後半の勝率は前半より **' + Math.round(diff) + 'ポイント** 高い');
         } else {
-          tips.push('前半が **+' + Math.round(-diff) + '%** → 後半は対戦環境が厳しくなった可能性');
+          tips.push('前半の勝率は後半より **' + Math.round(-diff) + 'ポイント** 高い');
         }
       }
     }
@@ -671,7 +651,7 @@ export function computeBurstCount(matches) {
       var wrOther = jsWinRate(others);
       var diff = wr2 - wrOther;
       if (diff > 0) {
-        tips.push('2回覚醒できた試合の勝率が **' + Math.round(diff) + '%** 高い → ゲージ管理と耐久管理が重要');
+        tips.push('2回覚醒できた試合の勝率は、それ以外の試合より **' + Math.round(diff) + 'ポイント** 高い');
       }
     }
   }
@@ -776,17 +756,18 @@ export function computeFallOrder(matches) {
     var diff = secondWr - firstWr;
     if (Math.abs(diff) >= 5) {
       var better = diff > 0 ? '後落ち' : '先落ち';
-      tips.push('**' + better + '**の方が勝率 **' + Math.round(Math.abs(diff)) + '%** 高い');
+      var worse = diff > 0 ? '先落ち' : '後落ち';
+      tips.push('**' + better + '**の試合の勝率は' + worse + 'の試合より **' + Math.round(Math.abs(diff)) + 'ポイント** 高い');
     }
   }
   var fallTotal = firstFall.length + secondFall.length + sameTime.length;
   if (firstFall.length && fallTotal > 0) {
     var firstRate = firstFall.length / fallTotal * 100;
-    if (firstRate >= 60) tips.push('先落ち率 **' + Math.round(firstRate) + '%** → 前に出すぎている可能性');
+    if (firstRate >= 60) tips.push('先落ち率は **' + Math.round(firstRate) + '%**。先落ちした試合の勝率は **' + Math.round(firstWr) + '%**');
   }
   if (noFall.length && firstFall.length) {
     var d2 = noFallWr - firstWr;
-    if (d2 >= 10) tips.push('0落ちの試合は先落ちより勝率 **' + Math.round(d2) + '%** 高い → 耐久管理が重要');
+    if (d2 >= 10) tips.push('0落ちの試合の勝率は先落ちの試合より **' + Math.round(d2) + 'ポイント** 高い');
   }
   return {
     total: total,
@@ -905,7 +886,7 @@ export function computeBurstTiming(matches) {
   if (pre && post && pre.length >= 3 && post.length >= 3) {
     var diff = jsWinRate(pre) - jsWinRate(post);
     if (diff >= 5) {
-      tips.push('1機目に覚醒できた試合の勝率が **' + Math.round(diff) + '%** 高い → 1機目の覚醒を意識しよう');
+      tips.push('1機目に覚醒できた試合の勝率は、2機目より **' + Math.round(diff) + 'ポイント** 高い');
     }
   }
   return {
@@ -949,16 +930,12 @@ export function computeBurstType(matches) {
     };
   }).filter(function (t) { return t.count > 0; });
   var tips = [];
-  var byUsage = byType.slice().sort(function (a, b) { return b.count - a.count; });
-  if (byUsage.length) {
-    tips.push('最もよく使う覚醒は **' + byUsage[0].label + '**（使用率 ' + byUsage[0].rate + '%）');
-  }
   var eligible = byType.filter(function (t) { return t.matches >= 5; });
   if (eligible.length >= 2) {
     var byWin = eligible.slice().sort(function (a, b) { return b.win_rate - a.win_rate; });
     var best = byWin[0], worst = byWin[byWin.length - 1];
     if (best.win_rate - worst.win_rate >= 5) {
-      tips.push('**' + best.label + '** の勝率が最も高い（' + best.win_rate + '%） → この覚醒を軸にすると良い');
+      tips.push('勝率が最も高い覚醒は **' + best.label + '**（' + best.win_rate + '%）、最も低い覚醒は **' + worst.label + '**（' + worst.win_rate + '%）');
     }
   }
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
@@ -1070,16 +1047,6 @@ export function computeFixedPartners(matches, tagPartners) {
     var myWl = makeWlMetrics('dmg_given', 'dmg_taken', 'kills', 'deaths', 'ex_dmg', 'actions');
     var partnerWl = makeWlMetrics('partner_dmg_given', 'partner_dmg_taken', 'partner_kills', 'partner_deaths', 'partner_ex_dmg', 'partner_actions');
 
-    var tips = [];
-    if (pEff < 0.8) tips.push('相方の与被ダメ比 **' + pEff.toFixed(3) + '** → カットやライン維持を意識');
-    if (wr < 45 && n >= 5) tips.push('勝率 **' + Math.round(wr) + '%** → 連携や機体の組み合わせを見直し');
-    if (n >= 5) {
-      if (wr >= 90) tips.push('勝率 **' + Math.round(wr) + '%** → 驚異的！全国大会優勝レベル');
-      else if (wr >= 80) tips.push('勝率 **' + Math.round(wr) + '%** → 圧巻！勝ちパターンの再現性を高めよう');
-      else if (wr >= 70) tips.push('勝率 **' + Math.round(wr) + '%** → 素晴らしい相性。この相方を軸に苦手機体の対策を');
-      else if (wr >= 60) tips.push('勝率 **' + Math.round(wr) + '%** → 好調。役割分担を意識してさらに上へ');
-    }
-
     var entry = {
       partner_name: latestName,
       matches: n, wins: w, losses: l,
@@ -1102,7 +1069,7 @@ export function computeFixedPartners(matches, tagPartners) {
       my_win_loss_pattern: myWl,
       partner_win_loss_pattern: partnerWl,
       partner_ms_breakdown: msBreakdown,
-      tips: tips,
+      tips: [],
     };
     // 表示は「最新プレイヤー名 【チーム名】」。チーム未統合の相方にはデフォルトのチーム名（NO_NAME_TAG）を付ける。
     entry.team_name = teamName || NO_NAME_TAG;
