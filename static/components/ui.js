@@ -199,19 +199,19 @@ export function Dropdown({ value, options, onChange, placeholder, noClear }) {
   var filtered = q ? options.filter(function (o) { return String(o.label).toLowerCase().indexOf(q) >= 0; }) : options;
 
   return html`<div class="panel-select-wrap" ref=${ref}>
-    <button type="button" class="panel-select-trigger" aria-expanded=${isOpen}
+    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen}
       onClick=${function () { isOpen ? close() : setIsOpen(true); }}>
       <span class="panel-select-label">${esc(label)}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-dropdown">
+    ${isOpen && html`<div class="panel-select-dropdown" data-ui="select-panel">
       ${showSearch && html`<input type="text" class="panel-select-search" ref=${inputRef}
         placeholder="絞り込み..." value=${query}
         onInput=${function (e) { setQuery(e.target.value); }} />`}
-      ${!q && !noClear && html`<button type="button" class=${'panel-select-item' + (value === '' ? ' active' : '')}
+      ${!q && !noClear && html`<button type="button" data-ui="select-item" class=${'panel-select-item' + (value === '' ? ' active' : '')}
         onClick=${function () { pick(''); }}>${ph}</button>`}
       ${filtered.map(function (o) {
-        return html`<button type="button" class=${'panel-select-item' + (o.value === value ? ' active' : '')}
+        return html`<button type="button" data-ui="select-item" class=${'panel-select-item' + (o.value === value ? ' active' : '')}
           onClick=${function () { pick(o.value); }}>${esc(o.label)}</button>`;
       })}
       ${q && !filtered.length && html`<div class="panel-select-empty">該当なし</div>`}
@@ -251,17 +251,17 @@ export function MultiSelect({ values, options, onChange, placeholder }) {
   var filtered = q ? options.filter(function (o) { return String(o.label).toLowerCase().indexOf(q) >= 0; }) : options;
 
   return html`<div class="panel-select-wrap" ref=${ref}>
-    <button type="button" class="panel-select-trigger" aria-expanded=${isOpen}
+    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen}
       onClick=${function () { isOpen ? close() : setIsOpen(true); }}>
       <span class="panel-select-label">${esc(triggerLabel)}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-dropdown">
+    ${isOpen && html`<div class="panel-select-dropdown" data-ui="select-panel">
       ${showSearch && html`<input type="text" class="panel-select-search" ref=${inputRef}
         placeholder="絞り込み..." value=${query} onInput=${function (e) { setQuery(e.target.value); }} />`}
       ${filtered.map(function (o) {
         var on = sel.indexOf(o.value) >= 0;
-        return html`<button type="button" class=${'panel-select-item' + (on ? ' active' : '')}
+        return html`<button type="button" data-ui="select-item" class=${'panel-select-item' + (on ? ' active' : '')}
           onClick=${function () { toggle(o.value); }}>
           <span>${esc(o.label)}</span><span class="panel-select-check">${on ? '✓' : ''}</span>
         </button>`;

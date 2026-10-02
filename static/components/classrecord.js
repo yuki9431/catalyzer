@@ -26,7 +26,7 @@ export function ClassRecordView({ record, analyzedCount }) {
     ['分析カバー率', pct(coverage), fmtInt(analyzedCount) + '戦を分析済み'],
   ];
   return html`<div class="tabpane">
-    <div class="kpi-grid">${cards.map(function (c) {
+    <div class="kpi-grid" data-ui="kpi-grid">${cards.map(function (c) {
       return html`<div class="kpi">
         <div class="kpi-label">${c[0]}</div>
         <div class="kpi-value">${c[1]}</div>

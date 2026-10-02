@@ -170,17 +170,17 @@ function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }
   }
 
   return html`<div class="period-selector" ref=${containerRef}>
-    <button class="period-trigger" ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
+    <button class="period-trigger" data-ui="period-trigger" ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${currentLabel} <span class="period-arrow">${isOpen ? '\u25B2' : '\u25BC'}</span>
     </button>
     ${isOpen && html`<div class="period-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="period-dropdown" style=${dropStyle}>
+    ${isOpen && html`<div class="period-dropdown" data-ui="period-panel" style=${dropStyle}>
       <div class="period-dropdown-list">
         ${keys.map(function (k) {
-          return html`<button class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
+          return html`<button data-ui="period-item" class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
             onClick=${function () { selectPreset(k); }}>${periods[k].label}</button>`;
         })}
-        ${userKey && html`<button class=${'period-dropdown-item period-dropdown-custom' + (showCustom ? ' active' : '')}
+        ${userKey && html`<button data-ui="period-item" class=${'period-dropdown-item period-dropdown-custom' + (showCustom ? ' active' : '')}
           onClick=${function () { setShowCustom(!showCustom); }}>日付指定</button>`}
       </div>
       ${showCustom && html`<div class="period-custom" ref=${customElRef}>
@@ -270,20 +270,20 @@ function HamburgerMenu({ isOpen, onClose, shareData, onLogout, currentView, onNa
       <div class="menu-header"><img src="logo.svg" alt="catalyzer" style="height:24px;width:auto;" /></div>
       <div class="menu-body">
         <div class="menu-section">メニュー</div>
-        <button class=${'menu-item' + (view === 'report' ? ' active' : '')} onClick=${function () { go('report'); }}><span class="menu-icon">📊</span>分析レポート</button>
-        <button class=${'menu-item' + (view === 'search' ? ' active' : '')} onClick=${function () { go('search'); }}><span class="menu-icon">🔍</span>試合検索</button>
-        <button class=${'menu-item' + (view === 'classrecord' ? ' active' : '')} onClick=${function () { go('classrecord'); }}><span class="menu-icon">📈</span>モバイル総合戦歴</button>
-        <button class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
-        <button class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
+        <button data-ui="menu-item" class=${'menu-item' + (view === 'report' ? ' active' : '')} onClick=${function () { go('report'); }}><span class="menu-icon">📊</span>分析レポート</button>
+        <button data-ui="menu-item" class=${'menu-item' + (view === 'search' ? ' active' : '')} onClick=${function () { go('search'); }}><span class="menu-icon">🔍</span>試合検索</button>
+        <button data-ui="menu-item" class=${'menu-item' + (view === 'classrecord' ? ' active' : '')} onClick=${function () { go('classrecord'); }}><span class="menu-icon">📈</span>モバイル総合戦歴</button>
+        <button data-ui="menu-item" class="menu-item disabled"><span class="menu-icon">🏆</span>EXランキング<span class="coming-soon">coming soon</span></button>
+        <button data-ui="menu-item" class="menu-item disabled"><span class="menu-icon">🤖</span>機体使用率ランキング<span class="coming-soon">coming soon</span></button>
         <div class="menu-divider" />
-        <a class="menu-item" href="https://web.vsmobile.jp/exvs2ib/" target="_blank" rel="noopener noreferrer"><span class="menu-icon">🌐</span>ガンダムモバイル<span class="external-icon">↗</span></a>
+        <a data-ui="menu-item" class="menu-item" href="https://web.vsmobile.jp/exvs2ib/" target="_blank" rel="noopener noreferrer"><span class="menu-icon">🌐</span>ガンダムモバイル<span class="external-icon">↗</span></a>
         <div class="menu-divider" />
         <div style="padding: 8px 16px;">
           <${ShareArea} shareData=${shareData} />
         </div>
         <div class="menu-divider" />
-        ${onRebuildCache && html`<button class="menu-item" onClick=${function () { onClose(); onRebuildCache(); }}><span class="menu-icon">🔄</span>データを再取得</button>`}
-        <button class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>
+        ${onRebuildCache && html`<button data-ui="menu-item" class="menu-item" onClick=${function () { onClose(); onRebuildCache(); }}><span class="menu-icon">🔄</span>データを再取得</button>`}
+        <button data-ui="menu-item" class="menu-item" style="color: var(--bad)" onClick=${function () { onClose(); onLogout(); }}>ログアウト</button>
       </div>
     </div>
   </div>`;
@@ -307,15 +307,15 @@ function MsSelector({ entries, selected, onSelect }) {
     dropStyle.top = triggerRef.current.getBoundingClientRect().bottom + 4 + 'px';
   }
   return html`<div class="ms-topbar-wrap" ref=${containerRef}>
-    <button class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
+    <button data-ui="ms-trigger" class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${triggerRef} onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
     ${isOpen && html`<div class="ms-topbar-backdrop" onClick=${function () { setIsOpen(false); }} />`}
-    ${isOpen && html`<div class="ms-topbar-dropdown" style=${dropStyle}>
-      <button class=${'ms-topbar-item' + (!selected ? ' active' : '')}
+    ${isOpen && html`<div class="ms-topbar-dropdown" data-ui="ms-panel" style=${dropStyle}>
+      <button data-ui="ms-item" class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); setIsOpen(false); }}>全機体</button>
       ${entries.map(function (e) {
-        return html`<button class=${'ms-topbar-item' + (selected === e.name ? ' active' : '')}
+        return html`<button data-ui="ms-item" class=${'ms-topbar-item' + (selected === e.name ? ' active' : '')}
           onClick=${function () { onSelect(e.name); setIsOpen(false); }}>${esc(e.name)} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
       })}
     </div>`}
@@ -326,7 +326,7 @@ function LensToggle({ lens, onSelect }) {
   var opts = [['all', '全体'], ['win', '勝利'], ['loss', '敗北']];
   return html`<div class="lens-toggle">
     ${opts.map(function (o) {
-      return html`<button class=${'lens-btn' + (lens === o[0] ? ' active' : '')}
+      return html`<button data-ui="lens" class=${'lens-btn' + (lens === o[0] ? ' active' : '')}
         onClick=${function () { onSelect(o[0]); }}>${o[1]}</button>`;
     })}
   </div>`;
@@ -342,7 +342,7 @@ function kpiClass(n, great, good, terrible, higher) {
 }
 
 function Panel({ title, children }) {
-  return html`<div class="panel">
+  return html`<div class="panel" data-ui="panel">
     ${title && html`<h2><span class="dot" />${title}</h2>`}
     ${children}
   </div>`;
@@ -432,7 +432,7 @@ function buildKpiCards(activeTab, fd) {
 function KpiGrid({ activeTab, frontendData }) {
   var cards = buildKpiCards(activeTab, frontendData);
   if (!cards) return null;
-  return html`<div class="kpi-grid">${cards.map(function (c) {
+  return html`<div class="kpi-grid" data-ui="kpi-grid">${cards.map(function (c) {
     return html`<div class="kpi">
       <div class="kpi-label">${c.label}</div>
       <div class=${'kpi-value ' + c.cls}>${c.value}</div>
@@ -650,13 +650,13 @@ function PartnerDropdown({ items, idx, onSelect }) {
   var current = items[idx];
   var label = current.partner_name + (current.team_name ? ' 【' + current.team_name + '】' : '');
   return html`<div class="panel-select-wrap" ref=${containerRef}>
-    <button class="panel-select-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
+    <button class="panel-select-trigger" data-ui="select-trigger" onClick=${function () { setIsOpen(!isOpen); }}>
       ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
-    ${isOpen && html`<div class="panel-select-dropdown">
+    ${isOpen && html`<div class="panel-select-dropdown" data-ui="select-panel">
       ${items.map(function (item, i) {
         var itemLabel = item.partner_name + (item.team_name ? ' 【' + item.team_name + '】' : '');
-        return html`<button class=${'panel-select-item' + (i === idx ? ' active' : '')}
+        return html`<button data-ui="select-item" class=${'panel-select-item' + (i === idx ? ' active' : '')}
           onClick=${function () { onSelect(i); setIsOpen(false); }}>${esc(itemLabel)}</button>`;
       })}
     </div>`}
@@ -1497,7 +1497,7 @@ function Report({ data, userKey }) {
   if (view === 'search') {
     return html`<div class="view-root">
       <div class="topbar">
-        <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+        <button class="hamburger" data-ui="menu-open" onClick=${function () { setMenuOpen(true); }}>☰</button>
         <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
         <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
       </div>
@@ -1510,7 +1510,7 @@ function Report({ data, userKey }) {
   if (view === 'classrecord') {
     return html`<div class="view-root">
       <div class="topbar">
-        <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+        <button class="hamburger" data-ui="menu-open" onClick=${function () { setMenuOpen(true); }}>☰</button>
         <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
         <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
       </div>
@@ -1540,7 +1540,7 @@ function Report({ data, userKey }) {
 
   return html`<div class="view-root">
     <div class="topbar" ref=${topbarRef}>
-      <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+      <button class="hamburger" data-ui="menu-open" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
       <button class="topbar-refresh" onClick=${reAnalyze}>再分析</button>
       <div class="controls-row">
@@ -1549,8 +1549,8 @@ function Report({ data, userKey }) {
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
       </div>
-      <div class="tabs">${TAB_DEFS.map(function (t) {
-        return html`<button class=${'tab' + (activeTab === t[0] ? ' active' : '')}
+      <div class="tabs" role="tablist">${TAB_DEFS.map(function (t) {
+        return html`<button data-ui="tab" role="tab" aria-selected=${activeTab === t[0]} class=${'tab' + (activeTab === t[0] ? ' active' : '')}
           onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
       })}</div>
     </div>
@@ -1572,20 +1572,20 @@ function Skeleton() {
   var menuRef = useState(false);
   var menuOpen = menuRef[0], setMenuOpen = menuRef[1];
   function bar(w, h, mb) {
-    return html`<div class="skel" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
+    return html`<div class="skel" data-ui="skeleton" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
   return html`<div class="view-root">
     <div class="topbar">
-      <button class="hamburger" onClick=${function () { setMenuOpen(true); }}>☰</button>
+      <button class="hamburger" data-ui="menu-open" onClick=${function () { setMenuOpen(true); }}>☰</button>
       <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
       <div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
         <button class="period-trigger" disabled>全データ <span class="period-arrow">▼</span></button>
         <button class="ms-topbar-trigger" disabled>全機体 <span class="period-arrow">▼</span></button>
         <${LensToggle} lens=${'all'} onSelect=${function () {}} />
       </div>
-      <div class="tabs" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+      <div class="tabs" role="tablist" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
         ${TAB_DEFS.map(function (t) {
-          return html`<button class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
+          return html`<button data-ui="tab" role="tab" aria-selected=${t[0] === 'overview'} class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
         })}
       </div>
     </div>
