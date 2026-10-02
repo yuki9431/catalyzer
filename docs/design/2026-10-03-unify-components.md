@@ -1,6 +1,6 @@
 # 設計: デザイン刷新 段階A(3/3) 部品と外枠の統一
 
-- ステータス: draft
+- ステータス: implemented
 - 日付: 2026-10-03
 - 関連 issue: #424(親 #411、依存 #423 マージ済み、関連 #400、後続 #425 / #412〜415)
 
@@ -139,7 +139,7 @@ Notice({tone='info',children}) // div.ui-notice.ui-notice-<tone>[data-ui=notice]
 | U4 | shell.js(AppShell・HamburgerMenu・ShareArea)。3ビューと Skeleton を AppShell に | C8 / test-js 202 / ui-check 16/16 | refactor: #424 上部バー・本文・メニューを AppShell にまとめ、トップバーの4重複を解消 (#400) |
 | U5 | chart-canvas.js、themeReader、charts.js 移行、MsCompareChart/inBarLabel 移動、残る cssVar 呼出を reader に、テスト | C7・C9・C10 / test-js 206 / ui-check 16/16 | refactor: #424 グラフ生成を ChartCanvas に一本化して凡例・軸・色を共通化し、テーマ値を1描画1回で読む |
 | U6 | app.js を components/report/ へ分割、Panel を ui.js へ | C11・C12 / test-js 206 / ui-check 16/16 | refactor: #424 app.js をビュー・タブごとに static/components/report/ へ分割 |
-| U7 | parts.js・parts.css・index.html link・部品一覧ページ・check.js start 追加・2画面追加・screens.test 1件。`node tools/ui-check/check.js --update parts parts-sheet` で新2画面のみ基準作成(make ui-baseline は禁止) | C2・C13 / test-js 207 / ui-check 18/18 | feat: #424 段階B向けの共通部品(チップ・切替・要約・行リスト・通知)と部品一覧プレビューを追加 |
+| U7 | parts.js・parts.css・index.html link・部品一覧ページ・check.js start 追加・2画面追加・screens.test 1件。`node tools/ui-check/check.js --update parts parts-sheet` で新2画面のみ基準作成(make ui-baseline は禁止) | C2・C13 / test-js 209 / ui-check 18/18 | feat: #424 段階B向けの共通部品(チップ・切替・要約・行リスト・通知)と部品一覧プレビューを追加 |
 | U8 | CLAUDE.md・README 更新 | C17・C18 | docs: #424 CLAUDE.md と README のコード構成を部品分割に合わせて更新 |
 | 最終 | 全完了条件。ui-check は2回連続 | 5章すべて | (設計書ステータスは運転者が更新) |
 
@@ -162,7 +162,7 @@ worktree 内で検証。`BASE=$(git merge-base HEAD origin/main)`。
 | C13 | 画面一致・console エラーなし | `make ui-check` を2回連続 | 2回とも `ui-check: 18/18 OK`、exit 0 |
 | C14 | tokens CSS 用の色が初出順 | 下記スクリプト | OK(現状NG) |
 | C15 | 重複 .container 削除 | `grep -c "\.container" static/styles/responsive.css` | 0 |
-| C16 | JS テスト全緑 | `make test-js` | tests 207 / fail 0 |
+| C16 | JS テスト全緑 | `make test-js` | tests 209 / fail 0 |
 | C17 | CLAUDE.md 更新 | `grep -c "全16画面" CLAUDE.md` / `grep -c "全18画面" CLAUDE.md` / `grep -cE "components/report/\|popover.js\|shell.js\|chart-canvas.js\|parts.js\|data-ui" CLAUDE.md` | 0 / 1以上 / 6以上 |
 | C18 | README 更新 | `grep -cE "report/\|popover.js\|shell.js\|chart-canvas.js\|parts.js\|parts.css" README.md` | 6以上 |
 | C19 | Go oracle(Go は変更しない) | `go build ./...` / `go test -race ./internal/...` / `~/go/bin/golangci-lint run` / `gofmt -l .` / `git diff --name-only $BASE -- '*.go' \| wc -l` | exit 0 / exit 0 / 0件 / 出力なし / 0 |
