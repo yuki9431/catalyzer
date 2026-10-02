@@ -285,3 +285,10 @@ export function Autocomplete({ value, onChange, options, placeholder }) {
     </div>`}
   </div>`;
 }
+
+export function Panel({ title, children }) {
+  return html`<div class="panel" data-ui="panel">
+    ${title && html`<h2><span class="dot" />${title}</h2>`}
+    ${children}
+  </div>`;
+}
