@@ -1,3 +1,5 @@
+import { isTimeUp } from '../lib/match.js';
+
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
 // Python scripts/analyze.py の data_* 関数に対応する。
@@ -793,6 +795,58 @@ export function computeFallOrder(matches) {
     second_fall: buildStats(secondFall),
     same_time: buildStats(sameTime),
     tips: tips,
+  };
+}
+
+var CONSECUTIVE_FALL_WINDOW_SEC = 15;
+var FINISH_TOLERANCE_SEC = 3;
+
+// 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比較する
+function withinSec(a, b, sec) {
+  return Math.round(Math.abs(a - b) * 100) <= sec * 100;
+}
+
+// 負け試合（タイムアップ除く）で試合終了時刻に重なる最後の撃墜を、試合を終わらせた撃墜とみなす。
+function findFinishingDeath(d, deaths) {
+  if (d.win || !d.game_end_sec || isTimeUp(d) || !deaths.length) return null;
+  var last = deaths.reduce(function (a, b) { return b.action_start_sec > a.action_start_sec ? b : a; });
+  return withinSec(last.action_start_sec, d.game_end_sec, FINISH_TOLERANCE_SEC) ? last : null;
+}
+
+// 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
+export function computeConsecutiveFall(matches) {
+  var midFall = [], finishFall = [], noFall = [];
+  matches.forEach(function (d) {
+    var myDeaths = jsGetDeathEvents(d.actions);
+    var partnerDeaths = jsGetDeathEvents(d.partner_actions);
+    if (!myDeaths.length && !partnerDeaths.length) return;
+    var finishing = findFinishingDeath(d, myDeaths.concat(partnerDeaths));
+    var mid = false, finish = false;
+    myDeaths.forEach(function (m) {
+      partnerDeaths.forEach(function (p) {
+        if (!withinSec(p.action_start_sec, m.action_start_sec, CONSECUTIVE_FALL_WINDOW_SEC)) return;
+        if (m === finishing || p === finishing) finish = true;
+        else mid = true;
+      });
+    });
+    (mid ? midFall : finish ? finishFall : noFall).push(d);
+  });
+  var total = midFall.length + finishFall.length + noFall.length;
+  if (total === 0) return null;
+  function buildStats(ms) {
+    return {
+      count: ms.length,
+      rate: round1(ms.length / total * 100),
+      win_rate: ms.length ? round1(jsWinRate(ms)) : 0,
+      dmg_efficiency: ms.length ? round3(jsDmgEfficiency(ms)) : 0,
+    };
+  }
+  return {
+    total: total,
+    window_sec: CONSECUTIVE_FALL_WINDOW_SEC,
+    mid_fall: buildStats(midFall),
+    finish_fall: buildStats(finishFall),
+    no_fall: buildStats(noFall),
   };
 }
 

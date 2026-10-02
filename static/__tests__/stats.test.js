@@ -17,6 +17,7 @@ import {
   computeSeason,
   computeBurstCount,
   computeFallOrder,
+  computeConsecutiveFall,
   computeBurstTiming,
   computeBurstType,
   computeFixedPartners,
@@ -521,6 +522,103 @@ describe('computeFallOrder', function () {
   it('returns null for no action data', function () {
     var result = computeFallOrder([makeMatch({ actions: [], partner_actions: [] })]);
     assert.equal(result, null);
+  });
+});
+
+// --- computeConsecutiveFall ---
+
+describe('computeConsecutiveFall', function () {
+  function deaths(secs) {
+    return secs.map(function (t) { return { action: 'death', action_start_sec: t }; });
+  }
+  function fall(mySecs, partnerSecs, extra) {
+    return makeMatch(Object.assign({
+      actions: deaths(mySecs),
+      partner_actions: deaths(partnerSecs),
+    }, extra));
+  }
+  // 負け試合で、最後の撃墜が試合終了時刻に重なるもの
+  function lost(mySecs, partnerSecs, endSec) {
+    return fall(mySecs, partnerSecs, { win: false, game_end_sec: endSec });
+  }
+
+  it('counts deaths within 15s in either order, including simultaneous', function () {
+    var result = computeConsecutiveFall([fall([60], [75]), fall([75], [60]), fall([60], [60])]);
+    assert.equal(result.mid_fall.count, 3);
+    assert.equal(result.no_fall.count, 0);
+  });
+
+  it('counts exactly 15s apart despite floating point error', function () {
+    assert.equal(computeConsecutiveFall([fall([60.23], [75.23])]).mid_fall.count, 1);
+  });
+
+  it('does not count deaths more than 15s apart', function () {
+    var result = computeConsecutiveFall([fall([60], [75.1]), fall([75.1], [60])]);
+    assert.equal(result.mid_fall.count, 0);
+    assert.equal(result.no_fall.count, 2);
+  });
+
+  it('classifies a fall ending the match as finish_fall', function () {
+    var result = computeConsecutiveFall([lost([60, 150], [140], 151)]);
+    assert.equal(result.finish_fall.count, 1);
+    assert.equal(result.mid_fall.count, 0);
+  });
+
+  it('prefers mid_fall when a fall also happened before the finish', function () {
+    var result = computeConsecutiveFall([lost([60, 150], [65, 140], 151)]);
+    assert.equal(result.mid_fall.count, 1);
+    assert.equal(result.finish_fall.count, 0);
+  });
+
+  it('does not treat a death as finishing in wins, time-up, or far from game end', function () {
+    var result = computeConsecutiveFall([
+      fall([140], [150], { win: true, game_end_sec: 151 }),
+      lost([230], [238], 240),
+      lost([100], [110], 151),
+    ]);
+    assert.equal(result.mid_fall.count, 3);
+    assert.equal(result.finish_fall.count, 0);
+  });
+
+  it('treats the finishing death within 3s of game end, including simultaneous last deaths', function () {
+    var result = computeConsecutiveFall([
+      lost([150], [150], 151),
+      lost([140], [148], 151),
+      lost([140], [147.99], 151),
+    ]);
+    assert.equal(result.finish_fall.count, 2);
+    assert.equal(result.mid_fall.count, 1);
+  });
+
+  it('classifies a lone finishing death without a pair as no_fall', function () {
+    var result = computeConsecutiveFall([lost([60], [150], 151)]);
+    assert.equal(result.no_fall.count, 1);
+    assert.equal(result.finish_fall.count, 0);
+  });
+
+  it('includes matches where only one side died and excludes team zero-death matches', function () {
+    var result = computeConsecutiveFall([fall([60], []), fall([], [60]), fall([], [])]);
+    assert.equal(result.total, 2);
+    assert.equal(result.no_fall.count, 2);
+  });
+
+  it('aggregates rate, win rate and dmg efficiency', function () {
+    var matches = [].concat(
+      makeMatches(2, function (i) { return Object.assign(fall([60], [65]), { win: i === 0 }); }),
+      makeMatches(2, function () { return lost([60, 150], [140], 151); }),
+      makeMatches(4, function (i) { return Object.assign(fall([60], [100]), { win: i < 3 }); })
+    );
+    var result = computeConsecutiveFall(matches);
+    assert.equal(result.total, 8);
+    assert.equal(result.mid_fall.rate, 25);
+    assert.equal(result.mid_fall.win_rate, 50);
+    assert.equal(result.mid_fall.dmg_efficiency, 1.25);
+    assert.equal(result.finish_fall.rate, 25);
+    assert.equal(result.no_fall.win_rate, 75);
+  });
+
+  it('returns null for no action data', function () {
+    assert.equal(computeConsecutiveFall([makeMatch({ actions: [], partner_actions: [] })]), null);
   });
 });
 

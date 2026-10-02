@@ -5,7 +5,7 @@ import {
   computeBasicStats, computeWinLossPattern,
   computeEnemyMatchup, computePartner, computeCostPair, computeMsPair,
   computeDmgContribution, computeTeamDeathsImpact,
-  computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
+  computeBurstCount, computeFallOrder, computeConsecutiveFall, computeBurstTiming, computeBurstType,
   computeFixedPartners,
   computeShareData, computeMsSummary,
   burstKpi, bestWorstHour, partnerKpi,
@@ -31,7 +31,7 @@ import {
   DmgContributionSubSection, TeamDeathsImpactSection, TeamDeathsHeatmap,
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
-  FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
+  FallOrderContent, ConsecutiveFallContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
   CompareRadar,
 } from './components/charts.js';
 
@@ -827,6 +827,7 @@ function PlaystylePane({ frontendData }) {
   var teamDeaths = frontendData.team_deaths;
   var dmg = frontendData.dmg_contribution;
   var fallOrder = frontendData.fall_order;
+  var consecutiveFall = frontendData.consecutive_fall;
 
   var fallItems = [];
   if (fallOrder) {
@@ -835,6 +836,14 @@ function PlaystylePane({ frontendData }) {
         var labels = { no_fall: '0落ち', first_fall: '先落ち', second_fall: '後落ち', same_time: '同時落ち' };
         fallItems.push({ name: labels[k], winRate: fallOrder[k].win_rate });
       }
+    });
+  }
+
+  var consecutiveFallItems = [];
+  if (consecutiveFall) {
+    [['mid_fall', '順落ち（試合継続）'], ['no_fall', '順落ちなし']].forEach(function (r) {
+      var s = consecutiveFall[r[0]];
+      if (s.count > 0) consecutiveFallItems.push({ name: r[1], winRate: s.win_rate });
     });
   }
 
@@ -849,12 +858,18 @@ function PlaystylePane({ frontendData }) {
       <${FallOrderContent} fallOrder=${fallOrder} />
     <//>`}
 
+    ${consecutiveFall && html`<${Panel} title="順落ち分析">
+      <p>順落ち：${consecutiveFall.window_sec}秒以内に2機とも撃墜</p>
+      ${consecutiveFallItems.length > 0 && html`<${MsCompareChart} entries=${consecutiveFallItems} />`}
+      <${ConsecutiveFallContent} consecutiveFall=${consecutiveFall} />
+    <//>`}
+
     ${dmg && html`<${Panel} title="ダメージ貢献率">
       <${DmgContributionChart} dmg=${dmg} />
       <${DmgContributionSubSection} dmg=${dmg} />
     <//>`}
 
-    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
+    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !consecutiveFall && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
   </div>`;
 }
 
@@ -1288,6 +1303,7 @@ function Report({ data, userKey }) {
       team_deaths: computeTeamDeathsImpact(filtered),
       burst_count: computeBurstCount(filtered),
       fall_order: computeFallOrder(filtered),
+      consecutive_fall: computeConsecutiveFall(filtered),
       burst_timing: computeBurstTiming(filtered),
       burst_type: computeBurstType(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
