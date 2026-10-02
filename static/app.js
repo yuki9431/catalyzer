@@ -534,34 +534,53 @@ var inBarLabel = {
       var diffWidth = diffText ? ctx.measureText(diffText).width + 8 : 0;
       ctx.font = mainFont;
       // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
-      var name = ellipsize(chart.data.labels[i], areaRight - (x0 + 8) - pctWidth - 12 - diffWidth);
-      ctx.textAlign = 'left';
-      ctx.fillText(name, x0 + 8, bar.y);
-      var nameRight = x0 + 8 + ctx.measureText(name).width;
-      var endX;
+      var nameLeft = x0 + 8;
+      var name = ellipsize(chart.data.labels[i], areaRight - nameLeft - pctWidth - 12 - diffWidth);
+      var nameRight = nameLeft + ctx.measureText(name).width;
+      var pctInside, endX;
       // 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
       if (bar.x - 8 - pctWidth > nameRight + 6) {
-        ctx.textAlign = 'right';
-        ctx.fillText(pct, bar.x - 8, bar.y);
+        pctInside = true;
         endX = bar.x;
       } else {
-        ctx.textAlign = 'left';
+        pctInside = false;
         var pctX = Math.max(bar.x + 6, nameRight + 6);
-        ctx.fillText(pct, pctX, bar.y);
         endX = pctX + pctWidth;
+      }
+      ctx.font = diffFont;
+      var diffTextWidth = diffText ? ctx.measureText(diffText).width : 0;
+      ctx.font = mainFont;
+      var diffInside = false;
+      // 棒が長く差分が右外に収まらない行は、勝率を棒内に寄せ機体名を削って差分の場所を作る（差分を落とさない）
+      if (diffText && endX + 8 + diffTextWidth > areaRight) {
+        pctInside = true;
+        endX = bar.x;
+        var nameLimit = bar.x - 8 - pctWidth - 6;
+        if (bar.x + 8 + diffTextWidth > areaRight) {
+          diffInside = true;
+          nameLimit -= diffTextWidth + 6;
+        }
+        name = ellipsize(chart.data.labels[i], nameLimit - nameLeft);
+      }
+      ctx.textAlign = 'left';
+      ctx.fillText(name, nameLeft, bar.y);
+      if (pctInside) {
+        ctx.textAlign = 'right';
+        ctx.fillText(pct, bar.x - 8, bar.y);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText(pct, pctX, bar.y);
       }
       if (!diffText) return;
       ctx.font = diffFont;
-      var diffWidth2 = ctx.measureText(diffText).width;
-      // 全国平均との差分は棒の右外に出す
-      if (endX + 8 + diffWidth2 <= areaRight) {
+      if (diffInside) {
+        // 棒内に置く差分は棒の色と競合するため配色は付けない
+        ctx.textAlign = 'right';
+        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
+      } else {
         ctx.fillStyle = diff >= 0 ? '#a8e6cf' : '#ff8a65';
         ctx.textAlign = 'left';
         ctx.fillText(diffText, endX + 8, bar.y);
-      } else if (bar.x - 8 - pctWidth - 6 - diffWidth2 > nameRight + 6) {
-        // 右外に収まらない行は棒内の勝率の左隣へ。棒の色と競合するため配色は付けない
-        ctx.textAlign = 'right';
-        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
       }
       ctx.fillStyle = '#e6edf3';
       ctx.font = mainFont;
