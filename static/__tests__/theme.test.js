@@ -5,14 +5,20 @@ import { cssVar } from '../lib/theme.js';
 
 const root = new URL('../', import.meta.url);
 const read = (rel) => readFileSync(new URL(rel, root), 'utf8');
-const list = (dir, ext) => readdirSync(new URL(dir, root)).filter((f) => f.endsWith(ext)).map((f) => dir + f);
+const list = (dir, ext) => readdirSync(new URL(dir, root), { recursive: true }).filter((f) => f.endsWith(ext)).map((f) => dir + f);
+// 1行書き(`:root { --x: 1px; --y: 2px }`)の定義も拾う
+const DEF_RE = /(?:^|[{;])\s*(--[a-z0-9-]+)\s*:/gm;
 
 const tokensCss = read('styles/tokens.css');
-const defined = new Set([...tokensCss.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]));
-const jsFiles = ['app.js', ...list('components/', '.js'), ...list('lib/', '.js')];
+const defined = new Set([...tokensCss.matchAll(DEF_RE)].map((m) => m[1]));
+const jsFiles = ['app.js', ...list('components/', '.js'), ...list('lib/', '.js'), ...list('analysis/', '.js')];
 const cssFiles = list('styles/', '.css');
 
 describe('theme', () => {
+  it('DEF_RE は1行書きの定義を2件拾う', () => {
+    assert.deepStrictEqual([...':root { --x: 1px; --y: 2px }'.matchAll(DEF_RE)].map((m) => m[1]), ['--x', '--y']);
+  });
+
   it('cssVar は Node では空文字を返し例外を投げない', () => {
     assert.strictEqual(cssVar('--accent'), '');
   });
@@ -42,7 +48,7 @@ describe('theme', () => {
       }
     }
     assert.deepStrictEqual(undef, []);
-    const stray = cssFiles.filter((f) => f !== 'styles/tokens.css' && /^\s*--[a-z0-9-]+\s*:/m.test(read(f)));
+    const stray = cssFiles.filter((f) => f !== 'styles/tokens.css' && new RegExp(DEF_RE.source, 'm').test(read(f)));
     assert.deepStrictEqual(stray, []);
   });
 });
