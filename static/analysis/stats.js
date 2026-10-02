@@ -1,4 +1,4 @@
-import { isTimeUp } from '../lib/format.js';
+import { isTimeUp } from '../lib/match.js';
 
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
@@ -813,13 +813,15 @@ function findFinishingDeath(d, deaths) {
   return withinSec(last.action_start_sec, d.game_end_sec, FINISH_TOLERANCE_SEC) ? last : null;
 }
 
-// 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合を終わらせた撃墜を含むかで分類する。チーム0落ちの試合は対象外。
+// 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
 export function computeConsecutiveFall(matches) {
   var midFall = [], finishFall = [], noFall = [];
+  var losses = 0;
   matches.forEach(function (d) {
     var myDeaths = jsGetDeathEvents(d.actions);
     var partnerDeaths = jsGetDeathEvents(d.partner_actions);
     if (!myDeaths.length && !partnerDeaths.length) return;
+    if (!d.win) losses++;
     var finishing = findFinishingDeath(d, myDeaths.concat(partnerDeaths));
     var mid = false, finish = false;
     myDeaths.forEach(function (m) {
@@ -841,7 +843,6 @@ export function computeConsecutiveFall(matches) {
       dmg_efficiency: ms.length ? round3(jsDmgEfficiency(ms)) : 0,
     };
   }
-  var losses = midFall.concat(finishFall, noFall).filter(function (d) { return !d.win; }).length;
   return {
     total: total,
     window_sec: CONSECUTIVE_FALL_WINDOW_SEC,

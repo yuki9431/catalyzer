@@ -841,7 +841,7 @@ function PlaystylePane({ frontendData }) {
 
   var consecutiveFallItems = [];
   if (consecutiveFall) {
-    [['mid_fall', '途中で順落ち'], ['no_fall', '順落ちなし']].forEach(function (r) {
+    [['mid_fall', '順落ち（試合継続）'], ['no_fall', '順落ちなし']].forEach(function (r) {
       var s = consecutiveFall[r[0]];
       if (s.count > 0) consecutiveFallItems.push({ name: r[1], winRate: s.win_rate });
     });

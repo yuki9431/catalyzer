@@ -580,6 +580,22 @@ describe('computeConsecutiveFall', function () {
     assert.equal(result.finish_fall.count, 0);
   });
 
+  it('treats the finishing death within 3s of game end, including simultaneous last deaths', function () {
+    var result = computeConsecutiveFall([
+      lost([150], [150], 151),
+      lost([140], [148], 151),
+      lost([140], [147.99], 151),
+    ]);
+    assert.equal(result.finish_fall.count, 2);
+    assert.equal(result.mid_fall.count, 1);
+  });
+
+  it('classifies a lone finishing death without a pair as no_fall', function () {
+    var result = computeConsecutiveFall([lost([60], [150], 151)]);
+    assert.equal(result.no_fall.count, 1);
+    assert.equal(result.finish_fall.count, 0);
+  });
+
   it('includes matches where only one side died and excludes team zero-death matches', function () {
     var result = computeConsecutiveFall([fall([60], []), fall([], [60]), fall([], [])]);
     assert.equal(result.total, 2);
