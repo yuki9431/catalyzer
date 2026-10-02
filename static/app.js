@@ -516,10 +516,11 @@ var inBarLabel = {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#e6edf3';
     var ellipsize = function (text, maxWidth) {
-      if (maxWidth <= 0 || ctx.measureText(text).width <= maxWidth) return text;
+      if (ctx.measureText(text).width <= maxWidth) return text;
       var t = text;
-      while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
-      return t + '…';
+      while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+      // 1文字も入らない幅では他のラベルと重ならないよう名前を描かない
+      return t ? t + '…' : '';
     };
     var natlRates = chart.data.datasets[0].nationalWinRates;
     meta.data.forEach(function (bar, i) {
@@ -531,25 +532,23 @@ var inBarLabel = {
       var diff = typeof natl === 'number' ? own - natl : null;
       var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
       ctx.font = diffFont;
-      var diffWidth = diffText ? ctx.measureText(diffText).width + 8 : 0;
+      var diffTextWidth = diffText ? ctx.measureText(diffText).width : 0;
+      var diffWidth = diffText ? diffTextWidth + 8 : 0;
       ctx.font = mainFont;
       // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
       var nameLeft = x0 + 8;
       var name = ellipsize(chart.data.labels[i], areaRight - nameLeft - pctWidth - 12 - diffWidth);
       var nameRight = nameLeft + ctx.measureText(name).width;
-      var pctInside, endX;
-      // 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
+      var pctInside, pctX, endX;
+      // 暫定配置: 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
       if (bar.x - 8 - pctWidth > nameRight + 6) {
         pctInside = true;
         endX = bar.x;
       } else {
         pctInside = false;
-        var pctX = Math.max(bar.x + 6, nameRight + 6);
+        pctX = Math.max(bar.x + 6, nameRight + 6);
         endX = pctX + pctWidth;
       }
-      ctx.font = diffFont;
-      var diffTextWidth = diffText ? ctx.measureText(diffText).width : 0;
-      ctx.font = mainFont;
       var diffInside = false;
       // 棒が長く差分が右外に収まらない行は、勝率を棒内に寄せ機体名を削って差分の場所を作る（差分を落とさない）
       if (diffText && endX + 8 + diffTextWidth > areaRight) {
@@ -557,8 +556,13 @@ var inBarLabel = {
         endX = bar.x;
         var nameLimit = bar.x - 8 - pctWidth - 6;
         if (bar.x + 8 + diffTextWidth > areaRight) {
-          diffInside = true;
-          nameLimit -= diffTextWidth + 6;
+          // 機体名を消しても棒内に入らないほど狭い場合だけ差分を諦める
+          if (nameLimit - diffTextWidth - 6 >= nameLeft) {
+            diffInside = true;
+            nameLimit -= diffTextWidth + 6;
+          } else {
+            diffText = '';
+          }
         }
         name = ellipsize(chart.data.labels[i], nameLimit - nameLeft);
       }
