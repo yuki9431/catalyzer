@@ -41,4 +41,8 @@ export var SCREENS = [
     required: [['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="kpi-grid"]']] },
   { id: 'mobile-dropdown-period', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="period-trigger"]'] }],
     required: [['[data-ui="period-panel"]']] },
+  { id: 'parts', viewport: D, full: true, start: 'parts', ops: [],
+    required: [['[data-ui="parts-gallery"]'], ['[data-ui="chip"]', null, 2], ['[data-ui="toggle"]'], ['[data-ui="summary"]'], ['[data-ui="row-list"]'], ['[data-ui="notice"]', null, 3]] },
+  { id: 'parts-sheet', viewport: M, full: false, start: 'parts',
+    ops: [{ click: ['[data-ui="sheet-demo"] [data-ui="select-trigger"]'] }], required: [['[data-ui="select-panel"]']] },
 ];

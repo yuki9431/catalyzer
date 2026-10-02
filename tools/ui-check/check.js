@@ -16,6 +16,7 @@ var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 180000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
+var START_URL = { login: '/', report: '/__preview/', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');
@@ -98,11 +99,12 @@ async function runScreen(conn, origin, screen, update) {
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
 
+    if (!START_URL[screen.start]) throw new InfraError('未知の start: ' + screen.start);
     var loaded = new Promise(function (resolve, reject) {
       loadWaiters.push(resolve);
       setTimeout(function () { reject(new InfraError('ナビゲーションタイムアウト')); }, NAV_MS).unref();
     });
-    await send('Page.navigate', { url: origin + (screen.start === 'report' ? '/__preview/' : '/') });
+    await send('Page.navigate', { url: origin + START_URL[screen.start] });
     await loaded;
     if (screen.start === 'report') {
       var navEnd = Date.now() + NAV_MS;
