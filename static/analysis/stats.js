@@ -137,7 +137,7 @@ export function computeDayOfWeek(matches) {
   var weWr = weekendData.length ? jsWinRate(weekendData) : 0;
   var diff = Math.abs(wdWr - weWr);
   var tips = [];
-  if (diff >= 10) {
+  if (weekdayData.length && weekendData.length && diff >= 10) {
     var better = wdWr > weWr ? '平日' : '土日';
     var worse = wdWr > weWr ? '土日' : '平日';
     tips.push('**' + better + '**の勝率は' + worse + 'より **' + Math.round(diff) + 'ポイント** 高い');
@@ -650,8 +650,8 @@ export function computeBurstCount(matches) {
     if (others.length) {
       var wrOther = jsWinRate(others);
       var diff = wr2 - wrOther;
-      if (diff > 0) {
-        tips.push('2回覚醒できた試合の勝率は、それ以外の試合より **' + Math.round(diff) + 'ポイント** 高い');
+      if (Math.round(diff) > 0) {
+        tips.push('2回覚醒できた試合の勝率は、覚醒1回以下の試合より **' + Math.round(diff) + 'ポイント** 高い');
       }
     }
   }
@@ -763,7 +763,7 @@ export function computeFallOrder(matches) {
   var fallTotal = firstFall.length + secondFall.length + sameTime.length;
   if (firstFall.length && fallTotal > 0) {
     var firstRate = firstFall.length / fallTotal * 100;
-    if (firstRate >= 60) tips.push('先落ち率は **' + Math.round(firstRate) + '%**。先落ちした試合の勝率は **' + Math.round(firstWr) + '%**');
+    if (firstRate >= 60) tips.push('撃墜された試合のうち、先落ちは **' + Math.round(firstRate) + '%**');
   }
   if (noFall.length && firstFall.length) {
     var d2 = noFallWr - firstWr;
@@ -886,7 +886,7 @@ export function computeBurstTiming(matches) {
   if (pre && post && pre.length >= 3 && post.length >= 3) {
     var diff = jsWinRate(pre) - jsWinRate(post);
     if (diff >= 5) {
-      tips.push('1機目に覚醒できた試合の勝率は、2機目より **' + Math.round(diff) + 'ポイント** 高い');
+      tips.push('1機目に覚醒できた試合の勝率は、2機目に覚醒した試合より **' + Math.round(diff) + 'ポイント** 高い');
     }
   }
   return {
@@ -935,7 +935,7 @@ export function computeBurstType(matches) {
     var byWin = eligible.slice().sort(function (a, b) { return b.win_rate - a.win_rate; });
     var best = byWin[0], worst = byWin[byWin.length - 1];
     if (best.win_rate - worst.win_rate >= 5) {
-      tips.push('勝率が最も高い覚醒は **' + best.label + '**（' + best.win_rate + '%）、最も低い覚醒は **' + worst.label + '**（' + worst.win_rate + '%）');
+      tips.push('5戦以上の覚醒のうち、勝率が最も高いのは **' + best.label + '**（' + best.win_rate + '%）、最も低いのは **' + worst.label + '**（' + worst.win_rate + '%）');
     }
   }
   return { total_bursts: totalBursts, by_type: byType, tips: tips };

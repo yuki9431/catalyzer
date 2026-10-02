@@ -143,6 +143,13 @@ describe('computeDayOfWeek', function () {
     assert.ok(result.tips[0].includes('勝率は土日より') && result.tips[0].includes('ポイント'));
     assert.ok(!result.tips[0].includes('→'));
   });
+
+  it('does not compare when one side has no matches', function () {
+    var matches = [];
+    for (var i = 0; i < 10; i++) matches.push(makeMatch({ date: '2025-06-16 10:00', win: true })); // Mon wins only
+    var result = computeDayOfWeek(matches);
+    assert.equal(result.tips.length, 0);
+  });
 });
 
 // --- computeDailyTrend ---
