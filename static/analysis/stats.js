@@ -813,21 +813,31 @@ function findFinishingDeath(d, deaths) {
   return withinSec(last.action_start_sec, d.game_end_sec, FINISH_TOLERANCE_SEC) ? last : null;
 }
 
-// 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
+// 1試合の順落ち（自機・僚機が順不同で15秒以内に撃墜）の撃墜ペア [自機, 僚機] を返す。チーム0落ちは null
+export function consecutiveFallPairs(d) {
+  var myDeaths = jsGetDeathEvents(d.actions);
+  var partnerDeaths = jsGetDeathEvents(d.partner_actions);
+  if (!myDeaths.length && !partnerDeaths.length) return null;
+  var pairs = [];
+  myDeaths.forEach(function (m) {
+    partnerDeaths.forEach(function (p) {
+      if (withinSec(p.action_start_sec, m.action_start_sec, CONSECUTIVE_FALL_WINDOW_SEC)) pairs.push([m, p]);
+    });
+  });
+  return pairs;
+}
+
+// 順落ちを、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
 export function computeConsecutiveFall(matches) {
   var midFall = [], finishFall = [], noFall = [];
   matches.forEach(function (d) {
-    var myDeaths = jsGetDeathEvents(d.actions);
-    var partnerDeaths = jsGetDeathEvents(d.partner_actions);
-    if (!myDeaths.length && !partnerDeaths.length) return;
-    var finishing = findFinishingDeath(d, myDeaths.concat(partnerDeaths));
+    var pairs = consecutiveFallPairs(d);
+    if (!pairs) return;
+    var finishing = findFinishingDeath(d, jsGetDeathEvents(d.actions).concat(jsGetDeathEvents(d.partner_actions)));
     var mid = false, finish = false;
-    myDeaths.forEach(function (m) {
-      partnerDeaths.forEach(function (p) {
-        if (!withinSec(p.action_start_sec, m.action_start_sec, CONSECUTIVE_FALL_WINDOW_SEC)) return;
-        if (m === finishing || p === finishing) finish = true;
-        else mid = true;
-      });
+    pairs.forEach(function (pair) {
+      if (pair[0] === finishing || pair[1] === finishing) finish = true;
+      else mid = true;
     });
     (mid ? midFall : finish ? finishFall : noFall).push(d);
   });

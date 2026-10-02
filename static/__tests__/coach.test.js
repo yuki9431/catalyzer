@@ -279,6 +279,9 @@ describe('evaluateGoal', function () {
     var apart = makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }], partner_actions: [{ action: 'death', action_start_sec: 76 }] });
     var ev = evaluateGoal({ key: 'consecutive_fall' }, [cf, apart]);
     assert.deepEqual(ev.marks.map(function (x) { return x.ok; }), [false, true]);
+    // 浮動小数で差が 15.000000000000002 になる組も #407 と同じく15秒ちょうどとして順落ち
+    var edge = makeMatch({ actions: [{ action: 'death', action_start_sec: 1.1 }], partner_actions: [{ action: 'death', action_start_sec: 16.1 }] });
+    assert.deepEqual(evaluateGoal({ key: 'consecutive_fall' }, [edge]).marks.map(function (x) { return x.ok; }), [false]);
     // 撃墜で覚醒が終わるため、終了時刻ちょうどの撃墜は覚醒中とみなす
     var inBurst = makeMatch({ actions: [{ action: 'exbst-f', action_start_sec: 50, action_end_sec: 70 }, { action: 'death', action_start_sec: 70 }] });
     var after = makeMatch({ actions: [{ action: 'exbst-f', action_start_sec: 50, action_end_sec: 62 }, { action: 'death', action_start_sec: 70 }] });

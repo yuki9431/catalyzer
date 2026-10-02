@@ -1,5 +1,5 @@
 // --- 勝率アップミッション: 負け筋の状態とそれ以外の勝率差から、取り組むと勝率が上がりそうな行動を示す ---
-import { COST_FATAL_DEATHS, jsWinRate as winRate, jsAvg as avg, jsGetDeathEvents, jsGetBurstEvents } from './stats.js';
+import { COST_FATAL_DEATHS, jsWinRate as winRate, jsAvg as avg, jsGetDeathEvents, jsGetBurstEvents, consecutiveFallPairs } from './stats.js';
 
 var MIN_MATCHES = 10;     // これ未満は診断しない
 var MIN_SIDE = 4;         // 二分した各側の最低試合数
@@ -7,7 +7,6 @@ var MIN_GAP = 8;          // 採用する最低勝率差（%pt）
 var MIN_ENEMY = 5;        // 苦手機体として扱う最低対戦数
 var RECENT_N = 20;        // 直近比較の試合数（上限）
 var TILT_STREAK = 3;      // この回数連敗した直後の試合を「連敗直後」とみなす
-var CONSECUTIVE_FALL_SEC = 15;  // 自分と相方の撃墜がこの秒数以内なら順落ち（#407 と同じ定義）
 
 // 与ダメ・被ダメ・EXダメは勝敗の結果側でもあり勝率差が大きく出るため、影響度を割り引く
 var OUTCOME_WEIGHT = 0.5;
@@ -45,13 +44,10 @@ function fallOrder(m) {
   return null;
 }
 
-// 自分と相方が CONSECUTIVE_FALL_SEC 秒以内に続けて撃墜されたか（順不同）。チーム0落ち・判定不能は null
+// 順落ちしたか（定義は stats.js の consecutiveFallPairs）。チーム0落ちは null
 function consecutiveFall(m) {
-  var mine = deathsOf(m.actions), partner = deathsOf(m.partner_actions);
-  if (!mine.length && !partner.length) return null;
-  return mine.some(function (a) {
-    return partner.some(function (b) { return Math.abs(a.action_start_sec - b.action_start_sec) <= CONSECUTIVE_FALL_SEC; });
-  });
+  var pairs = consecutiveFallPairs(m);
+  return pairs === null ? null : pairs.length > 0;
 }
 
 // 覚醒中（撃墜で覚醒は終わるため終了時刻を含む）に撃墜されたか。覚醒なし・判定不能は null
@@ -152,7 +148,7 @@ function consecutiveFallCandidate(ms) {
   return candidate('consecutive_fall', valid.filter(consecutiveFall), valid.filter(function (m) { return !consecutiveFall(m); }), valid.length, function (s) {
     return {
       title: '順落ちしない',
-      condition: '自分と相方が' + CONSECUTIVE_FALL_SEC + '秒以内に続けて撃墜されない（どちらも撃墜されなかった試合は対象外）',
+      condition: '自分と相方が15秒以内に続けて撃墜されない（どちらも撃墜されなかった試合は対象外）',
       detail: '順落ちした試合は' + s.count + '（勝率' + s.badWr + '%）。順落ちしなかった試合は勝率' + s.goodWr + '%',
     };
   });
