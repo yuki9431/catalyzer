@@ -632,7 +632,7 @@ export function ConsecutiveFallContent({ consecutiveFall }) {
     return [r.label, r.s.count + '戦', pct(r.s.rate), colorPct(has && !r.hideWin ? r.s.win_rate : null), colorDE(has ? r.s.dmg_efficiency : null, 3)];
   });
   return html`<div>
-    <p>対象: ${consecutiveFall.total}戦（順落ち = ${consecutiveFall.window_sec}秒以内に2機とも撃墜）</p>
+    <p>対象: ${consecutiveFall.total}戦</p>
     <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
   </div>`;
 }

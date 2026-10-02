@@ -859,6 +859,7 @@ function PlaystylePane({ frontendData }) {
     <//>`}
 
     ${consecutiveFall && html`<${Panel} title="順落ち分析">
+      <p>順落ち：${consecutiveFall.window_sec}秒以内に2機とも撃墜</p>
       ${consecutiveFallItems.length > 0 && html`<${MsCompareChart} entries=${consecutiveFallItems} />`}
       <${ConsecutiveFallContent} consecutiveFall=${consecutiveFall} />
     <//>`}
