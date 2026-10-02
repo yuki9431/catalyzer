@@ -73,6 +73,7 @@
 │   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
+│   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
@@ -83,6 +84,7 @@
 │   │   └── format.js              # 書式・色分け・共有テキスト生成
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー）
 │   │   ├── stats.test.js          # stats.js テスト
+│   │   ├── coach.test.js          # coach.js テスト
 │   │   └── format.test.js         # format.js テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）

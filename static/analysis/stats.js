@@ -30,12 +30,12 @@ export function clampMetric(v, key) {
 }
 
 var COST_LABEL = {3000: '3000コスト', 2500: '2500コスト', 2000: '2000コスト', 1500: '1500コスト'};
-var COST_FATAL_DEATHS = {3000: 2, 2500: 3, 2000: 3, 1500: 4};
+export var COST_FATAL_DEATHS = {3000: 2, 2500: 3, 2000: 3, 1500: 4};
 var TEAM_DEATH_MAX = 3;   // これ以上は "3+" に集約
 
 // --- Internal Helpers ---
 
-function jsWinRate(matches) {
+export function jsWinRate(matches) {
   if (!matches.length) return 0;
   var w = 0;
   for (var i = 0; i < matches.length; i++) { if (matches[i].win) w++; }
@@ -53,7 +53,7 @@ function round1(n) { return Math.round(n * 10) / 10; }
 function round2(n) { return Math.round(n * 100) / 100; }
 function round3(n) { return Math.round(n * 1000) / 1000; }
 
-function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0; }
+export function jsAvg(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : 0; }
 function jsWinsLosses(ms) { var w = ms.filter(function (m) { return m.win; }).length; return [w, ms.length - w]; }
 function jsKdRatio(ms) { var k = 0, d = 0; ms.forEach(function (m) { k += m.kills; d += m.deaths; }); return d > 0 ? k / d : 0; }
 function jsAvgBursts(ms) {
@@ -62,10 +62,10 @@ function jsAvgBursts(ms) {
   return jsAvg(valid.map(function (m) { return m.bursts; }));
 }
 
-function jsGetDeathEvents(actions) {
+export function jsGetDeathEvents(actions) {
   return (actions || []).filter(function (a) { return a.action === 'death'; });
 }
-function jsGetBurstEvents(actions) {
+export function jsGetBurstEvents(actions) {
   return (actions || []).filter(function (a) { return a.action === 'exbst-f' || a.action === 'exbst-s' || a.action === 'exbst-e'; });
 }
 
@@ -813,21 +813,31 @@ function findFinishingDeath(d, deaths) {
   return withinSec(last.action_start_sec, d.game_end_sec, FINISH_TOLERANCE_SEC) ? last : null;
 }
 
-// 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
+// 1試合の順落ち（自機・僚機が順不同で15秒以内に撃墜）の撃墜ペア [自機, 僚機] を返す。チーム0落ちは null
+export function consecutiveFallPairs(d) {
+  var myDeaths = jsGetDeathEvents(d.actions);
+  var partnerDeaths = jsGetDeathEvents(d.partner_actions);
+  if (!myDeaths.length && !partnerDeaths.length) return null;
+  var pairs = [];
+  myDeaths.forEach(function (m) {
+    partnerDeaths.forEach(function (p) {
+      if (withinSec(p.action_start_sec, m.action_start_sec, CONSECUTIVE_FALL_WINDOW_SEC)) pairs.push([m, p]);
+    });
+  });
+  return pairs;
+}
+
+// 順落ちを、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
 export function computeConsecutiveFall(matches) {
   var midFall = [], finishFall = [], noFall = [];
   matches.forEach(function (d) {
-    var myDeaths = jsGetDeathEvents(d.actions);
-    var partnerDeaths = jsGetDeathEvents(d.partner_actions);
-    if (!myDeaths.length && !partnerDeaths.length) return;
-    var finishing = findFinishingDeath(d, myDeaths.concat(partnerDeaths));
+    var pairs = consecutiveFallPairs(d);
+    if (!pairs) return;
+    var finishing = findFinishingDeath(d, jsGetDeathEvents(d.actions).concat(jsGetDeathEvents(d.partner_actions)));
     var mid = false, finish = false;
-    myDeaths.forEach(function (m) {
-      partnerDeaths.forEach(function (p) {
-        if (!withinSec(p.action_start_sec, m.action_start_sec, CONSECUTIVE_FALL_WINDOW_SEC)) return;
-        if (m === finishing || p === finishing) finish = true;
-        else mid = true;
-      });
+    pairs.forEach(function (pair) {
+      if (pair[0] === finishing || pair[1] === finishing) finish = true;
+      else mid = true;
     });
     (mid ? midFall : finish ? finishFall : noFall).push(d);
   });
