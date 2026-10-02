@@ -104,7 +104,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
-- `static/index.html` — SPA フロントエンド（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）
+- `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
+- `static/styles/` — CSS（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約し、他は画面・部品ごと。`<link>` の順がカスケード順なので入れ替えない
 - `static/app.js` — フロントエンドJS本体（CSP対応で外部化。htm/Preactでレンダリング）。主要コンポーネント: ActionPlanPanel（勝率アップミッション）、Calendar/TimeSelector/PeriodSelector（期間指定）、ShareArea（SNS共有）、HamburgerMenu（左ドロワー・レポート/試合検索/モバイル総合戦歴の画面切替）、MsSelector/LensToggle（トップバーフィルタ）、Panel/KpiGrid/CompareRadar/BasicLensSection/FixedPartnerPanel、5タブ構成（OverviewPane/PlaystylePane/BurstPane/MatchupPane/TimePane）、Report（状態管理・タブ切替・レポート/検索ビュー切替・フロントエンド集計）。IndexedDBキャッシュからフロントエンドで全統計を計算
 - `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相方/コスト編成/MS編成/ダメージ貢献/被撃墜と勝率（自分×相方の2軸・回数ベース）/覚醒回数/先落ち後落ち/順落ち（自機・僚機が順不同で15秒以内に続けて撃墜。試合継続/そのまま負け/なしに分類）/覚醒タイミング（発動時の被撃墜数で1機目/2機目/3機目に分類）/覚醒タイプ別傾向（F/S/E）/固定相方/SNS共有データ/MS別サマリー
 - `static/analysis/coach.js` — 勝率アップミッションの純粋関数。試合を負け筋の状態（被撃墜回数・先落ち/後落ち・1機目覚醒・覚醒中の被撃墜・覚醒回数・順落ち・被ダメ/与ダメ/EXダメ）とそれ以外に二分し、勝率差×頻度で影響度と見込み勝率を算出（`computeActionPlan`）。選択したミッションの試合ごとの達成判定（`evaluateGoal`）、苦手機体・3連敗直後の勝率（参考情報）、直近20戦の悪化指標も算出。総合タブ先頭の ActionPlanPanel が勝敗レンズ適用前の試合で表示
@@ -116,9 +117,10 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
+- `static/lib/theme.js` — canvas/Chart.js 用に CSS 定義を読む `cssVar`
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定）。import を持たず analysis 層からも使う
 - `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（API をモックし static/ を無加工配信、`/__preview/` でサンプル投入）/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（全16画面の撮影・必須要素・console エラー・基準比較）/ `baseline/`（基準画像。Chrome・マシン依存）
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecordの純粋関数テスト）
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecord/themeの純粋関数テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
