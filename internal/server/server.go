@@ -415,7 +415,7 @@ func handleSchemaVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 // securityHeaders は全レスポンスにセキュリティヘッダーを付与する
-// staticCacheControl は HTML/JS を常に再検証（no-cache）させる。
+// staticCacheControl は HTML/JS/CSS を常に再検証（no-cache）させる。
 // アセットにバージョニングが無いため、デプロイ直後にブラウザが古いHTMLと新しいJS
 // （またはその逆）を混在してキャッシュし、レイアウトが崩れるのを防ぐ。FileServer の
 // Last-Modified / If-Modified-Since により実体が変わらなければ 304 で返るため負荷は小さい。
@@ -423,7 +423,7 @@ func handleSchemaVersion(w http.ResponseWriter, r *http.Request) {
 func staticCacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if p == "/" || strings.HasSuffix(p, ".html") || strings.HasSuffix(p, ".js") {
+		if p == "/" || strings.HasSuffix(p, ".html") || strings.HasSuffix(p, ".js") || strings.HasSuffix(p, ".css") {
 			w.Header().Set("Cache-Control", "no-cache")
 		}
 		next.ServeHTTP(w, r)
