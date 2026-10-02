@@ -816,12 +816,10 @@ function findFinishingDeath(d, deaths) {
 // 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合継続（mid）／そのまま負け（finish）／なしに分類する。チーム0落ちは対象外。
 export function computeConsecutiveFall(matches) {
   var midFall = [], finishFall = [], noFall = [];
-  var losses = 0;
   matches.forEach(function (d) {
     var myDeaths = jsGetDeathEvents(d.actions);
     var partnerDeaths = jsGetDeathEvents(d.partner_actions);
     if (!myDeaths.length && !partnerDeaths.length) return;
-    if (!d.win) losses++;
     var finishing = findFinishingDeath(d, myDeaths.concat(partnerDeaths));
     var mid = false, finish = false;
     myDeaths.forEach(function (m) {
@@ -849,8 +847,6 @@ export function computeConsecutiveFall(matches) {
     mid_fall: buildStats(midFall),
     finish_fall: buildStats(finishFall),
     no_fall: buildStats(noFall),
-    losses: losses,
-    finish_loss_rate: losses ? round1(finishFall.length / losses * 100) : null,
   };
 }
 

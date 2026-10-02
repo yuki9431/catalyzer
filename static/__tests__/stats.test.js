@@ -602,7 +602,7 @@ describe('computeConsecutiveFall', function () {
     assert.equal(result.no_fall.count, 2);
   });
 
-  it('aggregates win rate, dmg efficiency and finish share of losses', function () {
+  it('aggregates rate, win rate and dmg efficiency', function () {
     var matches = [].concat(
       makeMatches(2, function (i) { return Object.assign(fall([60], [65]), { win: i === 0 }); }),
       makeMatches(2, function () { return lost([60, 150], [140], 151); }),
@@ -613,13 +613,11 @@ describe('computeConsecutiveFall', function () {
     assert.equal(result.mid_fall.rate, 25);
     assert.equal(result.mid_fall.win_rate, 50);
     assert.equal(result.mid_fall.dmg_efficiency, 1.25);
+    assert.equal(result.finish_fall.rate, 25);
     assert.equal(result.no_fall.win_rate, 75);
-    assert.equal(result.losses, 4);
-    assert.equal(result.finish_loss_rate, 50);
   });
 
-  it('returns null finish_loss_rate without losses and null for no action data', function () {
-    assert.equal(computeConsecutiveFall([fall([60], [65])]).finish_loss_rate, null);
+  it('returns null for no action data', function () {
     assert.equal(computeConsecutiveFall([makeMatch({ actions: [], partner_actions: [] })]), null);
   });
 });

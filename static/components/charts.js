@@ -634,7 +634,6 @@ export function ConsecutiveFallContent({ consecutiveFall }) {
   return html`<div>
     <p>対象: ${consecutiveFall.total}戦（順落ち = ${consecutiveFall.window_sec}秒以内に2機とも撃墜）</p>
     <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
-    ${cf.finish_loss_rate != null && html`<p>負けた試合のうち ${pct(cf.finish_loss_rate)}（${cf.losses}敗中${cf.finish_fall.count}敗）が順落ちでそのまま負け</p>`}
   </div>`;
 }
 
