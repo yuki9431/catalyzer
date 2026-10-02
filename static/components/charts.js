@@ -621,15 +621,18 @@ export function FallOrderContent({ fallOrder }) {
 
 export function ConsecutiveFallContent({ consecutiveFall }) {
   if (!consecutiveFall) return null;
-  var rows = [['順落ちあり', consecutiveFall.with_fall], ['順落ちなし', consecutiveFall.without_fall]].map(function (r) {
+  var cf = consecutiveFall;
+  var rows = [['途中で順落ち', cf.mid_fall], ['順落ちで決着', cf.finish_fall], ['順落ちなし', cf.no_fall]].map(function (r) {
     var s = r[1];
-    // 0戦の群は勝率0%と区別するため '-' にする
+    // 0戦の群は勝率0%と区別するため '-'。決着の群は定義上全敗なので勝率を出さない
     var has = s.count > 0;
-    return [r[0], s.count + '戦', pct(s.rate), colorPct(has ? s.win_rate : null), colorDE(has ? s.dmg_efficiency : null, 3)];
+    var showWin = has && s !== cf.finish_fall;
+    return [r[0], s.count + '戦', pct(s.rate), colorPct(showWin ? s.win_rate : null), colorDE(has ? s.dmg_efficiency : null, 3)];
   });
   return html`<div>
     <p>対象: ${consecutiveFall.total}戦（順落ち = ${consecutiveFall.window_sec}秒以内に2機とも撃墜）</p>
     <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
+    ${cf.finish_loss_rate != null && html`<p>負けた試合のうち ${pct(cf.finish_loss_rate)} が順落ちで決着（${cf.losses}敗中${cf.finish_fall.count}敗）</p>`}
   </div>`;
 }
 

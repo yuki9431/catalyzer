@@ -1,3 +1,5 @@
+import { isTimeUp } from '../lib/format.js';
+
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
 // Python scripts/analyze.py の data_* 関数に対応する。
@@ -797,23 +799,39 @@ export function computeFallOrder(matches) {
 }
 
 var CONSECUTIVE_FALL_WINDOW_SEC = 15;
+var FINISH_TOLERANCE_SEC = 3;
 
-// 自機・僚機の撃墜が順不同で CONSECUTIVE_FALL_WINDOW_SEC 秒以内に続いた試合を順落ちとする。チーム0落ちの試合は対象外。
+// 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比較する
+function withinSec(a, b, sec) {
+  return Math.round(Math.abs(a - b) * 100) <= sec * 100;
+}
+
+// 負け試合（タイムアップ除く）で試合終了時刻に重なる最後の撃墜を、試合を終わらせた撃墜とみなす。
+function findFinishingDeath(d, deaths) {
+  if (d.win || !d.game_end_sec || isTimeUp(d) || !deaths.length) return null;
+  var last = deaths.reduce(function (a, b) { return b.action_start_sec > a.action_start_sec ? b : a; });
+  return withinSec(last.action_start_sec, d.game_end_sec, FINISH_TOLERANCE_SEC) ? last : null;
+}
+
+// 順落ち（自機・僚機が順不同で15秒以内に撃墜）を、試合を終わらせた撃墜を含むかで分類する。チーム0落ちの試合は対象外。
 export function computeConsecutiveFall(matches) {
-  var withFall = [], withoutFall = [];
+  var midFall = [], finishFall = [], noFall = [];
   matches.forEach(function (d) {
     var myDeaths = jsGetDeathEvents(d.actions);
     var partnerDeaths = jsGetDeathEvents(d.partner_actions);
     if (!myDeaths.length && !partnerDeaths.length) return;
-    var hit = myDeaths.some(function (m) {
-      return partnerDeaths.some(function (p) {
-        // 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比較する
-        return Math.round(Math.abs(p.action_start_sec - m.action_start_sec) * 100) <= CONSECUTIVE_FALL_WINDOW_SEC * 100;
+    var finishing = findFinishingDeath(d, myDeaths.concat(partnerDeaths));
+    var mid = false, finish = false;
+    myDeaths.forEach(function (m) {
+      partnerDeaths.forEach(function (p) {
+        if (!withinSec(p.action_start_sec, m.action_start_sec, CONSECUTIVE_FALL_WINDOW_SEC)) return;
+        if (m === finishing || p === finishing) finish = true;
+        else mid = true;
       });
     });
-    (hit ? withFall : withoutFall).push(d);
+    (mid ? midFall : finish ? finishFall : noFall).push(d);
   });
-  var total = withFall.length + withoutFall.length;
+  var total = midFall.length + finishFall.length + noFall.length;
   if (total === 0) return null;
   function buildStats(ms) {
     return {
@@ -823,11 +841,15 @@ export function computeConsecutiveFall(matches) {
       dmg_efficiency: ms.length ? round3(jsDmgEfficiency(ms)) : 0,
     };
   }
+  var losses = midFall.concat(finishFall, noFall).filter(function (d) { return !d.win; }).length;
   return {
     total: total,
     window_sec: CONSECUTIVE_FALL_WINDOW_SEC,
-    with_fall: buildStats(withFall),
-    without_fall: buildStats(withoutFall),
+    mid_fall: buildStats(midFall),
+    finish_fall: buildStats(finishFall),
+    no_fall: buildStats(noFall),
+    losses: losses,
+    finish_loss_rate: losses ? round1(finishFall.length / losses * 100) : null,
   };
 }
 
