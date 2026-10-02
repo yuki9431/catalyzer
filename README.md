@@ -90,6 +90,7 @@
 │   ├── favicon.svg                # ファビコン（SVG）
 │   ├── htm-preact-standalone.js   # htm + Preactライブラリ
 │   └── chart.umd.min.js          # Chart.jsライブラリ
+├── tools/ui-check/                # UIプレビュー（サンプルデータ）と画面確認スクリプト（依存ゼロ・要Chrome）
 ├── data/
 │   ├── ms_list.json               # 機体名・コストマッピング
 │   └── grade_list.json            # 階級画像URL→階級名・グレードマッピング
@@ -164,6 +165,12 @@ make test
 
 # フロントエンド（JS）テスト
 make test-js
+
+# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認 / 基準画像の更新
+make ui-preview
+make ui-check
+make ui-baseline
+# Chrome が既定パス(macOS の Google Chrome)に無い場合は CHROME_PATH で指定する
 
 # Firestoreから未登録グレードURLを抽出
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades

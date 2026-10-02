@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test test-js extract-grades \
+.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
 
@@ -30,7 +30,19 @@ test:
 
 ## フロントエンド（JS）テストを実行
 test-js:
-	node --test 'static/__tests__/*.test.js'
+	node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'
+
+## サンプルデータのUIプレビューを起動（http://127.0.0.1:8090/__preview/）
+ui-preview:
+	node tools/ui-check/server.js
+
+## 全画面をヘッドレスChromeで撮影し基準画像と比較（要: Google Chrome）
+ui-check:
+	node tools/ui-check/check.js
+
+## 基準画像を現在の描画で更新
+ui-baseline:
+	node tools/ui-check/check.js --update
 
 ## Firestoreから未登録グレードURLを抽出
 extract-grades:

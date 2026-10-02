@@ -12,7 +12,8 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
-- **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js'`
+- **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
+- **画面確認（UI oracle）**: `make ui-check`（全16画面を実Chromeで撮影し基準画像と比較・console エラー検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
@@ -39,6 +40,11 @@ make test
 
 # フロントエンド（JS）テスト
 make test-js
+
+# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認 / 基準更新
+make ui-preview
+make ui-check
+make ui-baseline
 
 # ポート変更
 PORT=3000 make run
@@ -111,6 +117,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定）。import を持たず analysis 層からも使う
+- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（API をモックし static/ を無加工配信、`/__preview/` でサンプル投入）/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（全16画面の撮影・必須要素・console エラー・基準比較）/ `baseline/`（基準画像。Chrome・マシン依存）
 - `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecordの純粋関数テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
