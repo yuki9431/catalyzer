@@ -763,7 +763,7 @@ export function computeFallOrder(matches) {
   var fallTotal = firstFall.length + secondFall.length + sameTime.length;
   if (firstFall.length && fallTotal > 0) {
     var firstRate = firstFall.length / fallTotal * 100;
-    if (firstRate >= 60) tips.push('撃墜された試合のうち、先落ちは **' + Math.round(firstRate) + '%**');
+    if (firstRate >= 60) tips.push('自機が撃墜された試合のうち、先落ちは **' + Math.round(firstRate) + '%**');
   }
   if (noFall.length && firstFall.length) {
     var d2 = noFallWr - firstWr;
