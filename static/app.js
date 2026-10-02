@@ -6,6 +6,7 @@ import {
   computeEnemyMatchup, computePartner, computeCostPair, computeMsPair,
   computeDmgContribution, computeTeamDeathsImpact,
   computeBurstCount, computeFallOrder, computeBurstTiming, computeBurstType,
+  computeGameDuration, computeOverlimit,
   computeFixedPartners,
   computeShareData, computeMsSummary,
   burstKpi, bestWorstHour, partnerKpi,
@@ -31,6 +32,7 @@ import {
   TimeOfDayChart, DayOfWeekChart, DailyTrendChart, SeasonChart,
   WinRateBarChart, DmgContributionChart,
   FallOrderContent, BurstTimingContent, BurstTypeContent, BurstCountContent,
+  GameDurationContent, OverlimitContent,
   CompareRadar,
 } from './components/charts.js';
 
@@ -720,6 +722,7 @@ function OverviewPane({ pd, selectedMs, lens, frontendData }) {
 
 function TimePane({ pd }) {
   var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend;
+  var duration = pd.game_duration;
   var timeRows = time && time.hours ? time.hours.map(function (h) {
     return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
   }) : [];
@@ -755,6 +758,10 @@ function TimePane({ pd }) {
       <${SubSection} title="テーブルで詳細を見る">
         <${SortableTable} headers=${['日付', '試合', '勝率', '与被ダメ比']} rows=${dailyRows} />
       <//>
+    <//>`}
+    ${duration && duration.by_duration && duration.by_duration.length > 0 && html`<${Panel} title="試合時間と勝率">
+      <${WinRateBarChart} items=${duration.by_duration} />
+      <${GameDurationContent} durationData=${duration} />
     <//>`}
   </div>`;
 }
@@ -800,6 +807,7 @@ function BurstPane({ frontendData }) {
   var burstCount = frontendData.burst_count;
   var burstTiming = frontendData.burst_timing;
   var burstType = frontendData.burst_type;
+  var overlimit = frontendData.overlimit;
 
   var countItems = burstCount && burstCount.by_count ? burstCount.by_count : [];
   var typeItems = burstType && burstType.by_type
@@ -808,6 +816,7 @@ function BurstPane({ frontendData }) {
   var timingItems = burstTiming && burstTiming.by_timing
     ? burstTiming.by_timing.map(function (t) { return { label: t.label, matches: t.count, win_rate: t.win_rate }; })
     : [];
+  var overlimitItems = overlimit && overlimit.by_usage ? overlimit.by_usage : [];
 
   return html`<div class="tabpane">
     ${countItems.length > 0 && html`<${Panel} title="覚醒回数と勝率">
@@ -825,7 +834,12 @@ function BurstPane({ frontendData }) {
       <${BurstTimingContent} timingData=${burstTiming} />
     <//>`}
 
-    ${!countItems.length && !typeItems.length && !timingItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
+    ${overlimitItems.length > 0 && html`<${Panel} title="オバリミ活用と勝率">
+      <${WinRateBarChart} items=${overlimitItems} />
+      <${OverlimitContent} overlimitData=${overlimit} />
+    <//>`}
+
+    ${!countItems.length && !typeItems.length && !timingItems.length && !overlimitItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
   </div>`;
 }
 
@@ -1175,6 +1189,7 @@ function Report({ data, userKey }) {
       time_of_day: computeTimeOfDay(filtered),
       day_of_week: computeDayOfWeek(filtered),
       daily_trend: computeDailyTrend(filtered),
+      game_duration: computeGameDuration(filtered),
       season: computeSeason(filtered),
       basic_stats: computeBasicStats(filtered),
       win_loss_pattern: computeWinLossPattern(filtered),
@@ -1188,6 +1203,7 @@ function Report({ data, userKey }) {
       fall_order: computeFallOrder(filtered),
       burst_timing: computeBurstTiming(filtered),
       burst_type: computeBurstType(filtered),
+      overlimit: computeOverlimit(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
   }, [allMatches, selectedPeriod, selectedMs, lens, tagPartners, customRange]);
@@ -1244,7 +1260,7 @@ function Report({ data, userKey }) {
   } else if (activeTab === 'matchup') {
     pane = html`<${MatchupPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'time') {
-    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
+    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, game_duration: frontendData.game_duration };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} />`;

@@ -654,6 +654,37 @@ export function BurstCountContent({ countData }) {
   </div>`;
 }
 
+function fmtDuration(sec) {
+  var s = Math.round(sec);
+  var m = Math.floor(s / 60);
+  var r = s % 60;
+  return m > 0 ? (m + '分' + r + '秒') : (r + '秒');
+}
+
+export function GameDurationContent({ durationData }) {
+  if (!durationData || !durationData.by_duration || !durationData.by_duration.length) return null;
+  var rows = durationData.by_duration.map(function (b) {
+    return [b.label, b.matches + '戦', colorPct(b.win_rate)];
+  });
+  return html`<div>
+    <p>試合時間の傾向（対象: ${durationData.total}戦 / 平均 ${fmtDuration(durationData.avg_sec)}・中央値 ${fmtDuration(durationData.median_sec)}）</p>
+    <${Table} headers=${['試合時間', '試合数', '勝率']} rows=${rows} />
+    <${Tips} tips=${durationData.tips} />
+  </div>`;
+}
+
+export function OverlimitContent({ overlimitData }) {
+  if (!overlimitData || !overlimitData.by_usage || !overlimitData.by_usage.length) return null;
+  var rows = overlimitData.by_usage.map(function (u) {
+    return [u.label, u.matches + '戦', colorPct(u.win_rate)];
+  });
+  return html`<div>
+    <p>EXオーバーリミットの活用（対象: ${overlimitData.total}戦 / 発動可能だった試合での発動率 ${overlimitData.activation_rate}%）</p>
+    <${Table} headers=${['オバリミ', '試合数', '勝率']} rows=${rows} />
+    <${Tips} tips=${overlimitData.tips} />
+  </div>`;
+}
+
 // レーダーの最低描画半径(%)。全軸が最低評価(0)でも中心の点に潰れず六角形の厚みを残すための底上げ。
 var RADAR_FLOOR_PCT = 15;
 // 0-100の正規化値を [RADAR_FLOOR_PCT, 100] に写像する（順序は保つ）。

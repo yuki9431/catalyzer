@@ -19,6 +19,8 @@ import {
   computeFallOrder,
   computeBurstTiming,
   computeBurstType,
+  computeGameDuration,
+  computeOverlimit,
   computeFixedPartners,
   burstKpi,
   bestWorstHour,
@@ -831,5 +833,95 @@ describe('partnerKpi', function () {
     assert.equal(r.count, 1);
     assert.equal(r.top.ms, 'ザク');
     assert.equal(r.bestWinRate.ms, 'ザク');
+  });
+});
+
+// --- computeGameDuration ---
+
+describe('computeGameDuration', function () {
+  it('returns null when no match has a valid game_end_sec', function () {
+    assert.equal(computeGameDuration(makeMatches(3, {})), null);
+  });
+
+  it('excludes zero/undefined game_end_sec from the population', function () {
+    var matches = [
+      makeMatch({ game_end_sec: 90 }),
+      makeMatch({ game_end_sec: 0 }),
+      makeMatch({}),
+    ];
+    assert.equal(computeGameDuration(matches).total, 1);
+  });
+
+  it('buckets by duration and computes win rate per bucket', function () {
+    var matches = [
+      makeMatch({ game_end_sec: 60, win: true }),
+      makeMatch({ game_end_sec: 100, win: false }),
+      makeMatch({ game_end_sec: 150, win: true }),
+      makeMatch({ game_end_sec: 200, win: true }),
+    ];
+    var r = computeGameDuration(matches);
+    assert.equal(r.total, 4);
+    var short = r.by_duration.filter(function (b) { return b.label === '〜120秒'; })[0];
+    assert.equal(short.matches, 2);
+    assert.equal(short.win_rate, 50);
+  });
+
+  it('computes average and median seconds (odd count)', function () {
+    var matches = [60, 120, 180].map(function (s) { return makeMatch({ game_end_sec: s }); });
+    var r = computeGameDuration(matches);
+    assert.equal(r.avg_sec, 120);
+    assert.equal(r.median_sec, 120);
+  });
+
+  it('computes median for an even count', function () {
+    var matches = [60, 100, 140, 200].map(function (s) { return makeMatch({ game_end_sec: s }); });
+    assert.equal(computeGameDuration(matches).median_sec, 120);
+  });
+
+  it('boundary: 120 falls into the mid bucket, not the short one', function () {
+    var r = computeGameDuration([makeMatch({ game_end_sec: 120 })]);
+    assert.equal(r.by_duration.length, 1);
+    assert.equal(r.by_duration[0].label, '120〜180秒');
+  });
+});
+
+// --- computeOverlimit ---
+
+describe('computeOverlimit', function () {
+  it('returns null when no match has timeline actions', function () {
+    assert.equal(computeOverlimit(makeMatches(3, { actions: [] })), null);
+  });
+
+  it('splits matches by activation and computes win rate', function () {
+    var matches = [
+      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 30, action_end_sec: 40 }, { action: 'exbst-ov', action_start_sec: 35 }] }),
+      makeMatch({ win: false, actions: [{ action: 'ov', action_start_sec: 30, action_end_sec: 40 }] }),
+    ];
+    var r = computeOverlimit(matches);
+    assert.equal(r.total, 2);
+    var used = r.by_usage.filter(function (u) { return u.label === '発動あり'; })[0];
+    var notUsed = r.by_usage.filter(function (u) { return u.label === '発動なし'; })[0];
+    assert.equal(used.matches, 1);
+    assert.equal(used.win_rate, 100);
+    assert.equal(notUsed.matches, 1);
+    assert.equal(notUsed.win_rate, 0);
+  });
+
+  it('activation_rate is used/available among matches that reached max gauge', function () {
+    var matches = [
+      makeMatch({ actions: [{ action: 'ov' }, { action: 'exbst-ov' }] }),
+      makeMatch({ actions: [{ action: 'ov' }] }),
+      makeMatch({ actions: [{ action: 'exbst-f' }] }),
+    ];
+    var r = computeOverlimit(matches);
+    assert.equal(r.total, 3);
+    assert.equal(r.available, 2);
+    assert.equal(r.activation_rate, 50);
+  });
+
+  it('activation_rate is 0 when no match reached max gauge', function () {
+    var r = computeOverlimit([makeMatch({ actions: [{ action: 'exbst-f' }] })]);
+    assert.equal(r.available, 0);
+    assert.equal(r.activation_rate, 0);
   });
 });

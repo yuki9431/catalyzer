@@ -60,6 +60,16 @@ function jsAvgBursts(ms) {
   return jsAvg(valid.map(function (m) { return m.bursts; }));
 }
 
+function jsMedian(arr) {
+  if (!arr.length) return 0;
+  var s = arr.slice().sort(function (a, b) { return a - b; });
+  var mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+function jsHasAction(actions, name) {
+  return (actions || []).some(function (a) { return a.action === name; });
+}
+
 function jsGetDeathEvents(actions) {
   return (actions || []).filter(function (a) { return a.action === 'death'; });
 }
@@ -898,6 +908,68 @@ export function computeBurstType(matches) {
     }
   }
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
+}
+
+// 試合時間の区分。境界は #256 指定（短期戦/普通/長期戦）。タイムアップは240秒。
+var GAME_DURATION_BUCKETS = [
+  { label: '〜120秒', min: 0, max: 120 },
+  { label: '120〜180秒', min: 120, max: 180 },
+  { label: '180秒〜', min: 180, max: Infinity },
+];
+
+// game_end_sec で試合時間の傾向を集計する。omitemptyで未取得は欠損するため有効値のみ対象(#256)。
+export function computeGameDuration(matches) {
+  var valid = matches.filter(function (m) { return m.game_end_sec != null && m.game_end_sec > 0; });
+  if (!valid.length) return null;
+  var secs = valid.map(function (m) { return m.game_end_sec; });
+  var byDuration = GAME_DURATION_BUCKETS.map(function (b) {
+    var ms = valid.filter(function (m) { return m.game_end_sec >= b.min && m.game_end_sec < b.max; });
+    return { label: b.label, matches: ms.length, win_rate: ms.length ? round1(jsWinRate(ms)) : 0 };
+  }).filter(function (b) { return b.matches > 0; });
+  var tips = [];
+  var eligible = byDuration.filter(function (b) { return b.matches >= 5; });
+  if (eligible.length >= 2) {
+    var byWin = eligible.slice().sort(function (a, b) { return b.win_rate - a.win_rate; });
+    var best = byWin[0], worst = byWin[byWin.length - 1];
+    if (best.win_rate - worst.win_rate >= 5) {
+      tips.push('**' + best.label + '** の試合で勝率が高い（' + best.win_rate + '%） → この試合展開が得意');
+    }
+  }
+  return {
+    total: valid.length,
+    avg_sec: Math.round(jsAvg(secs)),
+    median_sec: Math.round(jsMedian(secs)),
+    by_duration: byDuration,
+    tips: tips,
+  };
+}
+
+// EXオーバーリミット(ov=ゲージMAX, exbst-ov=発動)の活用率を集計する。自機のタイムラインを対象(#256)。
+export function computeOverlimit(matches) {
+  var withTimeline = matches.filter(function (m) { return m.actions && m.actions.length; });
+  if (!withTimeline.length) return null;
+  var used = [], notUsed = [], available = 0, activated = 0;
+  withTimeline.forEach(function (m) {
+    var hasUsed = jsHasAction(m.actions, 'exbst-ov');
+    if (jsHasAction(m.actions, 'ov')) { available++; if (hasUsed) activated++; }
+    if (hasUsed) used.push(m); else notUsed.push(m);
+  });
+  var byUsage = [];
+  if (used.length) byUsage.push({ label: '発動あり', matches: used.length, win_rate: round1(jsWinRate(used)) });
+  if (notUsed.length) byUsage.push({ label: '発動なし', matches: notUsed.length, win_rate: round1(jsWinRate(notUsed)) });
+  var tips = [];
+  if (used.length >= 5 && notUsed.length >= 5) {
+    var diff = jsWinRate(used) - jsWinRate(notUsed);
+    if (diff >= 5) tips.push('オバリミを発動した試合の勝率が **' + Math.round(diff) + '%** 高い → 積極的に発動しよう');
+    else if (diff <= -5) tips.push('オバリミ発動時の勝率がむしろ低い → 発動タイミングを見直そう');
+  }
+  return {
+    total: withTimeline.length,
+    available: available,
+    activation_rate: available ? round1(activated / available * 100) : 0,
+    by_usage: byUsage,
+    tips: tips,
+  };
 }
 
 export function computeFixedPartners(matches, tagPartners) {
