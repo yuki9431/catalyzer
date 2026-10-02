@@ -619,6 +619,23 @@ export function FallOrderContent({ fallOrder }) {
   </div>`;
 }
 
+export function ConsecutiveFallContent({ consecutiveFall }) {
+  if (!consecutiveFall) return null;
+  var cf = consecutiveFall;
+  // 0戦の群は勝率0%と区別するため '-'。そのまま負けの群は定義上全敗なので勝率を出さない
+  var rows = [
+    { label: '順落ち（試合継続）', s: cf.mid_fall },
+    { label: '順落ち（そのまま負け）', s: cf.finish_fall, hideWin: true },
+    { label: '順落ちなし', s: cf.no_fall },
+  ].map(function (r) {
+    var has = r.s.count > 0;
+    return [r.label, r.s.count + '戦', pct(r.s.rate), colorPct(has && !r.hideWin ? r.s.win_rate : null), colorDE(has ? r.s.dmg_efficiency : null, 3)];
+  });
+  return html`<div>
+    <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
+  </div>`;
+}
+
 export function BurstTimingContent({ timingData }) {
   if (!timingData || !timingData.by_timing || !timingData.by_timing.length) return null;
   var rows = timingData.by_timing.map(function (t) {

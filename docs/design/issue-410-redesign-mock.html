@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- #410 デザイン刷新のモック。数値・名前はすべてサンプル -->
+<title>catalyzer 全画面モック</title>
+<style>
+  /* レイアウト: 左に画面一覧、中央にスマホ幅のアプリ、右にその画面の設計メモ。狭い画面では縦に積む */
+  :root {
+    color-scheme: dark;
+    --bg: #0e141b; --surface: #18212b; --surface-2: #212c38; --fg: #e9eef3; --muted: #a2b1bf;
+    --line: #2a3644; --accent: #5ec6f2; --on-accent: #06222f; --win: #6fdc9f; --lose: #ff8d80; --warn: #f2c14e;
+    --s1: #5ec6f2; --s2: #ff9e7a; --s3: #6fdc9f; --s4: #f2c14e;
+    --font: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+    color-scheme: light; --bg: #f4f6f8; --surface: #ffffff; --surface-2: #e7ecf0; --fg: #17202a; --muted: #4f5d6b; --line: #d5dbe1; --accent: #0a6c99; --on-accent: #ffffff; --win: #13803f; --lose: #c4321f; --warn: #8a5a00; --s1: #0a6c99; --s2: #c2541f; --s3: #13803f; --s4: #8a6a00;
+  } }
+  :root[data-theme="light"] { color-scheme: light; --bg: #f4f6f8; --surface: #ffffff; --surface-2: #e7ecf0; --fg: #17202a; --muted: #4f5d6b; --line: #d5dbe1; --accent: #0a6c99; --on-accent: #ffffff; --win: #13803f; --lose: #c4321f; --warn: #8a5a00; --s1: #0a6c99; --s2: #c2541f; --s3: #13803f; --s4: #8a6a00; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .stage { display: grid; grid-template-columns: 180px minmax(0, 420px) minmax(0, 360px); justify-content: center; gap: 40px; padding: 32px 16px 64px; align-items: start; }
+  .screens { position: sticky; top: 24px; }
+  .screens h1 { font-size: 16px; margin: 0 0 12px; }
+  .screens ul { list-style: none; margin: 0; padding: 0; }
+  .screens button { display: block; width: 100%; text-align: left; background: none; border: 0; border-left: 3px solid transparent; padding: 8px 12px; color: var(--muted); cursor: pointer; min-height: 40px; }
+  .screens button[aria-current="true"] { color: var(--fg); font-weight: 700; border-left-color: var(--accent); }
+  .screens p { font-size: 14px; color: var(--muted); margin: 16px 0 0; }
+  @media (max-width: 1080px) {
+    .stage { grid-template-columns: minmax(0, 420px); padding: 0 0 48px; gap: 24px; }
+    .screens { position: static; padding: 16px 16px 0; }
+    .screens ul { display: flex; gap: 4px; overflow-x: auto; }
+    .screens li { flex: none; }
+    .screens button { border-left: 0; border-bottom: 3px solid transparent; white-space: nowrap; padding: 8px 10px; }
+    .screens button[aria-current="true"] { border-bottom-color: var(--accent); }
+    .notes { padding: 0 16px; }
+  }
+
+  /* ===== アプリ枠 ===== */
+  .app { position: relative; display: flex; flex-direction: column; height: 820px; background: var(--bg); border: 1px solid var(--line); border-radius: 24px; overflow: hidden; }
+  @media (max-width: 1080px) { .app { border-left: 0; border-right: 0; border-radius: 0; height: 760px; } }
+  .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+  .appbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 16px 0; border-bottom: 1px solid var(--line); }
+  .appbar-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+  .appbar h2 { font-size: 20px; line-height: 1.3; margin: 0; }
+  .iconbtn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--accent); font-size: 14px; min-height: 44px; padding: 0 4px; cursor: pointer; }
+  .iconbtn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .filters { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
+  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .chip .k { color: var(--muted); }
+  .chip .cut { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
+  .filters .seg { margin-left: auto; }
+  .chip.set { border-color: var(--accent); }
+  .chip::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg) translateY(-2px); margin-left: 2px; }
+  .seg { display: inline-flex; flex: none; background: var(--surface-2); border-radius: 8px; padding: 2px; }
+  .seg button { border: 0; background: none; border-radius: 6px; padding: 0 12px; min-height: 40px; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .tabs { display: flex; gap: 20px; overflow-x: auto; scrollbar-width: none; }
+  .tab { flex: none; background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 0; min-height: 44px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--fg); font-weight: 700; border-bottom-color: var(--accent); }
+
+  .page { padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 36px; }
+  .sample { font-size: 14px; color: var(--muted); margin: -8px 0 -20px; }
+
+  /* 要約: 画面で唯一の面 */
+  .summary { background: var(--surface); border-radius: 16px; padding: 20px 16px; }
+  .summary .label { font-size: 14px; color: var(--muted); margin: 0; }
+  .big { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 4px 0 0; }
+  .big strong { font-size: 44px; line-height: 1.1; font-weight: 700; }
+  .big strong small { font-size: 22px; }
+  .big .aside { color: var(--muted); }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+  .metrics div { min-width: 0; }
+  .metrics dt { font-size: 14px; color: var(--muted); line-height: 1.4; }
+  .metrics dd { margin: 2px 0 0; font-size: 22px; font-weight: 700; line-height: 1.3; }
+  .metrics dd span { display: block; font-size: 14px; font-weight: 400; color: var(--muted); }
+  .up { color: var(--win) !important; } .down { color: var(--lose) !important; } .flat { color: var(--muted); }
+
+  section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h3 { font-size: 18px; line-height: 1.4; margin: 0; }
+  h4 { font-size: 15px; margin: 20px 0 4px; color: var(--muted); font-weight: 500; }
+  .lead { margin: 4px 0 12px; font-size: 14px; color: var(--muted); }
+  .link { background: none; border: 0; color: var(--accent); font-size: 14px; padding: 0; min-height: 44px; cursor: pointer; white-space: nowrap; }
+
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); min-height: 56px; }
+  .row:last-child { border-bottom: 0; }
+  .row .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .sub { grid-column: 1; font-size: 14px; color: var(--muted); }
+  .row .val { grid-row: 1 / span 2; grid-column: 2; text-align: right; font-weight: 700; }
+  .row .val span { display: block; font-size: 14px; font-weight: 400; color: var(--muted); }
+  .row.nav { cursor: pointer; }
+  .row.nav .val::after { content: ""; display: inline-block; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-top: 2px solid var(--muted); transform: rotate(45deg); margin-left: 8px; }
+  .bar { grid-column: 1; height: 4px; background: var(--surface-2); border-radius: 2px; position: relative; }
+  .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--muted); }
+  .bar i.up { background: var(--win); } .bar i.down { background: var(--lose); }
+  .bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--fg); opacity: .35; }
+  .bar b { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--fg); }
+
+  .tablewrap { overflow-x: auto; margin: 4px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { font-size: 14px; font-weight: 500; color: var(--muted); text-align: left; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th.sort { cursor: pointer; }
+  th.sort::after { content: " ↕"; font-size: 14px; opacity: .6; }
+  td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td:first-child { white-space: normal; min-width: 7em; }
+  .n { text-align: right; }
+  th.n, td.n { padding-left: 8px; padding-right: 0; }
+  td.up, td.down { font-weight: 700; }
+  .more { display: block; width: 100%; background: none; border: 0; color: var(--accent); min-height: 44px; font-size: 14px; cursor: pointer; }
+
+  .facts { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+  .facts li { font-size: 15px; padding-left: 16px; position: relative; }
+  .facts li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+
+  details.disc { border-top: 1px solid var(--line); margin-top: 12px; }
+  details.disc > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; min-height: 44px; cursor: pointer; color: var(--accent); font-size: 14px; }
+  details.disc > summary::-webkit-details-marker { display: none; }
+  details.disc > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .15s; }
+  details.disc[open] > summary::after { transform: rotate(-135deg); }
+
+  .chart { width: 100%; height: auto; display: block; margin-top: 8px; }
+  .chart text { fill: var(--muted); font-size: 13px; font-family: var(--font); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .legend i.line { height: 2px; vertical-align: 3px; }
+  .two { display: grid; grid-template-columns: 1fr; gap: 8px; }
+
+  .heat td, .heat th { text-align: center; padding: 6px 4px; }
+  .heat th:first-child { text-align: left; }
+  .heat td b { display: block; font-size: 15px; }
+  .heat td span { font-size: 14px; color: var(--muted); }
+
+  .partner-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 12px; margin: 8px 0; cursor: pointer; text-align: left; }
+  .partner-pick span { color: var(--muted); font-size: 14px; }
+
+  /* フォーム */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label, .field .lbl { font-size: 14px; color: var(--muted); }
+  .input { min-height: 48px; width: 100%; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); }
+  .input::placeholder { color: var(--muted); }
+  .check { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; }
+  .check input { width: 22px; height: 22px; accent-color: var(--accent); }
+  .primary { min-height: 52px; width: 100%; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-weight: 700; cursor: pointer; }
+  .secondary { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 16px; cursor: pointer; }
+  .danger { color: var(--lose); }
+  .note { font-size: 14px; color: var(--muted); margin: 0; }
+  .legal { font-size: 14px; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--line); padding-top: 16px; }
+  .legal p { margin: 0 0 8px; }
+  .brand { font-size: 28px; font-weight: 700; letter-spacing: .02em; margin: 24px 0 0; }
+  .brand span { color: var(--accent); }
+
+  /* 進捗 */
+  .progress { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .steps { list-style: none; padding: 0; margin: 0; }
+  .steps li { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); }
+  .steps li:last-child { border-bottom: 0; }
+  .steps .st { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; display: grid; place-items: center; }
+  .steps .done .st { background: var(--accent); border-color: var(--accent); }
+  .steps .done .st::after { content: ""; width: 5px; height: 9px; border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+  .steps .now .st { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
+  .steps .wait { color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 通知 */
+  .notice { display: grid; grid-template-columns: 4px 1fr; gap: 12px; padding: 4px 0; }
+  .notice::before { content: ""; border-radius: 2px; background: var(--accent); }
+  .notice.warn::before { background: var(--warn); }
+  .notice.err::before { background: var(--lose); }
+  .notice b { display: block; }
+  .notice p { margin: 2px 0 0; font-size: 15px; color: var(--muted); }
+  .notice .act { margin-top: 8px; }
+  .empty { text-align: center; padding: 32px 8px; }
+  .empty b { display: block; font-size: 17px; }
+  .empty p { color: var(--muted); font-size: 15px; margin: 4px 0 16px; }
+
+  /* 試合 */
+  .match { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: center; cursor: pointer; }
+  .res { grid-row: 1 / span 3; width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+  .res.w { background: color-mix(in srgb, var(--win) 18%, transparent); color: var(--win); }
+  .res.l { background: color-mix(in srgb, var(--lose) 18%, transparent); color: var(--lose); }
+  .match .ms { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .match .vs, .match .who { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--muted); }
+  .match .meta { grid-row: 1 / span 3; grid-column: 3; text-align: right; font-size: 14px; color: var(--muted); }
+  .match .meta b { display: block; color: var(--fg); font-size: 16px; }
+  .tag { display: inline-block; font-size: 14px; border: 1px solid var(--warn); color: var(--warn); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
+  .daylabel { font-size: 14px; color: var(--muted); padding: 16px 0 4px; border-bottom: 1px solid var(--line); }
+  .resulthead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 14px; color: var(--muted); }
+  .appliedlist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .applied { font-size: 14px; background: var(--surface-2); border-radius: 6px; padding: 2px 8px; }
+
+  .players { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .player { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: none; text-align: left; cursor: pointer; min-height: 64px; min-width: 0; }
+  .player[aria-pressed="true"] { border-color: currentColor; }
+  .player i { display: block; width: 100%; height: 3px; border-radius: 2px; margin-bottom: 6px; }
+  .player b { display: block; font-size: 14px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player span { display: block; font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidelabel { font-size: 14px; color: var(--muted); }
+
+  /* シート */
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); z-index: 20; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--bg); border-radius: 16px 16px 0 0; max-height: 85%; display: flex; flex-direction: column; }
+  .sheet.full { top: 0; max-height: none; border-radius: 0; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid var(--line); min-height: 52px; }
+  .sheet-head h3 { font-size: 17px; }
+  .sheet-body { overflow-y: auto; padding: 8px 16px 16px; }
+  .sheet-foot { border-top: 1px solid var(--line); padding: 12px 16px; display: flex; gap: 12px; align-items: center; }
+  .opt { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 48px; background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left; cursor: pointer; padding: 0; }
+  .opt[aria-checked="true"] { color: var(--accent); font-weight: 700; }
+  .opt[aria-checked="true"]::after { content: ""; width: 6px; height: 12px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); margin-right: 6px; }
+  .opt span { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 8px; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 14px; margin-top: 8px; }
+  .cal b { color: var(--muted); font-weight: 400; padding: 4px 0; }
+  .cal span { min-height: 40px; display: grid; place-items: center; border-radius: 8px; }
+  .cal .in { background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 0; }
+  .cal .edge { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+  .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; }
+  .formgrid .wide { grid-column: 1 / -1; }
+  .range { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; }
+
+  /* 下部タブバー */
+  .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .tabbar button { background: none; border: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; min-height: 56px; font-size: 14px; color: var(--muted); cursor: pointer; }
+  .tabbar svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tabbar button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+
+  .share { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .share button { min-height: 64px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .share i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 700; color: #fff; }
+
+  .confirm { background: var(--surface); border-radius: 12px; padding: 16px; }
+  .confirm p { margin: 0 0 12px; }
+  .confirm div { display: flex; gap: 8px; }
+
+  /* 設計メモ */
+  .notes h2 { font-size: 20px; margin: 0 0 4px; }
+  .notes > p { color: var(--muted); margin: 0 0 16px; font-size: 15px; }
+  .notes dl { margin: 0; }
+  .notes dt { font-weight: 700; padding-top: 12px; border-top: 1px solid var(--line); }
+  .notes dd { margin: 4px 0 12px; color: var(--muted); font-size: 15px; }
+  .notes .impl { display: inline-block; font-size: 14px; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 400; vertical-align: 1px; }
+  @media (prefers-reduced-motion: reduce) { .steps .now .st { animation: none; } }
+</style>
+
+<div class="stage">
+  <nav class="screens" aria-label="画面一覧">
+    <h1>画面</h1>
+    <ul id="screenlist"></ul>
+    <p>数値・名前はすべてサンプルです。アプリ内のボタン、タブ、絞り込みは操作できます。</p>
+    <div class="seg" role="group" aria-label="テーマ" style="margin-top:12px"><button type="button" data-theme-set="" aria-pressed="true">端末</button><button type="button" data-theme-set="dark" aria-pressed="false">ダーク</button><button type="button" data-theme-set="light" aria-pressed="false">ライト</button></div>
+  </nav>
+
+  <div class="app" id="app">
+    <div class="scroll" id="scroll"></div>
+    <nav class="tabbar" id="tabbar" aria-label="画面切替">
+      <button type="button" data-go="report"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>レポート</button>
+      <button type="button" data-go="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>試合検索</button>
+      <button type="button" data-go="record"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3"/></svg>総合戦歴</button>
+      <button type="button" data-go="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>その他</button>
+    </nav>
+    <div id="overlay"></div>
+  </div>
+
+  <aside class="notes" id="notes"></aside>
+</div>
+
+<script>
+(function () {
+  // ===== サンプルデータ =====
+  var MS = ['Hi-νガンダム', 'ガンダム・エアリアル(改修型)', 'ウイングガンダムゼロ(EW版)', 'ダブルオークアンタ フルセイバー', 'ガンダムバルバトスルプスレクス'];
+  var MS_N = [98, 74, 51, 32, 21];
+  var ENEMY = [
+    ['ガンダムエピオン', 14, 28.6, 0.82, 984, 1201], ['ターンX', 11, 36.4, 0.91, 1022, 1124], ['ストライクフリーダムガンダム弐式', 22, 40.9, 0.97, 1068, 1101],
+    ['ゴッドガンダム', 8, 37.5, 0.88, 1003, 1140], ['マスターガンダム', 6, 33.3, 0.86, 951, 1106],
+    ['ウイングガンダムゼロ(EW版)', 18, 44.4, 1.02, 1120, 1098], ['Hi-νガンダム', 25, 52.0, 1.12, 1150, 1027], ['シナンジュ', 12, 50.0, 1.09, 1131, 1038],
+    ['νガンダム', 16, 62.5, 1.31, 1204, 919], ['ガンダム・エアリアル(改修型)', 19, 63.2, 1.36, 1187, 873], ['クロスボーン・ガンダムX1フルクロス', 9, 66.7, 1.44, 1236, 858],
+    ['ユニコーンガンダム', 13, 69.2, 1.52, 1262, 830], ['デスティニーガンダム', 10, 70.0, 1.48, 1240, 838]
+  ];
+  var ALLY = [['ガンダム・エアリアル(改修型)', 31, 64.5, 1.39], ['νガンダム', 27, 59.3, 1.27], ['シナンジュ', 22, 54.5, 1.18], ['ゴッドガンダム', 18, 50.0, 1.10], ['ガンダムエピオン', 15, 46.7, 1.03], ['ターンX', 12, 41.7, 0.96]];
+  var COMBO = [['Hi-νガンダム & ガンダム・エアリアル(改修型)', 21, 66.7, 1.42], ['Hi-νガンダム & νガンダム', 14, 57.1, 1.25], ['ガンダム・エアリアル(改修型) & シナンジュ', 11, 54.5, 1.16], ['ウイングガンダムゼロ(EW版) & ゴッドガンダム', 9, 44.4, 0.99]];
+  var COST = [['3000 + 3000', 64, 48.4, 1.08], ['3000 + 2500', 138, 57.2, 1.31], ['3000 + 2000', 51, 56.9, 1.27], ['2500 + 2500', 39, 51.3, 1.15], ['2500 + 2000', 20, 50.0, 1.06]];
+  var HOURS = [[10,4,50],[12,9,44.4],[14,12,58.3],[16,15,53.3],[17,21,52.4],[18,34,55.9],[19,41,56.1],[20,46,63.0],[21,52,51.9],[22,38,50.0],[23,26,38.5]];
+  var DOW = [['日曜', 52, 59.6], ['月曜', 31, 51.6], ['火曜', 28, 46.4], ['水曜', 35, 54.3], ['木曜', 30, 50.0], ['金曜', 54, 53.7], ['土曜', 82, 58.5]];
+  var DAILY = [['09-03',12,58.3],['09-05',18,50.0],['09-06',26,61.5],['09-07',22,54.5],['09-10',14,42.9],['09-12',16,56.3],['09-13',28,60.7],['09-14',20,45.0],['09-17',11,36.4],['09-19',17,52.9],['09-20',30,63.3],['09-21',24,58.3],['09-26',19,47.4],['09-27',27,55.6],['10-01',10,50.0],['10-02',12,58.3]];
+  var PARTNERS = [['シロー', '白い流星', 28, 82.1], ['ミナト', 'ミナトとゆかいな仲間', 17, 52.9], ['カイ', 'Kチーム', 9, 33.3]];
+  var MATCHES = [
+    ['10/2', '21:38', 'w', 0, 'ガンダム・エアリアル(改修型)', 'ガンダムエピオン / ターンX', 'シロー', 'アムロ / シャア', 1384, false],
+    ['10/2', '21:31', 'l', 0, 'νガンダム', 'ストライクフリーダムガンダム弐式 / ゴッドガンダム', 'シロー', 'キラ / ドモン', 902, true],
+    ['10/2', '21:24', 'w', 0, 'ガンダム・エアリアル(改修型)', 'ウイングガンダムゼロ(EW版) / シナンジュ', 'シロー', 'ヒイロ / フロンタル', 1210, false],
+    ['10/1', '20:12', 'w', 1, 'シナンジュ', 'ターンX / νガンダム', 'ミナト', 'ロラン / カミーユ', 1056, false],
+    ['10/1', '20:05', 'l', 1, 'ゴッドガンダム', 'ガンダムエピオン / Hi-νガンダム', 'ミナト', 'ゼクス / ハサウェイ', 744, false],
+    ['10/1', '19:58', 'w', 2, 'ガンダムエピオン', 'ユニコーンガンダム / デスティニーガンダム', 'カイ', 'バナージ / シン', 1172, false]
+  ];
+
+  // ===== 描画ヘルパー =====
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function tone(wr) { return wr >= 60 ? 'up' : wr <= 40 ? 'down' : ''; }
+  function mark(wr) { return wr >= 60 ? '▲ ' : wr <= 40 ? '▼ ' : ''; }
+  function pct(v) { return v.toFixed(1) + '%'; }
+  function wrRow(name, n, wr, opt) {
+    opt = opt || {};
+    var t = tone(wr);
+    var natl = opt.natl != null ? '<b style="left:' + opt.natl + '%" title="全国平均"></b>' : '';
+    return '<li class="row' + (opt.nav ? ' nav' : '') + '"><span class="name">' + esc(name) + '</span>' +
+      '<span class="val ' + t + '">' + mark(wr) + pct(wr) + '<span>' + (opt.sub || n + '試合') + '</span></span>' +
+      '<span class="bar" aria-hidden="true"><i class="' + t + '" style="width:' + wr + '%"></i>' + natl + '</span></li>';
+  }
+  function table(cols, rows, opt) {
+    opt = opt || {};
+    var lim = opt.limit || rows.length, id = 't' + Math.random().toString(36).slice(2, 8);
+    var head = '<tr>' + cols.map(function (c, i) { return '<th class="' + (i ? 'n ' : '') + (opt.sort ? 'sort' : '') + '">' + c + '</th>'; }).join('') + '</tr>';
+    var body = rows.map(function (r, ri) {
+      return '<tr' + (ri >= lim ? ' hidden data-more="' + id + '"' : '') + '>' + r.map(function (c, i) {
+        var cls = (i ? 'n' : '') + (typeof c === 'object' && c && c.t ? ' ' + c.t : '');
+        return '<td class="' + cls + '">' + (typeof c === 'object' && c ? c.v : c) + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+    var more = rows.length > lim ? '<button class="more" type="button" data-expand="' + id + '">もっと見る（残り ' + (rows.length - lim) + ' 件）</button>' : '';
+    return '<div class="tablewrap"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + more;
+  }
+  function wrc(wr) { return { v: mark(wr) + pct(wr), t: tone(wr) }; }
+  function facts(list) { return '<ul class="facts">' + list.map(function (f) { return '<li>' + f + '</li>'; }).join('') + '</ul>'; }
+  function disc(label, inner, open) { return '<details class="disc"' + (open ? ' open' : '') + '><summary>' + label + '</summary>' + inner + '</details>'; }
+  function sec(title, lead, inner, link) {
+    return '<section><header><h3>' + title + '</h3>' + (link ? '<button class="link" type="button">' + link + '</button>' : '') + '</header>' + (lead ? '<p class="lead">' + lead + '</p>' : '') + inner + '</section>';
+  }
+
+  // 勝率の棒 + 試合数の折れ線。左軸 0-100%、右軸は試合数の最大値
+  function combo(labels, wrs, ns, opt) {
+    opt = opt || {};
+    var W = 360, H = 210, L = 34, R = 330, T = 16, B = 170;
+    var y = function (v) { return B - (B - T) * v / 100; };
+    var maxN = Math.max.apply(null, ns), yn = function (v) { return B - (B - T) * v / maxN; };
+    var o = '';
+    [0, 50, 100].forEach(function (v) {
+      o += '<line x1="' + L + '" x2="' + R + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + (v === 50 ? 'var(--muted)' : 'var(--line)') + '"' + (v === 50 ? ' stroke-dasharray="4 4"' : '') + '/>';
+      o += '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + '%</text>';
+    });
+    o += '<text x="' + (R + 6) + '" y="' + (T + 4) + '">' + maxN + '</text><text x="' + (R + 6) + '" y="' + (B + 4) + '">0</text>';
+    var step = (R - L) / labels.length, w = Math.min(28, step * 0.6), pts = [];
+    labels.forEach(function (lb, i) {
+      var cx = L + step * i + step / 2, wr = wrs[i];
+      var c = wr >= 60 ? 'var(--win)' : wr < 50 ? 'var(--lose)' : 'var(--accent)';
+      o += '<rect x="' + (cx - w / 2).toFixed(1) + '" y="' + y(wr).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + (B - y(wr)).toFixed(1) + '" rx="2" fill="' + c + '" opacity=".85"><title>' + lb + ' ' + wr + '%（' + ns[i] + '試合）</title></rect>';
+      pts.push(cx.toFixed(1) + ',' + yn(ns[i]).toFixed(1));
+      var every = opt.every || 1;
+      if (i % every === 0) o += '<text x="' + cx.toFixed(1) + '" y="' + (B + 16) + '" text-anchor="middle">' + lb + '</text>';
+    });
+    o += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--fg)" stroke-width="1.5" opacity=".7"/>';
+    pts.forEach(function (p) { var a = p.split(','); o += '<circle cx="' + a[0] + '" cy="' + a[1] + '" r="2.5" fill="var(--fg)" opacity=".8"/>'; });
+    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + (opt.label || '勝率と試合数') + '">' + o + '</svg>' +
+      '<div class="legend"><span><i style="background:var(--win)"></i>勝率 60% 以上</span><span><i style="background:var(--lose)"></i>50% 未満</span><span><i class="line" style="background:var(--fg)"></i>試合数（右軸）</span></div>';
+  }
+
+  // 6軸レーダー。値は 0-100 に正規化済み
+  function radar(axes, series) {
+    var cx = 160, cy = 120, r = 82, n = axes.length, o = '';
+    function pt(i, v) { var a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + Math.cos(a) * r * v / 100, cy + Math.sin(a) * r * v / 100]; }
+    [33, 66, 100].forEach(function (lv) {
+      o += '<polygon points="' + axes.map(function (_, i) { return pt(i, lv).join(','); }).join(' ') + '" fill="none" stroke="var(--line)"/>';
+    });
+    axes.forEach(function (a, i) {
+      var e = pt(i, 100), l = pt(i, 122);
+      o += '<line x1="' + cx + '" y1="' + cy + '" x2="' + e[0] + '" y2="' + e[1] + '" stroke="var(--line)"/>';
+      o += '<text x="' + l[0].toFixed(1) + '" y="' + (l[1] + 4).toFixed(1) + '" text-anchor="middle">' + a + '</text>';
+    });
+    series.forEach(function (s) {
+      o += '<polygon points="' + s.data.map(function (v, i) { return pt(i, v).join(','); }).join(' ') + '" fill="' + s.color + '" fill-opacity=".18" stroke="' + s.color + '" stroke-width="2"/>';
+    });
+    var lg = series.length > 1 ? '<div class="legend">' + series.map(function (s) { return '<span><i style="background:' + s.color + '"></i>' + s.label + '</span>'; }).join('') + '</div>' : '';
+    return '<svg class="chart" viewBox="0 0 320 240" role="img" aria-label="レーダーチャート" style="max-width:320px;margin-inline:auto">' + o + '</svg>' + lg;
+  }
+
+  // ===== 状態 =====
+  var S = { screen: 'report', tab: 'overview', lens: 'all', period: '30日', ms: null, partner: 0, sheet: null, filtersApplied: true, detail: 0, enemyOrder: 'asc' };
+  var PERIODS = ['全データ', '90日', '60日', '30日', '14日', '7日', '3日', '1日'];
+  var LENS = { all: '全体', win: '勝利', lose: '敗北' };
+
+  // ===== 共通ヘッダー =====
+  function reportBar() {
+    return '<div class="appbar"><div class="appbar-row"><h2>レポート</h2>' +
+      '<button class="iconbtn" type="button" data-act="reanalyze"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>再分析</button></div>' +
+      '<div class="filters">' +
+      '<button class="chip' + (S.period !== '全データ' ? ' set' : '') + '" type="button" data-sheet="period" aria-label="期間">' + (S.period === '全データ' ? '全期間' : '直近' + S.period) + '</button>' +
+      '<button class="chip' + (S.ms ? ' set' : '') + '" type="button" data-sheet="ms" aria-label="機体"><span class="cut">' + (S.ms ? esc(MS[S.ms - 1]) : '全機体') + '</span></button>' +
+      '<div class="seg" role="group" aria-label="対象の試合">' + Object.keys(LENS).map(function (k) { return '<button type="button" data-lens="' + k + '" aria-pressed="' + (S.lens === k) + '">' + LENS[k] + '</button>'; }).join('') + '</div>' +
+      '</div><div class="tabs" role="tablist">' +
+      [['overview', '総合'], ['playstyle', '立ち回り'], ['burst', '覚醒'], ['matchup', '機体相性'], ['time', '時間帯']].map(function (t) {
+        return '<button class="tab" role="tab" type="button" data-tab="' + t[0] + '" aria-selected="' + (S.tab === t[0]) + '">' + t[1] + '</button>';
+      }).join('') + '</div></div>';
+  }
+  function simpleBar(title, right) {
+    return '<div class="appbar"><div class="appbar-row"><h2>' + title + '</h2>' + (right || '') + '</div></div>';
+  }
+
+  // ===== KPI（タブごと） =====
+  function summary(hero, metrics) {
+    return '<div class="summary"><p class="label">' + hero[0] + '</p><div class="big"><strong>' + hero[1] + '</strong><span class="aside">' + hero[2] + '</span></div>' +
+      (hero[3] ? '<p class="note" style="margin-top:4px">' + hero[3] + '</p>' : '') +
+      '<dl class="metrics">' + metrics.map(function (m) { return '<div><dt>' + m[0] + '</dt><dd class="' + (m[2] || '') + '">' + m[1] + '<span>' + (m[3] || '') + '</span></dd></div>'; }).join('') + '</dl></div>';
+  }
+  var scope = function () { return (S.period === '全データ' ? '全期間' : '直近' + S.period) + (S.ms ? '・' + MS[S.ms - 1] : '') + (S.lens !== 'all' ? '・' + LENS[S.lens] + 'のみ' : ''); };
+  var NMATCH = function () { return S.ms ? MS_N[S.ms - 1] : 312; };
+
+  // ===== レポート各タブ =====
+  function overview() {
+    var lensCol = { all: '全体', win: '勝利時', lose: '敗北時' }[S.lens];
+    var V = {
+      all: ['312戦', '54.2%', '1,142', '812', '1.41', '1.46', '1.38', '1.06', '168', '1.62'],
+      win: ['169戦', '-', '1,284', '702', '1.83', '1.78', '1.04', '1.71', '191', '1.81'],
+      lose: ['143戦', '-', '974', '942', '1.03', '1.08', '1.79', '0.60', '141', '1.40']
+    }[S.lens];
+    var ITEMS = [S.lens === 'all' ? '試合数' : S.lens === 'win' ? '勝利数' : '敗北数', '勝率', '平均与ダメージ', '平均被ダメージ', '与被ダメ比', '平均撃墜', '平均被撃墜', 'K/D比', '平均EXダメージ', '平均覚醒回数'];
+    var rd = { all: [72, 64, 58, 46, 52, 61], win: [86, 80, 70, 34, 38, 74], lose: [55, 47, 48, 62, 70, 47] }[S.lens];
+    var rcol = { all: 'var(--accent)', win: 'var(--win)', lose: 'var(--lose)' }[S.lens];
+    var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
+    h += summary(['勝率', '54.2<small>%</small>', '169勝 143敗'], [
+      ['平均与ダメージ', '1,142', 'up', '目安 1,100 以上'], ['平均被ダメージ', '812', 'down', '目安 700 以下'],
+      ['与被ダメ比', '1.41', 'up', '目安 1.20 以上'], ['平均EXダメージ', '168', '', '目安 200 以上']]);
+    h += sec('基本データ', '値は' + lensCol + 'の平均。図の外側ほど良い（被ダメ・被撃墜は少ないほど外側）。',
+      radar(['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ'], [{ label: lensCol, color: rcol, data: rd }]) +
+      table(['項目', lensCol], ITEMS.map(function (it, i) { return [it, V[i]]; })) +
+      facts(['与被ダメ比 1.41 は目安の 1.20 を上回っている。', '敗北時の平均被撃墜は 1.79 回で、勝利時より 0.75 回多い。']));
+    if (S.ms && S.lens === 'all') {
+      h += sec('全国平均との比較', MS[S.ms - 1] + 'の勝率。全国平均は週1回更新。',
+        table(['', '勝率'], [['あなた', '52.0%'], ['全国平均', '50.8%'], ['差', { v: '▲ +1.2 ポイント', t: 'up' }]]));
+    }
+    h += sec('シーズン別分析', '', combo(['2026年6-7月', '2026年8-9月'], [51.4, 56.4], [140, 172], { label: 'シーズン別の勝率' }) +
+      disc('2026年8-9月', table(['期間', '試合', '勝率', '与被ダメ比'], [['全体', 172, wrc(56.4), '1.44'], ['前半', 80, wrc(52.5), '1.36'], ['後半', 92, wrc(59.8), '1.51']]) + facts(['後半の勝率は前半より 7.3 ポイント高い。'])) +
+      disc('2026年6-7月', table(['期間', '試合', '勝率', '与被ダメ比'], [['全体', 140, wrc(51.4), '1.37'], ['前半', 66, wrc(53.0), '1.40'], ['後半', 74, wrc(50.0), '1.34']])));
+    if (!S.ms) {
+      var NAT = [50.8, 51.9, 50.2, 49.5, 48.7], WR = [52.0, 60.8, 49.0, 56.3, 42.9];
+      h += sec('機体別の勝率', '10試合以上使った機体。縦線は全国平均。', '<ul class="rows">' + MS.map(function (m, i) {
+        var d = WR[i] - NAT[i];
+        return wrRow(m, MS_N[i], WR[i], { natl: NAT[i], nav: true, sub: MS_N[i] + '試合・全国平均との差 <span class="' + (d >= 0 ? 'up' : 'down') + '" style="display:inline">' + (d >= 0 ? '+' : '') + d.toFixed(1) + '</span>' });
+      }).join('') + '</ul>');
+    }
+    var p = PARTNERS[S.partner];
+    h += sec('固定相方', '5試合以上組んだフレンド。', '<button class="partner-pick" type="button" data-sheet="partner"><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '・' + p[2] + '試合・勝率 ' + pct(p[3]) + '</span></button>' +
+      radar(['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ'], [{ label: '自機', color: 'var(--s1)', data: [74, 66, 60, 50, 55, 63] }, { label: '僚機（' + p[0] + '）', color: 'var(--s2)', data: [66, 70, 52, 44, 48, 58] }]) +
+      table(['項目（' + lensCol + '）', '自機', '僚機'], [['平均与ダメージ', '1,186', '1,074'], ['平均被ダメージ', '781', '842'], ['与被ダメ比', '1.52', '1.28'], ['平均撃墜', '1.54', '1.61'], ['平均被撃墜', '1.29', '1.42'], ['K/D比', '1.19', '1.13']], { limit: 4 }) +
+      '<h4>僚機の内訳（' + esc(p[0]) + '）</h4>' + table(['僚機', '試合', '勝率'], [['ガンダム・エアリアル(改修型)', 14, wrc(85.7)], ['νガンダム', 9, wrc(77.8)], ['シナンジュ', 5, wrc(80.0)]]) +
+      facts(['このペアの勝率 82.1% は、あなたの全体勝率より 27.9 ポイント高い。']));
+    return h;
+  }
+
+  function playstyle() {
+    var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
+    h += summary(['先落ち率', '46.8<small>%</small>', '146 / 312試合', '先落ちした試合の勝率 41.1%'], [
+      ['0落ち時の勝率', '72.5%', 'up', '40試合'], ['ダメージ貢献率', '51.3%', '', 'チーム与ダメに占める割合'],
+      ['勝利時の貢献率', '54.0%', '', ''], ['K/D比', '1.06', '', '目安 1.50 以上']]);
+    var rows = ['自機0落ち', '自機1落ち', '自機2落ち', '自機3落ち以上'], cols = ['僚機0', '僚機1', '僚機2', '僚機3+'];
+    var D = [[[82.4, 17], [76.9, 13], [60.0, 5], [null, 0]], [[70.6, 34], [61.2, 49], [45.0, 20], [20.0, 5]], [[55.6, 18], [48.3, 58], [33.3, 36], [14.3, 7]], [[null, 0], [25.0, 8], [18.2, 22], [9.1, 11]]];
+    var heat = '<div class="tablewrap"><table class="heat"><thead><tr><th>自機＼僚機</th>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      D.map(function (r, i) { return '<tr><th>' + rows[i] + '</th>' + r.map(function (c) {
+        if (c[0] == null) return '<td><span>−</span></td>';
+        var col = c[0] >= 50 ? 'var(--win)' : 'var(--lose)', a = Math.round(Math.abs(c[0] - 50) * 1.4);
+        return '<td style="background:color-mix(in srgb,' + col + ' ' + a + '%,transparent)"><b>' + c[0].toFixed(0) + '%</b><span>' + c[1] + '戦</span></td>';
+      }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+    h += sec('被撃墜と勝率', '自機と僚機の被撃墜数の組み合わせごとの勝率。色が濃いほど 50% から離れている。', heat +
+      disc('自機の被撃墜数ごとの表', table(['僚機被撃墜', '試合数', '勝率'], [['0回', 34, wrc(70.6)], ['1回', 49, wrc(61.2)], ['2回', 20, wrc(45.0)], ['3回以上', 5, wrc(20.0)], ['全体', 108, wrc(60.2)]])));
+    h += sec('先落ち・後落ち', '', '<ul class="rows">' + wrRow('0落ち', 40, 72.5) + wrRow('先落ち', 146, 41.1) + wrRow('後落ち', 98, 66.3) + wrRow('同時落ち', 28, 50.0) + '</ul>' +
+      disc('ダメージの内訳を表で見る', table(['パターン', '試合数', '勝率', '与ダメ', '被ダメ', '与被ダメ比'], [['0落ち', 40, wrc(72.5), '1,021', '541', '1.89'], ['先落ち', 146, wrc(41.1), '1,108', '934', '1.19'], ['後落ち', 98, wrc(66.3), '1,236', '781', '1.58'], ['同時落ち', 28, wrc(50.0), '1,164', '852', '1.37']])) +
+      facts(['先落ち率は 46.8%。先落ちした試合の勝率は 41.1% で、後落ちより 25.2 ポイント低い。']));
+    h += sec('ダメージ貢献率', 'チーム全体の与ダメージに占める自分の割合。', table(['', '試合数', '平均貢献率'], [['全体', 312, '51.3%'], ['勝利時', 169, '54.0%'], ['敗北時', 143, '48.1%'], ['差（勝利 − 敗北）', '', { v: '+5.9 ポイント', t: 'up' }]]));
+    return h;
+  }
+
+  function burst() {
+    var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
+    h += summary(['平均覚醒回数', '1.54<small>回</small>', '1試合あたり'], [
+      ['2回覚醒した割合', '58.0%', '', '181試合'], ['2回覚醒時の勝率', '63.5%', 'up', ''],
+      ['覚醒しなかった割合', '4.2%', '', '13試合'], ['覚醒しなかった時の勝率', '15.4%', 'down', '']]);
+    h += sec('覚醒回数と勝率', '', combo(['0回', '1回', '2回'], [15.4, 44.1, 63.5], [13, 118, 181]) +
+      disc('表で見る', table(['覚醒回数', '試合数', '勝率'], [['0回（未覚醒）', 13, wrc(15.4)], ['1回', 118, wrc(44.1)], ['2回', 181, wrc(63.5)]])) +
+      facts(['2回覚醒した試合の勝率は、1回の試合より 19.4 ポイント高い。']));
+    h += sec('覚醒タイプ別', '発動 480 回の内訳。', combo(['F覚醒', 'S覚醒', 'E覚醒'], [56.7, 53.1, 47.4], [225, 171, 84]) +
+      disc('表で見る', table(['覚醒タイプ', '発動数', '試合数', '勝率'], [['F覚醒', 225, 142, wrc(56.7)], ['S覚醒', 171, 113, wrc(53.1)], ['E覚醒', 84, 57, wrc(47.4)]])) +
+      facts(['最も多く使っているのは F覚醒（発動の 46.9%）。']));
+    h += sec('覚醒タイミング', '覚醒した時点の被撃墜数で分類。1試合で複数回覚醒した場合はそれぞれに数える。', combo(['1機目', '2機目', '3機目'], [60.0, 52.5, 40.9], [205, 240, 44]) +
+      disc('表で見る', table(['タイミング', '試合数', '勝率'], [['1機目', 205, wrc(60.0)], ['2機目', 240, wrc(52.5)], ['3機目', 44, wrc(40.9)]])) +
+      facts(['1機目で覚醒した試合の勝率は、2機目より 7.5 ポイント高い。']));
+    return h;
+  }
+
+  function matchup() {
+    var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
+    h += summary(['得意な相手 / 苦手な相手', '7 / 5<small>機体</small>', '3試合以上対戦した 13 機体のうち', '得意は勝率 60% 以上、苦手は 40% 以下'], [
+      ['3試合以上組んだ相方', '12<small style="font-size:14px">人</small>', '', ''], ['最も多く組んだ相方', 'シロー', '', '28試合'], ['相方別の最高勝率', '82.1%', 'up', 'シロー'], ['最も勝率が低い敵機', '28.6%', 'down', 'ガンダムエピオン']]);
+    var list = ENEMY.slice().sort(function (a, b) { return S.enemyOrder === 'desc' ? b[2] - a[2] : S.enemyOrder === 'n' ? b[1] - a[1] : a[2] - b[2]; });
+    h += sec('敵機との相性', '3試合以上対戦した機体。',
+      '<div class="seg" role="group" aria-label="並べ替え" style="margin:4px 0 8px">' + [['asc', '勝率が低い順'], ['desc', '高い順'], ['n', '試合数順']].map(function (o) { return '<button type="button" data-eorder="' + o[0] + '" aria-pressed="' + (S.enemyOrder === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+      '<ul class="rows">' + list.slice(0, 6).map(function (e) { return wrRow(e[0], e[1], e[2], { nav: true }); }).join('') + '</ul>' +
+      disc('すべての機体を表で見る（' + ENEMY.length + '機体）', table(['機体名', '試合', '勝率', '与被ダメ比', '与ダメ', '被ダメ'], list.map(function (e) { return [e[0], e[1], wrc(e[2]), e[3].toFixed(2), e[4].toLocaleString(), e[5].toLocaleString()]; }), { sort: true, limit: 8 })) +
+      facts(['ガンダムエピオンとの勝率は 28.6%（14試合）で最も低い。被ダメージは平均 1,201。']));
+    h += sec('僚機との相性', '味方が使った機体ごとの勝率。', '<ul class="rows">' + ALLY.map(function (a) { return wrRow(a[0], a[1], a[2], { sub: a[1] + '試合・与被ダメ比 ' + a[3].toFixed(2) }); }).join('') + '</ul>');
+    h += sec('編成別の勝率', '自機と僚機の組み合わせ。', '<ul class="rows">' + COMBO.map(function (a) { return wrRow(a[0], a[1], a[2], { sub: a[1] + '試合・与被ダメ比 ' + a[3].toFixed(2) }); }).join('') + '</ul>');
+    h += sec('コスト編成別の勝率', '', '<ul class="rows">' + COST.map(function (a) { return wrRow(a[0], a[1], a[2], { sub: a[1] + '試合・与被ダメ比 ' + a[3].toFixed(2) }); }).join('') + '</ul>');
+    return h;
+  }
+
+  function time() {
+    var h = '<p class="sample">' + scope() + '・' + NMATCH() + '試合</p>';
+    h += summary(['最も勝率が高い時間帯', '20<small>時台</small>', '勝率 63.0%・46試合'], [
+      ['最も勝率が低い時間帯', '23時台', 'down', '勝率 38.5%・26試合'], ['プレイした日数', '18日', '', ''],
+      ['平日の勝率', '51.4%', '', '178試合'], ['土日の勝率', '58.9%', '', '134試合']]);
+    h += sec('時間帯別の勝率', '', combo(HOURS.map(function (x) { return x[0]; }), HOURS.map(function (x) { return x[2]; }), HOURS.map(function (x) { return x[1]; })) +
+      disc('表で見る', table(['時間帯', '試合', '勝率', '与被ダメ比'], HOURS.map(function (x) { return [x[0] + '時台', x[1], wrc(x[2]), (0.9 + x[2] / 100).toFixed(2)]; }), { sort: true })) +
+      facts(['勝率が最も高いのは 20時台（63.0%）。', '23時台は 38.5% で、全体より 15.7 ポイント低い。']));
+    h += sec('曜日別の勝率', '', combo(DOW.map(function (x) { return x[0].slice(0, 1); }), DOW.map(function (x) { return x[2]; }), DOW.map(function (x) { return x[1]; })) +
+      '<h4>平日と土日</h4>' + table(['区分', '試合', '勝率', '与被ダメ比'], [['平日', 178, wrc(51.4), '1.36'], ['土日', 134, wrc(58.9), '1.48']]) +
+      disc('曜日ごとの表', table(['曜日', '試合', '勝率'], DOW.map(function (x) { return [x[0], x[1], wrc(x[2])]; }))) +
+      facts(['土日の勝率は平日より 7.5 ポイント高い。']));
+    h += sec('日別の勝率', '', combo(DAILY.map(function (x) { return x[0]; }), DAILY.map(function (x) { return x[2]; }), DAILY.map(function (x) { return x[1]; }), { every: 3 }) +
+      disc('表で見る', table(['日付', '試合', '勝率'], DAILY.slice().reverse().map(function (x) { return ['2026-' + x[0], x[1], wrc(x[2])]; }), { limit: 7 })) +
+      facts(['勝率が 40% 以下だった日は 09-17（36.4%）。']));
+    return h;
+  }
+
+  // ===== 画面 =====
+  var SCREENS = {
+    login: { name: 'ログイン', tabbar: false, render: function () {
+      return '<div class="page" style="gap:28px"><p class="brand">cata<span>lyzer</span></p>' +
+        '<div><h2 style="font-size:22px;margin:0">戦績を分析する</h2><p class="note" style="margin-top:4px">バンダイナムコIDでログインすると、ガンダムモバイルから直近30日分の戦績を取得します。</p></div>' +
+        '<div class="field"><label for="f-id">バンダイナムコID（メールアドレス）</label><input class="input" id="f-id" type="email" placeholder="example@email.com" autocomplete="username"></div>' +
+        '<div class="field"><label for="f-pw">パスワード</label><input class="input" id="f-pw" type="password" autocomplete="current-password"><p class="note">パスワードはガンダムモバイルへのログインにのみ使い、サーバーには保存しません。</p></div>' +
+        '<div><label class="check"><input type="checkbox" id="f-keep" checked>ログイン状態を保持する（30日間）</label>' +
+        disc('保持すると何が保存されますか', '<ul class="facts" style="margin:0 0 8px"><li>ログイン情報（セッション）を暗号化してサーバーに保存します。パスワードは保存しません。</li><li>次回からパスワードを入力せずに最新の戦績を取得できます。</li><li>期限が切れたら再ログインが必要です。「その他」からいつでも削除できます。</li></ul>') + '</div>' +
+        '<button class="primary" type="button" data-go="progress">分析を始める</button>' +
+        '<p class="note">初回は全データを取得するため 5〜10 分かかります。2回目以降は前回からの差分だけを取得します。</p>' +
+        legal() + '</div>';
+    } },
+    progress: { name: '分析中', tabbar: false, render: function () {
+      return simpleBar('分析中') + '<div class="page">' +
+        '<div><p class="note">戦績を取得しています</p><div class="big"><strong>40<small>%</small></strong><span class="aside">412 / 1,020 件</span></div>' +
+        '<div class="progress" style="margin-top:12px" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"><i style="width:40%"></i></div>' +
+        '</div>' +
+        '<ol class="steps"><li class="done"><span class="st"></span>保存済みのデータを読み込み</li><li class="now"><span class="st"></span>新しい試合を取得（412 / 1,020 件）</li><li class="wait"><span class="st"></span>集計してレポートを作成</li></ol>' +
+        '<div class="notice"><div><b>速報レポートを見られます</b><p>取得済みの 412 試合で集計しています。取得が進むと自動で更新されます。</p><button class="secondary act" type="button" data-go="report">速報を見る</button></div></div>' +
+        '</div>';
+    } },
+    report: { name: 'レポート', tabbar: true, nav: 'report', render: function () {
+      var body = { overview: overview, playstyle: playstyle, burst: burst, matchup: matchup, time: time }[S.tab]();
+      return reportBar() + '<div class="page">' + body + '</div>';
+    } },
+    search: { name: '試合検索', tabbar: true, nav: 'search', render: function () {
+      var applied = S.filtersApplied ? ['期間: 直近30日', '自機: ガンダム・エアリアル(改修型) ほか1', '勝敗: すべて'] : [];
+      var h = simpleBar('試合検索') + '<div class="page" style="gap:20px">';
+      h += '<div><div class="resulthead"><button class="secondary" type="button" data-sheet="filter">絞り込み' + (applied.length ? '（' + (applied.length - 1) + '件適用中）' : '') + '</button>' +
+        (applied.length ? '<button class="link" type="button" data-act="clear">条件をクリア</button>' : '') + '</div>' +
+        (applied.length ? '<div class="appliedlist">' + applied.map(function (a) { return '<span class="applied">' + esc(a) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+      h += '<div><div class="resulthead"><h3>' + (applied.length ? 124 : 312) + '試合<span class="note" style="display:inline;margin-left:8px">勝率 ' + (applied.length ? '58.1' : '54.2') + '%</span></h3>' +
+        '<button class="chip" type="button" data-sheet="sort"><span class="k">並べ替え</span>日付が新しい順</button></div>';
+      var last = '';
+      MATCHES.forEach(function (m, i) {
+        if (m[0] !== last) { h += '<div class="daylabel">' + m[0] + '</div>'; last = m[0]; }
+        h += '<div class="match" data-detail="' + i + '" role="button" tabindex="0"><span class="res ' + m[2] + '">' + (m[2] === 'w' ? '勝' : '敗') + '</span>' +
+          '<span class="ms">' + esc(m[4]) + (m[9] ? '<span class="tag">タイムアップ</span>' : '') + '</span>' +
+          '<span class="meta"><b>' + m[8].toLocaleString() + '</b>与ダメ<br>' + m[1] + '</span>' +
+          '<span class="vs">vs ' + esc(m[5]) + '</span><span class="who">' + esc(m[6]) + ' と / 相手 ' + esc(m[7]) + '</span></div>';
+      });
+      h += '<div class="pager"><button class="secondary" type="button" disabled>前へ</button><span>1〜20 / 124件</span><button class="secondary" type="button">次へ</button></div></div>';
+      return h + '</div>';
+    } },
+    detail: { name: '試合詳細', tabbar: false, render: function () {
+      var m = MATCHES[S.detail];
+      var P = [['自分', m[4], 'var(--s1)', true], [m[6], 'Hi-νガンダム', 'var(--s3)', true], [m[7].split(' / ')[0], m[5].split(' / ')[0], 'var(--s2)', false], [m[7].split(' / ')[1], m[5].split(' / ')[1], 'var(--s4)', false]];
+      var on = S.pOn || [true, true, false, false];
+      var h = '<div class="appbar"><div class="appbar-row"><button class="iconbtn" type="button" data-go="search"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>試合検索</button><span class="note">' + m[0] + ' ' + m[1] + '</span></div></div><div class="page" style="gap:28px">';
+      h += '<div><div class="big"><strong class="' + (m[2] === 'w' ? 'up' : 'down') + '" style="font-size:32px">' + (m[2] === 'w' ? '勝利' : '敗北') + '</strong>' + (m[9] ? '<span class="tag">タイムアップ</span>' : '') + '</div></div>';
+      h += '<section><header><h3>4人の比較</h3></header><p class="lead">表示する人を選ぶ。</p><div class="players">' + P.map(function (p, i) {
+        return '<button class="player" type="button" data-pon="' + i + '" aria-pressed="' + on[i] + '" style="color:' + p[2] + '"><i style="background:' + p[2] + '"></i><b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '</span></button>';
+      }).join('') + '</div><div style="display:flex;justify-content:space-between;margin-top:4px"><span class="sidelabel">味方</span><span class="sidelabel">相手</span></div>' +
+        radar(['与ダメ', '撃墜', '覚醒', '被ダメ', '被撃墜', 'EXダメ'], [[78, 70, 66, 52, 60, 64], [62, 58, 66, 44, 52, 55], [55, 44, 60, 68, 58, 47], [50, 52, 33, 72, 70, 40]].map(function (d, i) { return on[i] ? { label: P[i][0], color: P[i][2], data: d } : null; }).filter(Boolean)) + '</section>';
+      h += sec('スコア', '', table(['', '自分', esc(m[6]), esc(P[2][0]), esc(P[3][0])], [['スコア', '3,840', '3,120', '2,410', '2,180'], ['撃墜', '2', '1', '1', '0'], ['被撃墜', '1', '1', '2', '1'], ['与ダメージ', m[8].toLocaleString(), '1,042', '862', '701'], ['被ダメージ', '701', '862', '1,042', '1,384'], ['EXダメージ', '212', '144', '96', '88']]));
+      h += sec('試合経過', '覚醒・オーバーリミット・被撃墜の時刻。', gantt());
+      return h + '</div>';
+    } },
+    record: { name: '総合戦歴', tabbar: true, nav: 'record', render: function () {
+      return simpleBar('総合戦歴') + '<div class="page"><p class="sample">ガンダムモバイルのクラスマッチ通算戦績</p>' +
+        summary(['通算勝率', '52.8<small>%</small>', '2,104勝 1,881敗'], [['通算対戦数', '3,985', '', ''], ['通算 K/D比', '1.12', '', '敵撃破 4,210 / 被撃破 3,762'], ['分析済みの割合', '48.2%', '', '1,920試合を分析済み']]) +
+        sec('クラスマッチ戦績', '', table(['区分', '対戦数', '勝利数', '勝率'], [['通算', '3,985', '2,104', '52.8%'], ['チーム', '1,240', '682', '55.0%'], ['ソロ', '2,745', '1,422', '51.8%'], ['今日', '12', '7', '58.3%'], ['今週', '78', '43', '55.1%'], ['今月', '96', '52', '54.2%']])) +
+        sec('通算記録', '', table(['項目', '記録'], [['敵撃破数', '4,210'], ['被撃破数', '3,762']])) + '</div>';
+    } },
+    more: { name: 'その他', tabbar: true, nav: 'more', render: function () {
+      var h = simpleBar('その他') + '<div class="page">';
+      h += sec('結果を共有', '自機と相性の上位を文章にして共有します。', '<div class="share"><button type="button"><i aria-hidden="true" style="background:#000">X</i>X</button><button type="button"><i aria-hidden="true" style="background:#0085ff">B</i>Bluesky</button><button type="button"><i aria-hidden="true" style="background:#06c755">L</i>LINE</button><button type="button"><i aria-hidden="true" style="background:var(--muted)">⧉</i>コピー</button></div>');
+      h += sec('データ', '', '<ul class="rows">' +
+        '<li class="row nav" data-act="refetch"><span class="name">試合データを取得し直す</span><span class="val"></span><span class="sub">サーバーから全件を再取得します</span></li>' +
+        (S.confirm ? '<li style="padding:8px 0"><div class="confirm"><p>試合データをサーバーから全件取得し直します。数分かかります。</p><div><button class="primary" type="button" style="min-height:44px" data-go="progress">取得し直す</button><button class="secondary" type="button" data-act="refetch">やめる</button></div></div></li>' : '') +
+        '<li class="row nav"><span class="name">ガンダムモバイルを開く</span><span class="val"></span><span class="sub">外部サイト</span></li></ul>');
+      h += sec('アカウント', '', '<ul class="rows"><li class="row nav" data-go="login"><span class="name danger">ログアウト</span><span class="val"></span><span class="sub">保存したログイン情報も削除します</span></li></ul>');
+      return h + legal() + '</div>';
+    } },
+    states: { name: '通知・空の状態', tabbar: true, nav: 'report', render: function () {
+      return reportBar() + '<div class="page">' +
+        '<p class="sample">レポート上部に出す通知と、データが無いときの表示の例。</p>' +
+        '<div class="notice warn"><div><b>一部のデータで分析しています</b><p>ガンダムモバイルへのアクセスが制限されたため、取得を途中で止めました。時間をおいて再分析すると続きから取得します。</p><button class="secondary act" type="button">再分析</button></div></div>' +
+        '<div class="notice err"><div><b>ログインの期限が切れました</b><p>もう一度ログインすると最新の戦績を取得できます。保存済みのレポートはそのまま見られます。</p><button class="secondary act" type="button" data-go="login">ログイン</button></div></div>' +
+        '<div class="notice err"><div><b>試合データを取得できませんでした</b><p>時間をおいてもう一度試してください。</p></div></div>' +
+        '<div class="empty"><b>この期間の試合はありません</b><p>直近7日間に試合がありません。期間を広げると表示されます。</p><button class="secondary" type="button" data-sheet="period">期間を変更</button></div>' +
+        '<div class="empty" style="border-top:1px solid var(--line)"><b>覚醒のデータがありません</b><p>試合経過のデータがある試合だけで集計します。新しく取得した試合から表示されます。</p></div>' +
+        '</div>';
+    } }
+  };
+
+  function legal() {
+    return '<div class="legal"><p>本サービスは非公式のファンツールです。サンライズ、バンダイナムコエクスペリエンス、バンダイナムコエンターテインメントとは一切関係ありません。</p><p>「機動戦士ガンダム」シリーズの著作権はサンライズおよびサンライズ・MBSに帰属します。ゲームのサービス提供は株式会社バンダイナムコエクスペリエンス、バンダイナムコIDの運営は株式会社バンダイナムコエンターテインメントが行っています。</p></div>';
+  }
+
+  // 4人 × (覚醒レーン / OLレーン)。横軸は試合時間 0〜240秒
+  function gantt() {
+    var L = 56, R = 350, top = 10, lane = 18, rowH = 46, tmax = 240, o = '';
+    var x = function (t) { return L + (R - L) * t / tmax; };
+    var who = ['自分', 'シロー', 'アムロ', 'シャア'], cols = ['var(--s1)', 'var(--s3)', 'var(--s2)', 'var(--s4)'];
+    var ev = [
+      { b: [[52, 70, 'F']], o: [[150, 168]], d: [118] },
+      { b: [[88, 104, 'S'], [176, 190, 'S']], o: [], d: [140] },
+      { b: [[60, 76, 'E']], o: [[120, 136]], d: [96, 172] },
+      { b: [[110, 128, 'F']], o: [], d: [150] }
+    ];
+    [60, 120, 180, 240].forEach(function (t) { o += '<line x1="' + x(t) + '" x2="' + x(t) + '" y1="4" y2="' + (top + rowH * 4) + '" stroke="var(--line)"/><text x="' + x(t) + '" y="' + (top + rowH * 4 + 14) + '" text-anchor="middle">' + t + '秒</text>'; });
+    ev.forEach(function (e, i) {
+      var y0 = top + i * rowH;
+      o += '<text x="0" y="' + (y0 + 16) + '">' + who[i] + '</text>';
+      e.b.forEach(function (b) { o += '<rect x="' + x(b[0]) + '" y="' + y0 + '" width="' + (x(b[1]) - x(b[0])) + '" height="' + (lane - 2) + '" rx="2" fill="' + cols[i] + '"><title>' + b[2] + '覚醒 ' + b[0] + '秒</title></rect><text x="' + (x(b[0]) + 3) + '" y="' + (y0 + 13) + '" style="fill:var(--bg);font-weight:700">' + b[2] + '</text>'; });
+      e.o.forEach(function (b) { o += '<rect x="' + x(b[0]) + '" y="' + (y0 + lane) + '" width="' + (x(b[1]) - x(b[0])) + '" height="' + (lane - 4) + '" rx="2" fill="' + cols[i] + '" opacity=".45"><title>オーバーリミット</title></rect>'; });
+      e.d.forEach(function (t) { o += '<path d="M' + (x(t) - 4) + ' ' + (y0 + 2) + 'l8 8M' + (x(t) + 4) + ' ' + (y0 + 2) + 'l-8 8" stroke="var(--lose)" stroke-width="2"/>'; });
+      if (i === 1) o += '<line x1="0" x2="' + R + '" y1="' + (y0 + rowH - 6) + '" y2="' + (y0 + rowH - 6) + '" stroke="var(--muted)" stroke-dasharray="3 3"/>';
+    });
+    return '<svg class="chart" viewBox="0 0 360 214" role="img" aria-label="試合経過">' + o + '</svg>' +
+      '<div class="legend"><span><i style="background:var(--s1)"></i>覚醒（F/S/E）</span><span><i style="background:var(--s1);opacity:.45"></i>オーバーリミット</span><span><b class="down">×</b> 被撃墜</span></div>';
+  }
+
+  // ===== シート =====
+  function sheet(kind) {
+    var head = function (t, full) { return '<div class="sheet' + (full ? ' full' : '') + '" role="dialog" aria-label="' + t + '"><div class="sheet-head"><h3>' + t + '</h3><button class="link" type="button" data-close>閉じる</button></div><div class="sheet-body">'; };
+    var h = '<div class="backdrop" data-close></div>';
+    if (kind === 'period') {
+      h += head('期間') + PERIODS.map(function (p) { return '<button class="opt" type="button" role="menuitemradio" data-period="' + p + '" aria-checked="' + (S.period === p) + '">' + (p === '全データ' ? 'すべて' : '直近' + p) + (p !== '全データ' ? '<span>プレイした日で数える</span>' : '') + '</button>'; }).join('') +
+        disc('日付を指定', '<div style="display:flex;justify-content:space-between;align-items:center"><button class="link" type="button">前の月</button><b>2026年9月</b><button class="link" type="button">次の月</button></div><div class="cal">' + '日月火水木金土'.split('').map(function (d) { return '<b>' + d + '</b>'; }).join('') +
+          '<span></span><span></span>' + Array.from({ length: 30 }, function (_, i) { var d = i + 1, c = d === 13 || d === 21 ? 'edge' : d > 13 && d < 21 ? 'in' : ''; return '<span class="' + c + '">' + d + '</span>'; }).join('') + '</div>' +
+          '<p class="note" style="margin:8px 0">09-13 〜 09-21</p><label class="check"><input type="checkbox">時刻も指定する</label><button class="primary" type="button" data-close style="min-height:44px">この期間で表示</button>') + '</div></div>';
+    } else if (kind === 'ms') {
+      h += head('機体') + '<input class="input" placeholder="機体名で絞り込む" aria-label="機体名で絞り込む" style="margin:8px 0">' +
+        '<button class="opt" type="button" data-ms="0" aria-checked="' + (!S.ms) + '">すべての機体<span>312試合</span></button>' +
+        MS.map(function (m, i) { return '<button class="opt" type="button" data-ms="' + (i + 1) + '" aria-checked="' + (S.ms === i + 1) + '">' + esc(m) + '<span>' + MS_N[i] + '試合</span></button>'; }).join('') + '</div></div>';
+    } else if (kind === 'partner') {
+      h += head('固定相方') + PARTNERS.map(function (p, i) { return '<button class="opt" type="button" data-partner="' + i + '" aria-checked="' + (S.partner === i) + '">' + esc(p[0]) + '<span>' + esc(p[1]) + '・' + p[2] + '試合・' + pct(p[3]) + '</span></button>'; }).join('') + '</div></div>';
+    } else if (kind === 'sort') {
+      h += head('並べ替え') + ['日付', '与ダメージ', '被ダメージ', '撃墜数', '被撃墜数', 'EXダメージ', 'スコア'].map(function (k, i) { return '<button class="opt" type="button" data-close aria-checked="' + (i === 0) + '">' + k + '</button>'; }).join('') +
+        '<div class="seg" style="margin-top:12px"><button type="button" aria-pressed="true">大きい順・新しい順</button><button type="button" aria-pressed="false">小さい順・古い順</button></div>' +
+        '<h4>1ページの件数</h4><div class="seg">' + [10, 20, 50, 100, 200].map(function (n) { return '<button type="button" aria-pressed="' + (n === 20) + '">' + n + '</button>'; }).join('') + '</div></div></div>';
+    } else if (kind === 'filter') {
+      var opts = function (arr) { return arr.map(function (o) { return '<option>' + o + '</option>'; }).join(''); };
+      h = '<div class="sheet full" role="dialog" aria-label="絞り込み"><div class="sheet-head"><button class="link" type="button" data-act="clear">クリア</button><h3>絞り込み</h3><button class="link" type="button" data-close>閉じる</button></div><div class="sheet-body"><div class="formgrid" style="margin-top:8px">' +
+        '<div class="field wide"><span class="lbl">期間</span><select class="input" aria-label="期間">' + opts(['直近30日', 'すべて', '直近90日', '直近60日', '直近14日', '直近7日', '直近3日', '直近1日']) + '</select></div>' +
+        '<div class="field wide"><span class="lbl">自機（複数選択可）</span><button class="input" type="button" style="text-align:left">ガンダム・エアリアル(改修型)、νガンダム</button></div>' +
+        '<div class="field wide"><span class="lbl">僚機（複数選択可）</span><button class="input" type="button" style="text-align:left;color:var(--muted)">指定しない</button></div>' +
+        '<div class="field wide"><div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl">敵機（複数選択可）</span><div class="seg"><button type="button" aria-pressed="false">すべて含む</button><button type="button" aria-pressed="true">どれかを含む</button></div></div><button class="input" type="button" style="text-align:left;color:var(--muted)">指定しない</button></div>' +
+        '<div class="field wide"><div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl">プレイヤー名（部分一致）</span><div class="seg"><button type="button" aria-pressed="true">両方</button><button type="button" aria-pressed="false">相方</button><button type="button" aria-pressed="false">相手</button></div></div><input class="input" placeholder="名前の一部を入力"></div>' +
+        '<div class="field wide"><span class="lbl">勝敗</span><div class="seg"><button type="button" aria-pressed="true">すべて</button><button type="button" aria-pressed="false">勝利</button><button type="button" aria-pressed="false">敗北</button></div></div>' +
+        '</div>' + disc('詳細な条件', '<div class="formgrid">' +
+          '<div class="field wide"><span class="lbl">期間（日付を指定）</span><button class="input" type="button" style="text-align:left;color:var(--muted)">指定しない</button></div>' +
+          '<div class="field wide"><span class="lbl">味方のタッグ名（複数選択可）</span><button class="input" type="button" style="text-align:left;color:var(--muted)">指定しない</button></div>' +
+          '<div class="field wide"><span class="lbl">相手のタッグ名（部分一致）</span><input class="input" placeholder="タッグ名の一部を入力"></div>' +
+          '<div class="field"><span class="lbl">自機コスト</span><select class="input">' + opts(['すべて', '3000', '2500', '2000', '1500']) + '</select></div>' +
+          '<div class="field"><span class="lbl">僚機コスト</span><select class="input">' + opts(['すべて', '3000', '2500', '2000', '1500']) + '</select></div>' +
+          '<div class="field wide"><span class="lbl">相手のコスト編成</span><select class="input">' + opts(['すべて', '3000 + 3000', '3000 + 2500', '3000 + 2000', '2500 + 2500']) + '</select></div>' +
+          ['与ダメージ', '被ダメージ', '撃墜数', '被撃墜数', 'スコア', 'EXダメージ', '覚醒回数'].map(function (k) { return '<div class="field wide"><span class="lbl">' + k + '</span><div class="range"><input class="input" inputmode="numeric" placeholder="下限" aria-label="' + k + 'の下限"><span class="note">〜</span><input class="input" inputmode="numeric" placeholder="上限" aria-label="' + k + 'の上限"></div></div>'; }).join('') +
+          '</div>') + '</div><div class="sheet-foot"><span class="note" style="flex:1">124試合が該当</span><button class="primary" type="button" data-close style="width:auto;padding:0 24px;min-height:48px">結果を見る</button></div></div>';
+    }
+    return h;
+  }
+
+  // ===== 設計メモ =====
+  var NOTES = {
+    login: ['ログイン', '入力欄2つと開始ボタンだけを主役にし、説明は必要な人だけが開く。', [
+      ['保持の説明をモーダルから折りたたみへ', 'ⓘボタンで開くモーダルをやめ、チェックボックスの直下で開閉する。画面遷移なしで読める。'],
+      ['注意書きは該当する欄の下へ', 'パスワードの扱いはパスワード欄の下に置く。囲み枠の注意書きは使わない。'],
+      ['ボタンの文言', '「分析開始」→「分析を始める」。押した結果をそのまま書く。'],
+      ['免責表示', '全画面のフッターから、ログイン画面と「その他」の末尾に移す。文字は 14px 以上に上げる。']]],
+    progress: ['分析中', '今どこまで進み、あとどれくらい待つかを1画面で示す。', [
+      ['段階を見せる', '準備中・取得中・分析中の文言切替を、3段階のチェックリストにする。現在の段階と件数が一目で分かる。'],
+      ['速報への導線', '速報レポートがあるときは「速報を見る」ボタンを出す。今は分析中表示とレポートが同じ画面に並んでいる。'],
+      ]],
+    report: ['レポート', '5タブ構成と各パネルは現行のまま。並べ方と見せ方を変える。', [
+      ['ハンバーガー → 下部タブバー', 'レポート・試合検索・総合戦歴・その他を1タップで切り替える。'],
+      ['KPI 6枚 → 要約1つ', 'タブの主指標を大きく1つ、残り4つを小さく。どのタブにもあった「対戦数」は上部の説明文に移す。値の良し悪しは今のしきい値（目安）を文で示す。'],
+      ['絞り込みは常に見える位置', '期間・機体はチップ、全体/勝利/敗北は切り替えボタンにする。スクロールしても隠さない。長い機体名は省略し、シートで全体を表示する。'],
+      ['横棒グラフ → 行リスト', '機体別・敵機・僚機・編成の横棒グラフは、名前と勝率を並べた行にして、下に細いバーを付ける。長い機体名でも切れない。'],
+      ['表は折りたたみの中', 'グラフや行リストで要点を見せ、全件の表は「表で見る」に入れる。今の SubSection と同じ扱い。'],
+      ['勝率の色分け', '▲▼と行の色は 60% 以上 / 40% 以下（得意・苦手の判定と同じ）。グラフの棒の色は現行どおり 60% 以上 / 50% 未満。'],
+      ['アドバイス → 事実の箇条書き', '💡と「圧巻！」をやめ、数値と比較対象だけを書く。'],
+      ['用語', '固定相方のレーダーの「自分/相方」は「自機/僚機」にそろえる。']]],
+    search: ['試合検索', '結果の一覧を主役にし、条件は全画面のシートで編集する。', [
+      ['条件は全画面シート', '今は一覧の上で開閉するパネル。スマホでは結果が押し出されるため、シートで編集して「結果を見る」で戻る。適用中の条件は一覧の上にタグで残す。'],
+      ['結果は1行1試合', '勝敗、自機、相手の機体、プレイヤー名、与ダメを1行にまとめる。機体画像のカードより縦に詰まり、一度に多く見られる。'],
+      ['日付で区切る', '同じ日の試合を見出しでまとめる。'],
+      ['並べ替えと件数', '並べ替え・昇順降順・1ページの件数を1つのシートにまとめる。'],
+      ['AND/OR の文言', '「AND/OR」→「すべて含む/どれかを含む」。']]],
+    detail: ['試合詳細', 'モーダルから全画面に変え、戻るボタンで検索結果に戻る。', [
+      ['4人の切り替え', '色の帯とプレイヤー名・機体名を付けたボタン。初期は自分と相方。味方と敵を左右で分ける。'],
+      ['スコア表', '列見出しを機体画像からプレイヤー名に変える。'],
+      ['試合経過', '折りたたみをやめて常に表示する。凡例は覚醒・オーバーリミット・被撃墜の3つにまとめる。']]],
+    record: ['総合戦歴', 'ガンダムモバイルの通算戦績。分析済みの割合を目立たせる。', [
+      ['要約', '通算勝率を大きく、対戦数・K/D・分析済みの割合を小さく。'],
+      ['区分名', '区分と記録の項目名はサーバーから受け取る値。モックの区分は CLAUDE.md の記載に合わせた推定。']]],
+    more: ['その他', 'ドロワーにあった項目を1画面にまとめる。', [
+      ['準備中の項目は出さない', 'EXランキングと機体使用率ランキングは、使えるようになってから載せる。'],
+      ['再取得の確認', 'ブラウザの confirm をやめ、その場で確認を展開する。'],
+      ['絵文字アイコン', 'メニューの絵文字はやめ、文字だけにする。']]],
+    states: ['通知・空の状態', '色の帯と見出し・本文・操作ボタンの3点で書く。', [
+      ['警告とエラーを分ける', 'アクセス制限は警告（黄）、ログイン期限切れや取得失敗はエラー（赤）。どちらも次に何をすればよいかをボタンで示す。'],
+      ['期間内に試合が無いとき', '今はスケルトン表示のまま止まる。理由と「期間を変更」を出す。<span class="impl">新規実装</span>']]]
+  };
+
+  // ===== 描画とイベント =====
+  var scrollEl = document.getElementById('scroll'), overlay = document.getElementById('overlay');
+  function render(keepScroll) {
+    var sc = SCREENS[S.screen], top = scrollEl.scrollTop;
+    scrollEl.innerHTML = sc.render();
+    if (!keepScroll) scrollEl.scrollTop = 0; else scrollEl.scrollTop = top;
+    document.getElementById('tabbar').hidden = !sc.tabbar;
+    document.querySelectorAll('#tabbar button').forEach(function (b) { if (b.getAttribute('data-go') === sc.nav) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    overlay.innerHTML = S.sheet ? sheet(S.sheet) : '';
+    document.getElementById('screenlist').innerHTML = Object.keys(SCREENS).map(function (k) { return '<li><button type="button" data-go="' + k + '" aria-current="' + (S.screen === k) + '">' + SCREENS[k].name + '</button></li>'; }).join('');
+    var n = NOTES[S.screen];
+    document.getElementById('notes').innerHTML = '<h2>' + n[0] + '</h2><p>' + n[1] + '</p><dl>' + n[2].map(function (x) { return '<dt>' + x[0] + '</dt><dd>' + x[1] + '</dd>'; }).join('') + '</dl>';
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('button, [data-detail], [data-act], [data-close], [data-go]');
+    if (!t) return;
+    var d = t.dataset, keep = false;
+    if (d.go) { var back = S.screen === 'detail' && d.go === 'search'; S.screen = d.go; S.sheet = null; S.confirm = false; if (back) { render(); scrollEl.scrollTop = S.searchTop || 0; return; } }
+    else if (d.tab) { S.tab = d.tab; }
+    else if (d.lens) { S.lens = d.lens; keep = true; }
+    else if (d.sheet) { S.sheet = d.sheet; keep = true; }
+    else if (d.close !== undefined) { S.sheet = null; keep = true; }
+    else if (d.period) { S.period = d.period; S.sheet = null; keep = true; }
+    else if (d.ms !== undefined) { S.ms = +d.ms || null; S.sheet = null; keep = true; }
+    else if (d.partner !== undefined) { S.partner = +d.partner; S.sheet = null; keep = true; }
+    else if (d.eorder) { S.enemyOrder = d.eorder; keep = true; }
+    else if (d.detail !== undefined) { S.detail = +d.detail; S.pOn = null; S.searchTop = scrollEl.scrollTop; S.screen = 'detail'; }
+    else if (d.pon !== undefined) { S.pOn = (S.pOn || [true, true, false, false]).slice(); S.pOn[+d.pon] = !S.pOn[+d.pon]; keep = true; }
+    else if (d.expand) { document.querySelectorAll('[data-more="' + d.expand + '"]').forEach(function (r) { r.hidden = false; }); t.remove(); return; }
+    else if (d.themeSet !== undefined) { if (d.themeSet) document.documentElement.setAttribute('data-theme', d.themeSet); else document.documentElement.removeAttribute('data-theme'); document.querySelectorAll('[data-theme-set]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); }); return; }
+    else if (d.act === 'clear') { S.filtersApplied = false; S.sheet = null; keep = true; }
+    else if (d.act === 'refetch') { S.confirm = !S.confirm; keep = true; }
+    else if (d.act === 'reanalyze') { S.screen = 'progress'; }
+    else return;
+    render(keep);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && S.sheet) { S.sheet = null; render(true); }
+    if (e.key === 'Enter' && e.target.dataset && e.target.dataset.detail !== undefined) e.target.click();
+  });
+  render();
+})();
+</script>
