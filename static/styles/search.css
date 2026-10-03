@@ -33,7 +33,7 @@
 .search-date-trigger.open + .cal { margin-top: 8px; }
 .search-select, .search-num, .search-date, .search-text {
   width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--bg); color: var(--text); font-size: 0.9em; color-scheme: dark;
+  background: var(--bg); color: var(--text); font-size: 0.9em;
 }
 /* 自前の候補ドロップダウン（入力直下に表示） */
 .search-ac { position: relative; }

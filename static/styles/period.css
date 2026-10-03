@@ -33,8 +33,7 @@
 .cal-day.selected { background: var(--accent); color: var(--on-accent); font-weight: bold; border-color: var(--accent); }
 .cal-day.in-range { background: var(--accent-a15); color: var(--text); border-color: transparent; }
 .time-sel { display: flex; align-items: center; gap: 4px; }
-/* color-scheme: dark でネイティブの選択肢ポップアップを暗色描画にする（未指定だと白背景+青ハイライトで文字が読めない） */
-.time-select { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 0.85em; cursor: pointer; color-scheme: dark; }
+.time-select { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 0.85em; cursor: pointer; }
 .time-select:focus { outline: none; border-color: var(--accent); }
 .time-colon { color: var(--text-faint); }
 .period-backdrop { display: none; }

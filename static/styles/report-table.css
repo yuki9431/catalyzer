@@ -47,7 +47,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .heatmap-cell-empty { background: var(--heat-empty); color: var(--text-faint); }
 .heatmap tbody tr:hover th { background: transparent; } /* 各セルが独立色のため行hoverハイライトは無効化 */
 .heatmap-wr { font-size: 1.05em; font-weight: 600; color: var(--heat-text); }
-.heatmap-matches { font-size: 0.78em; color: var(--text-dim); margin-top: 2px; }
+.heatmap-matches { font-size: 0.78em; color: var(--heat-text); margin-top: 2px; }
 .heatmap-legend { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 0.82em; color: var(--text-dim); }
 .heatmap-legend-bar { display: inline-block; width: 120px; height: 10px; border-radius: 5px; background: linear-gradient(to right, var(--terrible-a85), var(--heat-mid), var(--win-a85)); }
 

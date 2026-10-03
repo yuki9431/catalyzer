@@ -22,7 +22,7 @@
 .panel-select-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .panel-select-dropdown { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-pop); z-index: 100; max-height: 60vh; overflow-y: auto; }
 /* ドロップダウン内の絞り込み入力（項目が多いとき表示）。スクロールしても上部に固定 */
-.panel-select-search { position: sticky; top: 0; z-index: 1; width: 100%; box-sizing: border-box; padding: 9px 14px; border: none; border-bottom: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 0.9em; color-scheme: dark; }
+.panel-select-search { position: sticky; top: 0; z-index: 1; width: 100%; box-sizing: border-box; padding: 9px 14px; border: none; border-bottom: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 0.9em; }
 .panel-select-search:focus { outline: none; }
 .panel-select-empty { padding: 12px 16px; color: var(--muted); font-size: 0.85em; text-align: center; }
 .panel-select-check { color: var(--accent); font-weight: 700; }
