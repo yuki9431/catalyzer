@@ -1,4 +1,5 @@
 // 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click: [selector, テキスト] } | { type: [selector, 値] } | { scroll: [selector] }
+export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
 var TABS = { playstyle: '立ち回り', burst: '覚醒', matchup: '機体相性', time: '時間帯' };
