@@ -123,9 +123,8 @@
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
-│       ├── build.yml              # ビルド&プッシュ（mainマージ時）
+│       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
 │       ├── deploy.yml             # デプロイ（Pulumi up）
-│       ├── deploy-prod.yml        # 本番デプロイ（手動実行）
 │       ├── infra-ci.yml           # インフラCI（Pulumi preview）
 │       └── update-mslist.yml      # MSリスト自動更新
 ├── .golangci.yml                  # golangci-lint設定
