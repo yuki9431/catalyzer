@@ -48,11 +48,11 @@ function pairs() {
   ['accent', 'accent-2', 'good', 'bad'].forEach((b) => out.push(['on-accent', b, 'bg']));
   TINT.forEach((f) => ['accent-a05', 'accent-a06', 'accent-a07'].forEach((b) => out.push([f, b, 'panel'])));
   out.push(['muted', 'accent-a06', 'bg']);
-  [['text', 'accent-a15'], ['text', 'accent-a10'], ['muted', 'accent-a10'], ['accent', 'accent-a10'], ['accent', 'accent-a08']].forEach(([f, b]) => out.push([f, b, 'panel']));
+  [['text', 'accent-a15'], ['text', 'accent-a10'], ['muted', 'accent-a10'], ['accent', 'accent-a10'], ['accent-2', 'accent-a10'], ['accent', 'accent-a08']].forEach(([f, b]) => out.push([f, b, 'panel']));
   out.push(['accent', 'accent-a10', 'bg']);
   [['great', 'great-a15'], ['terrible', 'terrible-a15'], ['timeup', 'timeup-a15']].forEach(([f, b]) => ['panel', 'panel-2'].forEach((base) => out.push([f, b, base])));
   out.push(['accent-2', 'accent-a18', 'panel']);
-  ['text', 'muted', 'good'].forEach((f) => out.push([f, 'good-a08', 'panel']));
+  ['text', 'muted', 'good', 'accent'].forEach((f) => out.push([f, 'good-a08', 'panel']));
   [['heat-text', 'win-a85'], ['heat-text', 'terrible-a85'], ['heat-text', 'heat-mid'], ['text-faint', 'heat-empty']].forEach(([f, b]) => out.push([f, b, 'panel']));
   out.push(['warn-text', 'warn-bg', 'bg'], ['error-text', 'error-bg', 'bg']);
   return out;
