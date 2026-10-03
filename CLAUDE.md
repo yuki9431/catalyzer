@@ -13,7 +13,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
-- **画面確認（UI oracle）**: `make ui-check`（全18画面を実Chromeで撮影し基準画像と比較・console エラー検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（18画面をダーク・ライトの2テーマで計36枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字を検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成(両テーマ分)。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
@@ -105,7 +105,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
-- `static/styles/` — CSS（ダークテーマ、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
+- `static/styles/` — CSS（ダーク既定・OS 設定に合わせたライト配色、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `prefers-color-scheme: light` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・`window.renderReport` のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
 - `static/components/report/` — レポート画面（9ファイル）。`report.js`（Report・Skeleton・タブ定義・状態管理）/ `controls.js`（TimeSelector/PeriodSelector/MsSelector/LensToggle）/ `kpi.js` / `action-plan.js`（ActionPlanPanel）/ `overview.js`（BasicLensSection/FixedPartnerPanel/OverviewPane）/ `playstyle.js` / `burst.js` / `matchup.js` / `time.js`（各タブの Pane）
 - `static/components/shell.js` — 外枠 AppShell（トップバー・HamburgerMenu・本文）と ShareArea。トップバー定義はここだけ
@@ -124,8 +124,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
 - `static/lib/theme.js` — canvas/Chart.js 用に CSS 定義を読む `themeReader`（1描画1回 getComputedStyle を呼び読み取り関数を返す）
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定）。import を持たず analysis 層からも使う
-- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（API をモックし static/ を無加工配信、`/__preview/` でサンプル投入）/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（全18画面の撮影・必須要素・console エラー・基準比較）/ `baseline/`（基準画像。Chrome・マシン依存）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecord/themeの純粋関数テスト、db（IndexedDBキャッシュ）テスト、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
+- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（API をモックし static/ を無加工配信、`/__preview/` でサンプル投入）/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（18画面×ダーク/ライトの36枚の撮影・必須要素・console エラー・14px 未満検出・基準比較。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の36枚。Chrome・マシン依存）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecord/themeの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
