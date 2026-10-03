@@ -154,7 +154,7 @@ export function RangeCalendar({ startDate, endDate, onSelectStart, onSelectEnd }
       <span class="cal-title">${view.year}年${view.month + 1}月</span>
       <button class="cal-nav" onClick=${nextMonth}>▶</button>
     </div>
-    <div style="text-align:center;font-size:0.8em;color:var(--accent);margin-bottom:4px">${hint}</div>
+    <div style="text-align:center;font-size:0.875rem;color:var(--accent);margin-bottom:4px">${hint}</div>
     <div class="cal-grid">
       ${DOW_LABELS.map(function (d) { return html`<span class="cal-dow">${d}</span>`; })}
       ${cells.map(function (day) {

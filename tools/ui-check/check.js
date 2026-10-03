@@ -40,6 +40,14 @@ var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelecto
   'return e.tagName.toLowerCase()+(e.className&&typeof e.className==="string"?"."+e.className.trim().split(/\\s+/).join("."):"")+" (x "+Math.round(r.left)+"〜"+Math.round(r.right)+", 画面幅 "+W+")"}' +
   'return null})()';
 
+// 表示中の全テキスト(::before/::after を含む)の最小 font-size が 14px 未満の最初の1件を返す式
+var SMALL_TEXT_EXPR = '(function(){var all=document.body.querySelectorAll("*");for(var i=0;i<all.length;i++){var e=all[i];' +
+  'if(!e.getClientRects().length)continue;var cs=getComputedStyle(e);if(cs.visibility==="hidden")continue;' +
+  'var own=Array.prototype.some.call(e.childNodes,function(n){return n.nodeType===3&&n.textContent.trim()});' +
+  'var px=own?parseFloat(cs.fontSize):99;["::before","::after"].forEach(function(p){var s=getComputedStyle(e,p),c=s.content;' +
+  'if(c&&c!=="none"&&c!=="normal"&&c!==\'""\')px=Math.min(px,parseFloat(s.fontSize))});' +
+  'if(px<14)return e.tagName.toLowerCase()+(typeof e.className==="string"&&e.className?"."+e.className.trim().split(/\\s+/).join("."):"")+" "+px+"px"}return null})()';
+
 async function runScreen(conn, origin, screen, theme, update) {
   var ctx = await conn.send('Target.createBrowserContext', {});
   var ctxId = ctx.browserContextId;
@@ -161,6 +169,8 @@ async function runScreen(conn, origin, screen, theme, update) {
     if (consoleErrors.length) return fail('console エラー ' + consoleErrors[0]);
     var overflow = await evalJs(OVERFLOW_EXPR);
     if (overflow) return fail('画面の左右にはみ出し ' + overflow);
+    var small = await evalJs(SMALL_TEXT_EXPR);
+    if (small) return fail('14px 未満の文字 ' + small);
 
     var basePath = path.join(BASELINE, screen.id + '-' + theme + '.png');
     if (update) {
