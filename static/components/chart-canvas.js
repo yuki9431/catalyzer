@@ -21,6 +21,11 @@ function useInView(ref) {
   return inView;
 }
 
+// canvas の ctx.font 用。Chart.js 側と同じ --font-sans を使う
+export function canvasFont(cssVar, px, weight) {
+  return (weight ? weight + ' ' : '') + px + 'px ' + cssVar('--font-sans');
+}
+
 // 50%基準線プラグイン
 var winRate50Plugin = {
   id: 'winRate50Line',
@@ -39,7 +44,7 @@ var winRate50Plugin = {
     ctx.lineTo(chart.chartArea.right, y);
     ctx.stroke();
     ctx.fillStyle = cssVar('--chart-ref-text');
-    ctx.font = '11px sans-serif';
+    ctx.font = canvasFont(cssVar, 12);
     ctx.fillText('50%', chart.chartArea.left + 4, y - 4);
     ctx.restore();
   },
@@ -54,7 +59,9 @@ export function ChartCanvas({ build, deps, className, style }) {
 
   useEffect(function () {
     if (!inView || !canvasRef.current) return;
-    var config = build(themeReader());
+    var cssVar = themeReader();
+    Chart.defaults.font.family = cssVar('--font-sans');
+    var config = build(cssVar);
     if (!config) return;
     chartRef.current = new Chart(canvasRef.current, config);
     return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
@@ -150,7 +157,7 @@ export function winRateComboConfig(cssVar, o) {
       interaction: { mode: 'index', intersect: false },
       plugins: plugins,
       scales: {
-        x: xAxis(cssVar, Object.assign({ font: { size: 11 } }, o.xTicks)),
+        x: xAxis(cssVar, Object.assign({ font: { size: 12 } }, o.xTicks)),
         y: pctAxis(cssVar, { position: 'left' }),
         y1: countAxis(cssVar),
       },

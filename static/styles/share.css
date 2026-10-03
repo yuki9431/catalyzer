@@ -1,6 +1,6 @@
 /* ===== Share ===== */
 .share-area { display: flex; align-items: center; gap: 8px; }
-.share-label { color: var(--muted); font-size: 0.85em; margin-right: 4px; }
+.share-label { color: var(--muted); font-size: 0.875rem; margin-right: 4px; }
 .share-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; text-decoration: none; border: none; transition: transform 0.15s ease; }
 .share-btn:hover { transform: scale(1.1); }
 .share-btn svg { width: 20px; height: 20px; fill: var(--share-icon); }

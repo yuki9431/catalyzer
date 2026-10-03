@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChrome, InfraError } from './cdp.js';
 import { listen } from './server.js';
-import { SCREENS } from './screens.js';
+import { SCREENS, THEMES } from './screens.js';
 import { determinismSource } from './page-determinism.js';
 import { comparePng } from './png.js';
 
@@ -40,7 +40,15 @@ var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelecto
   'return e.tagName.toLowerCase()+(e.className&&typeof e.className==="string"?"."+e.className.trim().split(/\\s+/).join("."):"")+" (x "+Math.round(r.left)+"〜"+Math.round(r.right)+", 画面幅 "+W+")"}' +
   'return null})()';
 
-async function runScreen(conn, origin, screen, update) {
+// 表示中の全テキスト(::before/::after を含む)の最小 font-size が 14px 未満の最初の1件を返す式
+var SMALL_TEXT_EXPR = '(function(){var all=document.body.querySelectorAll("*");for(var i=0;i<all.length;i++){var e=all[i];' +
+  'if(!e.getClientRects().length)continue;var cs=getComputedStyle(e);if(cs.visibility==="hidden")continue;' +
+  'var own=Array.prototype.some.call(e.childNodes,function(n){return n.nodeType===3&&n.textContent.trim()});' +
+  'var px=own?parseFloat(cs.fontSize):99;["::before","::after"].forEach(function(p){var s=getComputedStyle(e,p),c=s.content;' +
+  'if(c&&c!=="none"&&c!=="normal"&&c!==\'""\')px=Math.min(px,parseFloat(s.fontSize))});' +
+  'if(px<14)return e.tagName.toLowerCase()+(typeof e.className==="string"&&e.className?"."+e.className.trim().split(/\\s+/).join("."):"")+" "+px+"px"}return null})()';
+
+async function runScreen(conn, origin, screen, theme, update) {
   var ctx = await conn.send('Target.createBrowserContext', {});
   var ctxId = ctx.browserContextId;
   var targetId = (await conn.send('Target.createTarget', { url: 'about:blank', browserContextId: ctxId })).targetId;
@@ -98,6 +106,7 @@ async function runScreen(conn, origin, screen, update) {
     await send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: screen.viewport.height, deviceScaleFactor: 1, mobile: false });
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
 
     if (!START_URL[screen.start]) throw new InfraError('未知の start: ' + screen.start);
     var loaded = new Promise(function (resolve, reject) {
@@ -154,14 +163,16 @@ async function runScreen(conn, origin, screen, update) {
     if (!png) return fail('画面が安定しない');
 
     fs.mkdirSync(ACTUAL, { recursive: true });
-    fs.writeFileSync(path.join(ACTUAL, screen.id + '.png'), png);
+    fs.writeFileSync(path.join(ACTUAL, screen.id + '-' + theme + '.png'), png);
     if (external.length) return fail('外部リクエスト ' + external[0]);
     if (dialogs.length) return fail('ダイアログ ' + dialogs[0]);
     if (consoleErrors.length) return fail('console エラー ' + consoleErrors[0]);
     var overflow = await evalJs(OVERFLOW_EXPR);
     if (overflow) return fail('画面の左右にはみ出し ' + overflow);
+    var small = await evalJs(SMALL_TEXT_EXPR);
+    if (small) return fail('14px 未満の文字 ' + small);
 
-    var basePath = path.join(BASELINE, screen.id + '.png');
+    var basePath = path.join(BASELINE, screen.id + '-' + theme + '.png');
     if (update) {
       fs.mkdirSync(BASELINE, { recursive: true });
       fs.writeFileSync(basePath, png);
@@ -204,7 +215,7 @@ async function main() {
     process.on(sig, function () { cleanup(); process.exit(130); });
   });
   try {
-    if (ONLY.length) screens.forEach(function (s) { fs.rmSync(path.join(ACTUAL, s.id + '.png'), { force: true }); });
+    if (ONLY.length) screens.forEach(function (s) { THEMES.forEach(function (t) { fs.rmSync(path.join(ACTUAL, s.id + '-' + t + '.png'), { force: true }); }); });
     else fs.rmSync(ACTUAL, { recursive: true, force: true });
     srv = await listen(0);
     chrome = await launchChrome(CHROME, userDataDir);
@@ -214,23 +225,26 @@ async function main() {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
       if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
-    var okCount = 0;
+    var okCount = 0, total = 0;
     for (var i = 0; i < screens.length; i++) {
-      var r;
-      try {
-        r = await runScreen(chrome.conn, origin, screens[i], UPDATE);
-      } catch (e) {
-        if (e instanceof InfraError) throw e;
-        r = { id: screens[i].id, ok: false, reason: e.message };
+      for (var j = 0; j < THEMES.length; j++) {
+        var r, label = screens[i].id + ' (' + THEMES[j] + ')';
+        total++;
+        try {
+          r = await runScreen(chrome.conn, origin, screens[i], THEMES[j], UPDATE);
+        } catch (e) {
+          if (e instanceof InfraError) throw e;
+          r = { ok: false, reason: e.message };
+        }
+        console.log(r.ok ? 'OK ' + label : 'FAIL ' + label + ': ' + r.reason);
+        if (r.ok) okCount++;
       }
-      console.log(r.ok ? 'OK ' + r.id : 'FAIL ' + r.id + ': ' + r.reason);
-      if (r.ok) okCount++;
     }
     if (UPDATE) {
       fs.writeFileSync(path.join(BASELINE, 'meta.json'), JSON.stringify({ chrome: chrome.version, platform: process.platform + '-' + process.arch }, null, 2) + '\n');
     }
-    console.log('ui-check: ' + okCount + '/' + screens.length + ' OK');
-    return okCount === screens.length ? 0 : 1;
+    console.log('ui-check: ' + okCount + '/' + total + ' OK');
+    return okCount === total ? 0 : 1;
   } finally {
     clearTimeout(timer);
     cleanup();

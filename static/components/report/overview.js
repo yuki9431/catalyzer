@@ -144,7 +144,7 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
   var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [esc(m.ms), m.matches, colorPct(m.win_rate)]; });
 
   return html`<${Panel} title="固定相方">
-    ${fp.notice && html`<p style="margin-bottom: 12px; color: var(--muted); font-size: 0.9em;">${esc(fp.notice)}</p>`}
+    ${fp.notice && html`<p style="margin-bottom: 12px; color: var(--muted); font-size: 0.875rem;">${esc(fp.notice)}</p>`}
     ${fpItems.length > 1 ? html`<${PartnerDropdown} items=${fpItems} idx=${idx} onSelect=${setIdx} />` : html`<div class="ms-head">
       <span class="name">${esc(p.partner_name)}${p.team_name ? html` <span class="meta">【${esc(p.team_name)}】</span>` : ''}</span>
       <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>

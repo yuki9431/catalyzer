@@ -1,5 +1,5 @@
 /* ===== 共通部品(components/parts.js)。base.css の button 全体指定は各クラスで打ち消す ===== */
-.ui-chip { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); color: var(--text); font-size: 0.85em; font-weight: normal; line-height: 1.4; transition: none; }
+.ui-chip { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2); color: var(--text); font-size: 0.875rem; font-weight: normal; line-height: 1.4; transition: none; }
 button.ui-chip { cursor: pointer; }
 button.ui-chip:hover { background: var(--accent-a10); }
 .ui-chip-good { border-color: var(--great); color: var(--great); background: var(--great-a15); }
@@ -7,29 +7,29 @@ button.ui-chip:hover { background: var(--accent-a10); }
 .ui-chip-active, button.ui-chip-active:hover { border-color: var(--accent); background: var(--accent-a18); color: var(--accent-2); }
 
 .ui-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.ui-toggle-btn { width: auto; padding: 6px 14px; border: none; border-radius: 0; background: var(--panel-2); color: var(--muted); font-size: 0.9em; font-weight: normal; cursor: pointer; transition: none; }
+.ui-toggle-btn { width: auto; padding: 6px 14px; border: none; border-radius: 0; background: var(--panel-2); color: var(--muted); font-size: 0.875rem; font-weight: normal; cursor: pointer; transition: none; }
 .ui-toggle-btn + .ui-toggle-btn { border-left: 1px solid var(--line); }
 .ui-toggle-btn:hover { background: var(--accent-a10); }
 .ui-toggle-btn[aria-pressed="true"], .ui-toggle-btn[aria-pressed="true"]:hover { background: var(--accent-a18); color: var(--accent-2); font-weight: bold; }
 
 .ui-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .ui-summary-item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-a05); }
-.ui-summary dt { color: var(--muted); font-size: 0.8em; margin-bottom: 4px; }
-.ui-summary dd { color: var(--text); font-size: 1.3em; font-weight: bold; }
-.ui-summary dd small { display: block; color: var(--muted); font-size: 0.6em; font-weight: normal; margin-top: 2px; }
+.ui-summary dt { color: var(--muted); font-size: 0.875rem; margin-bottom: 4px; }
+.ui-summary dd { color: var(--text); font-size: 1.3125rem; font-weight: bold; }
+.ui-summary dd small { display: block; color: var(--muted); font-size: 0.875rem; font-weight: normal; margin-top: 2px; }
 .ui-summary-good dd { color: var(--great); }
 .ui-summary-bad dd { color: var(--terrible); }
 
 .ui-rows { list-style: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .ui-row + .ui-row { border-top: 1px solid var(--line); }
-.ui-row-body, .ui-row-btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 12px; border: none; border-radius: 0; background: var(--panel); color: var(--text); font-size: 0.95em; font-weight: normal; text-align: left; transition: none; }
+.ui-row-body, .ui-row-btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 12px; border: none; border-radius: 0; background: var(--panel); color: var(--text); font-size: 0.9375rem; font-weight: normal; text-align: left; transition: none; }
 .ui-row-btn { cursor: pointer; }
 .ui-row-btn:hover { background: var(--accent-a10); }
 .ui-row-main { display: flex; flex-direction: column; min-width: 0; }
-.ui-row-main small { color: var(--muted); font-size: 0.8em; }
+.ui-row-main small { color: var(--muted); font-size: 0.875rem; }
 .ui-row-aside { flex-shrink: 0; color: var(--accent-2); font-weight: bold; }
 
-.ui-notice { padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--accent); background: var(--accent-a06); color: var(--muted); font-size: 0.9em; line-height: 1.6; }
+.ui-notice { padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--accent); background: var(--accent-a06); color: var(--muted); font-size: 0.875rem; line-height: 1.6; }
 .ui-notice-warn { border-left-color: var(--warn-border); background: var(--warn-bg); color: var(--warn-text); }
 .ui-notice-error { border-left-color: var(--error-border); background: var(--error-bg); color: var(--error-text); }
 .ui-notice + .ui-notice { margin-top: 8px; }
