@@ -8,9 +8,9 @@
   .ms-topbar-trigger { max-width: 50vw; }
   .ms-topbar-backdrop { display: block; position: fixed; inset: 0; background: var(--scrim); z-index: 99; }
   .ms-topbar-dropdown { min-width: 0; position: fixed; left: 0; right: 0; width: 100%; border-radius: 0 0 8px 8px; margin: 0; }
+  .popover-backdrop { display: block; position: fixed; inset: 0; background: var(--scrim); z-index: 99; }
 }
 @media (max-width: 600px) {
-  .container { padding: var(--gutter); padding-left: max(var(--gutter), env(safe-area-inset-left)); padding-right: max(var(--gutter), env(safe-area-inset-right)); padding-bottom: max(var(--gutter), env(safe-area-inset-bottom)); }
   .topbar { margin: calc(var(--gutter) * -1) calc(var(--gutter) * -1) 16px; padding: calc(12px + env(safe-area-inset-top)) var(--gutter) 6px; }
   .topbar .brand { top: calc(env(safe-area-inset-top) + 14px); }
   .period-trigger { padding: 7px 12px; font-size: 0.82em; }

@@ -1,5 +1,5 @@
 import { html, useState, useMemo, useEffect, useRef } from '../htm-preact-standalone.js';
-import { cssVar } from '../lib/theme.js';
+import { themeReader } from '../lib/theme.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
@@ -10,6 +10,7 @@ import {
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
+import { useDismiss } from './popover.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 
 var PAGE_SIZE = 20;
@@ -79,8 +80,8 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
   var dateOpenRef = useState(false);
   var dateOpen = dateOpenRef[0], setDateOpen = dateOpenRef[1];
 
-  return html`<div class="panel search-filter-panel">
-    <button class=${'search-filter-head' + (open ? ' open' : '')}
+  return html`<div class="panel search-filter-panel" data-ui="search-filter">
+    <button data-ui="search-filter-toggle" class=${'search-filter-head' + (open ? ' open' : '')}
       onClick=${function () { setOpen(!open); }} aria-expanded=${open}>
       <span class="search-filter-title"><span class="dot" />絞り込み条件${!open && active && html`<span class="search-filter-badge">適用中</span>`}</span>
       <span class="search-chevron" aria-hidden="true"></span>
@@ -151,7 +152,7 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
         ${advOpen && html`<div class="search-adv-grid">
           <div class="search-field search-field-wide">
             <label class="search-label">期間（カスタム指定）</label>
-            <button type="button" class=${'panel-select-trigger search-date-trigger' + (dateOpen ? ' open' : '')}
+            <button type="button" data-ui="date-trigger" class=${'panel-select-trigger search-date-trigger' + (dateOpen ? ' open' : '')}
               onClick=${function () { setDateOpen(!dateOpen); }} aria-expanded=${dateOpen}>
               <span class="panel-select-label">${filters.dateFrom
                 ? esc(filters.dateFrom + ' 〜 ' + (filters.dateTo || '…'))
@@ -238,7 +239,7 @@ function playerName(n) {
 // クリックで詳細を開く。
 function ResultItem({ match, msImages, sortKey, onOpen }) {
   var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
-  return html`<button class="search-item" onClick=${function () { onOpen(match); }}>
+  return html`<button class="search-item" data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
@@ -295,7 +296,7 @@ function Timeline({ match, msImages }) {
     var m = GANTT_BAR[a.action];
     var left = pct(a.action_start_sec);
     var w = Math.max(0.6, pct(a.action_end_sec) - left); // 極小でも視認できる最小幅
-    var barEl = html`<span class=${'gantt-bar gantt-' + m.cls} style=${'left:' + left + '%;width:' + w + '%'}></span>`;
+    var barEl = html`<span data-ui="gantt-bar" class=${'gantt-bar gantt-' + m.cls} style=${'left:' + left + '%;width:' + w + '%'}></span>`;
     // 発動系は「発動の瞬間＝菱形」＋「その後の発動中＝色付きバー」の両方を描く。
     if (m.kind === 'diamond') {
       return html`${barEl}<span class=${'gantt-diamond gantt-' + m.cls} style=${'left:' + left + '%'}></span>`;
@@ -308,7 +309,7 @@ function Timeline({ match, msImages }) {
   for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
   var labels = grid.filter(function (g) { return g.major; });
 
-  return html`<div class="gantt">
+  return html`<div class="gantt" data-ui="gantt">
     <div class="gantt-rows">
       <div class="gantt-grid">
         ${grid.map(function (g) {
@@ -363,6 +364,7 @@ var RADAR_LABELS = RADAR_AXES.map(function (a) { return a.label; });
 
 // 4人分のレーダー系列を作る。各軸を基本データと同じ基準(clampMetric)で0-100に正規化（絶対評価）。
 function radarPlayers(match) {
+  var cssVar = themeReader();
   var players = [
     { label: '自分', color: cssVar('--accent'), bg: cssVar('--accent-a25'), raw: [match.dmg_given, match.kills, match.bursts, match.dmg_taken, match.deaths, match.ex_dmg] },
     { label: '相方', color: cssVar('--great'), bg: cssVar('--great-a25'), raw: [match.partner_dmg_given, match.partner_kills, match.partner_bursts, match.partner_dmg_taken, match.partner_deaths, match.partner_ex_dmg] },
@@ -387,16 +389,14 @@ function DetailThumb({ name, msImages }) {
 
 // 試合詳細モーダル。
 function DetailModal({ match, msImages, onClose }) {
+  useDismiss(true, null, onClose);
   useEffect(function () {
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
-    document.addEventListener('keydown', onKey);
     // モーダル表示中は背景（body/html）のスクロールを止める。
     var prevBody = document.body.style.overflow;
     var prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
     return function () {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevBody;
       document.documentElement.style.overflow = prevHtml;
     };
@@ -432,7 +432,7 @@ function DetailModal({ match, msImages, onClose }) {
     { label: 'EXダメージ', vals: [match.ex_dmg, match.partner_ex_dmg, match.opponent1_ex_dmg, match.opponent2_ex_dmg], color: colorExDmg },
   ];
 
-  return html`<div class="modal-backdrop" onClick=${function (e) { if (e.target === e.currentTarget) onClose(); }}>
+  return html`<div class="modal-backdrop" data-ui="match-detail" onClick=${function (e) { if (e.target === e.currentTarget) onClose(); }}>
     <div class="search-detail">
       <div class="search-detail-head">
         <div>
@@ -454,7 +454,7 @@ function DetailModal({ match, msImages, onClose }) {
       </div>
       <${CompareRadar} labels=${RADAR_LABELS} series=${series} showLegend=${false} />
 
-      <div class="table-wrap"><table class="search-detail-table">
+      <div class="table-wrap"><table class="search-detail-table" data-ui="match-score-table">
         <thead><tr>
           <th></th>
           ${cols.map(function (ms, i) {
@@ -474,7 +474,7 @@ function DetailModal({ match, msImages, onClose }) {
         </tbody>
       </table></div>
 
-      <button type="button" class=${'search-detail-tl-toggle' + (tlOpen ? ' open' : '')}
+      <button type="button" data-ui="match-timeline-toggle" class=${'search-detail-tl-toggle' + (tlOpen ? ' open' : '')}
         onClick=${function () { setTlOpen(!tlOpen); }} aria-expanded=${tlOpen}>
         <span class="search-detail-tl-title">試合経過</span>
         <span class="search-chevron" aria-hidden="true"></span>
@@ -490,12 +490,7 @@ function SortControl({ sortKey, desc, onSortKey, onToggleDir }) {
   var openRef = useState(false);
   var open = openRef[0], setOpen = openRef[1];
   var ref = useRef(null);
-  useEffect(function () {
-    if (!open) return;
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener('mousedown', onDoc);
-    return function () { document.removeEventListener('mousedown', onDoc); };
-  }, [open]);
+  useDismiss(open, ref, function () { setOpen(false); });
   var current = SORT_OPTIONS.find(function (o) { return o.key === sortKey; }) || SORT_OPTIONS[0];
 
   return html`<div class="search-sort" ref=${ref}>

@@ -1,7 +1,8 @@
-import { html, useState, useRef, useEffect } from '../htm-preact-standalone.js';
-import { cssVar } from '../lib/theme.js';
+import { html } from '../htm-preact-standalone.js';
+import { themeReader } from '../lib/theme.js';
 import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken } from '../lib/format.js';
 import { Tips, SortableTable, Table } from './ui.js';
+import { ChartCanvas, winRateComboConfig, xAxis, pctAxis, winRateColors } from './chart-canvas.js';
 
 // --- Report sections ---
 
@@ -86,309 +87,48 @@ export function TeamDeathsImpactSection({ teamDeaths }) {
   </div>`;
 }
 
-// スクロール連動: 要素が画面に入ったらtrueを返すフック
-export function useInView(ref) {
-  var state = useState(false);
-  var inView = state[0], setInView = state[1];
-
-  useEffect(function () {
-    if (!ref.current) return;
-    var observer = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting) {
-        setInView(true);
-        observer.disconnect();
-      }
-    }, { threshold: 0.1 });
-    observer.observe(ref.current);
-    return function () { observer.disconnect(); };
-  }, []);
-
-  return inView;
-}
-
-// 50%基準線プラグイン
-var winRate50Plugin = {
-  id: 'winRate50Line',
-  afterDraw: function (chart) {
-    var yScale = chart.scales.y;
-    if (!yScale) return;
-    var y = yScale.getPixelForValue(50);
-    var ctx = chart.ctx;
-    ctx.save();
-    ctx.beginPath();
-    ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = cssVar('--chart-ref-line');
-    ctx.lineWidth = 1;
-    ctx.moveTo(chart.chartArea.left, y);
-    ctx.lineTo(chart.chartArea.right, y);
-    ctx.stroke();
-    ctx.fillStyle = cssVar('--chart-ref-text');
-    ctx.font = '11px sans-serif';
-    ctx.fillText('50%', chart.chartArea.left + 4, y - 4);
-    ctx.restore();
-  },
-};
-
 export function TimeOfDayChart({ hours }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !hours || !hours.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-
-    var labels = hours.map(function (h) { return h.hour + '時'; });
-    var winRates = hours.map(function (h) { return h.win_rate; });
-    var matches = hours.map(function (h) { return h.matches; });
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: '勝率 (%)',
-            data: winRates,
-            backgroundColor: winRates.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a30'); }),
-            borderWidth: 0,
-            yAxisID: 'y',
-          },
-          {
-            label: '試合数',
-            data: matches,
-            type: 'line',
-            borderColor: cssVar('--accent-2'),
-            backgroundColor: cssVar('--accent-2-a10'),
-            fill: false,
-            tension: 0.3,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            yAxisID: 'y1',
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: cssVar('--chart-text'), font: { size: 12 }, usePointStyle: true, generateLabels: function (chart) { return chart.data.datasets.map(function (ds, i) { var meta = chart.getDatasetMeta(i); var ps; if (ds.type === 'line') { var c = document.createElement('canvas'); c.width = 24; c.height = 12; var cx = c.getContext('2d'); var color = ds.borderColor; cx.strokeStyle = color; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(4, 6); cx.lineTo(20, 6); cx.stroke(); cx.fillStyle = color; cx.beginPath(); cx.arc(4, 6, 3, 0, Math.PI * 2); cx.fill(); cx.beginPath(); cx.arc(20, 6, 3, 0, Math.PI * 2); cx.fill(); ps = c; } else { ps = 'rectRounded'; } return { text: ds.label, fontColor: cssVar('--chart-text'), fillStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor), strokeStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor), lineWidth: ds.type === 'line' ? 0 : 1, pointStyle: ps, hidden: meta.hidden, datasetIndex: i }; }); } } },
-        },
-        scales: {
-          x: {
-            ticks: { color: cssVar('--chart-text-sub'), font: { size: 11 } },
-            grid: { color: cssVar('--chart-grid') },
-          },
-          y: {
-            position: 'left',
-            min: 0,
-            max: 100,
-            ticks: { color: cssVar('--chart-text'), callback: function (v) { return v + '%'; } },
-            grid: { color: cssVar('--chart-grid-strong') },
-          },
-          y1: {
-            position: 'right',
-            min: 0,
-            ticks: { color: cssVar('--chart-text'), stepSize: 1 },
-            grid: { display: false },
-          },
-        },
-      },
-      plugins: [winRate50Plugin],
+  return html`<${ChartCanvas} deps=${[hours]} build=${function (cssVar) {
+    if (!hours || !hours.length) return null;
+    return winRateComboConfig(cssVar, {
+      labels: hours.map(function (h) { return h.hour + '時'; }),
+      winRates: hours.map(function (h) { return h.win_rate; }),
+      matches: hours.map(function (h) { return h.matches; }),
     });
-
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [hours, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+  }} />`;
 }
 
 export function DayOfWeekChart({ days }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !days || !days.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-
-    var labels = days.map(function (d) { return d.name + '曜'; });
-    var winRates = days.map(function (d) { return d.win_rate; });
-    var matches = days.map(function (d) { return d.matches; });
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: '勝率 (%)',
-            data: winRates,
-            backgroundColor: winRates.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a30'); }),
-            borderWidth: 0,
-            yAxisID: 'y',
-          },
-          {
-            label: '試合数',
-            data: matches,
-            type: 'line',
-            borderColor: cssVar('--accent-2'),
-            backgroundColor: cssVar('--accent-2-a10'),
-            fill: false,
-            tension: 0.3,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            yAxisID: 'y1',
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: cssVar('--chart-text'), font: { size: 12 }, usePointStyle: true, generateLabels: function (chart) { return chart.data.datasets.map(function (ds, i) { var meta = chart.getDatasetMeta(i); var ps; if (ds.type === 'line') { var c = document.createElement('canvas'); c.width = 24; c.height = 12; var cx = c.getContext('2d'); var color = ds.borderColor; cx.strokeStyle = color; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(4, 6); cx.lineTo(20, 6); cx.stroke(); cx.fillStyle = color; cx.beginPath(); cx.arc(4, 6, 3, 0, Math.PI * 2); cx.fill(); cx.beginPath(); cx.arc(20, 6, 3, 0, Math.PI * 2); cx.fill(); ps = c; } else { ps = 'rectRounded'; } return { text: ds.label, fontColor: cssVar('--chart-text'), fillStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor), strokeStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor), lineWidth: ds.type === 'line' ? 0 : 1, pointStyle: ps, hidden: meta.hidden, datasetIndex: i }; }); } } },
-        },
-        scales: {
-          x: {
-            ticks: { color: cssVar('--chart-text-sub'), font: { size: 11 } },
-            grid: { color: cssVar('--chart-grid') },
-          },
-          y: {
-            position: 'left',
-            min: 0,
-            max: 100,
-            ticks: { color: cssVar('--chart-text'), callback: function (v) { return v + '%'; } },
-            grid: { color: cssVar('--chart-grid-strong') },
-          },
-          y1: {
-            position: 'right',
-            min: 0,
-            ticks: { color: cssVar('--chart-text'), stepSize: 1 },
-            grid: { display: false },
-          },
-        },
-      },
-      plugins: [winRate50Plugin],
+  return html`<${ChartCanvas} deps=${[days]} build=${function (cssVar) {
+    if (!days || !days.length) return null;
+    return winRateComboConfig(cssVar, {
+      labels: days.map(function (d) { return d.name + '曜'; }),
+      winRates: days.map(function (d) { return d.win_rate; }),
+      matches: days.map(function (d) { return d.matches; }),
     });
-
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [days, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+  }} />`;
 }
 
 export function DailyTrendChart({ days }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !days || !days.length) return;
-
-    if (chartRef.current) {
-      chartRef.current.destroy();
-    }
-
-    var labels = days.map(function (d) { return d.date.slice(5); });
-    var winRates = days.map(function (d) { return d.win_rate; });
-    var matches = days.map(function (d) { return d.matches; });
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: '勝率 (%)',
-            data: winRates,
-            backgroundColor: winRates.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a30'); }),
-            borderWidth: 0,
-            yAxisID: 'y',
-          },
-          {
-            label: '試合数',
-            data: matches,
-            type: 'line',
-            borderColor: cssVar('--accent-2'),
-            backgroundColor: cssVar('--accent-2-a10'),
-            fill: false,
-            tension: 0.3,
-            pointRadius: days.length > 30 ? 2 : 4,
-            pointHoverRadius: 6,
-            yAxisID: 'y1',
-          },
-        ],
+  return html`<${ChartCanvas} deps=${[days]} build=${function (cssVar) {
+    if (!days || !days.length) return null;
+    return winRateComboConfig(cssVar, {
+      labels: days.map(function (d) { return d.date.slice(5); }),
+      winRates: days.map(function (d) { return d.win_rate; }),
+      matches: days.map(function (d) { return d.matches; }),
+      pointRadius: days.length > 30 ? 2 : 4,
+      xTicks: { maxRotation: 45 },
+      tooltipTitle: function (items) {
+        var d = days[items[0].dataIndex];
+        return d.date + ' (' + d.dow_name + ')';
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: cssVar('--chart-text'), font: { size: 12 }, usePointStyle: true, generateLabels: function (chart) { return chart.data.datasets.map(function (ds, i) { var meta = chart.getDatasetMeta(i); var ps; if (ds.type === 'line') { var c = document.createElement('canvas'); c.width = 24; c.height = 12; var cx = c.getContext('2d'); var color = ds.borderColor; cx.strokeStyle = color; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(4, 6); cx.lineTo(20, 6); cx.stroke(); cx.fillStyle = color; cx.beginPath(); cx.arc(4, 6, 3, 0, Math.PI * 2); cx.fill(); cx.beginPath(); cx.arc(20, 6, 3, 0, Math.PI * 2); cx.fill(); ps = c; } else { ps = 'rectRounded'; } return { text: ds.label, fontColor: cssVar('--chart-text'), fillStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor), strokeStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor), lineWidth: ds.type === 'line' ? 0 : 1, pointStyle: ps, hidden: meta.hidden, datasetIndex: i }; }); } } },
-          tooltip: {
-            callbacks: {
-              title: function (items) {
-                var idx = items[0].dataIndex;
-                var d = days[idx];
-                return d.date + ' (' + d.dow_name + ')';
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: cssVar('--chart-text-sub'), maxRotation: 45, font: { size: 11 } },
-            grid: { color: cssVar('--chart-grid') },
-          },
-          y: {
-            position: 'left',
-            min: 0,
-            max: 100,
-            ticks: {
-              color: cssVar('--chart-text'),
-              callback: function (v) { return v + '%'; },
-            },
-            grid: { color: cssVar('--chart-grid-strong') },
-          },
-          y1: {
-            position: 'right',
-            min: 0,
-            ticks: { color: cssVar('--chart-text'), stepSize: 1 },
-            grid: { display: false },
-          },
-        },
-      },
-      plugins: [winRate50Plugin],
     });
-
-    return function () {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
-  }, [days, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}>
-    <canvas ref=${canvasRef} />
-  </div>`;
+  }} />`;
 }
 
 export function SeasonChart({ seasons }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !seasons || !seasons.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-
+  return html`<${ChartCanvas} deps=${[seasons]} build=${function (cssVar) {
+    if (!seasons || !seasons.length) return null;
     var prevYear = null;
     var labels = seasons.map(function (s) {
       var m = s.name.match(/^(\d{4})年/);
@@ -397,144 +137,172 @@ export function SeasonChart({ seasons }) {
       var yi = label.indexOf('年');
       return yi === -1 ? label : [label.slice(0, yi + 1), label.slice(yi + 1)];
     });
-    var winRates = seasons.map(function (s) { return s.win_rate; });
-    var matches = seasons.map(function (s) { return s.matches; });
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: '勝率 (%)',
-            data: winRates,
-            backgroundColor: winRates.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a30'); }),
-            borderWidth: 0,
-            yAxisID: 'y',
-          },
-          {
-            label: '試合数',
-            data: matches,
-            type: 'line',
-            borderColor: cssVar('--accent-2'),
-            backgroundColor: cssVar('--accent-2-a10'),
-            fill: false,
-            tension: 0.3,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            yAxisID: 'y1',
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: cssVar('--chart-text'), font: { size: 12 }, usePointStyle: true, generateLabels: function (chart) { return chart.data.datasets.map(function (ds, i) { var meta = chart.getDatasetMeta(i); var ps; if (ds.type === 'line') { var c = document.createElement('canvas'); c.width = 24; c.height = 12; var cx = c.getContext('2d'); var color = ds.borderColor; cx.strokeStyle = color; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(4, 6); cx.lineTo(20, 6); cx.stroke(); cx.fillStyle = color; cx.beginPath(); cx.arc(4, 6, 3, 0, Math.PI * 2); cx.fill(); cx.beginPath(); cx.arc(20, 6, 3, 0, Math.PI * 2); cx.fill(); ps = c; } else { ps = 'rectRounded'; } return { text: ds.label, fontColor: cssVar('--chart-text'), fillStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor), strokeStyle: ds.type === 'line' ? ds.borderColor : (Array.isArray(ds.borderColor) ? ds.borderColor[0] : ds.borderColor), lineWidth: ds.type === 'line' ? 0 : 1, pointStyle: ps, hidden: meta.hidden, datasetIndex: i }; }); } } },
-          tooltip: {
-            callbacks: {
-              title: function (items) { return seasons[items[0].dataIndex].name; },
-            },
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: cssVar('--chart-text-sub'), maxRotation: 0, minRotation: 0, font: { size: 11 } },
-            grid: { color: cssVar('--chart-grid') },
-          },
-          y: {
-            position: 'left',
-            min: 0,
-            max: 100,
-            ticks: { color: cssVar('--chart-text'), callback: function (v) { return v + '%'; } },
-            grid: { color: cssVar('--chart-grid-strong') },
-          },
-          y1: {
-            position: 'right',
-            min: 0,
-            ticks: { color: cssVar('--chart-text'), stepSize: 1 },
-            grid: { display: false },
-          },
-        },
-      },
-      plugins: [winRate50Plugin],
+    return winRateComboConfig(cssVar, {
+      labels: labels,
+      winRates: seasons.map(function (s) { return s.win_rate; }),
+      matches: seasons.map(function (s) { return s.matches; }),
+      xTicks: { maxRotation: 0, minRotation: 0 },
+      tooltipTitle: function (items) { return seasons[items[0].dataIndex].name; },
     });
-
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [seasons, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+  }} />`;
 }
 
 export function WinRateBarChart({ items }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !items || !items.length) return;
-    if (chartRef.current) chartRef.current.destroy();
-    var labels = items.map(function (i) { return i.label; });
-    var rates = items.map(function (i) { return i.win_rate; });
-    var counts = items.map(function (i) { return i.matches; });
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: '勝率 (%)', data: rates, backgroundColor: rates.map(function (v) { return v >= 60 ? cssVar('--win-a70') : v < 50 ? cssVar('--terrible-a70') : cssVar('--accent-2-a30'); }), borderWidth: 0, yAxisID: 'y' },
-          { label: '試合数', data: counts, type: 'line', borderColor: cssVar('--accent-2'), fill: false, tension: 0.3, pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y1' },
-        ],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { labels: { color: cssVar('--chart-text'), font: { size: 12 } } } },
-        scales: {
-          x: { ticks: { color: cssVar('--chart-text-sub'), font: { size: 11 } }, grid: { color: cssVar('--chart-grid') } },
-          y: { position: 'left', min: 0, max: 100, ticks: { color: cssVar('--chart-text'), callback: function (v) { return v + '%'; } }, grid: { color: cssVar('--chart-grid-strong') } },
-          y1: { position: 'right', min: 0, ticks: { color: cssVar('--chart-text'), stepSize: 1 }, grid: { display: false } },
-        },
-      },
-      plugins: [winRate50Plugin],
+  return html`<${ChartCanvas} deps=${[items]} build=${function (cssVar) {
+    if (!items || !items.length) return null;
+    return winRateComboConfig(cssVar, {
+      labels: items.map(function (i) { return i.label; }),
+      winRates: items.map(function (i) { return i.win_rate; }),
+      matches: items.map(function (i) { return i.matches; }),
+      plain: true,
     });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [items, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+  }} />`;
 }
 
 export function DmgContributionChart({ dmg }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current || !dmg || !dmg.by_cost || !dmg.by_cost.length) return;
-    if (chartRef.current) chartRef.current.destroy();
+  return html`<${ChartCanvas} deps=${[dmg]} build=${function (cssVar) {
+    if (!dmg || !dmg.by_cost || !dmg.by_cost.length) return null;
     var c = dmg.by_cost[0];
     var labels = ['全体', '勝利時', '敗北時'];
     var values = [c.avg_contribution || 0, c.avg_win_contribution || 0, c.avg_lose_contribution || 0];
     var colors = [cssVar('--accent-2-a50'), cssVar('--great-a60'), cssVar('--terrible-a60')];
-    chartRef.current = new Chart(canvasRef.current, {
+    return {
       type: 'bar',
       data: { labels: labels, datasets: [{ label: '貢献率 (%)', data: values, backgroundColor: colors, borderWidth: 0 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return '貢献率: ' + ctx.parsed.y.toFixed(1) + '%'; } } } },
+        scales: { x: xAxis(cssVar), y: pctAxis(cssVar) },
+      },
+    };
+  }} />`;
+}
+
+// 横棒の内側に名前（左）と勝率（右）を描くプラグイン
+var inBarLabel = {
+  id: 'inBarLabel',
+  afterDatasetsDraw: function (chart) {
+    var cssVar = themeReader();
+    var textColor = cssVar('--text'), goodColor = cssVar('--good'), badColor = cssVar('--bad');
+    var ctx = chart.ctx;
+    var meta = chart.getDatasetMeta(0);
+    var x0 = chart.scales.x.getPixelForValue(0);
+    var areaRight = chart.chartArea.right;
+    ctx.save();
+    var mainFont = '700 12px system-ui, -apple-system, sans-serif';
+    var diffFont = '700 11px system-ui, -apple-system, sans-serif';
+    ctx.font = mainFont;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = textColor;
+    var ellipsize = function (text, maxWidth) {
+      if (ctx.measureText(text).width <= maxWidth) return text;
+      var t = text;
+      while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+      // 1文字も入らない幅では他のラベルと重ならないよう名前を描かない
+      return t ? t + '…' : '';
+    };
+    var natlRates = chart.data.datasets[0].nationalWinRates;
+    meta.data.forEach(function (bar, i) {
+      var own = chart.data.datasets[0].data[i];
+      var pct = own.toFixed(1) + '%';
+      var pctWidth = ctx.measureText(pct).width;
+      // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
+      var natl = natlRates ? natlRates[i] : null;
+      var diff = typeof natl === 'number' ? own - natl : null;
+      var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
+      ctx.font = diffFont;
+      var diffTextWidth = diffText ? ctx.measureText(diffText).width : 0;
+      var diffWidth = diffText ? diffTextWidth + 8 : 0;
+      ctx.font = mainFont;
+      // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
+      var nameLeft = x0 + 8;
+      var name = ellipsize(chart.data.labels[i], areaRight - nameLeft - pctWidth - 12 - diffWidth);
+      var nameRight = nameLeft + ctx.measureText(name).width;
+      var pctInside, pctX, endX;
+      // 暫定配置: 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
+      if (bar.x - 8 - pctWidth > nameRight + 6) {
+        pctInside = true;
+        endX = bar.x;
+      } else {
+        pctInside = false;
+        pctX = Math.max(bar.x + 6, nameRight + 6);
+        endX = pctX + pctWidth;
+      }
+      var diffInside = false;
+      // 棒が長く差分が右外に収まらない行は、勝率を棒内に寄せ機体名を削って差分の場所を作る（差分を落とさない）
+      if (diffText && endX + 8 + diffTextWidth > areaRight) {
+        pctInside = true;
+        endX = bar.x;
+        var nameLimit = bar.x - 8 - pctWidth - 6;
+        if (bar.x + 8 + diffTextWidth > areaRight) {
+          // 機体名を消しても棒内に入らないほど狭い場合だけ差分を諦める
+          if (nameLimit - diffTextWidth - 6 >= nameLeft) {
+            diffInside = true;
+            nameLimit -= diffTextWidth + 6;
+          } else {
+            diffText = '';
+          }
+        }
+        name = ellipsize(chart.data.labels[i], nameLimit - nameLeft);
+      }
+      ctx.textAlign = 'left';
+      ctx.fillText(name, nameLeft, bar.y);
+      if (pctInside) {
+        ctx.textAlign = 'right';
+        ctx.fillText(pct, bar.x - 8, bar.y);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText(pct, pctX, bar.y);
+      }
+      if (!diffText) return;
+      ctx.font = diffFont;
+      if (diffInside) {
+        // 棒内に置く差分は棒の色と競合するため配色は付けない
+        ctx.textAlign = 'right';
+        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
+      } else {
+        ctx.fillStyle = diff >= 0 ? goodColor : badColor;
+        ctx.textAlign = 'left';
+        ctx.fillText(diffText, endX + 8, bar.y);
+      }
+      ctx.fillStyle = textColor;
+      ctx.font = mainFont;
+    });
+    ctx.restore();
+  },
+};
+
+// 機体別の勝率を横棒で比較（棒の内側に機体名と勝率）
+export function MsCompareChart({ entries }) {
+  var h = Math.max(entries.length > 1 ? 160 : 72, entries.length * 46);
+  return html`<${ChartCanvas} style=${'height:' + h + 'px'} deps=${[entries]} build=${function (cssVar) {
+    if (!entries.length) return null;
+    var values = entries.map(function (e) { return e.winRate; });
+    return {
+      type: 'bar',
+      data: {
+        labels: entries.map(function (e) { return e.name; }),
+        datasets: [{
+          data: values,
+          backgroundColor: winRateColors(cssVar, values, cssVar('--accent-2-a35')),
+          borderWidth: 0,
+          borderRadius: 4,
+          // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
+          nationalWinRates: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        layout: { padding: { right: 4 } },
+        plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: cssVar('--chart-text-sub') }, grid: { color: cssVar('--chart-grid') } },
-          y: { min: 0, max: 100, ticks: { color: cssVar('--chart-text'), callback: function (v) { return v + '%'; } }, grid: { color: cssVar('--chart-grid-strong') } },
+          x: xAxis(cssVar, { font: { size: 11 }, callback: function (v) { return v + '%'; } }, { min: 0, max: 100 }),
+          y: { ticks: { display: false }, grid: { display: false } },
         },
       },
-    });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [dmg, inView]);
-
-  return html`<div class="chart-container" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+      plugins: [inBarLabel],
+    };
+  }} />`;
 }
 
 // 勝率のdivergingヒートカラー。50%を境に緑(高勝率)/赤(低勝率)へ濃度を上げる。
@@ -683,15 +451,8 @@ function radarFloor(v) {
 // 基本データ比較レーダー（複数系列を重ねて表示）。series は {label,data,color,bg,hidden} の配列。
 // 軸は0-100正規化済みの値を渡す前提。最低評価でも六角形を保つため内部で底上げする。
 export function CompareRadar({ labels, series, showLegend }) {
-  var containerRef = useRef(null);
-  var canvasRef = useRef(null);
-  var chartRef = useRef(null);
-  var inView = useInView(containerRef);
-
-  useEffect(function () {
-    if (!inView || !canvasRef.current) return;
-    if (chartRef.current) chartRef.current.destroy();
-    chartRef.current = new Chart(canvasRef.current, {
+  return html`<${ChartCanvas} className="chart-container chart-radar" deps=${[labels, series, showLegend]} build=${function (cssVar) {
+    return {
       type: 'radar',
       data: {
         labels: labels,
@@ -714,9 +475,6 @@ export function CompareRadar({ labels, series, showLegend }) {
           },
         },
       },
-    });
-    return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [labels, series, inView, showLegend]);
-
-  return html`<div class="chart-container chart-radar" ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
+    };
+  }} />`;
 }

@@ -70,8 +70,8 @@
 │       └── block403.go            # 403時の一時ブロック管理
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
-│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義、他は画面・部品ごと。全14ファイル）
-│   ├── app.js                     # フロントエンドJS（CSP対応で外部化）
+│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
 │   │   ├── coach.js               # 勝率アップミッションの診断
@@ -79,15 +79,26 @@
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー
-│   │   └── charts.js              # Chart.jsグラフ・レポートセクション
+│   │   ├── charts.js              # Chart.jsグラフ・レポートセクション
+│   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
+│   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
+│   │   ├── shell.js               # AppShell（トップバー・メニュー・本文）
+│   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice）
+│   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
-│   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む cssVar
+│   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── format.test.js         # format.js テスト
+│   │   ├── db.test.js             # db.js テスト
+│   │   ├── search.test.js         # search.js テスト
+│   │   ├── classrecord.test.js    # classrecord.js テスト
+│   │   ├── popover.test.js        # popover.js テスト
+│   │   ├── chart-canvas.test.js   # chart-canvas.js テスト
+│   │   ├── skeleton-actions.test.js # Skeleton への actions 渡し忘れ検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
@@ -144,7 +155,7 @@
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/styles/` | CSS（`tokens.css` に色・文字・余白の定義、他は画面・部品ごと） |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |
-| `static/components/` | UIコンポーネント・Chart.jsグラフ |
+| `static/components/` | UIコンポーネント（`report/` にレポート画面、`shell.js`・`popover.js`・`chart-canvas.js`・`parts.js` に共通部品） |
 | `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー |
 | `data/` | 静的データファイル（MSリスト等） |
 | `infra/` | Pulumi IaC（GCPリソース管理） |
