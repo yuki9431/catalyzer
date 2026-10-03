@@ -137,7 +137,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ## GitHub Actions
 
-- **ブランチ運用**: 作業ブランチ → `develop`（マージで stg に自動デプロイ）→ `main`（マージで prod に自動デプロイ）。develop→main はマージコミットで行う（squash しない）。緊急修正は main 向けPRも可（マージ後 build.yml が main を develop に自動マージ。衝突時は手動解消）。ただし build.yml の paths-ignore（`infra/app/Pulumi.*.yaml`・`deploy.yml`）だけを main で変えた場合は同期されないので develop に手動で反映する
+- **ブランチ運用**（既定ブランチは `develop`）: 作業ブランチ → `develop`（マージで stg に自動デプロイ）→ `main`（マージで prod に自動デプロイ）。develop→main はマージコミットで行う（squash・rebase しない）。緊急修正は main 向けPRも可（マージ後 build.yml が main を develop に自動マージ。衝突時は手動解消）。ただし build.yml の paths-ignore（`infra/app/Pulumi.*.yaml`・`deploy.yml`）だけを main で変えた場合は同期されないので develop に手動で反映する
 - CI: `ci.yml`（main/develop 向けPRのみ。Docker build, golangci-lint, go test -race + coverage, JS test。ラベル `skip-ci` でスキップ）
 - Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の Pulumi yaml の image 更新 → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
 - Deploy: `deploy.yml`（develop の `Pulumi.stg.yaml`・main の `Pulumi.prod.yaml` の変更トリガー or build.yml からの `workflow_dispatch` → `pulumi up`。prod の手動実行は main からのみ）
