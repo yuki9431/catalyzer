@@ -16,7 +16,7 @@
 .menu-item.active { color: var(--accent); font-weight: 600; }
 .menu-item.disabled { color: var(--muted); opacity: 0.5; cursor: default; pointer-events: none; }
 .menu-item .menu-icon { width: 20px; text-align: center; flex-shrink: 0; }
-.menu-item .coming-soon { font-size: 0.875rem; color: var(--muted); background: var(--panel-2); border-radius: 999px; padding: 1px 8px; margin-left: auto; }
+.menu-item .coming-soon { font-size: 0.875rem; color: var(--muted); background: var(--panel-2); border-radius: 999px; padding: 1px 4px; margin-left: auto; white-space: nowrap; flex-shrink: 0; }
 .menu-item .external-icon { font-size: 0.875rem; color: var(--muted); margin-left: 4px; }
 .menu-section { padding: 8px 16px 4px; font-size: 0.875rem; color: var(--muted); letter-spacing: 0.05em; }
 .menu-divider { border-top: 1px solid var(--line); margin: 4px 0; }

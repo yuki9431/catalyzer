@@ -42,7 +42,7 @@
 .search-ac-item { width: 100%; text-align: left; background: none; border: none; border-radius: 6px; color: var(--text); font-size: 0.875rem; padding: 8px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search-ac-item:hover, .search-ac-item:focus { background: var(--panel-2); }
 /* 絞り込みのプルダウンはレポート画面の .panel-select-* を流用。フォーム内では下マージンを詰め、
-   文字サイズは他の入力欄(0.9em)に合わせて統一する（モバイルの1emも上書き） */
+   文字サイズは他の入力欄に合わせて統一する */
 .search-field .panel-select-wrap { margin-bottom: 0; }
 .search-form .panel-select-trigger { font-size: 0.875rem; padding: 9px 12px; }
 .search-form .panel-select-item { font-size: 0.875rem; padding: 10px 12px; }

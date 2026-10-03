@@ -50,7 +50,7 @@ tokens.css のトークン名は変えずに値を差し替え、ライト配色
 | `--bg-glow` | #14222c | #e6eef2 | D: mix(bg,accent, .08/.06) |
 | `--error-bg` / `--warn-bg` | #3b3138 / #393930 | #f8eeed / #efeae0 | D: mix(panel,terrible, .15/.08)、mix(panel,warn-text, .15/.12) |
 | `--gantt-ex` | #5f6a75 | #99a2aa | D: mix(muted,bg,.45) |
-| `--gantt-f` / `--gantt-s` / `--gantt-e` | #ff9e7a / #5ec6f2 / #6fdc9f | #c2541f / #0a6c99 / #13803f | M s2/s1/s3(塗りだけに使うのでモック値のまま) |
+| `--gantt-f` / `--gantt-s` / `--gantt-e` | #ff9e7a / #5ec6f2 / #6fdc9f | #c2541f / #0a6c99 / #13803f | 旧モック s2(#c2541f。E1 でモックの s2 は #ab4a1b に変更。塗り専用なので旧値を維持)/s1/s3 |
 | `--radar-opp2` | #f2c14e | #8a6a00 | M s4 |
 | `--win-rgb` / `--terrible-rgb` | 19,128,63 / 196,50,31 | 111,220,159 / 255,141,128 | D: ヒートマップ用。ダークはモックのライト win/lose、ライトはモックのダーク win/lose |
 | `--text-dim` `--text-subtle` `--text-faint` `--text-legal` `--disabled-text` `--pager-disabled` `--chart-text` `--chart-text-sub` `--chart-ref-text` `--gantt-ov-border` | `var(--muted)` | 同 | 別名 |
