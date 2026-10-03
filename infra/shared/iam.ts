@@ -2,6 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { stateBucket } from "./storage";
 import { services } from "./apis";
+import { repository } from "./artifact-registry";
 
 const config = new pulumi.Config();
 const githubRepo = config.require("githubRepo");
@@ -102,6 +103,20 @@ export const cloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
   {
     bucket: `${gcp.config.project}_cloudbuild`,
     role: "roles/storage.objectUser",
+    member: githubActionsSa.member,
+  }
+);
+
+// --- Artifact Registry権限 ---
+
+// イメージへのコミットSHA追跡タグ付与用（artifactregistry.tags.create。リポジトリ単位に限定）
+export const artifactRegistryBinding = new gcp.artifactregistry.RepositoryIamMember(
+  "github-actions-artifact-registry",
+  {
+    project: repository.project,
+    location: repository.location,
+    repository: repository.name,
+    role: "roles/artifactregistry.writer",
     member: githubActionsSa.member,
   }
 );
