@@ -2,15 +2,22 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     # イメージ内容の同一性は下流の content key（後述）で判定し、内容が変わらない
-    # 変更は再ビルド・デプロイともに自動で no-op になる。ここでは bot による
-    # Pulumi.stg.yaml コミットでの再発火（ループ）を防ぐ最小限の除外のみ行う。
+    # 変更は再ビルド・デプロイともに自動で no-op になる。ここでは人手の
+    # Pulumi.*.yaml・deploy.yml だけの変更でビルドを起動しない最小限の除外のみ行う。
     paths-ignore:
       - "infra/app/Pulumi.*.yaml"
       - ".github/workflows/deploy.yml"
-      - ".github/workflows/deploy-prod.yml"
   workflow_dispatch:
+
+# main は prod、それ以外（develop・手動実行した作業ブランチ）は stg に出す
+env:
+  STACK: ${{ github.ref == 'refs/heads/main' && 'prod' || 'stg' }}
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   check-deploy-label:
@@ -125,7 +132,7 @@ jobs:
         working-directory: infra/app
         run: |
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
-          pulumi stack select stg
+          pulumi stack select "$STACK"
           # --secret は毎回ランダムnonceで再暗号化し、同値でも state に差分を生む。
           # 復号済みの現在値と一致するなら config set 自体を打たず、無駄な差分＝
           # 無駄なデプロイを防ぐ。
@@ -140,12 +147,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add infra/app/Pulumi.stg.yaml
+          git add "infra/app/Pulumi.${STACK}.yaml"
           if git diff --cached --quiet; then
             echo "イメージ内容に変更なし — commit せず、デプロイはスキップされる"
             echo "CHANGED=false" >> "$GITHUB_ENV"
           else
-            git commit -m "ci: update stg image to ${{ steps.key.outputs.key }}"
+            git commit -m "ci: update ${STACK} image to ${{ steps.key.outputs.key }}"
             git push
             echo "CHANGED=true" >> "$GITHUB_ENV"
           fi
@@ -155,6 +162,47 @@ jobs:
         run: |
           gh workflow run deploy.yml \
             --ref "${{ github.ref_name }}" \
-            -f environment="stg"
+            -f environment="$STACK"
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # main への直接変更（MSリスト自動更新・hotfix・prod イメージ更新コミット）を develop に戻す
+  sync-develop:
+    needs: [check-deploy-label, build]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.check-deploy-label.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Merge main into develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NO_DEPLOY: ${{ needs.check-deploy-label.outputs.no-deploy }}
+        run: |
+          if ! git ls-remote --exit-code --heads origin develop >/dev/null; then
+            echo "::notice::develop ブランチが無いため同期をスキップ"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout develop
+          BEFORE=$(git rev-parse HEAD)
+          if ! git merge --no-edit origin/main; then
+            git merge --abort || true
+            echo "::error::main → develop の自動マージが衝突。手動で解消すること"
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
+            echo "develop は main を取り込み済み"
+            exit 0
+          fi
+          git push origin develop
+          # GITHUB_TOKEN の push は build を起動しないため、イメージに効く変更があれば stg を明示的に再ビルドする
+          if [ "$NO_DEPLOY" != "true" ] && ! git diff --quiet "$BEFORE" HEAD -- . ':!infra/app/Pulumi.*.yaml' ':!.github/workflows/deploy.yml'; then
+            gh workflow run build.yml --ref develop
+          fi

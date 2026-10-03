@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "infra/app/Pulumi.prod.yaml"
       - "infra/app/Pulumi.stg.yaml"
@@ -29,8 +29,14 @@ jobs:
 
       - name: Detect changed environments
         id: detect
+        env:
+          REF: ${{ github.ref }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.environment }}" = "prod" ] && [ "$REF" != "refs/heads/main" ]; then
+              echo "::error::prod へのデプロイは main からのみ"
+              exit 1
+            fi
             echo 'environments=["${{ inputs.environment }}"]' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -38,11 +44,14 @@ jobs:
           ENVS="[]"
           CHANGED=$(git diff --name-only HEAD~1 HEAD -- infra/app/Pulumi.*.yaml || echo "")
 
-          if echo "$CHANGED" | grep -q "Pulumi.stg.yaml"; then
-            ENVS=$(echo "$ENVS" | jq -c '. + ["stg"]')
+          # develop は stg、main は prod だけを出す（develop→main のマージに含まれる stg の差分で stg を巻き戻さない）
+          if [ "$REF" = "refs/heads/main" ]; then
+            TARGET=prod
+          else
+            TARGET=stg
           fi
-          if echo "$CHANGED" | grep -q "Pulumi.prod.yaml"; then
-            ENVS=$(echo "$ENVS" | jq -c '. + ["prod"]')
+          if echo "$CHANGED" | grep -q "Pulumi.${TARGET}.yaml"; then
+            ENVS=$(echo "$ENVS" | jq -c --arg t "$TARGET" '. + [$t]')
           fi
 
           echo "environments=$ENVS" >> "$GITHUB_OUTPUT"
@@ -52,6 +61,10 @@ jobs:
     needs: detect-environment
     if: needs.detect-environment.outputs.environments != '[]'
     runs-on: ubuntu-latest
+    # 同一スタックへの pulumi up が重なると state lock で失敗する
+    concurrency:
+      group: deploy-${{ matrix.environment }}
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
