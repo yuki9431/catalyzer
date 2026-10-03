@@ -2,7 +2,7 @@ import { html } from '../htm-preact-standalone.js';
 import { themeReader } from '../lib/theme.js';
 import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken } from '../lib/format.js';
 import { Tips, SortableTable, Table } from './ui.js';
-import { ChartCanvas, winRateComboConfig, xAxis, pctAxis, winRateColors } from './chart-canvas.js';
+import { ChartCanvas, canvasFont, winRateComboConfig, xAxis, pctAxis, winRateColors } from './chart-canvas.js';
 
 // --- Report sections ---
 
@@ -178,6 +178,12 @@ export function DmgContributionChart({ dmg }) {
   }} />`;
 }
 
+// 棒の色の上でも読めるよう縁取ってから塗る
+function haloText(ctx, text, x, y) {
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+}
+
 // 横棒の内側に名前（左）と勝率（右）を描くプラグイン
 var inBarLabel = {
   id: 'inBarLabel',
@@ -189,8 +195,11 @@ var inBarLabel = {
     var x0 = chart.scales.x.getPixelForValue(0);
     var areaRight = chart.chartArea.right;
     ctx.save();
-    var mainFont = '700 12px system-ui, -apple-system, sans-serif';
-    var diffFont = '700 11px system-ui, -apple-system, sans-serif';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = cssVar('--panel');
+    var mainFont = canvasFont(cssVar, 14, '700');
+    var diffFont = canvasFont(cssVar, 12, '700');
     ctx.font = mainFont;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = textColor;
@@ -246,24 +255,24 @@ var inBarLabel = {
         name = ellipsize(chart.data.labels[i], nameLimit - nameLeft);
       }
       ctx.textAlign = 'left';
-      ctx.fillText(name, nameLeft, bar.y);
+      haloText(ctx, name, nameLeft, bar.y);
       if (pctInside) {
         ctx.textAlign = 'right';
-        ctx.fillText(pct, bar.x - 8, bar.y);
+        haloText(ctx, pct, bar.x - 8, bar.y);
       } else {
         ctx.textAlign = 'left';
-        ctx.fillText(pct, pctX, bar.y);
+        haloText(ctx, pct, pctX, bar.y);
       }
       if (!diffText) return;
       ctx.font = diffFont;
       if (diffInside) {
         // 棒内に置く差分は棒の色と競合するため配色は付けない
         ctx.textAlign = 'right';
-        ctx.fillText(diffText, bar.x - 8 - pctWidth - 6, bar.y);
+        haloText(ctx, diffText, bar.x - 8 - pctWidth - 6, bar.y);
       } else {
         ctx.fillStyle = diff >= 0 ? goodColor : badColor;
         ctx.textAlign = 'left';
-        ctx.fillText(diffText, endX + 8, bar.y);
+        haloText(ctx, diffText, endX + 8, bar.y);
       }
       ctx.fillStyle = textColor;
       ctx.font = mainFont;
@@ -296,7 +305,7 @@ export function MsCompareChart({ entries }) {
         layout: { padding: { right: 4 } },
         plugins: { legend: { display: false } },
         scales: {
-          x: xAxis(cssVar, { font: { size: 11 }, callback: function (v) { return v + '%'; } }, { min: 0, max: 100 }),
+          x: xAxis(cssVar, { font: { size: 12 }, callback: function (v) { return v + '%'; } }, { min: 0, max: 100 }),
           y: { ticks: { display: false }, grid: { display: false } },
         },
       },
