@@ -119,7 +119,7 @@ jobs:
             gcloud builds submit --tag "$IMAGE_KEY"
             # コミットSHAからも辿れるよう、同一イメージに追跡用タグを付与（失敗してもデプロイは止めず警告に留める）
             gcloud artifacts docker tags add "$IMAGE_KEY" "$IMAGE_SHA" \
-              || echo "::warning::追跡用タグ付与に失敗: $IMAGE_SHA"
+              || echo "::warning::追跡用タグ付与に失敗: ${{ github.sha }}"
           fi
 
       - name: Update Pulumi config with new image
