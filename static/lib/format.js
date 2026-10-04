@@ -73,6 +73,12 @@ export function cellValue(cell) {
   return cell != null && typeof cell === 'object' && cell.sortValue != null ? cell.sortValue : cell;
 }
 
+// SortableTable の数値キー。数値として読めなければ NaN
+export function sortNumber(cell) {
+  var v = cellValue(cell);
+  return typeof v === 'number' ? v : parseFloat(String(v).replace(/[%+戦件回,]/g, ''));
+}
+
 export function cellDisplay(cell) {
   return cell != null && typeof cell === 'object' && cell.display != null ? cell.display : cell;
 }
