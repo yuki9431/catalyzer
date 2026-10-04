@@ -13,7 +13,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
-- **画面確認（UI oracle）**: `make ui-check`（20画面をダーク・ライトの2テーマで計40枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字を検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成(両テーマ分)。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（20画面をダーク・ライトの2テーマで計40枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満を検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成(両テーマ分)。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）

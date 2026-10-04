@@ -109,7 +109,8 @@ async function runScreen(conn, origin, screen, theme, update) {
     await Promise.all(['Page.enable', 'Runtime.enable', 'Log.enable'].map(function (m) { return send(m); }));
     await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
     await send('Page.addScriptToEvaluateOnNewDocument', { source: determinismSource });
-    await send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: screen.viewport.height, deviceScaleFactor: 1, mobile: false });
+    var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
+    await metrics(screen.viewport.height);
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
@@ -161,7 +162,6 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     await evalJs('Promise.race([new Promise(function(r){setTimeout(r,5000)}),Promise.all([document.fonts.ready].concat(Array.from(document.images).map(function(i){i.loading="eager";return i.complete?1:new Promise(function(r){i.onload=i.onerror=r})})))]).then(function(){window.scrollTo(0,0);return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
 
-    var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
     var shot = async function () {
       var p = { format: 'png' };
       if (!screen.full) return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');

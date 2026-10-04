@@ -37,7 +37,7 @@
 }
 /* 自前の候補ドロップダウン（入力直下に表示） */
 .search-ac { position: relative; }
-.search-ac-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; max-height: 220px; overflow-y: auto;
+.search-ac-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 45; max-height: 220px; overflow-y: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-pop-strong); padding: 4px; }
 .search-ac-item { width: 100%; text-align: left; background: none; border: none; border-radius: 6px; color: var(--text); font-size: 0.875rem; padding: 8px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search-ac-item:hover, .search-ac-item:focus { background: var(--panel-2); }
@@ -70,7 +70,7 @@
 .search-sort-trigger { width: auto; display: inline-flex; align-items: center; justify-content: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px; cursor: pointer; }
 .search-sort-trigger:hover, .search-sort-trigger:focus, .search-sort-trigger.open { border-color: var(--accent); background: var(--panel-2); }
 .search-sort-ico { width: 24px; height: 24px; fill: var(--accent); display: block; }
-.search-sort-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 20; min-width: 140px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-pop-strong); padding: 4px; }
+.search-sort-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 45; min-width: 140px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-pop-strong); padding: 4px; }
 .search-sort-opt { width: 100%; text-align: left; background: none; border: none; border-radius: 6px; color: var(--text); font-size: 0.875rem; font-weight: 400; padding: 8px 10px; cursor: pointer; }
 .search-sort-opt:hover, .search-sort-opt:focus { background: var(--panel-2); }
 .search-sort-opt.active { color: var(--accent); font-weight: 700; }

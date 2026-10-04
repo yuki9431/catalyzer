@@ -29,3 +29,12 @@ describe('shell', () => {
     assert.strictEqual(readView(), 'report');
   });
 });
+
+describe('shell ソース', () => {
+  it('MoreView の hasShare は真偽値化され、数値 0 を描画しない', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../components/shell.js', import.meta.url), 'utf8');
+    assert.match(src, /var hasShare = !!\(shareData && shareData\.length\);/);
+    assert.doesNotMatch(src, /\.length\s*&&\s*html`/);
+  });
+});

@@ -93,7 +93,7 @@ function ShareArea({ shareData }) {
 export function MoreView({ shareData, onLogout, onRebuildCache }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
-  var hasShare = shareData && shareData.length;
+  var hasShare = !!(shareData && shareData.length);
   var confirmPanel = confirming && html`<div class="more-confirm" data-ui="refetch-confirm">
     <p>試合データをサーバーから全件取得し直します。</p>
     <div class="more-confirm-actions">
