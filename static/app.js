@@ -284,9 +284,13 @@ async function rebuildCache() {
   if (rebuildingCache) return;
   var userKey = null;
   try { userKey = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
-  if (!userKey) return;
-
   var error = document.getElementById('error');
+  // 初回の分析中はユーザーキーが未保存で、取得元が無い
+  if (!userKey) {
+    showRebuildError(error, '分析が終わってから実行してください。');
+    return;
+  }
+
   if (error) error.style.display = 'none';
   var rebuilt = false;
   rebuildingCache = true;
@@ -296,14 +300,17 @@ async function rebuildCache() {
   } finally {
     rebuildingCache = false;
   }
-  if (!rebuilt && error) {
-    // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
-    error.style.backgroundColor = '';
-    error.style.borderColor = '';
-    error.style.color = '';
-    error.textContent = '試合データの再取得に失敗しました。時間をおいて再度お試しください。';
-    error.style.display = 'block';
-  }
+  if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
+}
+
+function showRebuildError(error, message) {
+  if (!error) return;
+  // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
+  error.style.backgroundColor = '';
+  error.style.borderColor = '';
+  error.style.color = '';
+  error.textContent = message;
+  error.style.display = 'block';
 }
 
 async function analyze() {
