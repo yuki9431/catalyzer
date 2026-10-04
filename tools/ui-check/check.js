@@ -31,6 +31,15 @@ function countExpr(sel, text) {
     'return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)}).length})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
 }
 
+// selector+text の最初の可視要素の中心がビューポート内にあり、その点の最前面が自身か子孫かを返す式（無ければ false）
+function inviewExpr(sel, text) {
+  return '(function(s,t){var e=Array.from(document.querySelectorAll(s)).filter(function(e){' +
+    'return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)})[0];if(!e)return false;' +
+    'var r=e.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;' +
+    'if(x<0||y<0||x>innerWidth||y>innerHeight)return false;var top=document.elementFromPoint(x,y);' +
+    'return !!top&&(top===e||e.contains(top))})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
+}
+
 // 画面の左右端をまたぐ要素（横スクロールする祖先の中と、全体が画面外のものは除く）の最初の1件を返す式
 var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelectorAll("*");' +
   'for(var i=0;i<all.length;i++){var e=all[i],r=e.getBoundingClientRect();if(r.width<1||r.height<1)continue;' +
@@ -159,6 +168,11 @@ async function runScreen(conn, origin, screen, theme, update) {
     if (INJECT[screen.id]) await evalJs(INJECT[screen.id]);
     m = await missing(screen.required, false);
     if (m) return fail('必須要素なし ' + m);
+
+    var inview = screen.inview || [];
+    for (var vi = 0; vi < inview.length; vi++) {
+      if (!(await evalJs(inviewExpr(inview[vi][0], inview[vi][1])))) return fail('画面内に見えない ' + inview[vi][0] + (inview[vi][1] ? ' (' + inview[vi][1] + ')' : ''));
+    }
 
     await evalJs('Promise.race([new Promise(function(r){setTimeout(r,5000)}),Promise.all([document.fonts.ready].concat(Array.from(document.images).map(function(i){i.loading="eager";return i.complete?1:new Promise(function(r){i.onload=i.onerror=r})})))]).then(function(){window.scrollTo(0,0);return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
 

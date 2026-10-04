@@ -9,7 +9,7 @@ function hasClassSel(sel) { return CLASS_SEL.test(sel.replace(/\[[^\]]*\]/g, '[]
 
 function selectors(screen) {
   var ops = screen.ops.map(function (op) { var a = op.click || op.type || op.scroll || op.wait; return a && a[0]; }).filter(Boolean);
-  return ops.concat(screen.required.map(function (r) { return r[0]; }), screen.tap || []);
+  return ops.concat(screen.required.map(function (r) { return r[0]; }), (screen.inview || []).map(function (r) { return r[0]; }), screen.tap || []);
 }
 
 describe('screens', () => {
@@ -24,6 +24,11 @@ describe('screens', () => {
       selectors(s).forEach(function (sel) { if (hasClassSel(sel)) bad.push(s.id + ': ' + sel); });
     });
     assert.deepStrictEqual(bad, []);
+  });
+
+  it('selectors() が inview のセレクタも検査対象に含める', () => {
+    var sel = selectors({ ops: [], required: [['a']], inview: [['[data-ui="x"]', 't']], tap: ['b'] });
+    assert.deepStrictEqual(sel, ['a', '[data-ui="x"]', 'b']);
   });
 
   it('部品一覧ページの styles link が index.html と同じ順', () => {

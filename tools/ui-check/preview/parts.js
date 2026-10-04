@@ -15,10 +15,10 @@ function Gallery() {
       <${ToggleGroup} label="範囲" value=${tab} onChange=${setTab} options=${[{ value: 'all', label: '全体' }, { value: 'win', label: '勝利' }, { value: 'lose', label: '敗北' }]} />
     </${Panel}>
     <${Panel} title="Summary">
-      <${Summary} items=${[{ label: '勝率', value: '58%', sub: '60戦', tone: 'good' }, { label: '平均被撃墜', value: '2.1', tone: 'bad' }, { label: '試合数', value: '120' }]} />
+      <${Summary} hero=${{ label: '勝率', value: '58', unit: '%', aside: '70勝 50敗', note: '直近の傾向を示す補足' }} items=${[{ label: '平均与ダメージ', value: '1,120', sub: '目安 1100 以上', tone: 'good' }, { label: '平均被撃墜', value: '2.1', tone: 'bad' }, { label: '試合数', value: '120' }]} />
     </${Panel}>
     <${Panel} title="RowList">
-      <${RowList} onSelect=${function () {}} rows=${[{ key: 1, main: 'ガンダム', sub: '3000コスト', aside: '62%' }, { key: 2, main: 'ザク', aside: '48%' }]} />
+      <${RowList} onSelect=${function () {}} rows=${[{ key: 1, main: 'ガンダム', sub: '3000コスト', aside: '62%' }, { key: 2, main: 'ザク', sub: '12試合', aside: '▼ 38.0%', asideTone: 'bad', bar: { value: 38, tone: 'bad', marker: 52 } }]} />
     </${Panel}>
     <${Panel} title="Notice">
       <${Notice}>情報です</${Notice}> <${Notice} tone="warn">注意です</${Notice}> <${Notice} tone="error">エラーです</${Notice}>

@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
