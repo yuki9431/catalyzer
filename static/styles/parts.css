@@ -25,7 +25,12 @@ button.ui-chip:hover { background: var(--accent-a10); }
 .ui-row-body, .ui-row-btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 12px; border: none; border-radius: 0; background: var(--panel); color: var(--text); font-size: 0.9375rem; font-weight: normal; text-align: left; transition: none; }
 .ui-row-btn { cursor: pointer; }
 .ui-row-btn:hover { background: var(--accent-a10); }
-.ui-row-main { display: flex; flex-direction: column; min-width: 0; }
+.ui-row-btn { text-decoration: none; }
+a.ui-row-btn, a.ui-row-btn:hover { color: var(--text); text-decoration: none; }
+.ui-row-btn::after { content: ''; flex-shrink: 0; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-top: 2px solid var(--muted); transform: rotate(45deg); }
+.ui-row-btn[aria-expanded="true"]::after { transform: rotate(135deg); }
+.ui-row-danger, a.ui-row-danger { color: var(--bad); }
+.ui-row-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .ui-row-main small { color: var(--muted); font-size: 0.875rem; }
 .ui-row-aside { flex-shrink: 0; color: var(--accent-2); font-weight: bold; }
 
