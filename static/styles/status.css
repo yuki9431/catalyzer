@@ -8,7 +8,7 @@
 /* 総数未確定(Phase2)中の不定アニメーション */
 .progress-fill.indeterminate { width: 40% !important; transition: none; animation: prog-indeterminate 1.2s ease-in-out infinite; }
 @keyframes prog-indeterminate { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
-.progress-label { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.85em; color: var(--text-dim); }
+.progress-label { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.875rem; color: var(--text-dim); }
 
 /* ===== Report container (dashboard) ===== */
 .report { line-height: 1.7; padding-bottom: 40px; }

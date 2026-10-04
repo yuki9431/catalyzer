@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { winRateColors, winRateComboConfig } from '../components/chart-canvas.js';
+import { readFileSync, readdirSync } from 'node:fs';
+import { canvasFont, winRateColors, winRateComboConfig } from '../components/chart-canvas.js';
 
 const token = (n) => n;
 const base = { labels: ['a', 'b'], winRates: [60, 40], matches: [3, 4] };
@@ -28,5 +29,23 @@ describe('winRateComboConfig', () => {
     const c = winRateComboConfig(token, Object.assign({ plain: true }, base));
     assert.equal('backgroundColor' in c.data.datasets[1], false);
     assert.equal('generateLabels' in c.options.plugins.legend.labels, false);
+  });
+});
+
+describe('canvas のフォント', () => {
+  const dir = new URL('../components/', import.meta.url);
+  const sources = readdirSync(dir, { recursive: true }).filter((f) => f.endsWith('.js')).map((f) => readFileSync(new URL(f, dir), 'utf8')).join('\n');
+
+  it('canvasFont は weight 付き・なしで組み立てる', () => {
+    assert.equal(canvasFont((n) => 'F', 12, '700'), '700 12px F');
+    assert.equal(canvasFont((n) => 'F', 12), '12px F');
+  });
+
+  it('ctx.font の直書き・OS 標準以外のフォント直書きがなく、サイズは 12 以上', () => {
+    assert.equal((sources.match(/ctx\.font = '/g) || []).length, 0);
+    assert.equal((sources.match(/sans-serif|system-ui/g) || []).length, 0);
+    const sizes = [...sources.matchAll(/(?:canvasFont\(cssVar, |font: \{ size: )(\d+)/g)].map((m) => +m[1]);
+    assert.ok(sizes.length > 0);
+    assert.deepEqual(sizes.filter((n) => n < 12), []);
   });
 });

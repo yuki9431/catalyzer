@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
-import { SCREENS } from './screens.js';
+import { SCREENS, THEMES } from './screens.js';
 
 // クラス名セレクタ(`.foo`・`div.foo`)を検出する(属性値内は除く)。data-ui・id・タグ・ARIA だけで探す規約
 var CLASS_SEL = /\.[A-Za-z_-]/;
@@ -31,5 +31,12 @@ describe('screens', () => {
     var app = read('../../static/index.html', /href="styles\/([a-z-]+\.css)"/g);
     var parts = read('./preview/parts.html', /href="\/styles\/([a-z-]+\.css)"/g);
     assert.deepStrictEqual(parts, app);
+  });
+
+  it('基準画像が SCREENS × THEMES の <id>-<theme>.png と過不足なく一致する', () => {
+    var want = [];
+    SCREENS.forEach(function (s) { THEMES.forEach(function (t) { want.push(s.id + '-' + t + '.png'); }); });
+    var have = fs.readdirSync(new URL('./baseline/', import.meta.url)).filter(function (f) { return f.endsWith('.png'); });
+    assert.deepStrictEqual(have.sort(), want.sort());
   });
 });

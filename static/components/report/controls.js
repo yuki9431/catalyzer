@@ -115,12 +115,12 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
         <${RangeCalendar} startDate=${startDate} endDate=${endDate} onSelectStart=${setStartDate} onSelectEnd=${setEndDate} />
         ${showTime && html`<div class="period-custom-range" style="margin-top:8px">
           <div class="period-custom-col">
-            <span style="font-size:0.8em;color:var(--muted)">開始時刻</span>
+            <span style="font-size:0.875rem;color:var(--muted)">開始時刻</span>
             <${TimeSelector} hour=${startHour} minute=${startMin}
               onChangeHour=${setStartHour} onChangeMinute=${setStartMin} />
           </div>
           <div class="period-custom-col">
-            <span style="font-size:0.8em;color:var(--muted)">終了時刻</span>
+            <span style="font-size:0.875rem;color:var(--muted)">終了時刻</span>
             <${TimeSelector} hour=${endHour} minute=${endMin}
               onChangeHour=${setEndHour} onChangeMinute=${setEndMin} isEnd />
           </div>

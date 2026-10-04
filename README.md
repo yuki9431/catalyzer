@@ -70,7 +70,7 @@
 │       └── block403.go            # 403時の一時ブロック管理
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
-│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
@@ -89,7 +89,7 @@
 │   │   ├── db.js                  # IndexedDBキャッシュ
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
-│   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー）
+│   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── format.test.js         # format.js テスト
@@ -104,7 +104,7 @@
 │   ├── favicon.svg                # ファビコン（SVG）
 │   ├── htm-preact-standalone.js   # htm + Preactライブラリ
 │   └── chart.umd.min.js          # Chart.jsライブラリ
-├── tools/ui-check/                # UIプレビュー（サンプルデータ）と画面確認スクリプト（依存ゼロ・要Chrome）
+├── tools/ui-check/                # UIプレビュー（サンプルデータ）と画面確認スクリプト（ダーク・ライト両テーマで撮影。依存ゼロ・要Chrome）
 ├── data/
 │   ├── ms_list.json               # 機体名・コストマッピング
 │   └── grade_list.json            # 階級画像URL→階級名・グレードマッピング

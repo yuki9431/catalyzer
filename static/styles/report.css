@@ -10,9 +10,9 @@
   width: 80px; height: 80px; border-radius: 50%;
   background: radial-gradient(circle, var(--accent-a18), transparent 70%);
 }
-.kpi .kpi-label { font-size: .78em; color: var(--muted); margin-bottom: 6px; }
-.kpi .kpi-value { font-size: 2em; font-weight: 800; line-height: 1; }
-.kpi .kpi-sub { font-size: .74em; color: var(--muted); margin-top: 8px; }
+.kpi .kpi-label { font-size: 0.875rem; color: var(--muted); margin-bottom: 6px; }
+.kpi .kpi-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+.kpi .kpi-sub { font-size: 0.875rem; color: var(--muted); margin-top: 8px; }
 .kpi .kpi-value.great { color: var(--great); }
 .kpi .kpi-value.good { color: var(--accent); }
 .kpi .kpi-value.bad { color: var(--bad); }
@@ -23,44 +23,44 @@
   background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
   padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow);
 }
-.panel > h2 { font-size: 1.05em; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.panel > h2 { font-size: 1.0625rem; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .panel > h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.action-summary { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .9em; margin-bottom: 8px; }
+.action-summary { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.875rem; margin-bottom: 8px; }
 .action-summary strong { color: var(--accent); }
 .action-up { color: var(--good); }
 .action-down { color: var(--bad); }
-.action-worsened { font-size: .82em; color: var(--muted); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.action-enemy { font-size: .82em; color: var(--muted); margin-bottom: 10px; }
+.action-worsened { font-size: 0.875rem; color: var(--muted); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.action-enemy { font-size: 0.875rem; color: var(--muted); margin-bottom: 10px; }
 .action-enemy strong { color: var(--text); }
 .action-chip { border: 1px solid var(--bad); color: var(--bad); border-radius: 999px; padding: 1px 8px; }
 .panel .action-list { list-style: none; counter-reset: action; display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; }
 .panel .action-list li { counter-increment: action; position: relative; padding: 10px 12px 10px 42px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-a05); }
-.panel .action-list li::before { content: counter(action); position: absolute; left: 12px; top: 10px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: .8em; display: flex; align-items: center; justify-content: center; }
+.panel .action-list li::before { content: counter(action); position: absolute; left: 12px; top: 10px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; }
 .action-title { font-weight: 700; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.action-impact { font-size: .72em; font-weight: 700; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; }
+.action-impact { font-size: 0.875rem; font-weight: 700; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; }
 .action-impact.high { color: var(--bad); }
 .action-impact.mid { color: var(--warn-text); }
 .action-impact.low { color: var(--muted); }
-.action-detail { font-size: .82em; color: var(--muted); margin-top: 4px; line-height: 1.6; }
-.action-empty, .action-hint { font-size: .85em; color: var(--muted); }
+.action-detail { font-size: 0.875rem; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+.action-empty, .action-hint { font-size: 0.875rem; color: var(--muted); }
 .action-hint { margin-top: 10px; }
-.action-more { width: 100%; margin-top: 10px; padding: 8px; font-size: .85em; border-radius: 10px; border: 1px dashed var(--line); background: transparent; color: var(--muted); cursor: pointer; }
-.action-gain { font-size: .85em; margin-top: 6px; }
-.action-gain strong { color: var(--good); font-size: 1.1em; }
-.focus-btn { width: auto; margin-top: 8px; font-size: .8em; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+.action-more { width: 100%; margin-top: 10px; padding: 8px; font-size: 0.875rem; border-radius: 10px; border: 1px dashed var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.action-gain { font-size: 0.875rem; margin-top: 6px; }
+.action-gain strong { color: var(--good); font-size: 1.125rem; }
+.focus-btn { width: auto; margin-top: 8px; font-size: 0.875rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
 .focus-btn.ghost { border-color: var(--line); color: var(--muted); margin-top: 12px; }
 .focus-card { border: 1px solid var(--accent); border-radius: 10px; padding: 12px 14px; background: var(--accent-a06); }
 .focus-card.done { border-color: var(--good); background: var(--good-a08); }
-.focus-label { font-size: .75em; color: var(--muted); }
-.focus-label.complete { font-size: .9em; font-weight: 800; color: var(--good); }
-.focus-title { font-weight: 800; font-size: 1.05em; margin: 2px 0 8px; }
-.focus-progress { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .9em; }
+.focus-label { font-size: 0.875rem; color: var(--muted); }
+.focus-label.complete { font-size: 0.875rem; font-weight: 800; color: var(--good); }
+.focus-title { font-weight: 800; font-size: 1.0625rem; margin: 2px 0 8px; }
+.focus-progress { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.875rem; }
 .focus-progress strong { color: var(--accent); }
 .focus-streak { color: var(--good); font-weight: 700; }
-.focus-condition { font-size: .82em; color: var(--muted); margin-top: 4px; }
-.focus-caption { font-size: .75em; color: var(--muted); margin-top: 10px; }
+.focus-condition { font-size: 0.875rem; color: var(--muted); margin-top: 4px; }
+.focus-caption { font-size: 0.875rem; color: var(--muted); margin-top: 10px; }
 .focus-marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.focus-mark { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .75em; font-weight: 800; background: var(--bad); border: 1px solid var(--bad); color: var(--on-accent); }
+.focus-mark { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.875rem; font-weight: 800; background: var(--bad); border: 1px solid var(--bad); color: var(--on-accent); }
 .focus-mark.empty { background: transparent; border: 1px dashed var(--mark-empty-border); color: var(--muted); font-weight: 400; }
 .focus-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .focus-actions .focus-btn.ghost { margin-top: 8px; }
@@ -75,7 +75,7 @@
 }
 .tab {
   flex: 0 0 auto; padding: 9px 16px; border: none; border-radius: 10px;
-  background: transparent; color: var(--muted); font-size: .9em; font-weight: 600;
+  background: transparent; color: var(--muted); font-size: 0.875rem; font-weight: 600;
   cursor: pointer; white-space: nowrap; transition: all .18s; width: auto;
 }
 .tab:hover { color: var(--text); background: var(--panel-2); }
@@ -86,13 +86,13 @@
 /* ===== Cards within tabs ===== */
 .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-.card > h3 { font-size: .95em; color: var(--accent-2); margin-bottom: 10px; }
+.card > h3 { font-size: 0.9375rem; color: var(--accent-2); margin-bottom: 10px; }
 .ms-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
-.ms-head .name { font-weight: 700; font-size: 1em; }
-.ms-head .meta { font-size: .78em; color: var(--muted); }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .72em; font-weight: 700; }
+.ms-head .name { font-weight: 700; font-size: inherit; }
+.ms-head .meta { font-size: 0.875rem; color: var(--muted); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; }
 .badge.win { background: var(--great-a15); color: var(--great); }
 .badge.lose { background: var(--terrible-a15); color: var(--terrible); }
 /* タイムアップ（制限時間切れ）試合を示す補助バッジ。勝敗バッジの隣に添える。 */
-.badge-timeup { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: .68em; font-weight: 700; background: var(--timeup-a15); color: var(--timeup); }
+.badge-timeup { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; background: var(--timeup-a15); color: var(--timeup); }
 
