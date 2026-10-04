@@ -165,6 +165,7 @@ async function reanalyzeWithSession() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
+        clearRebuildError();
         renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         break;
       }
@@ -284,9 +285,13 @@ async function rebuildCache() {
   if (rebuildingCache) return;
   var userKey = null;
   try { userKey = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
-  if (!userKey) return;
-
   var error = document.getElementById('error');
+  // ユーザーキーが無い(初回分析中・セッション失効)。既に出ている失効メッセージは上書きしない
+  if (!userKey) {
+    if (!error || error.style.display !== 'block') showRebuildError(error, '分析が終わってから実行してください。');
+    return;
+  }
+
   if (error) error.style.display = 'none';
   var rebuilt = false;
   rebuildingCache = true;
@@ -296,14 +301,24 @@ async function rebuildCache() {
   } finally {
     rebuildingCache = false;
   }
-  if (!rebuilt && error) {
-    // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
-    error.style.backgroundColor = '';
-    error.style.borderColor = '';
-    error.style.color = '';
-    error.textContent = '試合データの再取得に失敗しました。時間をおいて再度お試しください。';
-    error.style.display = 'block';
-  }
+  if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
+}
+
+function showRebuildError(error, message) {
+  if (!error) return;
+  error.dataset.source = 'rebuild';
+  // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
+  error.style.backgroundColor = '';
+  error.style.borderColor = '';
+  error.style.color = '';
+  error.textContent = message;
+  error.style.display = 'block';
+}
+
+// 分析完了時、再取得由来の表示だけを消す(partial 警告などは各経路が上書きする)
+function clearRebuildError() {
+  var error = document.getElementById('error');
+  if (error && error.dataset.source === 'rebuild') { error.style.display = 'none'; delete error.dataset.source; }
 }
 
 async function analyze() {
@@ -441,6 +456,7 @@ async function analyze() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
+        clearRebuildError();
         renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         renderedReal = true;
         if (resultData.session_saved) {

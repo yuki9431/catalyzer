@@ -58,16 +58,21 @@ function TabBar({ view, onNavigate }) {
 // --- 共有 ---
 
 function CopyButton({ text }) {
-  var ref = useState(false);
-  var copied = ref[0], setCopied = ref[1];
-  function handleCopy() {
-    navigator.clipboard.writeText(text).then(function () {
-      setCopied(true);
-      setTimeout(function () { setCopied(false); }, 2000);
-    });
+  var ref = useState('');
+  var result = ref[0], setResult = ref[1];
+  function show(r) {
+    setResult(r);
+    setTimeout(function () { setResult(''); }, 2000);
   }
+  function handleCopy() {
+    // 非セキュアな接続では navigator.clipboard 自体が無い
+    var p = navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject(new Error('clipboard unavailable'));
+    p.then(function () { show('copied'); }, function () { show('failed'); });
+  }
+  var copied = result === 'copied';
+  var label = copied ? 'コピー済み' : result === 'failed' ? '失敗' : 'コピー';
   return html`<button type="button" class=${'share-item' + (copied ? ' copied' : '')} data-ui="share-item" onClick=${handleCopy} aria-label="テキストをコピー">
-    <span class="share-icon share-copy" dangerouslySetInnerHTML=${{ __html: copied ? SVG_CHECK : SVG_COPY }} />${copied ? 'コピー済み' : 'コピー'}
+    <span class="share-icon share-copy" dangerouslySetInnerHTML=${{ __html: copied ? SVG_CHECK : SVG_COPY }} />${label}
   </button>`;
 }
 

@@ -112,7 +112,7 @@ export function DailyTrendChart({ days }) {
   return html`<${ChartCanvas} deps=${[days]} build=${function (cssVar) {
     if (!days || !days.length) return null;
     return winRateComboConfig(cssVar, {
-      labels: days.map(function (d) { return d.date.slice(5); }),
+      labels: days.map(function (d) { return d.date; }),
       winRates: days.map(function (d) { return d.win_rate; }),
       matches: days.map(function (d) { return d.matches; }),
       pointRadius: days.length > 30 ? 2 : 4,

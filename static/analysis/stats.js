@@ -152,26 +152,25 @@ export function computeDayOfWeek(matches) {
 
 export function computeDailyTrend(matches) {
   var DOW_NAMES = ['月', '火', '水', '木', '金', '土', '日'];
+  // 年をまたいでも同じ月日を合算しないよう YYYY-MM-DD で集計し、表示だけ MM/DD にする
   var daily = {};
-  var dateOrder = {};
   for (var i = 0; i < matches.length; i++) {
     var m = matches[i];
-    var dateKey = m.date.substring(5, 10).replace('-', '/');
-    if (!daily[dateKey]) { daily[dateKey] = []; dateOrder[dateKey] = m.date.substring(0, 10); }
-    daily[dateKey].push(m);
+    var dayKey = m.date.substring(0, 10);
+    if (!daily[dayKey]) daily[dayKey] = [];
+    daily[dayKey].push(m);
   }
-  var sortedKeys = Object.keys(daily).sort(function (a, b) {
-    return dateOrder[a] < dateOrder[b] ? -1 : dateOrder[a] > dateOrder[b] ? 1 : 0;
-  });
-  var results = sortedKeys.map(function (dateStr) {
-    var ms = daily[dateStr];
+  var sortedKeys = Object.keys(daily).sort();
+  function label(dayKey) { return dayKey.substring(5).replace('-', '/'); }
+  var results = sortedKeys.map(function (dayKey) {
+    var ms = daily[dayKey];
     var wr = jsWinRate(ms);
     var d = new Date(ms[0].date.replace(' ', 'T'));
     var dow = (d.getDay() + 6) % 7;
-    return { date: dateStr, dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 45 ? 'bad' : '' };
+    return { date: label(dayKey), sort_key: Number(dayKey.replace(/-/g, '')), dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 45 ? 'bad' : '' };
   });
   var tips = [];
-  var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; });
+  var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; }).map(label);
   if (badDays.length) tips.push('勝率40%以下の日（5戦以上）: **' + badDays.join(', ') + '**');
   return { days: results, tips: tips };
 }
