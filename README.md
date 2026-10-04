@@ -9,7 +9,7 @@
 ## 分析機能
 
 ### 総合
-- 勝率・与被ダメ比・K/D比・EXダメージなどのKPIダッシュボード
+- 勝率・与被ダメ比・K/D比・EXダメージなどをタブごとの要約と行リストで見られるレポート
 - 勝利時/敗北時の傾向比較（レーダーチャート）
 - シーズン別分析（前半/後半の推移チャート付き）
 - 各分析の要点（時間帯・曜日・シーズン・覚醒・先落ち/後落ちなどの数値比較）
@@ -79,7 +79,7 @@
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー
-│   │   ├── charts.js              # Chart.jsグラフ・レポートセクション
+│   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
 │   │   ├── shell.js               # AppShell（トップバー・本文・下部タブバー）とその他画面
@@ -100,6 +100,8 @@
 │   │   ├── chart-canvas.test.js   # chart-canvas.js テスト
 │   │   ├── skeleton-actions.test.js # Skeleton/AppShell/MoreView への props 渡し忘れ検査
 │   │   ├── shell.test.js          # タブ定義と画面状態の読み出し
+│   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
+│   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・スクロール隠しが無いことの静的検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
