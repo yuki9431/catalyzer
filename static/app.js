@@ -246,9 +246,7 @@ function setRebuildBackoff(active) {
   } catch (e) {}
 }
 
-// IndexedDBキャッシュをサーバー側の全件データで丸ごと置き換える（スクレイピング無し）。
-// スキーマバージョン不一致の自動検知、またはその他画面の「試合データを取得し直す」導線から呼ばれる。
-// 再構築できたらtrueを返す。失敗・0件応答時はバックオフを張って毎起動リトライを防ぐ。
+// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件ならバックオフを張る
 async function rebuildCacheFromServer(userKey) {
   var statusText = document.getElementById('statusText');
   var status = document.getElementById('status');
@@ -280,7 +278,10 @@ async function rebuildCacheFromServer(userKey) {
 
 // その他画面の「試合データを取得し直す」から呼ばれる明示操作版。確認は画面内で済んでいる。
 // 明示操作なのでバックオフ中でも実行し、失敗はエラー表示でユーザーに伝える。
+var rebuildingCache = false;
 async function rebuildCache() {
+  // 画面内確認は再タップできるため、実行中の二重起動を防ぐ
+  if (rebuildingCache) return;
   var userKey = null;
   try { userKey = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
   if (!userKey) return;
@@ -288,9 +289,13 @@ async function rebuildCache() {
   var error = document.getElementById('error');
   if (error) error.style.display = 'none';
   var rebuilt = false;
+  rebuildingCache = true;
   try {
     rebuilt = await rebuildCacheFromServer(userKey);
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    rebuildingCache = false;
+  }
   if (!rebuilt && error) {
     // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
     error.style.backgroundColor = '';
@@ -533,8 +538,7 @@ if (rememberInfoBtn && rememberModal) {
         if (!d) return;
         if (!needsRebuild(cachedMatches, d.schema_version)) return;
         if (rebuildBackoffActive()) return;
-        // 自動実行なので失敗は黙って見送る（ユーザーは古いキャッシュで作業を継続できる。
-        // 明示的な再取得はその他画面の導線から行える）。
+        // 自動実行なので失敗は黙って見送る（明示の再取得はその他画面から）
         rebuildCacheFromServer(cachedUserKey).catch(function () {});
       })
       .catch(function () {});

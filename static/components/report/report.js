@@ -130,9 +130,7 @@ export function Report({ data, userKey, actions }) {
     return function () { window.removeEventListener('scroll', onScroll); };
   }, []);
 
-  // 画面(view)が変わるたびに、スクロールロックを確実に解除し先頭へ戻す。
-  // 再分析中はReportが再描画(再マウント)されるため、onNavigate内だけでなくここでも保証する
-  // （切替時にヘッダーが下に固定されスクロール不能になる不具合の対処）。
+  // view 切替時にスクロールロック解除と先頭復帰。再マウント時にも効かせるため onNavigate と二重に持つ
   useEffect(function () {
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
