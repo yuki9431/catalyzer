@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, pct, num, cellValue, cellDisplay, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
+import { esc, pct, num, cellValue, cellDisplay, sortNumber, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
 
 // --- esc ---
 
@@ -67,6 +67,28 @@ describe('num', function () {
 
   it('returns dash for undefined', function () {
     assert.equal(num(undefined, 3), '-');
+  });
+});
+
+// --- sortNumber ---
+
+describe('sortNumber', function () {
+  it('カンマ入りの数値文字列を数値として読む (#401)', function () {
+    assert.equal(sortNumber('1,000戦'), 1000);
+    assert.equal(sortNumber('12,345'), 12345);
+    assert.ok(sortNumber('1,000戦') > sortNumber('26戦'));
+  });
+
+  it('単位・符号付きの文字列と sortValue を読む', function () {
+    assert.equal(sortNumber('53.8%'), 53.8);
+    assert.equal(sortNumber('+3.9'), 3.9);
+    assert.equal(sortNumber({ sortValue: 7, display: '7件' }), 7);
+    assert.equal(sortNumber(5), 5);
+  });
+
+  it('数値として読めない文字列は NaN', function () {
+    assert.ok(Number.isNaN(sortNumber('ヴァルキュリア')));
+    assert.ok(Number.isNaN(sortNumber('-')));
   });
 });
 

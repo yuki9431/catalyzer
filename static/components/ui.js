@@ -1,5 +1,5 @@
 import { html, useState, useMemo, useRef, useEffect } from '../htm-preact-standalone.js';
-import { boldText, cellValue, cellDisplay, esc } from '../lib/format.js';
+import { boldText, cellValue, cellDisplay, sortNumber, esc } from '../lib/format.js';
 import { usePopover, useDismiss, Popover } from './popover.js';
 
 export function Tips({ tips }) {
@@ -23,9 +23,7 @@ export function SortableTable({ headers, rows, sortableColumns, defaultLimit }) 
     if (sortState.col < 0) return rows;
     var col = sortState.col;
     var sorted = rows.slice().sort(function (a, b) {
-      var va = cellValue(a[col]), vb = cellValue(b[col]);
-      var na = typeof va === 'number' ? va : parseFloat(String(va).replace(/[%+戦件回]/g, ''));
-      var nb = typeof vb === 'number' ? vb : parseFloat(String(vb).replace(/[%+戦件回]/g, ''));
+      var na = sortNumber(a[col]), nb = sortNumber(b[col]);
       if (!isNaN(na) && !isNaN(nb)) {
         return sortState.asc ? na - nb : nb - na;
       }
