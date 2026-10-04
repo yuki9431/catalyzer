@@ -165,6 +165,20 @@ describe('computeDailyTrend', function () {
     assert.ok(result.days.length >= 2);
     assert.ok(Array.isArray(result.tips));
   });
+
+  it('年が違う同じ月日を別の日として集計し、日付順に並べる (#444)', function () {
+    var matches = [
+      makeMatch({ date: '2026-01-05 10:00', win: true }),
+      makeMatch({ date: '2025-01-05 10:00', win: false }),
+      makeMatch({ date: '2025-12-31 10:00', win: true }),
+      makeMatch({ date: '2026-01-05 12:00', win: true }),
+    ];
+    var days = computeDailyTrend(matches).days;
+    assert.deepEqual(days.map(function (d) { return d.date; }), ['01/05', '12/31', '01/05']);
+    assert.deepEqual(days.map(function (d) { return d.matches; }), [1, 1, 2]);
+    assert.deepEqual(days.map(function (d) { return d.sort_key; }), [20250105, 20251231, 20260105]);
+  });
+
 });
 
 // --- computeBasicStats ---
