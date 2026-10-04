@@ -309,7 +309,8 @@ async function rebuildCache() {
   } finally {
     rebuildingCache = false;
   }
-  if (rebuilt === null) showRebuildError(error, '分析が終わってから実行してください。');
+  // 見送りの理由がログアウト(キー消失)なら案内しない
+  if (rebuilt === null) { if (localStorage.getItem('catalyzer_user_key')) showRebuildError(error, '分析が終わってから実行してください。'); }
   else if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
 }
 
