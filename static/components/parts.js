@@ -44,7 +44,7 @@ export function Summary({ hero, items }) {
 export function RowList({ rows, onSelect }) {
   return html`<ul class="ui-rows" data-ui="row-list">
     ${rows.map(function (r) {
-      var bar = r.bar && html`<span class="ui-row-bar" aria-hidden="true"><i class=${'ui-row-bar-fill ui-row-bar-' + r.bar.tone} style=${'width:' + r.bar.value + '%'}></i>${r.bar.marker != null && html`<b class="ui-row-bar-marker" style=${'left:' + r.bar.marker + '%'}></b>`}</span>`;
+      var bar = r.bar ? html`<span class="ui-row-bar" aria-hidden="true"><i class=${'ui-row-bar-fill ui-row-bar-' + r.bar.tone} style=${'width:' + r.bar.value + '%'}></i>${r.bar.marker != null && html`<b class="ui-row-bar-marker" style=${'left:' + r.bar.marker + '%'}></b>`}</span>` : null;
       var body = html`<span class="ui-row-main">${r.main}${has(r.sub) && html`<small>${r.sub}</small>`}${bar}</span>${has(r.aside) && html`<span class=${'ui-row-aside' + (r.asideTone ? ' ui-row-aside-' + r.asideTone : '')}>${r.aside}</span>`}`;
       var cls = 'ui-row-btn' + (r.tone === 'danger' ? ' ui-row-danger' : '');
       var op = r.href
