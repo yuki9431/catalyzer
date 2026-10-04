@@ -4,12 +4,12 @@ import { usePopover, useDismiss, Popover } from './popover.js';
 
 export function Tips({ tips }) {
   if (!tips || !tips.length) return null;
-  return html`<blockquote><strong>💡アドバイス:</strong><br />${tips.map(function (t, i) {
+  return html`<ul class="facts" data-ui="facts">${tips.map(function (t) {
     var text = typeof t === 'string' ? t : t.text;
     var details = typeof t === 'object' && t.details ? t.details : null;
-    return html`${i > 0 && html`<br />`}${boldText(text)}
-      ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}`;
-  })}</blockquote>`;
+    return html`<li>${boldText(text)}
+      ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}</li>`;
+  })}</ul>`;
 }
 
 export function SortableTable({ headers, rows, sortableColumns, defaultLimit }) {
@@ -286,7 +286,7 @@ export function Autocomplete({ value, onChange, options, placeholder }) {
 
 export function Panel({ title, children }) {
   return html`<div class="panel" data-ui="panel">
-    ${title && html`<h2><span class="dot" />${title}</h2>`}
+    ${title && html`<h2>${title}</h2>`}
     ${children}
   </div>`;
 }

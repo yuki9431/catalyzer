@@ -12,7 +12,7 @@ function intCell(n, unit) { return { sortValue: n, display: fmtInt(n) + unit }; 
 export function ClassRecordView({ record, analyzedCount }) {
   if (!record) {
     return html`<div class="panel">
-      <h2><span class="dot" />モバイル総合戦歴</h2>
+      <h2>モバイル総合戦歴</h2>
       <${Notice}>分析の完了後に、ガンダムモバイルの通算戦績を表示します。</${Notice}>
     </div>`;
   }
@@ -28,13 +28,13 @@ export function ClassRecordView({ record, analyzedCount }) {
   return html`<div class="tabpane">
     <div class="report-summary"><${Summary} hero=${hero} items=${items} /></div>
     ${record.breakdown && record.breakdown.length > 0 && html`<div class="panel">
-      <h2><span class="dot" />クラスマッチG戦績</h2>
+      <h2>クラスマッチG戦績</h2>
       <${Table} headers=${['区分', '対戦数', '勝利数', '勝率']} rows=${record.breakdown.map(function (b) {
         return [b.label, intCell(b.matches, '戦'), intCell(b.wins, '勝'), b.matches > 0 ? colorPct(b.win_rate) : '-'];
       })} />
     </div>`}
     ${record.counts && record.counts.length > 0 && html`<div class="panel">
-      <h2><span class="dot" />通算記録</h2>
+      <h2>通算記録</h2>
       <${Table} headers=${['項目', '記録']} rows=${record.counts.map(function (c) {
         return [c.label, intCell(c.value, c.unit)];
       })} />

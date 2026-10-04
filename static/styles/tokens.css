@@ -12,7 +12,6 @@
   --good: #a0e3c1;
   --bad: #ff9e7a;
   --terrible: #ff8d80;
-  --shadow: 0 6px 20px rgba(0,0,0,.35);
   --font-sans: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;
   --gutter: 16px;
   --shadow-pop: 0 8px 24px rgba(0,0,0,.4);
@@ -118,7 +117,6 @@
     --good: #115230;
     --bad: #ab4a1b;
     --terrible: #a62a1a;
-    --shadow: 0 6px 20px rgba(0,0,0,.14);
     --shadow-pop: 0 8px 24px rgba(0,0,0,.16);
     --shadow-pop-strong: 0 8px 24px rgba(0,0,0,.18);
     --shadow-modal: 0 16px 48px rgba(0,0,0,.2);
