@@ -8,8 +8,8 @@ var CLASS_SEL = /\.[A-Za-z_-]/;
 function hasClassSel(sel) { return CLASS_SEL.test(sel.replace(/\[[^\]]*\]/g, '[]')); }
 
 function selectors(screen) {
-  var ops = screen.ops.map(function (op) { return op.click ? op.click[0] : op.type ? op.type[0] : op.scroll[0]; });
-  return ops.concat(screen.required.map(function (r) { return r[0]; }));
+  var ops = screen.ops.map(function (op) { var a = op.click || op.type || op.scroll || op.wait; return a && a[0]; }).filter(Boolean);
+  return ops.concat(screen.required.map(function (r) { return r[0]; }), screen.tap || []);
 }
 
 describe('screens', () => {
