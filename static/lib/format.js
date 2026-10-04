@@ -41,6 +41,11 @@ function colorVal(n, great, good, bad, terrible, higherIsBetter, decimals) {
   return { sortValue: n, display: html`<span class=${cls}>${text}</span>` };
 }
 
+// 勝率の色分け。値文字と▲▼は 60/40、バーは 60/50（winrate-color-two-axes）
+export function wrMark(wr) { return wr == null ? '' : wr >= 60 ? '▲ ' : wr <= 40 ? '▼ ' : ''; }
+export function wrTone(wr) { return wr == null ? '' : wr >= 60 ? 'good' : wr <= 40 ? 'bad' : ''; }
+export function wrBarTone(wr) { return wr == null ? null : wr >= 60 ? 'good' : wr >= 50 ? 'mid' : 'bad'; }
+
 export function colorPct(n) {
   if (n == null) return '-';
   var cls = valClass4(n, 60, 50, 50, 40, true);

@@ -22,6 +22,7 @@ import {
   computeBurstType,
   computeFixedPartners,
   burstKpi,
+  enemyKpi,
   bestWorstHour,
   partnerKpi,
 } from '../analysis/stats.js';
@@ -835,7 +836,7 @@ describe('computeFixedPartners', function () {
 
 describe('burstKpi', function () {
   it('returns nulls for null / empty input', function () {
-    var empty = { rate2: null, winRate2: null, rate0: null, winRate0: null };
+    var empty = { rate2: null, winRate2: null, matches2: null, rate0: null, winRate0: null, matches0: null };
     assert.deepEqual(burstKpi(null), empty);
     assert.deepEqual(burstKpi({ by_count: [] }), empty);
     assert.deepEqual(burstKpi({}), empty);
@@ -867,11 +868,52 @@ describe('burstKpi', function () {
     assert.equal(r.winRate0, null);
   });
 
+  it('2覚醒以上・未覚醒の試合数を返す', function () {
+    var r = burstKpi({
+      by_count: [
+        { count: 0, matches: 2, win_rate: 0 },
+        { count: 2, matches: 4, win_rate: 50 },
+        { count: 3, matches: 1, win_rate: 100 },
+      ],
+    });
+    assert.equal(r.matches2, 5);
+    assert.equal(r.matches0, 2);
+    assert.equal(burstKpi({ by_count: [{ count: 1, matches: 5, win_rate: 40 }] }).matches0, 0);
+  });
+
   it('computeBurstCount の実出力を受け取れる', function () {
     var matches = makeMatches(3, { bursts: 2, win: true, actions: [{ event: 'x' }] });
     var r = burstKpi(computeBurstCount(matches));
     assert.equal(r.rate2, 100);
     assert.equal(r.winRate2, 100);
+  });
+});
+
+// --- enemyKpi (敵機相性の要約) ---
+
+describe('enemyKpi', function () {
+  it('null / 空は total 0 と worst null', function () {
+    assert.deepEqual(enemyKpi(null), { total: 0, worst: null });
+    assert.deepEqual(enemyKpi({ strong: [], weak: [], even: [] }), { total: 0, worst: null });
+  });
+
+  it('強・弱・互角の合計件数と最低勝率の敵機を返す', function () {
+    var r = enemyKpi({
+      strong: [{ ms: 'A', matches: 5, win_rate: 70 }],
+      weak: [{ ms: 'B', matches: 4, win_rate: 25 }],
+      even: [{ ms: 'C', matches: 6, win_rate: 50 }],
+    });
+    assert.equal(r.total, 3);
+    assert.equal(r.worst.ms, 'B');
+  });
+
+  it('同率は試合数の多い方、それも同じなら先頭', function () {
+    var r = enemyKpi({
+      strong: [],
+      weak: [{ ms: 'X', matches: 3, win_rate: 33.3 }, { ms: 'Y', matches: 6, win_rate: 33.3 }, { ms: 'Z', matches: 6, win_rate: 33.3 }],
+      even: [],
+    });
+    assert.equal(r.worst.ms, 'Y');
   });
 });
 
