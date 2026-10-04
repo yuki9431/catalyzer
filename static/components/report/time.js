@@ -15,7 +15,7 @@ export function TimePane({ pd }) {
     return [d.name + '曜', d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
   });
   var dailyRows = (daily && daily.days || []).map(function (d) {
-    return [{ sortValue: d.date, display: d.date + ' (' + d.dow_name + ')' }, d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
+    return [{ sortValue: d.sort_key, display: d.date + ' (' + d.dow_name + ')' }, d.matches, colorPct(d.win_rate), colorDE(d.dmg_efficiency, 3)];
   });
 
   return html`<div class="tabpane">
