@@ -165,6 +165,7 @@ async function reanalyzeWithSession() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
+        clearRebuildError();
         renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         break;
       }
@@ -285,9 +286,9 @@ async function rebuildCache() {
   var userKey = null;
   try { userKey = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
   var error = document.getElementById('error');
-  // 初回の分析中はユーザーキーが未保存で、取得元が無い
+  // ユーザーキーが無い(初回分析中・セッション失効)。既に出ている失効メッセージは上書きしない
   if (!userKey) {
-    showRebuildError(error, '分析が終わってから実行してください。');
+    if (!error || error.style.display !== 'block') showRebuildError(error, '分析が終わってから実行してください。');
     return;
   }
 
@@ -305,12 +306,19 @@ async function rebuildCache() {
 
 function showRebuildError(error, message) {
   if (!error) return;
+  error.dataset.source = 'rebuild';
   // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
   error.style.backgroundColor = '';
   error.style.borderColor = '';
   error.style.color = '';
   error.textContent = message;
   error.style.display = 'block';
+}
+
+// 分析完了時、再取得由来の表示だけを消す(partial 警告などは各経路が上書きする)
+function clearRebuildError() {
+  var error = document.getElementById('error');
+  if (error && error.dataset.source === 'rebuild') { error.style.display = 'none'; delete error.dataset.source; }
 }
 
 async function analyze() {
@@ -448,6 +456,7 @@ async function analyze() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
+        clearRebuildError();
         renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
         renderedReal = true;
         if (resultData.session_saved) {
