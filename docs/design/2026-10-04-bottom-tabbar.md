@@ -142,6 +142,10 @@ var TAP=[TABBAR_ITEM,'[data-ui="more"] button','[data-ui="more"] a'];
 | U3 | shell.js/shell.css/share.css/topbar.css/report.js/app.js/link 差替/menu.css 削除/screens.js/追加テスト | test-js→基準更新前の手順→menu-*.png を git rm→make ui-baseline→C1〜C12 | feat: #412 ハンバーガーメニューを下部タブバーとその他画面に置き換え |
 | U4 | CLAUDE.md/README/unify-components.md | C13〜C16 | docs: #412 タブバー化に合わせて構成と ui-check の記述を更新 |
 
+## 7.5 実装時の調整
+- `parts.css` に `ul.ui-rows{padding:0}` を追加(`.report ul{padding-left:20px}` がその他画面の行に効くため)。
+- `check.js` の full 撮影は、ビューポートを全高に広げてから撮る(固定タブバーが画面途中に写るのを防ぐ)。U3 で追加。
+
 ## 8. ナレッジ候補・起票候補
 ナレッジ: 固定タブバー z-index は topbar(50)未満の 40(sticky+z-index のスタッキングコンテキスト)/免責は index.html 1か所+`:has` 出し分け/`.report a` の color・text-decoration が `<a>` 部品に効くので `a.<class>` で打ち消す/ui-check の wait・reload・tap と INJECT での検査自体の確認。
 起票: Report の controls-row 折りたたみ effect(`[]` 依存)が初回 view が report 以外だと未登録/z-index トークン化(直書き約15)/上部バー「再分析」ボタンのタップ領域 44px 未満(約29px)/期間内に試合が無いと Skeleton で止まる件(既存 issue 重複確認)。
