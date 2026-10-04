@@ -24,7 +24,7 @@ var TAB_DEFS = [
 
 // 要約の上に出す対象範囲。期間・機体・勝敗レンズを「・」で連結する
 function scopeText(periodKey, periods, ms, lens) {
-  var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? periods.custom.label : '直近' + periods[periodKey].label];
+  var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? (periods.custom ? periods.custom.label : '日付指定') : '直近' + periods[periodKey].label];
   if (ms) parts.push(ms);
   if (lens === 'win') parts.push('勝利のみ');
   else if (lens === 'loss') parts.push('敗北のみ');

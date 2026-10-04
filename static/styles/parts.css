@@ -6,7 +6,7 @@ button.ui-chip:hover { background: var(--accent-a10); }
 .ui-chip-bad { border-color: var(--terrible); color: var(--terrible); background: var(--terrible-a15); }
 .ui-chip-active, button.ui-chip-active:hover { border-color: var(--accent); background: var(--accent-a18); color: var(--accent-2); }
 
-.ui-chip-opener { min-height: 44px; border-radius: 8px; padding: 0 12px; background: var(--panel); }
+.ui-chip-opener, .ui-chip-opener.ui-chip-active { min-height: 44px; border-radius: 8px; padding: 0 12px; background: var(--panel); }
 .ui-chip-opener::after { content: ''; width: 6px; height: 6px; margin-left: 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg) translateY(-2px); }
 .ui-chip-text { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
