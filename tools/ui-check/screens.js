@@ -11,9 +11,9 @@ function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
 var OPEN_SEARCH = [goTab('試合検索')];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
 
-function report(id, tab, h2s, extra) {
+function report(id, tab, h2s, extra, moreOps) {
   var required = [['[data-ui="tab"][aria-selected="true"]', TABS[tab]]].concat(h2s.map(function (t) { return ['[data-ui="panel"] h2', t]; }), SUMMARY(tab), extra || []);
-  return { id: id, viewport: D, full: true, start: 'report', ops: [{ click: ['[data-ui="tab"]', TABS[tab]] }], required: required };
+  return { id: id, viewport: D, full: true, start: 'report', ops: [{ click: ['[data-ui="tab"]', TABS[tab]] }].concat(moreOps || []), required: required };
 }
 
 export var SCREENS = [
@@ -26,7 +26,7 @@ export var SCREENS = [
     required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体']].concat(SUMMARY('overview')) },
   report('report-playstyle', 'playstyle', ['被撃墜と勝率', 'ダメージ貢献率']),
   report('report-burst', 'burst', ['覚醒回数と勝率', '覚醒タイミング']),
-  report('report-matchup', 'matchup', ['敵機との相性', '僚機との相性']),
+  report('report-matchup', 'matchup', ['敵機との相性', '僚機との相性'], [['details[open] table'], ['[data-ui="panel"] [data-ui="row-list"]', null, 3]], [{ click: ['summary', '表で見る'] }]),
   report('report-time', 'time', ['時間帯別の勝率', '曜日別の勝率'], [['canvas']]),
   { id: 'dropdown-period', viewport: D, full: false, start: 'report', ops: [{ click: ['[data-ui="period-trigger"]'] }],
     required: [['[data-ui="period-panel"]'], ['[data-ui="period-item"]', null, 2]] },
@@ -42,7 +42,7 @@ export var SCREENS = [
   { id: 'classrecord', viewport: D, full: true, start: 'report',
     ops: [goTab('総合戦歴')],
     required: [[CURRENT, '総合戦歴'], ['[data-ui="summary-hero"]', '通算勝率'], ['h2', 'クラスマッチG戦績'], ['h2', '通算記録']] },
-  { id: 'mobile-report-overview', viewport: M, full: true, start: 'report', ops: [{ scroll: ['canvas'] }],
+  { id: 'mobile-report-overview', viewport: M, full: true, start: 'report', ops: [{ scroll: ['[data-ui="row-list"]'] }],
     required: [['[data-ui="tab"][aria-selected="true"]', '総合']].concat(SUMMARY('overview')),
     inview: [['[data-ui="period-trigger"]'], ['[data-ui="ms-trigger"]'], ['[data-ui="lens-toggle"] button', '全体']],
     tap: ['[data-ui="period-trigger"]', '[data-ui="ms-trigger"]', '[data-ui="lens-toggle"] button'] },
