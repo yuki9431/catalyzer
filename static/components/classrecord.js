@@ -5,7 +5,6 @@ import { Table } from './ui.js';
 
 function fmtInt(n) { return n != null ? n.toLocaleString('ja-JP') : '-'; }
 
-// SortableTable はカンマ入り文字列を数値ソートできないため sortValue を持たせる
 function intCell(n, unit) { return { sortValue: n, display: fmtInt(n) + unit }; }
 
 // モバイル総合戦歴ビュー。record は /result の class_record（未取得なら null）
