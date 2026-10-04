@@ -22,4 +22,10 @@ describe('surface', () => {
     });
     assert.deepStrictEqual(bad, []);
   });
+
+  it('report.js にスクロール連動の隠し処理（scroll リスナと maxHeight 操作）が無い', () => {
+    const src = read('components/report/report.js');
+    assert.ok(!src.includes("addEventListener('scroll'"));
+    assert.ok(!src.includes('.style.maxHeight'));
+  });
 });

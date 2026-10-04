@@ -31,6 +31,22 @@ describe('screens', () => {
     assert.deepStrictEqual(sel, ['a', '[data-ui="x"]', 'b']);
   });
 
+  it('mobile-report-overview はスクロール後にフィルタ群が画面内に見えることを検査する', () => {
+    var s = SCREENS.find(function (x) { return x.id === 'mobile-report-overview'; });
+    assert.ok(s.ops.some(function (op) { return op.scroll; }));
+    ['[data-ui="period-trigger"]', '[data-ui="ms-trigger"]', '[data-ui="lens-toggle"] button'].forEach(function (sel) {
+      assert.ok(s.inview.some(function (r) { return r[0] === sel; }), sel);
+    });
+  });
+
+  it('レポート5画面は要約の主指標が種別ごとに違う', () => {
+    var heroes = ['report-overview', 'report-playstyle', 'report-burst', 'report-matchup', 'report-time'].map(function (id) {
+      var s = SCREENS.find(function (x) { return x.id === id; });
+      return s.required.find(function (r) { return r[0] === '[data-ui="summary-hero"]'; })[1];
+    });
+    assert.strictEqual(new Set(heroes).size, 5);
+  });
+
   it('部品一覧ページの styles link が index.html と同じ順', () => {
     var read = function (f, re) { return Array.from(fs.readFileSync(new URL(f, import.meta.url), 'utf8').matchAll(re)).map(function (m) { return m[1]; }); };
     var app = read('../../static/index.html', /href="styles\/([a-z-]+\.css)"/g);

@@ -121,9 +121,9 @@ export function MoreView({ shareData, onLogout, onRebuildCache }) {
 }
 
 // 上部バー・本文・下部タブバーの外枠
-export function AppShell({ topbarRef, onRefresh, controls, nav, children }) {
+export function AppShell({ onRefresh, controls, nav, children }) {
   return html`<div class=${'view-root' + (nav.view === 'more' ? ' view-more' : '')}>
-    <div class="topbar" data-ui="topbar" ref=${topbarRef}>
+    <div class="topbar" data-ui="topbar">
       <div class="topbar-head">
         <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
         ${onRefresh && html`<button class="topbar-refresh" onClick=${onRefresh}>再分析</button>`}
