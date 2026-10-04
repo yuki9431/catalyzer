@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Skeleton は actions.onLogout を参照する。渡し忘れは空期間表示で TypeError になる(#424)
+// AppShell は nav.view を参照し、MoreView は onLogout を呼ぶ。渡し忘れは描画・操作時の TypeError になる(#412)
 function jsFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(function (e) {
     var p = path.join(dir, e.name);
@@ -25,5 +26,31 @@ describe('Skeleton', () => {
     });
     assert.ok(found >= 2);
     assert.deepStrictEqual(bad, []);
+  });
+
+  // 呼び出し(<${Name} ...>)ごとに、タグ内に属性 attr が付いているかを検査する
+  function missingAttr(name, attr) {
+    var root = new URL('..', import.meta.url).pathname;
+    var re = new RegExp('<\\$\\{' + name + '\\}([^>]*)>', 'g');
+    var found = 0, bad = [];
+    jsFiles(root).forEach(function (f) {
+      Array.from(fs.readFileSync(f, 'utf8').matchAll(re)).forEach(function (m) {
+        found++;
+        if (!new RegExp('(^|\\s)' + attr + '=').test(m[1])) bad.push(f + ': ' + m[0]);
+      });
+    });
+    return { found: found, bad: bad };
+  }
+
+  it('全ての <${AppShell} 呼び出しに nav が付く', () => {
+    var r = missingAttr('AppShell', 'nav');
+    assert.ok(r.found >= 6);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
+  it('全ての <${MoreView} 呼び出しに onLogout が付く', () => {
+    var r = missingAttr('MoreView', 'onLogout');
+    assert.ok(r.found >= 2);
+    assert.deepStrictEqual(r.bad, []);
   });
 });

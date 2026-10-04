@@ -82,7 +82,7 @@
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
-│   │   ├── shell.js               # AppShell（トップバー・メニュー・本文）
+│   │   ├── shell.js               # AppShell（トップバー・本文・下部タブバー）とその他画面
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
@@ -98,7 +98,8 @@
 │   │   ├── classrecord.test.js    # classrecord.js テスト
 │   │   ├── popover.test.js        # popover.js テスト
 │   │   ├── chart-canvas.test.js   # chart-canvas.js テスト
-│   │   ├── skeleton-actions.test.js # Skeleton への actions 渡し忘れ検査
+│   │   ├── skeleton-actions.test.js # Skeleton/AppShell/MoreView への props 渡し忘れ検査
+│   │   ├── shell.test.js          # タブ定義と画面状態の読み出し
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）

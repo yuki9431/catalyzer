@@ -2,6 +2,7 @@ import { html, render } from './htm-preact-standalone.js';
 import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild } from './lib/db.js';
 import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
+import { VIEW_KEY } from './components/shell.js';
 
 // --- Constants ---
 var STATUS_MESSAGES = {
@@ -192,6 +193,7 @@ async function logout() {
   localStorage.removeItem('catalyzer_has_session');
   localStorage.removeItem(CLASS_RECORD_KEY);
   localStorage.removeItem(FOCUS_KEY);
+  localStorage.removeItem(VIEW_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
   var rep = document.getElementById('report');
@@ -244,9 +246,7 @@ function setRebuildBackoff(active) {
   } catch (e) {}
 }
 
-// IndexedDBキャッシュをサーバー側の全件データで丸ごと置き換える（スクレイピング無し）。
-// スキーマバージョン不一致の自動検知、またはHamburgerMenuの「データを再取得」導線から呼ばれる。
-// 再構築できたらtrueを返す。失敗・0件応答時はバックオフを張って毎起動リトライを防ぐ。
+// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件ならバックオフを張る
 async function rebuildCacheFromServer(userKey) {
   var statusText = document.getElementById('statusText');
   var status = document.getElementById('status');
@@ -276,20 +276,26 @@ async function rebuildCacheFromServer(userKey) {
   }
 }
 
-// HamburgerMenuの「データを再取得」ボタンから呼ばれる明示操作版。確認ダイアログを挟む。
+// その他画面の「試合データを取得し直す」から呼ばれる明示操作版。確認は画面内で済んでいる。
 // 明示操作なのでバックオフ中でも実行し、失敗はエラー表示でユーザーに伝える。
+var rebuildingCache = false;
 async function rebuildCache() {
+  // 画面内確認は再タップできるため、実行中の二重起動を防ぐ
+  if (rebuildingCache) return;
   var userKey = null;
   try { userKey = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
   if (!userKey) return;
-  if (!window.confirm('試合データをサーバーから全件取得し直します。よろしいですか?')) return;
 
   var error = document.getElementById('error');
   if (error) error.style.display = 'none';
   var rebuilt = false;
+  rebuildingCache = true;
   try {
     rebuilt = await rebuildCacheFromServer(userKey);
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    rebuildingCache = false;
+  }
   if (!rebuilt && error) {
     // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
     error.style.backgroundColor = '';
@@ -532,8 +538,7 @@ if (rememberInfoBtn && rememberModal) {
         if (!d) return;
         if (!needsRebuild(cachedMatches, d.schema_version)) return;
         if (rebuildBackoffActive()) return;
-        // 自動実行なので失敗は黙って見送る（ユーザーは古いキャッシュで作業を継続できる。
-        // 明示的な再取得はハンバーガーメニューの導線から行える）。
+        // 自動実行なので失敗は黙って見送る（明示の再取得はその他画面から）
         rebuildCacheFromServer(cachedUserKey).catch(function () {});
       })
       .catch(function () {});

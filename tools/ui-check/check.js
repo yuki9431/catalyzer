@@ -48,6 +48,12 @@ var SMALL_TEXT_EXPR = '(function(){var all=document.body.querySelectorAll("*");f
   'if(c&&c!=="none"&&c!=="normal"&&c!==\'""\')px=Math.min(px,parseFloat(s.fontSize))});' +
   'if(px<14)return e.tagName.toLowerCase()+(typeof e.className==="string"&&e.className?"."+e.className.trim().split(/\\s+/).join("."):"")+" "+px+"px"}return null})()';
 
+// selector に合致する可視要素の件数と、高さ 44px 未満の要素(文字列先頭20字+高さ)を返す式
+function tapExpr(sel) {
+  return '(function(s){var all=Array.from(document.querySelectorAll(s)).filter(function(e){return e.getClientRects().length>0});' +
+    'return{count:all.length,small:all.map(function(e){return[(e.textContent||"").trim().slice(0,20),e.getBoundingClientRect().height]}).filter(function(x){return x[1]<44}).map(function(x){return x[0]+" "+Math.round(x[1])+"px"})}})(' + JSON.stringify(sel) + ')';
+}
+
 async function runScreen(conn, origin, screen, theme, update) {
   var ctx = await conn.send('Target.createBrowserContext', {});
   var ctxId = ctx.browserContextId;
@@ -103,7 +109,8 @@ async function runScreen(conn, origin, screen, theme, update) {
     await Promise.all(['Page.enable', 'Runtime.enable', 'Log.enable'].map(function (m) { return send(m); }));
     await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
     await send('Page.addScriptToEvaluateOnNewDocument', { source: determinismSource });
-    await send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: screen.viewport.height, deviceScaleFactor: 1, mobile: false });
+    var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
+    await metrics(screen.viewport.height);
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
@@ -126,7 +133,18 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!(await waitCount(a[0], kind === 'click' ? a[1] : null, 1))) return fail('必須要素なし ' + a[0]);
+      if (!['click', 'type', 'scroll', 'wait', 'reload'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (kind === 'reload') {
+        var reloaded = new Promise(function (resolve, reject) {
+          loadWaiters.push(resolve);
+          setTimeout(function () { reject(new InfraError('再読み込みタイムアウト')); }, NAV_MS).unref();
+        });
+        await send('Page.reload', {});
+        await reloaded;
+        continue;
+      }
+      if (!(await waitCount(a[0], kind === 'click' || kind === 'wait' ? a[1] : null, 1))) return fail('必須要素なし ' + a[0]);
+      if (kind === 'wait') continue;
       if (kind === 'scroll') {
         await evalJs('document.querySelector(' + JSON.stringify(a[0]) + ').scrollIntoView({block:"center"})');
       } else if (kind === 'click') {
@@ -146,13 +164,17 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     var shot = async function () {
       var p = { format: 'png' };
-      if (screen.full) {
-        var h = await evalJs('Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)');
-        if (h > MAX_PX) throw new Error('高さ ' + h + 'px が上限 ' + MAX_PX + ' を超える');
-        p.captureBeyondViewport = true;
+      if (!screen.full) return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
+      var h = await evalJs('Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)');
+      if (h > MAX_PX) throw new Error('高さ ' + h + 'px が上限 ' + MAX_PX + ' を超える');
+      // ビューポートを全高に広げて撮る。固定要素(下部タブバー)が画面途中に写り込むのを防ぐ
+      await metrics(h);
+      try {
         p.clip = { x: 0, y: 0, width: screen.viewport.width, height: h, scale: 1 };
+        return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
+      } finally {
+        await metrics(screen.viewport.height);
       }
-      return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
     };
     var prev = await shot(), png = null;
     for (var n = 0; n < 12 && !png; n++) {
@@ -171,6 +193,12 @@ async function runScreen(conn, origin, screen, theme, update) {
     if (overflow) return fail('画面の左右にはみ出し ' + overflow);
     var small = await evalJs(SMALL_TEXT_EXPR);
     if (small) return fail('14px 未満の文字 ' + small);
+    var taps = screen.tap || [];
+    for (var ti = 0; ti < taps.length; ti++) {
+      var tapRes = await evalJs(tapExpr(taps[ti]));
+      if (!tapRes.count) return fail('タップ領域の対象なし ' + taps[ti]);
+      if (tapRes.small.length) return fail(tapRes.small.map(function (x) { return 'タップ領域 44px 未満 ' + taps[ti] + ' ' + x; }).join(' / '));
+    }
 
     var basePath = path.join(BASELINE, screen.id + '-' + theme + '.png');
     if (update) {

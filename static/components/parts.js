@@ -26,13 +26,18 @@ export function Summary({ items }) {
   </dl>`;
 }
 
+// rows[i]: {key,main,sub?,aside?,href?(外部リンク),tone?:'danger',expand?(行内に展開する要素。null で閉)}
 export function RowList({ rows, onSelect }) {
   return html`<ul class="ui-rows" data-ui="row-list">
     ${rows.map(function (r) {
       var body = html`<span class="ui-row-main">${r.main}${r.sub && html`<small>${r.sub}</small>`}</span>${r.aside && html`<span class="ui-row-aside">${r.aside}</span>`}`;
-      return html`<li key=${r.key} class="ui-row">${onSelect
-        ? html`<button type="button" class="ui-row-btn" onClick=${function () { onSelect(r.key); }}>${body}</button>`
-        : html`<div class="ui-row-body">${body}</div>`}</li>`;
+      var cls = 'ui-row-btn' + (r.tone === 'danger' ? ' ui-row-danger' : '');
+      var op = r.href
+        ? html`<a class=${cls} href=${r.href} target="_blank" rel="noopener noreferrer">${body}</a>`
+        : onSelect
+          ? html`<button type="button" class=${cls} aria-expanded=${r.expand !== undefined ? !!r.expand : undefined} onClick=${function () { onSelect(r.key); }}>${body}</button>`
+          : html`<div class="ui-row-body">${body}</div>`;
+      return html`<li key=${r.key} class="ui-row">${op}${r.expand}</li>`;
     })}
   </ul>`;
 }

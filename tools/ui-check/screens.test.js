@@ -8,8 +8,8 @@ var CLASS_SEL = /\.[A-Za-z_-]/;
 function hasClassSel(sel) { return CLASS_SEL.test(sel.replace(/\[[^\]]*\]/g, '[]')); }
 
 function selectors(screen) {
-  var ops = screen.ops.map(function (op) { return op.click ? op.click[0] : op.type ? op.type[0] : op.scroll[0]; });
-  return ops.concat(screen.required.map(function (r) { return r[0]; }));
+  var ops = screen.ops.map(function (op) { var a = op.click || op.type || op.scroll || op.wait; return a && a[0]; }).filter(Boolean);
+  return ops.concat(screen.required.map(function (r) { return r[0]; }), screen.tap || []);
 }
 
 describe('screens', () => {
@@ -38,5 +38,14 @@ describe('screens', () => {
     SCREENS.forEach(function (s) { THEMES.forEach(function (t) { want.push(s.id + '-' + t + '.png'); }); });
     var have = fs.readdirSync(new URL('./baseline/', import.meta.url)).filter(function (f) { return f.endsWith('.png'); });
     assert.deepStrictEqual(have.sort(), want.sort());
+  });
+
+  it('mobile-more は 4 項目を巡回して最後に再読み込みし、タップ領域を検査する', () => {
+    var s = SCREENS.find(function (x) { return x.id === 'mobile-more'; });
+    var clicked = s.ops.filter(function (op) { return op.click; }).map(function (op) { return op.click[1]; });
+    ['レポート', '試合検索', '総合戦歴', 'その他'].forEach(function (l) { assert.ok(clicked.includes(l), l); });
+    assert.deepStrictEqual(s.ops[s.ops.length - 1], { reload: true });
+    assert.ok(s.required.some(function (r) { return r[0].includes('aria-current') && r[1] === 'その他'; }));
+    assert.ok(s.tap && s.tap.length > 0);
   });
 });
