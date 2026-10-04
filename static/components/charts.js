@@ -1,5 +1,5 @@
 import { html } from '../htm-preact-standalone.js';
-import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken, wrBarTone, wrMark, wrTone } from '../lib/format.js';
+import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken, signed, wrBarTone, wrMark, wrTone } from '../lib/format.js';
 import { RowList } from './parts.js';
 import { Tips, SortableTable, SubSection, Table } from './ui.js';
 import { ChartCanvas, winRateComboConfig, xAxis, pctAxis } from './chart-canvas.js';
@@ -184,8 +184,8 @@ export function WinRateRowList({ entries }) {
     var sub = e.sub != null ? e.sub : e.matches != null ? e.matches + '試合' : null;
     var hasNatl = typeof e.national === 'number';
     if (hasNatl) {
-      var diff = e.winRate - e.national;
-      sub = (sub ? sub + '・' : '') + '全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1);
+      var diff = signed(e.winRate - e.national);
+      sub = html`${sub ? sub + '・' : ''}全国平均 <span class=${diff[0] === '+' ? 'val-good' : 'val-bad'}>${diff}</span>`;
     }
     return {
       key: e.name + '-' + i, main: e.name, sub: sub,

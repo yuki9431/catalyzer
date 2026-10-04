@@ -1,7 +1,7 @@
 import { html, useState } from '../../htm-preact-standalone.js';
 import { themeReader } from '../../lib/theme.js';
 import { clampMetric } from '../../analysis/stats.js';
-import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, esc } from '../../lib/format.js';
+import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, esc, signed } from '../../lib/format.js';
 import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
 import { CompareRadar, SeasonChart, WinRateRowList } from '../charts.js';
@@ -158,8 +158,6 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
     <${Tips} tips=${p.tips} />
   <//>`;
 }
-
-function signed(n) { return (n >= 0 ? '+' : '') + n.toFixed(1); }
 
 // 機体別の勝率比較に並べる最低試合数
 var msCompareMinMatches = 10;

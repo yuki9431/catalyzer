@@ -65,5 +65,5 @@ export function usePopover(opts) {
 export function Popover({ pop, panelClass, backdropClass, ui, title, children }) {
   if (!pop.isOpen) return null;
   var bc = backdropClass || (pop.mode === 'sheet-bottom' ? 'popover-backdrop' : null);
-  return html`${bc && html`<div class=${bc} onClick=${pop.close} />`}<div class=${panelClass} style=${pop.panelStyle} data-ui=${ui}>${title && html`<div class="ui-sheet-head"><h3>${title}</h3><button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${pop.close}>閉じる</button></div>`}${children}</div>`;
+  return html`${bc && html`<div class=${bc} onClick=${pop.close} />`}<div class=${panelClass} style=${pop.panelStyle} data-ui=${ui} role=${title ? 'dialog' : undefined} aria-label=${title}>${title && html`<div class="ui-sheet-head"><h3>${title}</h3><button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${pop.close}>閉じる</button></div>`}${children}</div>`;
 }

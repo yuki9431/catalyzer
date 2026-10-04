@@ -68,7 +68,7 @@ function matchup(fd) {
       label: '得意な敵機 / 苦手な敵機',
       value: em ? em.strong.length + ' / ' + em.weak.length : '-',
       unit: em ? '機体' : null,
-      aside: '3試合以上対戦した ' + ek.total + ' 機体のうち',
+      aside: em ? '3試合以上対戦した ' + ek.total + ' 機体のうち' : null,
       note: '得意は勝率 60% 以上、苦手は 40% 以下',
     },
     items: [

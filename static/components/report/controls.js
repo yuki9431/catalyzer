@@ -135,7 +135,7 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
 }
 
 export function MsSelector({ entries, selected, onSelect }) {
-  var pop = usePopover({ mode: 'sheet-bottom' });
+  var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
   var label = selected ? '1機選択' : '全機体';
   var isSelected = !!selected;

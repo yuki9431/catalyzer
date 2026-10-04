@@ -1,6 +1,6 @@
 import { html } from '../htm-preact-standalone.js';
 import { classRecordCoverage, classRecordKD } from '../analysis/classrecord.js';
-import { pct, colorPct, colorKD, cellDisplay } from '../lib/format.js';
+import { num, pct, colorPct, colorKD, cellDisplay } from '../lib/format.js';
 import { Notice, Summary } from './parts.js';
 import { Table } from './ui.js';
 
@@ -19,7 +19,7 @@ export function ClassRecordView({ record, analyzedCount }) {
   var total = record.total;
   var coverage = classRecordCoverage(total.matches, analyzedCount);
   var kd = classRecordKD(record.counts);
-  var hero = { label: '通算勝率', value: total.matches > 0 ? pct(total.win_rate) : '-', aside: fmtInt(total.wins) + '勝 ' + fmtInt(total.matches - total.wins) + '敗' };
+  var hero = { label: '通算勝率', value: total.matches > 0 ? num(total.win_rate, 1) : '-', unit: total.matches > 0 ? '%' : null, aside: fmtInt(total.wins) + '勝 ' + fmtInt(total.matches - total.wins) + '敗' };
   var items = [
     { label: '通算対戦数', value: fmtInt(total.matches) },
     { label: '通算K/D比', value: cellDisplay(colorKD(kd)) },

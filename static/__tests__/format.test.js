@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, pct, num, cellValue, cellDisplay, wrMark, wrTone, wrBarTone, sortNumber, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
+import { esc, pct, num, cellValue, cellDisplay, wrMark, wrTone, wrBarTone, signed, sortNumber, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
 
 // --- esc ---
 
@@ -176,5 +176,14 @@ describe('勝率の色分け', function () {
     assert.equal(wrBarTone(50), 'mid');
     assert.equal(wrBarTone(49.9), 'bad');
     assert.equal(wrBarTone(null), null);
+  });
+});
+
+describe('signed', function () {
+  it('符号付きで小数1桁、丸め後に符号を判定して -0.0 を出さない', function () {
+    assert.equal(signed(3.94), '+3.9');
+    assert.equal(signed(-10.8), '-10.8');
+    assert.equal(signed(0), '+0.0');
+    assert.equal(signed(-0.04), '+0.0');
   });
 });
