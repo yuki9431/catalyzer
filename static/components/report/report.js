@@ -7,10 +7,10 @@ import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
-import { KpiGrid } from './kpi.js';
 import { MatchupPane } from './matchup.js';
 import { OverviewPane } from './overview.js';
 import { PlaystylePane } from './playstyle.js';
+import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
 
 var TAB_DEFS = [
@@ -20,6 +20,15 @@ var TAB_DEFS = [
   ['matchup', '機体相性'],
   ['time', '時間帯'],
 ];
+
+// 要約の上に出す対象範囲。期間・機体・勝敗レンズを「・」で連結する
+function scopeText(periodKey, periods, ms, lens) {
+  var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? periods.custom.label : '直近' + periods[periodKey].label];
+  if (ms) parts.push(ms);
+  if (lens === 'win') parts.push('勝利のみ');
+  else if (lens === 'loss') parts.push('敗北のみ');
+  return parts.join('・');
+}
 
 export function Report({ data, userKey, actions }) {
   if (!data) return null;
@@ -263,7 +272,7 @@ export function Report({ data, userKey, actions }) {
       })}</div>`;
 
   return html`<${AppShell} topbarRef=${topbarRef} onRefresh=${actions.onReanalyze} controls=${controls} nav=${nav}>
-    <${KpiGrid} activeTab=${activeTab} frontendData=${frontendData} />
+    <${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />
 
     ${pane}
   </${AppShell}>`;
@@ -292,10 +301,8 @@ export function Skeleton({ actions, nav }) {
     </${AppShell}>`;
   }
   return html`<${AppShell} controls=${controls} nav=${n}>
-    <div class="kpi-grid">
-      ${[0, 1, 2, 3, 4, 5].map(function () {
-        return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
-      })}
+    <div class="report-summary">
+      <div class="ui-summary">${bar('30%', 14, 10)}${bar('40%', 44, 20)}${bar('100%', 56)}</div>
     </div>
     <div class="panel">
       ${bar('30%', 16, 14)}${bar('100%', 220)}

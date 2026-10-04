@@ -1,8 +1,6 @@
 @media (max-width: 720px) {
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
   .card-grid { grid-template-columns: 1fr; }
-  .kpi .kpi-value { font-size: 1.625rem; }
   .period-dropdown { min-width: 0; position: fixed; left: 0; right: 0; width: 100%; border-radius: 0 0 8px 8px; margin: 0; }
   .period-backdrop { display: block; position: fixed; inset: 0; background: var(--scrim); z-index: 99; }
   .ms-topbar-trigger { max-width: 50vw; }

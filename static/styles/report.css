@@ -1,22 +1,6 @@
-/* ===== KPI cards ===== */
-.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-.kpi {
-  background: linear-gradient(160deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line); border-radius: 16px; padding: 16px;
-  box-shadow: var(--shadow); position: relative; overflow: hidden;
-}
-.kpi::after {
-  content: ''; position: absolute; right: -20px; top: -20px;
-  width: 80px; height: 80px; border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-a18), transparent 70%);
-}
-.kpi .kpi-label { font-size: 0.875rem; color: var(--muted); margin-bottom: 6px; }
-.kpi .kpi-value { font-size: 2rem; font-weight: 800; line-height: 1; }
-.kpi .kpi-sub { font-size: 0.875rem; color: var(--muted); margin-top: 8px; }
-.kpi .kpi-value.great { color: var(--great); }
-.kpi .kpi-value.good { color: var(--accent); }
-.kpi .kpi-value.bad { color: var(--bad); }
-.kpi .kpi-value.terrible { color: var(--terrible); }
+/* ===== Report summary ===== */
+.report-summary { margin-bottom: 36px; }
+.report-scope { margin: 0 0 8px; color: var(--muted); font-size: 0.875rem; }
 
 /* ===== Panels ===== */
 .panel {
