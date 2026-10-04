@@ -20,7 +20,7 @@ button.ui-chip:hover { background: var(--accent-a10); }
 .ui-summary-good dd { color: var(--great); }
 .ui-summary-bad dd { color: var(--terrible); }
 
-.ui-rows { list-style: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+ul.ui-rows { padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .ui-row + .ui-row { border-top: 1px solid var(--line); }
 .ui-row-body, .ui-row-btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 12px; border: none; border-radius: 0; background: var(--panel); color: var(--text); font-size: 0.9375rem; font-weight: normal; text-align: left; transition: none; }
 .ui-row-btn { cursor: pointer; }

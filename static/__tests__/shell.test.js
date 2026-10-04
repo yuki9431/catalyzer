@@ -1,0 +1,31 @@
+import { describe, it, afterEach } from 'node:test';
+import assert from 'node:assert';
+import { TAB_ITEMS, VIEW_KEY, readView } from '../components/shell.js';
+
+function stubStorage(impl) {
+  Object.defineProperty(globalThis, 'localStorage', { value: impl, configurable: true });
+}
+
+describe('shell', () => {
+  afterEach(() => { delete globalThis.localStorage; });
+
+  it('TAB_ITEMS は 4 項目が決まった順', () => {
+    assert.deepStrictEqual(TAB_ITEMS.map((t) => [t.key, t.label]), [['report', 'レポート'], ['search', '試合検索'], ['classrecord', '総合戦歴'], ['more', 'その他']]);
+  });
+
+  it('readView は保存された 4 値をそのまま返す', () => {
+    TAB_ITEMS.forEach((t) => {
+      stubStorage({ getItem: (k) => (k === VIEW_KEY ? t.key : null) });
+      assert.strictEqual(readView(), t.key);
+    });
+  });
+
+  it('readView は未保存・未知・プロトタイプ名・例外で report', () => {
+    [null, 'foo', 'valueOf'].forEach((v) => {
+      stubStorage({ getItem: () => v });
+      assert.strictEqual(readView(), 'report');
+    });
+    stubStorage({ getItem: () => { throw new Error('denied'); } });
+    assert.strictEqual(readView(), 'report');
+  });
+});

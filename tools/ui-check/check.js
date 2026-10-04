@@ -161,15 +161,20 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     await evalJs('Promise.race([new Promise(function(r){setTimeout(r,5000)}),Promise.all([document.fonts.ready].concat(Array.from(document.images).map(function(i){i.loading="eager";return i.complete?1:new Promise(function(r){i.onload=i.onerror=r})})))]).then(function(){window.scrollTo(0,0);return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
 
+    var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
     var shot = async function () {
       var p = { format: 'png' };
-      if (screen.full) {
-        var h = await evalJs('Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)');
-        if (h > MAX_PX) throw new Error('高さ ' + h + 'px が上限 ' + MAX_PX + ' を超える');
-        p.captureBeyondViewport = true;
+      if (!screen.full) return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
+      var h = await evalJs('Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)');
+      if (h > MAX_PX) throw new Error('高さ ' + h + 'px が上限 ' + MAX_PX + ' を超える');
+      // ビューポートを全高に広げて撮る。固定要素(下部タブバー)が画面途中に写り込むのを防ぐ
+      await metrics(h);
+      try {
         p.clip = { x: 0, y: 0, width: screen.viewport.width, height: h, scale: 1 };
+        return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
+      } finally {
+        await metrics(screen.viewport.height);
       }
-      return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
     };
     var prev = await shot(), png = null;
     for (var n = 0; n < 12 && !png; n++) {

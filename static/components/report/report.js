@@ -2,7 +2,7 @@ import { html, useEffect, useMemo, useRef, useState } from '../../htm-preact-sta
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeMsPair, computeMsSummary, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
-import { AppShell } from '../shell.js';
+import { AppShell, MoreView, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { BurstPane } from './burst.js';
@@ -33,18 +33,8 @@ export function Report({ data, userKey, actions }) {
   var selectedMs = msRef[0], setSelectedMs = msRef[1];
   var lensRef = useState('all');
   var lens = lensRef[0], setLens = lensRef[1];
-  // 再分析はReportを再マウントするため、view(report/search)をlocalStorageで永続化して復元する。
-  var viewRef = useState(function () { try { return localStorage.getItem('catalyzer_view') || 'report'; } catch (e) { return 'report'; } });
-  var view = viewRef[0], setView = viewRef[1];
-  function navigate(v) {
-    setView(v);
-    try { localStorage.setItem('catalyzer_view', v); } catch (e) {}
-    // 画面切替時に、メニューで残ったスクロールロックを確実に解除し先頭へ戻す
-    // （ヘッダーが下に固定されスクロール不能になる不具合の対処）。
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
-    window.scrollTo(0, 0);
-  }
+  var nav = useView();
+  var view = nav.view;
   var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
@@ -140,8 +130,8 @@ export function Report({ data, userKey, actions }) {
     return function () { window.removeEventListener('scroll', onScroll); };
   }, []);
 
-  // 画面(view)が変わるたびに、メニュー由来のスクロールロックを確実に解除し先頭へ戻す。
-  // 再分析中はReportが再描画(再マウント)されるため、navigate内だけでなくここでも保証する
+  // 画面(view)が変わるたびに、スクロールロックを確実に解除し先頭へ戻す。
+  // 再分析中はReportが再描画(再マウント)されるため、onNavigate内だけでなくここでも保証する
   // （切替時にヘッダーが下に固定されスクロール不能になる不具合の対処）。
   useEffect(function () {
     document.body.style.overflow = '';
@@ -225,24 +215,28 @@ export function Report({ data, userKey, actions }) {
     return { basic_stats: null, win_loss_pattern: null };
   }, [frontendData]);
 
-  var shellMenu = { shareData: shareData, onLogout: actions.onLogout, currentView: view, onNavigate: navigate, onRebuildCache: actions.onRebuildCache };
-
   // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
   // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
   if (view === 'search') {
-    return html`<${AppShell} onRefresh=${actions.onReanalyze} menu=${shellMenu}>
+    return html`<${AppShell} onRefresh=${actions.onReanalyze} nav=${nav}>
       <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
     </${AppShell}>`;
   }
 
   if (view === 'classrecord') {
-    return html`<${AppShell} onRefresh=${actions.onReanalyze} menu=${shellMenu}>
+    return html`<${AppShell} onRefresh=${actions.onReanalyze} nav=${nav}>
       <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
     </${AppShell}>`;
   }
 
+  if (view === 'more') {
+    return html`<${AppShell} nav=${nav}>
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} />
+    </${AppShell}>`;
+  }
+
   if (!frontendData) {
-    return html`<${Skeleton} actions=${actions} />`;
+    return html`<${Skeleton} actions=${actions} nav=${nav} />`;
   }
 
   var pane;
@@ -270,7 +264,7 @@ export function Report({ data, userKey, actions }) {
           onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
       })}</div>`;
 
-  return html`<${AppShell} topbarRef=${topbarRef} onRefresh=${actions.onReanalyze} controls=${controls} menu=${shellMenu}>
+  return html`<${AppShell} topbarRef=${topbarRef} onRefresh=${actions.onReanalyze} controls=${controls} nav=${nav}>
     <${KpiGrid} activeTab=${activeTab} frontendData=${frontendData} />
 
     ${pane}
@@ -278,7 +272,9 @@ export function Report({ data, userKey, actions }) {
 }
 
 // ログイン成功後、データ到着までのダッシュボード骨組み表示
-export function Skeleton({ actions }) {
+export function Skeleton({ actions, nav }) {
+  var own = useView();
+  var n = nav || own;
   function bar(w, h, mb) {
     return html`<div class="skel" data-ui="skeleton" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
@@ -292,7 +288,12 @@ export function Skeleton({ actions }) {
           return html`<button data-ui="tab" role="tab" aria-selected=${t[0] === 'overview'} class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
         })}
       </div>`;
-  return html`<${AppShell} controls=${controls} menu=${{ shareData: null, onLogout: actions.onLogout, onRebuildCache: actions.onRebuildCache }}>
+  if (n.view === 'more') {
+    return html`<${AppShell} nav=${n}>
+      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} />
+    </${AppShell}>`;
+  }
+  return html`<${AppShell} controls=${controls} nav=${n}>
     <div class="kpi-grid">
       ${[0, 1, 2, 3, 4, 5].map(function () {
         return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
