@@ -493,6 +493,8 @@ U3:
 ## 11. 実装時の差分
 - env 関連(`auto_refresh.env`)は §10 U4 のとおり実装していない
 - colly は 4xx で OnResponse が呼ばれないため、ランクページの判定は `classifyRankpageResponse` に置き換えた
+- U3(フロント): 実装済み。状態 API に最終更新時刻が無いため、画面の「最終取り込み」はこの端末の最終取り込み時刻(メモリ上)を出す。ui-check は新画面 2 枚(`mobile-more-auto-refresh`・`-error`)を追加し 23 画面。エラー画面は 403 を console に出すため `expectConsole` で許可している
+- 起動時の取り込みは hasSession だけを条件にする。キャッシュが無いと差分の起点が無く touch だけで終わるため、reanalyzeWithSession と衝突しない
 - `POST /auto-refresh` の 401/409: Cookie 無しは 409、Cookie 有でセッション解決不可は 401
 - app の Job・Scheduler は config `autoRefreshEnabled`(prod のみ true)で作る。Job の `APP_ENV` は不要になり入れていない
 - デプロイ順(§7)の stg 手順は prod に読み替える(合言葉は prod にのみ設定)。§9.2 の app preview は `STACK=prod`(stg は無効なので Service の `~` のみ)

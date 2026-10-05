@@ -219,7 +219,7 @@ export function Report({ data, userKey, actions }) {
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} />
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} autoRefresh=${actions.autoRefresh} />
     </${AppShell}>`;
   }
 
@@ -278,7 +278,7 @@ export function Skeleton({ actions, nav }) {
       </div>`;
   if (n.view === 'more') {
     return html`<${AppShell} nav=${n}>
-      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} />
+      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} autoRefresh=${actions.autoRefresh} />
     </${AppShell}>`;
   }
   return html`<${AppShell} controls=${controls} nav=${n}>

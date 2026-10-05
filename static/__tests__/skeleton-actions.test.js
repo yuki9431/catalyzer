@@ -53,4 +53,10 @@ describe('Skeleton', () => {
     assert.ok(r.found >= 2);
     assert.deepStrictEqual(r.bad, []);
   });
+
+  it('全ての <${MoreView} 呼び出しに autoRefresh が付く(未注入だと設定画面が TypeError になる)', () => {
+    var r = missingAttr('MoreView', 'autoRefresh');
+    assert.ok(r.found >= 2);
+    assert.deepStrictEqual(r.bad, []);
+  });
 });

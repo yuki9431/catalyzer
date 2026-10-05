@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -10,6 +10,9 @@ var CURRENT = TABBAR_ITEM + '[aria-current="page"]';
 function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
 var OPEN_SEARCH = [goTab('試合検索')];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
+var TAP_FORM = TAP.concat(['[data-ui="more"] input']);
+var AUTO_INPUT = '[data-ui="auto-refresh"] input[type="password"]';
+var AUTO_SUBMIT = '[data-ui="auto-refresh"] button';
 
 function report(id, tab, h2s, extra, moreOps) {
   var required = [['[data-ui="tab"][aria-selected="true"]', TABS[tab]]].concat(h2s.map(function (t) { return ['[data-ui="panel"] h2', t]; }), SUMMARY(tab), extra || []);
@@ -53,13 +56,19 @@ export var SCREENS = [
     required: [['[data-ui="ms-panel"] h3', '機体'], ['[data-ui="ms-item"]', null, 2]],
     tap: ['[data-ui="ms-item"]', '[data-ui="sheet-close"]'] },
   { id: 'more', viewport: D, full: true, start: 'report', ops: [goTab('その他')],
-    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4]], tap: TAP },
+    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4]], tap: TAP_FORM },
   { id: 'mobile-more', viewport: M, full: true, start: 'report',
     ops: [goTab('試合検索'), { wait: ['[data-ui="search-filter"]'] }, goTab('総合戦歴'), { wait: ['h2', '通算記録'] }, goTab('その他'), { wait: ['[data-ui="more"]'] },
       goTab('レポート'), { wait: ['[data-ui="tab"][aria-selected="true"]', '総合'] }, goTab('その他'), { reload: true }],
-    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 2], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP },
+    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input[type="password"]'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
   { id: 'mobile-more-confirm', viewport: M, full: true, start: 'report', ops: [goTab('その他'), { click: ['[data-ui="more"] button', '試合データを取得し直す'] }],
     required: [['[data-ui="more"] button[aria-expanded="true"]', '試合データを取得し直す'], ['[data-ui="refetch-confirm"] button', '取得し直す'], ['[data-ui="refetch-confirm"] button', 'やめる']], tap: TAP },
+  { id: 'mobile-more-auto-refresh', viewport: M, full: true, start: 'report',
+    ops: [goTab('その他'), { type: [AUTO_INPUT, 'preview-pass'] }, { click: [AUTO_SUBMIT, '有効にする'] }, { wait: [AUTO_SUBMIT, "無効にする"] }],
+    required: [[CURRENT, 'その他'], ['[data-ui="more"] h2', '設定'], ['[data-ui="auto-refresh"] [data-ui="row-list"]', '有効'], ['[data-ui="auto-refresh"] button', '無効にする']], tap: TAP },
+  { id: 'mobile-more-auto-refresh-error', viewport: M, full: true, start: 'report',
+    ops: [goTab('その他'), { type: [AUTO_INPUT, 'wrong'] }, { click: [AUTO_SUBMIT, '有効にする'] }, { wait: ['[data-ui="notice"]', '合言葉が違います'] }], expectConsole: ['status of 403'],
+    required: [[CURRENT, 'その他'], ['[data-ui="auto-refresh"] [data-ui="notice"][role="alert"]', '合言葉が違います'], ['[data-ui="auto-refresh"] button', '有効にする']], tap: TAP_FORM },
   { id: 'parts', viewport: D, full: true, start: 'parts', ops: [],
     required: [['[data-ui="parts-gallery"]'], ['[data-ui="chip"]', null, 2], ['[data-ui="toggle"]'], ['[data-ui="summary"]'], ['[data-ui="row-list"]'], ['[data-ui="notice"]', null, 3]] },
   { id: 'parts-sheet', viewport: M, full: false, start: 'parts',
