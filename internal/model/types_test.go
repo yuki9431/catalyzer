@@ -95,3 +95,26 @@ func TestJobStatus_Constants(t *testing.T) {
 		}
 	}
 }
+
+func TestAutoRefreshStateLeaseFree(t *testing.T) {
+	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name  string
+		st    AutoRefreshState
+		owner string
+		want  bool
+	}{
+		{"ゼロ値は空き", AutoRefreshState{}, "a", true},
+		{"期限切れは空き", AutoRefreshState{LeaseUntil: now.Add(-time.Second), LeaseOwner: "b"}, "a", true},
+		{"期限ちょうどは空き", AutoRefreshState{LeaseUntil: now, LeaseOwner: "b"}, "a", true},
+		{"他者が保持中は空きでない", AutoRefreshState{LeaseUntil: now.Add(time.Minute), LeaseOwner: "b"}, "a", false},
+		{"自分が保持中は空き扱い", AutoRefreshState{LeaseUntil: now.Add(time.Minute), LeaseOwner: "a"}, "a", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.st.LeaseFree(tt.owner, now); got != tt.want {
+				t.Errorf("LeaseFree = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

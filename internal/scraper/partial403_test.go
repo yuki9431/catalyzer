@@ -24,6 +24,7 @@ type fakeSite struct {
 	perPage      int
 	deny403After int    // 詳細ページをこの件数まで返し、以降は 403(0 なら返し続ける)
 	denyPages    string // この param の日別試合一覧で 403 を返す("*" は全日)
+	rankpage     int    // 戦績トップの応答: 0 は通常、403 は拒否、302 はログイン画面へのリダイレクト
 
 	mu       sync.Mutex
 	detailed int
@@ -45,6 +46,15 @@ func (f *fakeSite) serve(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	var b strings.Builder
 	switch {
+	case r.URL.Path == "/exvs2ib/login":
+		b.WriteString(`<ul><li class="item">news</li></ul>`)
+	case r.URL.Path == "/exvs2ib/results/classmatch/fight" && f.rankpage == http.StatusFound:
+		w.Header().Set("Location", "https://web.vsmobile.jp/exvs2ib/login")
+		w.WriteHeader(http.StatusFound)
+		return
+	case r.URL.Path == "/exvs2ib/results/classmatch/fight" && f.rankpage == http.StatusForbidden:
+		w.WriteHeader(http.StatusForbidden)
+		return
 	case r.URL.Path == "/exvs2ib/results/classmatch/fight":
 		b.WriteString("<ul>")
 		for d, date := range f.dates {
@@ -202,5 +212,59 @@ func TestScraping_403OnNewestDayListKeepsOlderDays(t *testing.T) {
 	site.denyPages = "d0"
 	if first := resumeUntilComplete(t, site, func() { site.denyPages = "" }); first != 6 {
 		t.Errorf("1回目は古い2日分の6試合が保存されるはずが %d 試合", first)
+	}
+}
+
+// 保存済み Cookie が失効して戦績トップがログイン画面に飛ばされたら、空振りでなく ErrLoginFailed になる
+func TestScraping_ExpiredCookieDetected(t *testing.T) {
+	orig := http.DefaultTransport
+	site := newSite([]string{"2026/10/03"}, 4, 4, 4)
+	site.rankpage = http.StatusFound
+	http.DefaultTransport = site
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	jar, _ := cookiejar.New(nil)
+
+	_, _, err := ScrapingWithOption("", "", time.Time{}, ScrapingOption{SavedJar: jar})
+	if !errors.Is(err, ErrLoginFailed) || !IsSessionExpired(err) {
+		t.Fatalf("ErrLoginFailed を期待したが got: %v", err)
+	}
+}
+
+// 戦績トップの 403 は ErrAccessDenied(セッション失効ではない)
+func TestScraping_RankpageForbidden(t *testing.T) {
+	orig := http.DefaultTransport
+	site := newSite([]string{"2026/10/03"}, 4, 4, 4)
+	site.rankpage = http.StatusForbidden
+	http.DefaultTransport = site
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	jar, _ := cookiejar.New(nil)
+
+	_, _, err := ScrapingWithOption("", "", time.Time{}, ScrapingOption{SavedJar: jar})
+	if !errors.Is(err, ErrAccessDenied) || IsSessionExpired(err) {
+		t.Fatalf("ErrAccessDenied(失効でない)を期待したが got: %v", err)
+	}
+}
+
+// SkipMatchIDs に入れた試合は詳細取得されない
+func TestScraping_SkipMatchIDs(t *testing.T) {
+	t.Setenv("SCRAPER_THROTTLE_DELAY_MS", "0")
+	orig := http.DefaultTransport
+	site := newSite([]string{"2026/10/03"}, 4, 4, 4)
+	http.DefaultTransport = site
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	jar, _ := cookiejar.New(nil)
+
+	skip := map[string]bool{model.MatchIDFromURL(detailURL("d0", 0)): true}
+	got, _, err := ScrapingWithOption("", "", time.Time{}, ScrapingOption{SavedJar: jar, SkipMatchIDs: skip})
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if site.detailed != 3 {
+		t.Errorf("詳細取得は 3 件のはずが %d 件", site.detailed)
+	}
+	for _, sc := range got {
+		if skip[sc.MatchID] {
+			t.Errorf("スキップ対象 %s が返った", sc.MatchID)
+		}
 	}
 }

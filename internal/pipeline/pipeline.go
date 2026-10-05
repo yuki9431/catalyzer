@@ -249,8 +249,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	// 403の場合でも途中データがあれば保存・分析を続行する
 	is403WithPartialData := errors.Is(err, scraper.ErrAccessDenied) && len(datedScores) > 0
 	if err != nil && !is403WithPartialData {
-		// 保存済みセッション使用時にスクレイピング失敗 → セッション削除
-		if usingSession && j.SessionToken != "" {
+		// 保存済みセッションの失効が確定したときだけセッションを削除する(一時障害では残す)
+		if shouldDeleteSession(usingSession, j.SessionToken, err) {
 			if delErr := fs.DeleteSession(j.SessionToken); delErr != nil {
 				log.Printf("[WARN] Failed to delete expired session: %v", delErr)
 			}
@@ -383,6 +383,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	} else {
 		log.Printf("[INFO] Job %s completed", j.ID)
 	}
+}
+
+// shouldDeleteSession は失敗した分析で保存済みセッションを削除すべきかを返す。
+func shouldDeleteSession(usingSession bool, token string, err error) bool {
+	return usingSession && token != "" && scraper.IsSessionExpired(err)
 }
 
 // buildMatchesJSON はDatedScoresをフロントエンド向けのMatchData JSONに変換する。

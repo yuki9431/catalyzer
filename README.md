@@ -43,8 +43,12 @@
 │   │   └── main.go                # MSリスト更新CLI
 │   ├── delete-recent-matches/
 │   │   └── main.go                # 指定ユーザーの最新N日間の戦績削除CLI
-│   └── extract-grades/
-│       └── main.go                # Firestoreから未登録グレードURL抽出CLI
+│   ├── extract-grades/
+│   │   └── main.go                # Firestoreから未登録グレードURL抽出CLI
+│   ├── auto-refresh/
+│   │   └── main.go                # 自動更新の Cloud Run Job
+│   └── hash-passphrase/
+│       └── main.go                # 自動更新の合言葉ハッシュ生成CLI
 ├── internal/
 │   ├── model/
 │   │   └── types.go               # 型定義のみ（PlayerScore, MSInfo等）
@@ -61,6 +65,7 @@
 │   │   ├── scores.go              # 戦績（matches）の読み書き
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
+│   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
 │   └── server/
