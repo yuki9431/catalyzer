@@ -88,3 +88,20 @@ func TestVerifyPassphrase_Normalizes(t *testing.T) {
 		t.Error("違う合言葉は一致しない")
 	}
 }
+
+// ハッシュ生成側も正規化する(半角カナ・結合文字で作っても全角・合成済みで照合できる)
+func TestHashPassphrase_Normalizes(t *testing.T) {
+	phc, err := HashPassphrase("ｶﾞﾝﾀﾞﾑ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := verifyPassphrase(phc, "ガンダム"); !ok {
+		t.Error("半角カナで作ったハッシュは全角カナと一致するはず")
+	}
+	if ok, _ := verifyPassphrase(phc, "ガン ダム"); ok {
+		t.Error("内側の空白は区別する")
+	}
+	if _, err := HashPassphrase(" 　"); err == nil {
+		t.Error("空白だけの合言葉はエラーにする")
+	}
+}

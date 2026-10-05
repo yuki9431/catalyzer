@@ -22,7 +22,7 @@ const (
 	argonSaltLen = 16
 )
 
-// normalizePassphrase は端末や入力方法による表記の揺れ(全角・半角、結合文字、前後の空白)を揃える
+// normalizePassphrase は端末や入力方法による表記の揺れ(全角・半角、結合文字、前後の空白)を揃える。
 func normalizePassphrase(passphrase string) string {
 	return strings.TrimSpace(norm.NFKC.String(passphrase))
 }
@@ -30,6 +30,9 @@ func normalizePassphrase(passphrase string) string {
 // HashPassphrase は合言葉を argon2id の PHC 文字列にする。
 func HashPassphrase(passphrase string) (string, error) {
 	passphrase = normalizePassphrase(passphrase)
+	if passphrase == "" {
+		return "", fmt.Errorf("合言葉が空です")
+	}
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("salt 生成: %w", err)

@@ -136,6 +136,7 @@
 | **argon2id(m=19456KiB, t=2, p=1)** | **高い。OWASP の第一推奨** | PHC 形式のパース(約 30 行・テスト付き) | x/crypto(indirect v0.49.0→direct) | 数十 ms / 19MiB |
 
 - 結論: **argon2id**。数十人・低頻度なのでコストは問題にならず、依存の追加は indirect からの昇格だけ
+- 合言葉はハッシュ生成と照合の両方で NFKC 正規化と前後の空白除去をしてから argon2id に渡す(全角・半角、結合文字の揺れを区別しない。内側の空白と漢字の違いは区別する)。日本語の合言葉を打てるよう入力欄は type=text(PR #471)
 - 保存は PHC 文字列 `$argon2id$v=19$m=19456,t=2,p=1$<salt b64>$<hash b64>`(salt 16 バイト、鍵長 32、base64 は RawStd)
 - 渡し方: オーナーが `go run ./cmd/hash-passphrase` に標準入力で合言葉を渡して PHC を得る → `pulumi config set --secret autoRefreshPassphraseHash '<PHC>'`(スタックごと)→ Pulumi がサービスの env `AUTO_REFRESH_PASSPHRASE_HASH` に入れる
   - 既存の `SESSION_ENCRYPTION_KEY` と同じく env に平文で入るので、Cloud Run コンソールで閲覧者に見える。argon2id のハッシュなので許容する。Secret Manager はここでは過剰と判断した
