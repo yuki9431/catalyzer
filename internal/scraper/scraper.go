@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -211,7 +212,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 
 	go func() {
 		defer close(entryCh)
-		streamErr = streamMatchEntries(ctx, cancel, jar, dailyLinks, since, entryCh)
+		streamErr = streamMatchEntries(ctx, jar, dailyLinks, since, entryCh)
 	}()
 
 	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
@@ -297,8 +298,8 @@ func collectDailyLinks(jar http.CookieJar, since time.Time) ([]dailyLink, error)
 }
 
 // streamMatchEntries は複数の日別ページから試合エントリを並列で収集し、links の順(古い日から)にチャネルへ流す
-// HTTPエラーが1件でもあればエラーを返す。403の場合はErrAccessDeniedを返し即座にキャンセルする
-func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, links []dailyLink, since time.Time, out chan<- matchEntry) error {
+// 途中の日が失敗したらそれより新しい日は流さない。流し済みの古い日の詳細取得は止めない(#456)
+func streamMatchEntries(ctx context.Context, jar http.CookieJar, links []dailyLink, since time.Time, out chan<- matchEntry) error {
 	if len(links) == 0 {
 		return nil
 	}
@@ -307,48 +308,45 @@ func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http
 	results := make([][]matchEntry, len(links))
 	errs := make([]error, len(links))
 	done := make([]chan struct{}, len(links))
-	var wg sync.WaitGroup
+	var failed atomic.Bool
 
-	for i, dl := range links {
+	for i := range links {
 		done[i] = make(chan struct{})
-		wg.Add(1)
-		go func(i int, dl dailyLink) {
-			defer wg.Done()
-			defer close(done[i])
-
+	}
+	// 古い日から順に枠を取って起動する(枠の奪い合いで新しい日を先に取らない)
+	go func() {
+		for i, dl := range links {
 			select {
 			case <-ctx.Done():
 				errs[i] = ctx.Err()
-				return
+				close(done[i])
+				continue
 			case sem <- struct{}{}:
 			}
-			defer func() { <-sem }()
-
-			entries, err := collectMatchEntries(jar, dl, since)
-			results[i], errs[i] = entries, err
-			if err != nil {
-				cancel()
+			// 別の日で失敗済みなら以降の日は取りに行かない(403 中に叩き続けない)
+			if failed.Load() {
+				errs[i] = errDaySkipped
+				<-sem
+				close(done[i])
+				continue
 			}
-			time.Sleep(entryRequestDelay)
-		}(i, dl)
-	}
+			go func(i int, dl dailyLink) {
+				defer close(done[i])
+				defer func() { <-sem }()
+				entries, err := collectMatchEntries(jar, dl, since)
+				results[i], errs[i] = entries, err
+				if err != nil {
+					failed.Store(true)
+				}
+				time.Sleep(entryRequestDelay)
+			}(i, dl)
+		}
+	}()
 
-	// 取得は並列だが、流すのは古い日から順に。途中の日が失敗したらそれより新しい日は流さない(#456)
-	var (
-		totalPages, errorCount int
-		has403                 bool
-	)
 emit:
 	for i := range links {
 		<-done[i]
-		totalPages++
 		if errs[i] != nil {
-			if errors.Is(errs[i], ErrAccessDenied) {
-				has403 = true
-			}
-			if !errors.Is(errs[i], context.Canceled) {
-				errorCount++
-			}
 			break
 		}
 		for _, e := range results[i] {
@@ -359,19 +357,28 @@ emit:
 			}
 		}
 	}
-	if has403 || errorCount > 0 {
-		cancel()
+	// 全日の終了を待つ(見送り・キャンセルの日も done は閉じられる)
+	for i := range links {
+		<-done[i]
 	}
-	wg.Wait()
 
-	if has403 {
-		return ErrAccessDenied
+	var errorCount int
+	for _, err := range errs {
+		switch {
+		case errors.Is(err, ErrAccessDenied):
+			return ErrAccessDenied
+		case err != nil && !errors.Is(err, errDaySkipped) && !errors.Is(err, context.Canceled):
+			errorCount++
+		}
 	}
 	if errorCount > 0 {
-		return fmt.Errorf("日別ページ取得で%w: %d/%d件がエラー", ErrHTTPRequestFailed, errorCount, totalPages)
+		return fmt.Errorf("日別ページ取得で%w: %d/%d日がエラー", ErrHTTPRequestFailed, errorCount, len(links))
 	}
 	return nil
 }
+
+// errDaySkipped は別の日の失敗を受けて取得しなかった日を表す
+var errDaySkipped = errors.New("日別ページの取得を見送った")
 
 // collectMatchEntries は単一の日別ページから試合エントリを収集する（ページネーション対応）
 // since以前の試合が出たらページネーションを早期終了する
@@ -451,16 +458,24 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 	return entries, httpErr
 }
 
-// contiguousPrefix は発行順 0 から途切れず取得できた試合だけを返す。途中に抜けがあると、
-// それより新しい試合を保存した時点で最新日時が進み、抜けを二度と取りに行かなくなるため(#456)
+// contiguousPrefix は発行順 0 から途切れず取得できた試合だけを返す(#456)
 func contiguousPrefix(byIndex map[int]model.DatedScores, n int) model.DatedScores {
 	var out model.DatedScores
-	for i := 0; i < n; i++ {
+	i := 0
+	for ; i < n; i++ {
 		parsed, ok := byIndex[i]
 		if !ok {
 			break
 		}
 		out = append(out, parsed...)
+	}
+	if i == n || len(out) == 0 {
+		return out
+	}
+	// 途中で切れたら末尾の分を落とす。同じ分の未取得試合が次回 since で除外されるため
+	last := out[len(out)-1].Datetime
+	for len(out) > 0 && out[len(out)-1].Datetime.Equal(last) {
+		out = out[:len(out)-1]
 	}
 	return out
 }
@@ -552,7 +567,7 @@ collectLoop:
 				snapshot = make(model.DatedScores, len(scores))
 				copy(snapshot, scores)
 			}
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				errorCount++
 				if errors.Is(err, ErrAccessDenied) {
 					has403 = true
@@ -595,9 +610,9 @@ collectLoop:
 	if errorCount > 0 {
 		return nil, fmt.Errorf("詳細ページ取得で%w: %d/%d件がエラー", ErrHTTPRequestFailed, errorCount, dispatched)
 	}
-	// detail側でエラーは無いがctxがキャンセル済み=エントリ収集フェーズで403が発生したケース
+	// エントリ収集フェーズの403でキャンセル済み。古い側は連続しているので保存できる
 	if ctx.Err() != nil {
-		return nil, ErrAccessDenied
+		return contiguousPrefix(byIndex, dispatched), ErrAccessDenied
 	}
 	return scores, nil
 }
