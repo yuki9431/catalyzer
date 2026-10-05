@@ -26,6 +26,20 @@ function serveFile(res, root, rel) {
   });
 }
 
+// 自動更新のモック。GET は常に「無効・合言葉あり」、POST は合言葉 preview-pass だけ成功する(状態を持たないので画面間で干渉しない)
+var AUTO_REFRESH_PASSPHRASE = 'preview-pass';
+var AUTO_REFRESH_OFF = { available: true, passphrase_required: true, enabled: false, status: 'off' };
+
+function readJson(req, cb) {
+  var chunks = [];
+  req.on('data', function (c) { chunks.push(c); });
+  req.on('end', function () {
+    var body = {};
+    try { body = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch (e) {}
+    cb(body);
+  });
+}
+
 export function createServer() {
   var matches = fx.generateMatches();
   return http.createServer(function (req, res) {
@@ -44,7 +58,18 @@ export function createServer() {
     if (get && p === '/ms-list') return json(res, 200, fx.msList());
     if (get && p === '/national-ms-stats') return json(res, 200, fx.nationalStats());
     if (get && p === '/schema-version') return json(res, 200, { schema_version: fx.SCHEMA_VERSION });
-    if (get && p === '/matches') return json(res, 200, { user_key: fx.USER_KEY, matches: matches, total: matches.length, schema_version: fx.SCHEMA_VERSION });
+    if (get && p === '/matches') {
+      return json(res, 200, { user_key: fx.USER_KEY, matches: matches, total: matches.length, schema_version: fx.SCHEMA_VERSION });
+    }
+    if (get && p === '/auto-refresh') return json(res, 200, AUTO_REFRESH_OFF);
+    if (p === '/auto-refresh' && req.method === 'POST') {
+      return readJson(req, function (b) {
+        if (!b.enabled) return json(res, 200, AUTO_REFRESH_OFF);
+        if (b.passphrase !== AUTO_REFRESH_PASSPHRASE) return json(res, 403, { error: '合言葉が違います' });
+        json(res, 200, { available: true, passphrase_required: true, enabled: true, status: 'active', active_until: '2099-01-01T00:00:00Z' });
+      });
+    }
+    if (p === '/auto-refresh/touch' && req.method === 'POST') return json(res, 200, { enabled: false, status: 'off' });
     if (get && p === '/tag-partners') return json(res, 200, { user_key: fx.USER_KEY, tag_partners: fx.tagPartners() });
     if (get && p === '/session') return json(res, 200, { valid: false });
     if (p === '/session' && req.method === 'DELETE') return json(res, 200, {});

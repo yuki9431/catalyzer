@@ -3,6 +3,7 @@ package firestore
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -17,6 +18,9 @@ import (
 // （infra/shared/firestore.ts の sessions.expire_at）が期限到来後に浮いたドキュメントを
 // 自動削除する。TTL の削除時刻はフィールド値そのものなので ServerTimestamp は使えない。
 const sessionTTL = 30 * 24 * time.Hour
+
+// ErrSessionNotFound は対象セッションが存在しない(ログアウト済み)ことを表す。
+var ErrSessionNotFound = errors.New("session not found")
 
 // SaveSession は暗号化されたCookieJarをFirestoreに保存する。
 // token はセッション識別子（ランダムUUID）、userKey はユーザー識別子。
@@ -106,4 +110,29 @@ func DeleteSession(token string) error {
 
 	log.Printf("[INFO] Firestore: deleted session (token: %s...)", token[:8])
 	return nil
+}
+
+// UpdateSessionJar は jar と updated_at だけを更新する。expire_at は延ばさず、
+// ドキュメントが無ければ NotFound で失敗する(ログアウト済みのセッションを復活させない)。
+func UpdateSessionJar(ctx context.Context, token string, encryptedJar []byte) error {
+	c := getClient()
+	if c == nil {
+		return fmt.Errorf("firestore client not initialized")
+	}
+	_, err := c.Collection("sessions").Doc(token).Update(ctx, []firestore.Update{
+		{Path: "jar", Value: base64.StdEncoding.EncodeToString(encryptedJar)},
+		{Path: "updated_at", Value: firestore.ServerTimestamp},
+	})
+	if err != nil {
+		return sessionUpdateError(err)
+	}
+	return nil
+}
+
+// sessionUpdateError は生エラーが doc パス(token)を含むので、sentinel か code だけに落とす。
+func sessionUpdateError(err error) error {
+	if status.Code(err) == codes.NotFound {
+		return ErrSessionNotFound
+	}
+	return fmt.Errorf("update session jar: %s", status.Code(err))
 }

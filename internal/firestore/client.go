@@ -75,3 +75,11 @@ func getClient() *firestore.Client {
 	defer clientMu.RUnlock()
 	return client
 }
+
+// InitFromEnv は GOOGLE_CLOUD_PROJECT があればそれを、無ければメタデータサーバーのプロジェクトで初期化する。
+func InitFromEnv(ctx context.Context) error {
+	if p := os.Getenv("GOOGLE_CLOUD_PROJECT"); p != "" {
+		return InitWithProjectID(ctx, p)
+	}
+	return Init(ctx)
+}

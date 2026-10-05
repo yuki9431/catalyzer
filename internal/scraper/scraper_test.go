@@ -17,11 +17,14 @@ package scraper
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // TestScrapingWithOption_CanceledContext は、開始前にキャンセル済みのContextを渡すと
@@ -377,5 +380,77 @@ func TestFetchDetailPagesStreaming_EmptyDetailURL(t *testing.T) {
 	}
 	if ctx.Err() != nil {
 		t.Fatalf("空URLでContextをキャンセルしてはいけない: %v", ctx.Err())
+	}
+}
+
+func TestClassifyRankpageResponse(t *testing.T) {
+	authed, _ := url.Parse("https://web.vsmobile.jp/exvs2ib/results/classmatch/fight")
+	login, _ := url.Parse("https://web.vsmobile.jp/exvs2ib/login")
+	tests := []struct {
+		name   string
+		final  *url.URL
+		status int
+		err    error
+		want   error
+	}{
+		{"認証済みの戦績トップ", authed, 200, nil, nil},
+		{"ログイン画面に着地", login, 200, nil, ErrLoginFailed},
+		{"着地 URL が無い", nil, 200, nil, ErrLoginFailed},
+		{"403", authed, 403, errors.New("Forbidden"), ErrAccessDenied},
+		{"401", authed, 401, errors.New("Unauthorized"), ErrUnauthorized},
+		{"404", authed, 404, errors.New("Not Found"), ErrNotFound},
+		{"500", authed, 500, errors.New("Internal"), ErrServerError},
+		{"その他のステータス", authed, 418, errors.New("teapot"), ErrHTTPRequestFailed},
+		{"ネットワークエラー", nil, 0, errors.New("dial tcp"), ErrHTTPRequestFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyRankpageResponse(tt.final, tt.status, tt.err)
+			if tt.want == nil {
+				if got != nil {
+					t.Fatalf("got %v, want nil", got)
+				}
+				return
+			}
+			if !errors.Is(got, tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsSessionExpired(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"ログイン失敗", ErrLoginFailed, true},
+		{"ラップされたログイン失敗", fmt.Errorf("x: %w", ErrLoginFailed), true},
+		{"401", ErrUnauthorized, true},
+		{"403 は一時障害", ErrAccessDenied, false},
+		{"5xx", ErrServerError, false},
+		{"nil", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsSessionExpired(tt.err); got != tt.want {
+				t.Errorf("IsSessionExpired = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSkipKnownEntries(t *testing.T) {
+	a := matchEntry{detailURL: "https://example.test/a"}
+	b := matchEntry{detailURL: "https://example.test/b"}
+	known := map[string]bool{model.MatchIDFromURL(a.detailURL): true}
+
+	got := skipKnownEntries([]matchEntry{a, b}, known)
+	if len(got) != 1 || got[0].detailURL != b.detailURL {
+		t.Errorf("保存済みだけが除かれるべき: got %v", got)
+	}
+	if got := skipKnownEntries([]matchEntry{a, b}, nil); len(got) != 2 {
+		t.Errorf("skip が空なら全件残る: got %d", len(got))
 	}
 }

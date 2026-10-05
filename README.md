@@ -43,8 +43,12 @@
 │   │   └── main.go                # MSリスト更新CLI
 │   ├── delete-recent-matches/
 │   │   └── main.go                # 指定ユーザーの最新N日間の戦績削除CLI
-│   └── extract-grades/
-│       └── main.go                # Firestoreから未登録グレードURL抽出CLI
+│   ├── extract-grades/
+│   │   └── main.go                # Firestoreから未登録グレードURL抽出CLI
+│   ├── auto-refresh/
+│   │   └── main.go                # 自動更新の Cloud Run Job
+│   └── hash-passphrase/
+│       └── main.go                # 自動更新の合言葉ハッシュ生成CLI
 ├── internal/
 │   ├── model/
 │   │   └── types.go               # 型定義のみ（PlayerScore, MSInfo等）
@@ -61,6 +65,7 @@
 │   │   ├── scores.go              # 戦績（matches）の読み書き
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
+│   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
 │   └── server/
@@ -82,11 +87,12 @@
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
-│   │   ├── shell.js               # AppShell（トップバー・本文・下部タブバー）とその他画面
+│   │   ├── shell.js               # AppShell（トップバー・本文・下部タブバー）とその他画面（自動更新の設定を含む）
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
+│   │   ├── autorefresh.js         # 自動更新の純粋ロジック（差分の起点・取り込み可否・状態の文言）
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
@@ -100,6 +106,7 @@
 │   │   ├── chart-canvas.test.js   # chart-canvas.js テスト
 │   │   ├── skeleton-actions.test.js # Skeleton/AppShell/MoreView への props 渡し忘れ検査
 │   │   ├── shell.test.js          # タブ定義と画面状態の読み出し
+│   │   ├── autorefresh.test.js    # autorefresh.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・スクロール隠しが無いことの静的検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト

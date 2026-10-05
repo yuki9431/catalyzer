@@ -1,8 +1,12 @@
 package pipeline
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
 // TestMergeScores_SameMinuteMatchIDPreserved は#358の核リグレッション。
@@ -39,5 +43,31 @@ func TestMergeScores_LegacySupersededByRescrape(t *testing.T) {
 		if s.MatchID != "match-a" {
 			t.Errorf("置換後は新側のMatchIDを持つはず: got %q", s.MatchID)
 		}
+	}
+}
+
+func TestShouldDeleteSession(t *testing.T) {
+	tests := []struct {
+		name         string
+		usingSession bool
+		token        string
+		err          error
+		want         bool
+	}{
+		{"失効(ログイン失敗)", true, "tok", scraper.ErrLoginFailed, true},
+		{"失効(ラップ)", true, "tok", fmt.Errorf("x: %w", scraper.ErrLoginFailed), true},
+		{"失効(401)", true, "tok", scraper.ErrUnauthorized, true},
+		{"403 は残す", true, "tok", scraper.ErrAccessDenied, false},
+		{"5xx は残す", true, "tok", scraper.ErrServerError, false},
+		{"その他は残す", true, "tok", errors.New("timeout"), false},
+		{"セッション未使用", false, "tok", scraper.ErrLoginFailed, false},
+		{"token なし", true, "", scraper.ErrLoginFailed, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldDeleteSession(tt.usingSession, tt.token, tt.err); got != tt.want {
+				t.Errorf("shouldDeleteSession = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

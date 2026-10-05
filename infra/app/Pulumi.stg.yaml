@@ -1,11 +1,12 @@
 secretsprovider: gcpkms://projects/exvs2ib-analyzer/locations/asia-northeast1/keyRings/pulumi-secrets/cryptoKeys/pulumi-state
 encryptedkey: CiQAll9D5WDA7usIHCU/rNrKnSr+O2Xzg+vXaTCsa5NSOw6loLISSQDTCZ+A4B7OnFsieoFe5+hdATGg6IDYWfj2OxYlVBH4gDymLO8WhUw5UYJ5YlZsazRt77LU3cBiJL+jnrYBIl1IdyxBbkqVgkU=
 config:
+  exvs-app:autoRefreshEnabled: "false"
   exvs-app:cpu: "1"
   exvs-app:domain: stg.exvs-analyzer.com
   exvs-app:firestoreDatabase: exvs-analyzer
   exvs-app:image:
-    secure: v1:yDBmXeIGGVvyvkbZ:EBH3mL0Ml7LWumdKqEysCTXrVMHUP52MxzLs4FCL0UEGfB9GHWDeITw0hNMXumc328yA1beZHVpJlNUFbIxcqvKfTJFlG2Sp03qNTacKLPW+dltyjJXLREQfoZTKc8bJOxlSdpGzOzYZUmsmbR74/asD4WxF7A==
+    secure: v1:rxtywo6RUn8SkYUX:p9m3/roigpGRv0VnDQEF4V5OX9rsXUcJIj/+734IwUCBGLS69gNvyGSENdHzOM55L52e44AbGDXKPQXgkHZqgstkeKvTNs5WfynydOgTgePpGXbupGumcn8CoHQ1Bl8TrL7TIZ5EZLBT8cBjEt3UBtDleBN5Ng==
   exvs-app:maxInstances: "1"
   exvs-app:memory: 512Mi
   exvs-app:serviceName: stg-exvs-analyzer

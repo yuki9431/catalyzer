@@ -202,6 +202,8 @@ async function runScreen(conn, origin, screen, theme, update) {
     fs.writeFileSync(path.join(ACTUAL, screen.id + '-' + theme + '.png'), png);
     if (external.length) return fail('外部リクエスト ' + external[0]);
     if (dialogs.length) return fail('ダイアログ ' + dialogs[0]);
+    // 4xx 応答はブラウザが console エラーに出す。応答自体が画面の主題のとき(合言葉誤りの 403 等)だけ screen.expectConsole で許す
+    consoleErrors = consoleErrors.filter(function (e) { return !(screen.expectConsole || []).some(function (x) { return String(e).includes(x); }); });
     if (consoleErrors.length) return fail('console エラー ' + consoleErrors[0]);
     var overflow = await evalJs(OVERFLOW_EXPR);
     if (overflow) return fail('画面の左右にはみ出し ' + overflow);
