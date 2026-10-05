@@ -287,13 +287,12 @@ func LoadMatchIDsAt(ctx context.Context, userKey string, t time.Time) (ids []str
 - **refreshUser の流れ**: lease を取る → LoadSession → 復号/復元 → `latest := GetLatestDatetime`(既存。Limit(1) で 1 read)→ ゼロ値なら skipped
   → `ids, legacy := LoadMatchIDsAt(latest)` → `since = latest - 1分`(`legacy` があれば `since = latest`)
   → `ScrapingWithOption("", "", since, {SavedJar, Context: 200s のタイムアウト付き ctx, SkipMatchIDs: ids})`
-  → **スクレイピングが最後まで成功したときだけ**、新規があれば `FillMsNames` / `CheckUnknownMS` / `SaveScoresAtomic`(WriteBatch。500件以下を一括で書き、全件成功か全件失敗のどちらか)。403・タイムアウトで途中終了した回は保存せず、次の tick でやり直す
+  → 403 の途中データを含め、新規があれば `FillMsNames` / `CheckUnknownMS` / `SaveScores`(同期。`bw.End()` で完了を待つ)
   → 成功か 403 なら `SerializeJar` → `Encrypt` → `UpdateSessionJar` → classify → nextUpdate → FinishRefresh
 - **同じ分の試合の取りこぼし対策**: スクレイパーは `!t.After(since)` で打ち切るので、分精度で同じ分に後から出てきた試合を逃す
   - `since` を 1 分戻し、既に保存済みの MatchID を `ScrapingOption.SkipMatchIDs map[string]bool` で詳細取得の前に捨てる
   - MatchID は detailURL から `model.MatchIDFromURL` で求まる。フィルタは純粋関数 `skipKnownEntries` にする
   - legacy の試合(match_id が空)が混ざると doc ID が変わって重複するので、その回は従来どおり `since = latest` にする
-- **途中保存をしない理由**: 戦績一覧は公式サイトの並び順(新しい順)で取るため、途中で止まると新しい試合だけが保存される。最新の日時が先に進み、古い側の未取得分が `since` より前になって二度と取られない。1回の新規は1〜2戦なので、失敗した回を捨てても損は小さい。保存を一括にするのも同じ理由(`BulkWriter` は一部だけ書かれうる)。手動分析の同じ問題は別 issue で扱う
 - **省くもの**: 速報 JSON とジョブストア(閲覧はフロントの差分取得で行う)、ClassRecord(永続化しない付加情報)、TagPartners(変化が稀。手動分析で更新される)、grade チェック
 - **Job の終了**: `RunJob` はユーザーごとの goroutine を WaitGroup で全部待ち、`[INFO] auto-refresh done users=N elapsed=Xs` を出してから return する
   - jar の保存も FinishRefresh も各 goroutine の中で同期的に行うので、プロセスが先に終わることはない
