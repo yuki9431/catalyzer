@@ -27,7 +27,7 @@ function serveFile(res, root, rel) {
 }
 
 // 自動更新のモック。GET は常に「無効・合言葉あり」、POST は合言葉 preview-pass だけ成功する(状態を持たないので画面間で干渉しない)
-export var AUTO_REFRESH_PASSPHRASE = 'preview-pass';
+var AUTO_REFRESH_PASSPHRASE = 'preview-pass';
 var AUTO_REFRESH_OFF = { available: true, passphrase_required: true, enabled: false, status: 'off' };
 
 function readJson(req, cb) {
@@ -59,9 +59,7 @@ export function createServer() {
     if (get && p === '/national-ms-stats') return json(res, 200, fx.nationalStats());
     if (get && p === '/schema-version') return json(res, 200, { schema_version: fx.SCHEMA_VERSION });
     if (get && p === '/matches') {
-      var after = url.searchParams.get('after');
-      var list = after ? matches.filter(function (m) { return m.date > after; }) : matches;
-      return json(res, 200, { user_key: fx.USER_KEY, matches: list, total: list.length, schema_version: fx.SCHEMA_VERSION });
+      return json(res, 200, { user_key: fx.USER_KEY, matches: matches, total: matches.length, schema_version: fx.SCHEMA_VERSION });
     }
     if (get && p === '/auto-refresh') return json(res, 200, AUTO_REFRESH_OFF);
     if (p === '/auto-refresh' && req.method === 'POST') {

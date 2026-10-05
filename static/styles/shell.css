@@ -22,4 +22,4 @@ body:has(.view-root:not(.view-more)) .disclaimer { display: none; }
 .auto-refresh .ui-notice { margin-top: 8px; }
 .auto-form { margin-top: 12px; }
 .auto-form input { min-height: 44px; font-size: 1rem; }
-.auto-form .more-btn, .auto-refresh > .more-btn, .auto-refresh > .more-btn-sub { width: 100%; margin-top: 8px; }
+.auto-form .more-btn, .auto-refresh > .more-btn, .auto-refresh > .more-btn-sub { flex: none; width: 100%; margin-top: 8px; }

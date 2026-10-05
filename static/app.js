@@ -25,7 +25,8 @@ var REBUILD_BACKOFF_KEY = 'catalyzer_rebuild_backoff_until';
 var activeJobId = null;
 
 // 自動更新(サーバーが定期取得した試合)の取り込み。起動時と画面が前面に戻ったときに差分だけ取り、直近の取り込みから20秒は飛ばす
-var lastPullAt = 0;
+var lastPullAt = 0; // 取り込みを試みた時刻(間隔制御用)
+var lastImportedAt = 0; // 差分を保存できた時刻(画面表示用)
 var pulling = false;
 
 function reAnalyze() {
@@ -209,13 +210,14 @@ async function autoRefreshCall(method, body) {
     });
     var data = null;
     try { data = await res.json(); } catch (e) {}
-    return { status: res.status, body: data, lastPullAt: lastPullAt };
+    return { status: res.status, body: data };
   } catch (e) {
-    return { status: 0, body: null, lastPullAt: lastPullAt };
+    return { status: 0, body: null };
   }
 }
 
 var AUTO_REFRESH_ACTIONS = {
+  lastImportedAt: function () { return lastImportedAt; },
   load: function () { return autoRefreshCall('GET'); },
   set: function (enabled, passphrase) { return autoRefreshCall('POST', enabled ? { enabled: true, passphrase: passphrase } : { enabled: false }); },
 };
@@ -612,7 +614,7 @@ if (rememberInfoBtn && rememberModal) {
   // （ログインが必要な場合は再分析ボタン経由で reAnalyze が再表示する）。
   if (renderedFromCache && loginForm) loginForm.style.display = 'none';
 
-  if (hasSession && renderedFromCache) pullAutoRefresh();
+  if (hasSession) pullAutoRefresh();
 
   if (hasSession) {
     if (loginForm) loginForm.style.display = 'none';
@@ -666,9 +668,11 @@ async function pullAutoRefresh() {
     if (data.user_key !== userKey || !data.matches || !data.matches.length) return;
     if (pullStale(userKey)) return;
     await saveMatchesToDB(userKey, data.matches, data.schema_version);
+    lastImportedAt = Date.now();
     if (pullStale(userKey)) return;
     renderReport({ matches: await loadMatchesFromDB(userKey) }, userKey);
   } catch (e) {
+    // 自動実行なので失敗は見送る(次の起動・前面復帰で再試行)
   } finally {
     pulling = false;
   }

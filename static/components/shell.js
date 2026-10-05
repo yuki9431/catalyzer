@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from '../htm-preact-standalone.js';
+import { html, useState, useEffect, useRef } from '../htm-preact-standalone.js';
 import { Panel } from './ui.js';
 import { RowList, Notice } from './parts.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
@@ -95,24 +95,26 @@ function ShareArea({ shareData }) {
 }
 
 // --- 設定: 自動更新 ---
-// autoRefresh = { load(), set(enabled, passphrase) }(app.js から props で注入)。どちらも { status, body, lastPullAt } を返し、通信失敗は status 0
+// autoRefresh = { load(), set(enabled, passphrase), lastImportedAt() }(app.js から props で注入)。load/set は { status, body } を返し、通信失敗は status 0
 function AutoRefreshSettings({ autoRefresh }) {
   var stRef = useState(null), st = stRef[0], setSt = stRef[1];
-  var lastRef = useState(0), lastPullAt = lastRef[0], setLast = lastRef[1];
+  var lastRef = useState(0), lastImportedAt = lastRef[0], setLast = lastRef[1];
   var errRef = useState(''), error = errRef[0], setError = errRef[1];
   var passRef = useState(''), passphrase = passRef[0], setPassphrase = passRef[1];
+  var statusRef = useState(0), errStatus = statusRef[0], setErrStatus = statusRef[1];
   var busyRef = useState(false), busy = busyRef[0], setBusy = busyRef[1];
 
   function apply(res) {
-    setLast(res.lastPullAt || 0);
+    setLast(autoRefresh.lastImportedAt());
     if (res.status === 200 && res.body) { setSt(res.body); setError(''); return true; }
+    setErrStatus(res.status);
     setError(errorMessage(res.status));
     return false;
   }
+  var alive = useRef(true);
   useEffect(function () {
-    var alive = true;
-    autoRefresh.load().then(function (res) { if (alive) apply(res); });
-    return function () { alive = false; };
+    autoRefresh.load().then(function (res) { if (alive.current) apply(res); });
+    return function () { alive.current = false; };
   }, []);
 
   function submit(enabled) {
@@ -120,15 +122,17 @@ function AutoRefreshSettings({ autoRefresh }) {
     var p = passphrase;
     setPassphrase('');
     setBusy(true);
-    autoRefresh.set(enabled, p).then(function (res) { apply(res); }).then(function () { setBusy(false); });
+    autoRefresh.set(enabled, p).then(function (res) { if (alive.current) { apply(res); setBusy(false); } });
   }
 
+  // 保持していない・必要というのは異常でなく状態なので赤い警告にしない
+  var loadTone = errStatus === 401 || errStatus === 409 ? 'info' : 'error';
   if (!st) {
     return html`<div class="auto-refresh" data-ui="auto-refresh">
-      ${error ? html`<${Notice} tone="error">${error}</${Notice}>` : html`<p class="more-lead">自動更新の状態を確認しています。</p>`}
+      ${error ? html`<${Notice} tone=${loadTone}>${error}</${Notice}>` : html`<p class="more-lead">自動更新の状態を確認しています。</p>`}
     </div>`;
   }
-  var d = describeStatus(st, lastPullAt);
+  var d = describeStatus(st, lastImportedAt);
   var row = [{ key: 'auto-refresh-status', main: '自動更新', sub: d.sub, aside: d.aside }];
   var on = st.available && st.enabled;
   var off = st.available && !st.enabled;
@@ -136,7 +140,7 @@ function AutoRefreshSettings({ autoRefresh }) {
     <${RowList} rows=${row} />
     ${off && html`<form class="auto-form" onSubmit=${function (e) { e.preventDefault(); submit(true); }}>
       ${st.passphrase_required && html`<label for="autoRefreshPassphrase">合言葉</label>
-      <input id="autoRefreshPassphrase" type="password" autocomplete="off" value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
+      <input id="autoRefreshPassphrase" type="password" autocomplete="off" required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
       <button type="submit" class="more-btn" disabled=${busy || (st.passphrase_required && !passphrase)}>有効にする</button>
     </form>`}
     ${on && html`<button type="button" class="more-btn-sub" disabled=${busy} onClick=${function () { submit(false); }}>無効にする</button>`}

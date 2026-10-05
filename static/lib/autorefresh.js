@@ -33,10 +33,10 @@ var STOP_REASONS = {
 
 function hhmm(t) { return pad2(t.getHours()) + ':' + pad2(t.getMinutes()); }
 
-// GET /auto-refresh の応答を、状態行の { aside, sub } にする。lastPullAt はこの端末の最終取り込み時刻(ms、0 は未取得)
-export function describeStatus(st, lastPullAt) {
+// GET /auto-refresh の応答を、状態行の { aside, sub } にする。lastImportedAt はこの端末で最後に差分を保存できた時刻(ms、0 は未取得)
+export function describeStatus(st, lastImportedAt) {
   if (!st || !st.available) return { aside: '利用不可', sub: '現在この機能は使えません' };
-  var last = lastPullAt ? '最終取り込み ' + hhmm(new Date(lastPullAt)) : '';
+  var last = lastImportedAt ? '最終取り込み ' + hhmm(new Date(lastImportedAt)) : '';
   if (!st.enabled || st.status === 'off') return { aside: '無効', sub: '公式サイトの新しい試合を自動で取り込みます' };
   if (st.status === 'stopped') return { aside: '停止中', sub: STOP_REASONS[st.reason] || '問題が起きたため停止しています' };
   if (st.status === 'idle') return { aside: '有効', sub: ['休止中。アプリを開くと再開します', last].filter(Boolean).join(' / ') };
