@@ -24,6 +24,8 @@ const dnsZoneName = shared.getOutput("dnsZoneName") as pulumi.Output<string>;
 // 有効時のみ必須。shared 未 apply なら広い権限の SA で Job を作らず失敗させる
 const autoRefreshJobSaEmail = autoRefreshEnabled ? (shared.requireOutput("autoRefreshJobSaEmail") as pulumi.Output<string>) : undefined;
 const autoRefreshSchedulerSaEmail = autoRefreshEnabled ? (shared.requireOutput("autoRefreshSchedulerSaEmail") as pulumi.Output<string>) : undefined;
+// サービスは専用の実行 SA で動かす。compute のデフォルト SA(editor)を使わない(#460)
+const runSaEmail = shared.requireOutput("runSaEmail") as pulumi.Output<string>;
 
 // 自動更新の Cloud Run Job(サービスと同じイメージ)
 const autoRefreshJob = autoRefreshEnabled
@@ -81,6 +83,7 @@ export const service = new gcp.cloudrunv2.Service(
     ingress: "INGRESS_TRAFFIC_ALL",
     launchStage: "GA",
     template: {
+      serviceAccount: runSaEmail,
       scaling: {
         maxInstanceCount: maxInstances,
       },
