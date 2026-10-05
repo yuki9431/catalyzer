@@ -1,30 +1,10 @@
-/* ===== KPI cards ===== */
-.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-.kpi {
-  background: linear-gradient(160deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line); border-radius: 16px; padding: 16px;
-  box-shadow: var(--shadow); position: relative; overflow: hidden;
-}
-.kpi::after {
-  content: ''; position: absolute; right: -20px; top: -20px;
-  width: 80px; height: 80px; border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-a18), transparent 70%);
-}
-.kpi .kpi-label { font-size: 0.875rem; color: var(--muted); margin-bottom: 6px; }
-.kpi .kpi-value { font-size: 2rem; font-weight: 800; line-height: 1; }
-.kpi .kpi-sub { font-size: 0.875rem; color: var(--muted); margin-top: 8px; }
-.kpi .kpi-value.great { color: var(--great); }
-.kpi .kpi-value.good { color: var(--accent); }
-.kpi .kpi-value.bad { color: var(--bad); }
-.kpi .kpi-value.terrible { color: var(--terrible); }
+/* ===== Report summary ===== */
+.report-summary { margin-bottom: 36px; }
+.report-scope { margin: 0 0 8px; color: var(--muted); font-size: 0.875rem; }
 
-/* ===== Panels ===== */
-.panel {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
-  padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow);
-}
-.panel > h2 { font-size: 1.0625rem; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-.panel > h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+/* ===== Panels（面・枠・影なし。塗りがあるのは要約だけ） ===== */
+.panel { background: none; border: none; padding: 0; margin: 0 0 36px; }
+.report .panel > h2, .panel > h2 { font-size: 1.125rem; color: var(--text); margin: 0 0 12px; }
 .action-summary { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.875rem; margin-bottom: 8px; }
 .action-summary strong { color: var(--accent); }
 .action-up { color: var(--good); }
@@ -83,10 +63,7 @@
 .tabpane { animation: fade .25s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/* ===== Cards within tabs ===== */
-.card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-.card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-.card > h3 { font-size: 0.9375rem; color: var(--accent-2); margin-bottom: 10px; }
+/* ===== Tab contents ===== */
 .ms-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
 .ms-head .name { font-weight: 700; font-size: inherit; }
 .ms-head .meta { font-size: 0.875rem; color: var(--muted); }

@@ -1,5 +1,6 @@
 import { html, useEffect, useRef, useState } from '../../htm-preact-standalone.js';
 import { esc } from '../../lib/format.js';
+import { Chip, ToggleGroup } from '../parts.js';
 import { RangeCalendar } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
 
@@ -30,9 +31,7 @@ function TimeSelector({ hour, minute, onChangeHour, onChangeMinute, isEnd }) {
 
 export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }) {
   var keys = PERIOD_KEYS.filter(function (k) { return periods[k]; });
-  if (keys.length <= 1 && !userKey) return null;
-
-  var pop = usePopover({ mode: 'sheet-top', lockScroll: true });
+  var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
   var customRef = useState(false);
   var showCustom = customRef[0], setShowCustom = customRef[1];
@@ -64,6 +63,9 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
     }
   }, [showCustom]);
 
+  // hooks の後ろで判定する（#446）
+  if (keys.length <= 1 && !userKey) return null;
+
   var currentLabel = selected === 'custom'
     ? (periods.custom ? periods.custom.label : '日付指定')
     : (periods[selected] ? periods[selected].label : '全データ');
@@ -91,10 +93,8 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
   }
 
   return html`<div class="period-selector" ref=${pop.rootRef}>
-    <button class="period-trigger" data-ui="period-trigger" ref=${pop.triggerRef} onClick=${pop.toggle}>
-      ${currentLabel} <span class="period-arrow">${isOpen ? '\u25B2' : '\u25BC'}</span>
-    </button>
-    <${Popover} pop=${pop} panelClass="period-dropdown" backdropClass="period-backdrop" ui="period-panel">
+    <${Chip} ui="period-trigger" expanded=${isOpen} active=${selected !== 'all'} onClick=${pop.toggle}><span class="ui-chip-text">${currentLabel}</span></${Chip}>
+    <${Popover} pop=${pop} panelClass="period-dropdown" backdropClass="period-backdrop" ui="period-panel" title="期間">
       <div class="period-dropdown-list">
         ${keys.map(function (k) {
           return html`<button data-ui="period-item" class=${'period-dropdown-item' + (selected === k ? ' active' : '')}
@@ -135,15 +135,13 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
 }
 
 export function MsSelector({ entries, selected, onSelect }) {
-  var pop = usePopover({ mode: 'sheet-top' });
+  var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
   var label = selected ? '1機選択' : '全機体';
   var isSelected = !!selected;
   return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
-    <button data-ui="ms-trigger" class=${'ms-topbar-trigger' + (isSelected ? ' selected' : '')} ref=${pop.triggerRef} onClick=${pop.toggle}>
-      ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
-    </button>
-    <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="ms-panel">
+    <${Chip} ui="ms-trigger" expanded=${isOpen} active=${isSelected} onClick=${pop.toggle}><span class="ui-chip-text">${esc(label)}</span></${Chip}>
+    <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="ms-panel" title="機体">
       <button data-ui="ms-item" class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); pop.close(); }}>全機体</button>
       ${entries.map(function (e) {
@@ -154,12 +152,8 @@ export function MsSelector({ entries, selected, onSelect }) {
   </div>`;
 }
 
+var LENS_OPTIONS = [{ value: 'all', label: '全体' }, { value: 'win', label: '勝利' }, { value: 'loss', label: '敗北' }];
+
 export function LensToggle({ lens, onSelect }) {
-  var opts = [['all', '全体'], ['win', '勝利'], ['loss', '敗北']];
-  return html`<div class="lens-toggle">
-    ${opts.map(function (o) {
-      return html`<button data-ui="lens" class=${'lens-btn' + (lens === o[0] ? ' active' : '')}
-        onClick=${function () { onSelect(o[0]); }}>${o[1]}</button>`;
-    })}
-  </div>`;
+  return html`<${ToggleGroup} ui="lens-toggle" label="勝敗" options=${LENS_OPTIONS} value=${lens} onChange=${onSelect} />`;
 }

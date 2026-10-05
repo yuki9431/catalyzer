@@ -1,16 +1,17 @@
-import { html, useEffect, useMemo, useRef, useState } from '../../htm-preact-standalone.js';
+import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.js';
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeMsPair, computeMsSummary, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
 import { AppShell, MoreView, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
+import { Chip } from '../parts.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
-import { KpiGrid } from './kpi.js';
 import { MatchupPane } from './matchup.js';
 import { OverviewPane } from './overview.js';
 import { PlaystylePane } from './playstyle.js';
+import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
 
 var TAB_DEFS = [
@@ -21,8 +22,16 @@ var TAB_DEFS = [
   ['time', '時間帯'],
 ];
 
+// 要約の上に出す対象範囲。期間・機体・勝敗レンズを「・」で連結する
+function scopeText(periodKey, periods, ms, lens) {
+  var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? (periods.custom ? periods.custom.label : '日付指定') : '直近' + periods[periodKey].label];
+  if (ms) parts.push(ms);
+  if (lens === 'win') parts.push('勝利のみ');
+  else if (lens === 'loss') parts.push('敗北のみ');
+  return parts.join('・');
+}
+
 export function Report({ data, userKey, actions }) {
-  if (!data) return null;
   var periodRef = useState('all');
   var selectedPeriod = periodRef[0], setSelectedPeriod = periodRef[1];
   var customRangeRef = useState(null);
@@ -56,7 +65,6 @@ export function Report({ data, userKey, actions }) {
   }, [data, userKey]);
   var msNationalRef = useState(null);
   var msNational = msNationalRef[0], setMsNational = msNationalRef[1];
-  var topbarRef = useRef(null);
 
   // 機体名→画像URLのマップを一度だけ取得（試合検索一覧のサムネイル表示用）。
   useEffect(function () {
@@ -107,28 +115,6 @@ export function Report({ data, userKey, actions }) {
       .then(function (d) { if (d && d.tag_partners) setTagPartners(d.tag_partners); })
       .catch(function () {});
   }, [userKey]);
-
-  useEffect(function () {
-    var row = topbarRef.current && topbarRef.current.querySelector('.controls-row');
-    if (!row) return;
-    function onScroll() {
-      if (window.scrollY > 50) {
-        row.style.maxHeight = '0';
-        row.style.opacity = '0';
-        row.style.paddingTop = '0';
-        row.style.overflow = 'hidden';
-        row.style.pointerEvents = 'none';
-      } else {
-        row.style.maxHeight = '';
-        row.style.opacity = '';
-        row.style.paddingTop = '';
-        row.style.overflow = '';
-        row.style.pointerEvents = '';
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return function () { window.removeEventListener('scroll', onScroll); };
-  }, []);
 
   // view 切替時にスクロールロック解除と先頭復帰。再マウント時にも効かせるため onNavigate と二重に持つ
   useEffect(function () {
@@ -251,7 +237,7 @@ export function Report({ data, userKey, actions }) {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} allMatches=${allMatches} userKey=${userKey} />`;
   }
 
-  var controls = html`<div class="controls-row">
+  var controls = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
@@ -262,8 +248,8 @@ export function Report({ data, userKey, actions }) {
           onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
       })}</div>`;
 
-  return html`<${AppShell} topbarRef=${topbarRef} onRefresh=${actions.onReanalyze} controls=${controls} nav=${nav}>
-    <${KpiGrid} activeTab=${activeTab} frontendData=${frontendData} />
+  return html`<${AppShell} onRefresh=${actions.onReanalyze} controls=${controls} nav=${nav}>
+    <${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />
 
     ${pane}
   </${AppShell}>`;
@@ -277,8 +263,8 @@ export function Skeleton({ actions, nav }) {
     return html`<div class="skel" data-ui="skeleton" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
   var controls = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
-        <button class="period-trigger" disabled>全データ <span class="period-arrow">▼</span></button>
-        <button class="ms-topbar-trigger" disabled>全機体 <span class="period-arrow">▼</span></button>
+        <${Chip} expanded=${false}><span class="ui-chip-text">全データ</span></${Chip}>
+        <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
         <${LensToggle} lens=${'all'} onSelect=${function () {}} />
       </div>
       <div class="tabs" role="tablist" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
@@ -292,10 +278,8 @@ export function Skeleton({ actions, nav }) {
     </${AppShell}>`;
   }
   return html`<${AppShell} controls=${controls} nav=${n}>
-    <div class="kpi-grid">
-      ${[0, 1, 2, 3, 4, 5].map(function () {
-        return html`<div class="kpi">${bar('50%', 12, 12)}${bar('70%', 28)}</div>`;
-      })}
+    <div class="report-summary">
+      <div class="ui-summary">${bar('30%', 14, 10)}${bar('40%', 44, 20)}${bar('100%', 56)}</div>
     </div>
     <div class="panel">
       ${bar('30%', 16, 14)}${bar('100%', 220)}

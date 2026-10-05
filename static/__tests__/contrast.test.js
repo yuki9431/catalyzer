@@ -50,6 +50,7 @@ function pairs() {
   out.push(['muted', 'accent-a06', 'bg']);
   [['text', 'accent-a15'], ['text', 'accent-a10'], ['muted', 'accent-a10'], ['accent', 'accent-a10'], ['accent-2', 'accent-a10'], ['accent', 'accent-a08']].forEach(([f, b]) => out.push([f, b, 'panel']));
   out.push(['accent', 'accent-a10', 'bg']);
+  ['text', 'muted', 'bad'].forEach((f) => out.push([f, 'accent-a10', 'bg']));
   out.push(['bad', 'accent-a10', 'panel']);
   [['great', 'great-a15'], ['terrible', 'terrible-a15'], ['timeup', 'timeup-a15']].forEach(([f, b]) => ['panel', 'panel-2'].forEach((base) => out.push([f, b, base])));
   out.push(['accent-2', 'accent-a18', 'panel']);

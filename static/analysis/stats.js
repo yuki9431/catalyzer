@@ -662,7 +662,7 @@ export function computeBurstCount(matches) {
 // 「2回以上覚醒」「未覚醒(0回)」の割合と加重勝率を算出する。
 // データ無し（null や空）のときは各値 null を返す。
 export function burstKpi(burstCount) {
-  var empty = { rate2: null, winRate2: null, rate0: null, winRate0: null };
+  var empty = { rate2: null, winRate2: null, matches2: null, rate0: null, winRate0: null, matches0: null };
   if (!burstCount || !burstCount.by_count || !burstCount.by_count.length) return empty;
   var byCount = burstCount.by_count;
   var total = 0;
@@ -680,12 +680,27 @@ export function burstKpi(burstCount) {
     return {
       rate: round1(m / total * 100),
       winRate: m ? round1(wins / m * 100) : null,
+      matches: m,
     };
   }
 
   var two = group(function (c) { return c >= 2; });
   var zero = group(function (c) { return c === 0; });
-  return { rate2: two.rate, winRate2: two.winRate, rate0: zero.rate, winRate0: zero.winRate };
+  return {
+    rate2: two.rate, winRate2: two.winRate, matches2: two.matches,
+    rate0: zero.rate, winRate0: zero.winRate, matches0: zero.matches,
+  };
+}
+
+// 敵機相性の要約用。強/弱/互角の合計件数と、勝率が最も低い敵機（同率は試合数の多い方、なお同じなら先頭）。
+export function enemyKpi(enemyMatchup) {
+  if (!enemyMatchup) return { total: 0, worst: null };
+  var all = [].concat(enemyMatchup.strong || [], enemyMatchup.weak || [], enemyMatchup.even || []);
+  var worst = null;
+  all.forEach(function (r) {
+    if (!worst || r.win_rate < worst.win_rate || (r.win_rate === worst.win_rate && r.matches > worst.matches)) worst = r;
+  });
+  return { total: all.length, worst: worst };
 }
 
 // タブ別KPI用。computeTimeOfDay の結果から勝率が最高/最低の時間帯を返す。

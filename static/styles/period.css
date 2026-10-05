@@ -1,7 +1,5 @@
 /* ===== Period selector ===== */
 .period-selector { position: relative; display: inline-block; }
-.period-trigger { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text); font-size: 0.875rem; cursor: pointer; transition: all 0.2s; width: auto; }
-.period-trigger:hover { border-color: var(--accent); }
 .period-arrow { font-size: 0.875rem; color: var(--muted); }
 .period-dropdown { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-pop); z-index: 100; min-width: 240px; max-height: calc(100vh - 96px); overflow: hidden auto; }
 .period-dropdown-list { display: flex; flex-direction: column; }

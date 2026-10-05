@@ -22,14 +22,14 @@ export function TimePane({ pd }) {
     ${time && time.hours && time.hours.length > 0 && html`<${Panel} title="時間帯別の勝率">
       <${TimeOfDayChart} hours=${time.hours} />
       <${Tips} tips=${time.tips} />
-      <${SubSection} title="テーブルで詳細を見る">
+      <${SubSection} title="表で見る">
         <${SortableTable} headers=${['時間帯', '試合', '勝率', '与被ダメ比']} rows=${timeRows} />
       <//>
     <//>`}
     ${dow && dow.days && dow.days.length > 0 && html`<${Panel} title="曜日別の勝率">
       <${DayOfWeekChart} days=${dow.days} />
       <${Tips} tips=${dow.tips} />
-      <${SubSection} title="テーブルで詳細を見る">
+      <${SubSection} title="表で見る">
         ${dowSummary.length > 0 && html`<h3>平日 vs 土日</h3><${Table} headers=${['区分', '試合', '勝率', '与被ダメ比']} rows=${dowSummary} />`}
         ${dowDays.length > 0 && html`<h3>曜日別</h3><${Table} headers=${['曜日', '試合', '勝率', '与被ダメ比']} rows=${dowDays} />`}
       <//>
@@ -37,7 +37,7 @@ export function TimePane({ pd }) {
     ${daily && daily.days && daily.days.length > 0 && html`<${Panel} title="日別勝率">
       <${DailyTrendChart} days=${daily.days} />
       <${Tips} tips=${daily.tips} />
-      <${SubSection} title="テーブルで詳細を見る">
+      <${SubSection} title="表で見る">
         <${SortableTable} headers=${['日付', '試合', '勝率', '与被ダメ比']} rows=${dailyRows} />
       <//>
     <//>`}

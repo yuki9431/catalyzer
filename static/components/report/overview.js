@@ -1,10 +1,10 @@
 import { html, useState } from '../../htm-preact-standalone.js';
 import { themeReader } from '../../lib/theme.js';
 import { clampMetric } from '../../analysis/stats.js';
-import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, esc } from '../../lib/format.js';
-import { Panel, SubSection, Table, Tips } from '../ui.js';
+import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, esc, signed } from '../../lib/format.js';
+import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
-import { CompareRadar, MsCompareChart, SeasonChart } from '../charts.js';
+import { CompareRadar, SeasonChart, WinRateRowList } from '../charts.js';
 import { ActionPlanPanel } from './action-plan.js';
 
 // 2系列を重ねたレーダー（series: [{label, color, bg, data[]}]）
@@ -150,16 +150,16 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
       <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
     </div>`}
     <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[
-      { label: '自分 (' + lensLabel + ')', color: cssVar('--accent'), bg: cssVar('--accent-a20'), data: pVec(p.my_stats, myWl) },
-      { label: '相方 (' + lensLabel + ')', color: cssVar('--bad'), bg: cssVar('--bad-a18'), data: pVec(p.partner_stats, partnerWl) },
+      { label: '自機 (' + lensLabel + ')', color: cssVar('--accent'), bg: cssVar('--accent-a20'), data: pVec(p.my_stats, myWl) },
+      { label: '僚機 (' + lensLabel + ')', color: cssVar('--bad'), bg: cssVar('--bad-a18'), data: pVec(p.partner_stats, partnerWl) },
     ]} />
-    <${Table} headers=${['項目 (' + lensLabel + ')', '自分', '相方']} rows=${headerRows.concat(statsRows)} />
-    ${msRows.length > 0 && html`<p><strong>相方の使用機体:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
+    <${Table} headers=${['項目 (' + lensLabel + ')', '自機', '僚機']} rows=${headerRows.concat(statsRows)} />
+    ${msRows.length > 0 && html`<p><strong>僚機の内訳:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
     <${Tips} tips=${p.tips} />
   <//>`;
 }
 
-// 機体別の勝率比較グラフに並べる最低試合数
+// 機体別の勝率比較に並べる最低試合数
 var msCompareMinMatches = 10;
 
 export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, allMatches, userKey }) {
@@ -172,14 +172,21 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, a
     var s = msSummary[name];
     return s.matches >= msCompareMinMatches && s.basic_stats && s.basic_stats.wins > 0;
   }).map(function (name) {
-    var e = { name: name, winRate: msSummary[name].basic_stats.win_rate };
+    var s = msSummary[name];
+    var e = { name: name, winRate: msSummary[name].basic_stats.win_rate, matches: s.matches };
     // 全国側の win_rate 0 は抽出失敗なので重ねない
-    if (natl[name] && natl[name].win_rate > 0) e.nationalWinRate = natl[name].win_rate;
+    if (natl[name] && natl[name].win_rate > 0) e.national = natl[name].win_rate;
     return e;
   });
 
   // 特定機体を選択中は、その機体の全国平均勝率と自分の勝率を比較表示する（勝率>0のデータのみ）。
   var selNatl = (selectedMs && natl[selectedMs] && natl[selectedMs].win_rate > 0) ? natl[selectedMs] : null;
+
+  var msTableRows = msEntries.map(function (name) {
+    var s = msSummary[name];
+    var nw = natl[name] && natl[name].win_rate > 0 ? colorPct(natl[name].win_rate) : '-';
+    return [esc(name), s.matches, s.basic_stats ? colorPct(s.basic_stats.win_rate) : '-', nw];
+  });
 
   var fp = (frontendData && frontendData.fixed_partners) || {};
   var fpList = fp ? (fp.partners || fp) : [];
@@ -193,7 +200,7 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, a
     <//>`}
 
     ${selectedMs && selNatl && lens === 'all' && pd.basic_stats && html`<${Panel} title="全国平均との比較">
-      <${MsCompareChart} entries=${[{ name: selectedMs, winRate: pd.basic_stats.win_rate, nationalWinRate: selNatl.win_rate }]} />
+      <${Table} headers=${['機体名', '勝率', '全国平均', '差']} rows=${[[esc(selectedMs), colorPct(pd.basic_stats.win_rate), colorPct(selNatl.win_rate), signed(pd.basic_stats.win_rate - selNatl.win_rate)]]} />
     <//>`}
 
     ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
@@ -209,8 +216,11 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, a
       })}
     <//>`}
 
-    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title=${compareEntries.some(function (e) { return typeof e.nationalWinRate === 'number'; }) ? '機体別の勝率比較（全国平均と比較）' : '機体別の勝率比較'}>
-      <${MsCompareChart} entries=${compareEntries} />
+    ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title=${compareEntries.some(function (e) { return typeof e.national === 'number'; }) ? '機体別の勝率比較（全国平均と比較）' : '機体別の勝率比較'}>
+      <${WinRateRowList} entries=${compareEntries} />
+      <${SubSection} title="表で見る">
+        <${SortableTable} headers=${['機体名', '試合', '勝率', '全国平均']} rows=${msTableRows} defaultLimit=${10} />
+      <//>
     <//>`}
 
     ${fpItems.length > 0 && html`<${FixedPartnerPanel} fp=${fp} fpItems=${fpItems} lens=${lens} />`}

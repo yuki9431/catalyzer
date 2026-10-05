@@ -11,9 +11,11 @@
 td.num, th.num { text-align: right; }
 /* レンズ表は列幅を固定し、全体/勝利時/敗北時で値の位置がずれないようにする */
 .report .lens-table table { table-layout: fixed; }
-.report blockquote { border-left: 3px solid var(--accent); padding: 10px 15px; margin: 10px 0; background: var(--accent-a07); border-radius: 0 8px 8px 0; }
 .report hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
 .report ul, .report ol { padding-left: 20px; }
+.report ul.facts { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.report ul.facts > li { position: relative; padding-left: 16px; font-size: 0.9375rem; }
+.report ul.facts > li::before { content: ''; position: absolute; left: 2px; top: 0.7em; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
 .report ul.advice-details { margin-top: 6px; padding-left: 24px; list-style: disc; font-size: 0.9375rem; opacity: 0.9; }
 .val-great { color: var(--great); font-weight: bold; }
 .val-good { color: var(--good); }

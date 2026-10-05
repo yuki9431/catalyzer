@@ -1,7 +1,9 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
+var HERO = { overview: '勝率', playstyle: '先落ち率', burst: '平均覚醒回数', matchup: '得意な敵機', time: '最も勝率が高い時間帯' };
+var SUMMARY = function (tab) { return [['[data-ui="summary-hero"]', HERO[tab]], ['[data-ui="summary"] dt', null, 4], ['[data-ui="report-scope"]', '全期間・60試合']]; };
 var TABS = { playstyle: '立ち回り', burst: '覚醒', matchup: '機体相性', time: '時間帯' };
 var TABBAR_ITEM = '[data-ui="tabbar-item"]';
 var CURRENT = TABBAR_ITEM + '[aria-current="page"]';
@@ -9,9 +11,9 @@ function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
 var OPEN_SEARCH = [goTab('試合検索')];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
 
-function report(id, tab, h2s, extra) {
-  var required = [['[data-ui="tab"][aria-selected="true"]', TABS[tab]]].concat(h2s.map(function (t) { return ['[data-ui="panel"] h2', t]; }), extra || []);
-  return { id: id, viewport: D, full: true, start: 'report', ops: [{ click: ['[data-ui="tab"]', TABS[tab]] }], required: required };
+function report(id, tab, h2s, extra, moreOps) {
+  var required = [['[data-ui="tab"][aria-selected="true"]', TABS[tab]]].concat(h2s.map(function (t) { return ['[data-ui="panel"] h2', t]; }), SUMMARY(tab), extra || []);
+  return { id: id, viewport: D, full: true, start: 'report', ops: [{ click: ['[data-ui="tab"]', TABS[tab]] }].concat(moreOps || []), required: required };
 }
 
 export var SCREENS = [
@@ -21,10 +23,10 @@ export var SCREENS = [
     ops: [{ type: ['#username', 'preview@example.com'] }, { type: ['#password', 'preview-pass'] }, { click: ['#analyzeBtn'] }],
     required: [[CURRENT, 'レポート'], ['#status'], ['#progressCount', '37/120件'], ['[data-ui="skeleton"]']] },
   { id: 'report-overview', viewport: D, full: true, start: 'report', ops: [],
-    required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="kpi-grid"]'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="lens"]']] },
+    required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体']].concat(SUMMARY('overview')) },
   report('report-playstyle', 'playstyle', ['被撃墜と勝率', 'ダメージ貢献率']),
   report('report-burst', 'burst', ['覚醒回数と勝率', '覚醒タイミング']),
-  report('report-matchup', 'matchup', ['敵機との相性', '僚機との相性']),
+  report('report-matchup', 'matchup', ['敵機との相性', '僚機との相性'], [['details[open] table'], ['[data-ui="panel"] [data-ui="row-list"]', null, 3]], [{ click: ['summary', '表で見る'] }]),
   report('report-time', 'time', ['時間帯別の勝率', '曜日別の勝率'], [['canvas']]),
   { id: 'dropdown-period', viewport: D, full: false, start: 'report', ops: [{ click: ['[data-ui="period-trigger"]'] }],
     required: [['[data-ui="period-panel"]'], ['[data-ui="period-item"]', null, 2]] },
@@ -39,11 +41,17 @@ export var SCREENS = [
     required: [['[data-ui="match-detail"] [data-ui="match-score-table"]'], ['[data-ui="gantt-bar"]']] },
   { id: 'classrecord', viewport: D, full: true, start: 'report',
     ops: [goTab('総合戦歴')],
-    required: [[CURRENT, '総合戦歴'], ['[data-ui="kpi-grid"]'], ['h2', 'クラスマッチG戦績'], ['h2', '通算記録']] },
-  { id: 'mobile-report-overview', viewport: M, full: true, start: 'report', ops: [],
-    required: [['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="kpi-grid"]']] },
+    required: [[CURRENT, '総合戦歴'], ['[data-ui="summary-hero"]', '通算勝率'], ['h2', 'クラスマッチG戦績'], ['h2', '通算記録']] },
+  { id: 'mobile-report-overview', viewport: M, full: true, start: 'report', ops: [{ scroll: ['[data-ui="row-list"]'] }],
+    required: [['[data-ui="tab"][aria-selected="true"]', '総合']].concat(SUMMARY('overview')),
+    inview: [['[data-ui="period-trigger"]'], ['[data-ui="ms-trigger"]'], ['[data-ui="lens-toggle"] button', '全体']],
+    tap: ['[data-ui="period-trigger"]', '[data-ui="ms-trigger"]', '[data-ui="lens-toggle"] button'] },
   { id: 'mobile-dropdown-period', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="period-trigger"]'] }],
-    required: [['[data-ui="period-panel"]']] },
+    required: [['[data-ui="period-panel"] h3', '期間'], ['[data-ui="sheet-close"]'], ['[data-ui="period-item"]', null, 2]],
+    tap: ['[data-ui="period-item"]', '[data-ui="sheet-close"]'] },
+  { id: 'mobile-dropdown-ms', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="ms-trigger"]'] }],
+    required: [['[data-ui="ms-panel"] h3', '機体'], ['[data-ui="ms-item"]', null, 2]],
+    tap: ['[data-ui="ms-item"]', '[data-ui="sheet-close"]'] },
   { id: 'more', viewport: D, full: true, start: 'report', ops: [goTab('その他')],
     required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4]], tap: TAP },
   { id: 'mobile-more', viewport: M, full: true, start: 'report',

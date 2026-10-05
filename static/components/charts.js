@@ -1,8 +1,8 @@
 import { html } from '../htm-preact-standalone.js';
-import { themeReader } from '../lib/theme.js';
-import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken } from '../lib/format.js';
-import { Tips, SortableTable, Table } from './ui.js';
-import { ChartCanvas, canvasFont, winRateComboConfig, xAxis, pctAxis, winRateColors } from './chart-canvas.js';
+import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken, signed, wrBarTone, wrMark, wrTone } from '../lib/format.js';
+import { RowList } from './parts.js';
+import { Tips, SortableTable, SubSection, Table } from './ui.js';
+import { ChartCanvas, winRateComboConfig, xAxis, pctAxis } from './chart-canvas.js';
 
 // --- Report sections ---
 
@@ -15,10 +15,9 @@ export function EnemyMatchupSection({ matchup }) {
     });
   }
   return html`<div>
-    ${matchup.strong && matchup.strong.length > 0 && html`<p><strong>得意な相手:</strong></p><${SortableTable} headers=${headers} rows=${matchupRows(matchup.strong)} defaultLimit=${5} />`}
-    ${matchup.weak && matchup.weak.length > 0 && html`<p><strong>苦手な相手:</strong></p><${SortableTable} headers=${headers} rows=${matchupRows(matchup.weak)} defaultLimit=${5} />`}
-    ${matchup.even && matchup.even.length > 0 && html`<p><strong>互角の相手:</strong></p><${SortableTable} headers=${headers} rows=${matchupRows(matchup.even)} defaultLimit=${5} />`}
-    <${Tips} tips=${matchup.tips} />
+    ${matchup.strong && matchup.strong.length > 0 && html`<p><strong>得意な敵機:</strong></p><${SortableTable} headers=${headers} rows=${matchupRows(matchup.strong)} defaultLimit=${5} />`}
+    ${matchup.weak && matchup.weak.length > 0 && html`<p><strong>苦手な敵機:</strong></p><${SortableTable} headers=${headers} rows=${matchupRows(matchup.weak)} defaultLimit=${5} />`}
+    ${matchup.even && matchup.even.length > 0 && html`<p><strong>互角の敵機:</strong></p><${SortableTable} headers=${headers} rows=${matchupRows(matchup.even)} defaultLimit=${5} />`}
   </div>`;
 }
 
@@ -178,140 +177,22 @@ export function DmgContributionChart({ dmg }) {
   }} />`;
 }
 
-// 棒の色の上でも読めるよう縁取ってから塗る
-function haloText(ctx, text, x, y) {
-  ctx.strokeText(text, x, y);
-  ctx.fillText(text, x, y);
-}
-
-// 横棒の内側に名前（左）と勝率（右）を描くプラグイン
-var inBarLabel = {
-  id: 'inBarLabel',
-  afterDatasetsDraw: function (chart) {
-    var cssVar = themeReader();
-    var textColor = cssVar('--text'), goodColor = cssVar('--good'), badColor = cssVar('--bad');
-    var ctx = chart.ctx;
-    var meta = chart.getDatasetMeta(0);
-    var x0 = chart.scales.x.getPixelForValue(0);
-    var areaRight = chart.chartArea.right;
-    ctx.save();
-    ctx.lineWidth = 3;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = cssVar('--panel');
-    var mainFont = canvasFont(cssVar, 14, '700');
-    var diffFont = canvasFont(cssVar, 12, '700');
-    ctx.font = mainFont;
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = textColor;
-    var ellipsize = function (text, maxWidth) {
-      if (ctx.measureText(text).width <= maxWidth) return text;
-      var t = text;
-      while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
-      // 1文字も入らない幅では他のラベルと重ならないよう名前を描かない
-      return t ? t + '…' : '';
-    };
-    var natlRates = chart.data.datasets[0].nationalWinRates;
-    meta.data.forEach(function (bar, i) {
-      var own = chart.data.datasets[0].data[i];
-      var pct = own.toFixed(1) + '%';
-      var pctWidth = ctx.measureText(pct).width;
-      // 全国平均がある行は差分ぶんの幅を先に確保する（機体名の省略幅に効く）
-      var natl = natlRates ? natlRates[i] : null;
-      var diff = typeof natl === 'number' ? own - natl : null;
-      var diffText = diff == null ? '' : '(全国平均 ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ')';
-      ctx.font = diffFont;
-      var diffTextWidth = diffText ? ctx.measureText(diffText).width : 0;
-      var diffWidth = diffText ? diffTextWidth + 8 : 0;
-      ctx.font = mainFont;
-      // 描画領域から勝率・差分ぶんの幅を確保した上で、収まらない機体名は省略（…）する
-      var nameLeft = x0 + 8;
-      var name = ellipsize(chart.data.labels[i], areaRight - nameLeft - pctWidth - 12 - diffWidth);
-      var nameRight = nameLeft + ctx.measureText(name).width;
-      var pctInside, pctX, endX;
-      // 暫定配置: 棒内の名前の右側に勝率が収まるなら右端内側に、収まらなければ棒の外（名前の右隣）に出す
-      if (bar.x - 8 - pctWidth > nameRight + 6) {
-        pctInside = true;
-        endX = bar.x;
-      } else {
-        pctInside = false;
-        pctX = Math.max(bar.x + 6, nameRight + 6);
-        endX = pctX + pctWidth;
-      }
-      var diffInside = false;
-      // 棒が長く差分が右外に収まらない行は、勝率を棒内に寄せ機体名を削って差分の場所を作る（差分を落とさない）
-      if (diffText && endX + 8 + diffTextWidth > areaRight) {
-        pctInside = true;
-        endX = bar.x;
-        var nameLimit = bar.x - 8 - pctWidth - 6;
-        if (bar.x + 8 + diffTextWidth > areaRight) {
-          // 機体名を消しても棒内に入らないほど狭い場合だけ差分を諦める
-          if (nameLimit - diffTextWidth - 6 >= nameLeft) {
-            diffInside = true;
-            nameLimit -= diffTextWidth + 6;
-          } else {
-            diffText = '';
-          }
-        }
-        name = ellipsize(chart.data.labels[i], nameLimit - nameLeft);
-      }
-      ctx.textAlign = 'left';
-      haloText(ctx, name, nameLeft, bar.y);
-      if (pctInside) {
-        ctx.textAlign = 'right';
-        haloText(ctx, pct, bar.x - 8, bar.y);
-      } else {
-        ctx.textAlign = 'left';
-        haloText(ctx, pct, pctX, bar.y);
-      }
-      if (!diffText) return;
-      ctx.font = diffFont;
-      if (diffInside) {
-        // 棒内に置く差分は棒の色と競合するため配色は付けない
-        ctx.textAlign = 'right';
-        haloText(ctx, diffText, bar.x - 8 - pctWidth - 6, bar.y);
-      } else {
-        ctx.fillStyle = diff >= 0 ? goodColor : badColor;
-        ctx.textAlign = 'left';
-        haloText(ctx, diffText, endX + 8, bar.y);
-      }
-      ctx.fillStyle = textColor;
-      ctx.font = mainFont;
-    });
-    ctx.restore();
-  },
-};
-
-// 機体別の勝率を横棒で比較（棒の内側に機体名と勝率）
-export function MsCompareChart({ entries }) {
-  var h = Math.max(entries.length > 1 ? 160 : 72, entries.length * 46);
-  return html`<${ChartCanvas} style=${'height:' + h + 'px'} deps=${[entries]} build=${function (cssVar) {
-    if (!entries.length) return null;
-    var values = entries.map(function (e) { return e.winRate; });
+// 勝率の行リスト。バーは絶対勝率(60/50)、値と▲▼は 60/40。全国平均は縦マーカーと差分テキストで示す
+// entries: [{name, winRate, matches?, sub?, national?}]
+export function WinRateRowList({ entries }) {
+  return html`<${RowList} rows=${entries.map(function (e, i) {
+    var sub = e.sub != null ? e.sub : e.matches != null ? e.matches + '試合' : null;
+    var hasNatl = typeof e.national === 'number';
+    if (hasNatl) {
+      var diff = signed(e.winRate - e.national);
+      sub = html`${sub ? sub + '・' : ''}全国平均 <span class=${diff[0] === '+' ? 'val-good' : 'val-bad'}>${diff}</span>`;
+    }
     return {
-      type: 'bar',
-      data: {
-        labels: entries.map(function (e) { return e.name; }),
-        datasets: [{
-          data: values,
-          backgroundColor: winRateColors(cssVar, values, cssVar('--accent-2-a35')),
-          borderWidth: 0,
-          borderRadius: 4,
-          // 全国平均は棒にせず inBarLabel が差分テキストとして描く（どの行もほぼ同じ長さで情報量が無いため）
-          nationalWinRates: entries.map(function (e) { return typeof e.nationalWinRate === 'number' ? e.nationalWinRate : null; }),
-        }],
-      },
-      options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        layout: { padding: { right: 4 } },
-        plugins: { legend: { display: false } },
-        scales: {
-          x: xAxis(cssVar, { font: { size: 12 }, callback: function (v) { return v + '%'; } }, { min: 0, max: 100 }),
-          y: { ticks: { display: false }, grid: { display: false } },
-        },
-      },
-      plugins: [inBarLabel],
+      key: e.name + '-' + i, main: e.name, sub: sub,
+      aside: wrMark(e.winRate) + pct(e.winRate), asideTone: wrTone(e.winRate),
+      bar: { value: e.winRate, tone: wrBarTone(e.winRate), marker: hasNatl ? e.national : undefined },
     };
-  }} />`;
+  })} />`;
 }
 
 // 勝率のdivergingヒートカラー。50%を境に緑(高勝率)/赤(低勝率)へ濃度を上げる。
@@ -378,21 +259,18 @@ export function TeamDeathsHeatmap({ teamDeaths }) {
 
 export function FallOrderContent({ fallOrder }) {
   if (!fallOrder) return null;
-  var n = fallOrder.no_fall;
-  var f = fallOrder.first_fall;
-  var s = fallOrder.second_fall;
-  var st = fallOrder.same_time;
-  var rows = [
-    ['0落ち', n.count + '戦', colorPct(n.win_rate), colorDmgGiven(n.avg_dmg_given), colorDmgTaken(n.avg_dmg_taken), colorDE(n.dmg_efficiency, 3)],
-    ['先落ち', f.count + '戦', colorPct(f.win_rate), colorDmgGiven(f.avg_dmg_given), colorDmgTaken(f.avg_dmg_taken), colorDE(f.dmg_efficiency, 3)],
-    ['後落ち', s.count + '戦', colorPct(s.win_rate), colorDmgGiven(s.avg_dmg_given), colorDmgTaken(s.avg_dmg_taken), colorDE(s.dmg_efficiency, 3)],
-  ];
-  if (st.count > 0) {
-    rows.push(['同時落ち', st.count + '戦', colorPct(st.win_rate), colorDmgGiven(st.avg_dmg_given), colorDmgTaken(st.avg_dmg_taken), colorDE(st.dmg_efficiency, 3)]);
+  // 0件の群は勝率0%と区別するため '-'（stats-empty-group-zero-value）
+  function row(label, g) {
+    var has = g.count > 0;
+    return [label, g.count + '戦', colorPct(has ? g.win_rate : null), colorDmgGiven(has ? g.avg_dmg_given : null), colorDmgTaken(has ? g.avg_dmg_taken : null), colorDE(has ? g.dmg_efficiency : null, 3)];
   }
+  var rows = [row('0落ち', fallOrder.no_fall), row('先落ち', fallOrder.first_fall), row('後落ち', fallOrder.second_fall)];
+  if (fallOrder.same_time.count > 0) rows.push(row('同時落ち', fallOrder.same_time));
   return html`<div>
     <p>対象: ${fallOrder.total}戦</p>
-    <${Table} headers=${['パターン', '試合数', '勝率', '与ダメ', '被ダメ', '与被ダメ比']} rows=${rows} />
+    <${SubSection} title="表で見る">
+      <${Table} headers=${['パターン', '試合数', '勝率', '与ダメ', '被ダメ', '与被ダメ比']} rows=${rows} />
+    <//>
     <${Tips} tips=${fallOrder.tips} />
   </div>`;
 }
@@ -410,7 +288,9 @@ export function ConsecutiveFallContent({ consecutiveFall }) {
     return [r.label, r.s.count + '戦', pct(r.s.rate), colorPct(has && !r.hideWin ? r.s.win_rate : null), colorDE(has ? r.s.dmg_efficiency : null, 3)];
   });
   return html`<div>
-    <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
+    <${SubSection} title="表で見る">
+      <${Table} headers=${['パターン', '試合数', '割合', '勝率', '与被ダメ比']} rows=${rows} />
+    <//>
   </div>`;
 }
 
