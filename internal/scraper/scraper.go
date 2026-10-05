@@ -94,6 +94,9 @@ var ErrHTTPRequestFailed = errors.New("データ取得中にHTTPエラーが発�
 // ErrCanceled は呼び出し元のContextキャンセル（ログアウト等）で処理を中断した場合のエラー
 var ErrCanceled = errors.New("処理がキャンセルされました")
 
+// errDaySkipped は別の日の失敗を受けて取得しなかった日を表す
+var errDaySkipped = errors.New("日別ページの取得を見送った")
+
 // dailyLink はrankpageから収集した日別ページ情報
 type dailyLink struct {
 	date     string
@@ -212,7 +215,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 
 	go func() {
 		defer close(entryCh)
-		streamErr = streamMatchEntries(ctx, jar, dailyLinks, since, entryCh)
+		streamErr = streamMatchEntries(ctx, cancel, jar, dailyLinks, since, entryCh)
 	}()
 
 	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
@@ -298,8 +301,8 @@ func collectDailyLinks(jar http.CookieJar, since time.Time) ([]dailyLink, error)
 }
 
 // streamMatchEntries は複数の日別ページから試合エントリを並列で収集し、links の順(古い日から)にチャネルへ流す
-// 途中の日が失敗したらそれより新しい日は流さない。流し済みの古い日の詳細取得は止めない(#456)
-func streamMatchEntries(ctx context.Context, jar http.CookieJar, links []dailyLink, since time.Time, out chan<- matchEntry) error {
+// 途中の日が失敗したらそれより新しい日は流さない。403 なら流し済みの古い日の詳細取得は止めない(#456)
+func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, links []dailyLink, since time.Time, out chan<- matchEntry) error {
 	if len(links) == 0 {
 		return nil
 	}
@@ -337,6 +340,10 @@ func streamMatchEntries(ctx context.Context, jar http.CookieJar, links []dailyLi
 				results[i], errs[i] = entries, err
 				if err != nil {
 					failed.Store(true)
+					// 403 以外は途中保存しないので、捨てる前提の詳細取得をすぐ止める
+					if !errors.Is(err, ErrAccessDenied) {
+						cancel()
+					}
 				}
 				time.Sleep(entryRequestDelay)
 			}(i, dl)
@@ -376,9 +383,6 @@ emit:
 	}
 	return nil
 }
-
-// errDaySkipped は別の日の失敗を受けて取得しなかった日を表す
-var errDaySkipped = errors.New("日別ページの取得を見送った")
 
 // collectMatchEntries は単一の日別ページから試合エントリを収集する（ページネーション対応）
 // since以前の試合が出たらページネーションを早期終了する
@@ -610,7 +614,7 @@ collectLoop:
 	if errorCount > 0 {
 		return nil, fmt.Errorf("詳細ページ取得で%w: %d/%d件がエラー", ErrHTTPRequestFailed, errorCount, dispatched)
 	}
-	// エントリ収集フェーズの403でキャンセル済み。古い側は連続しているので保存できる
+	// 親ctxのキャンセルか一覧の403以外の失敗。どちらも呼び出し元が途中データを捨てる
 	if ctx.Err() != nil {
 		return contiguousPrefix(byIndex, dispatched), ErrAccessDenied
 	}
