@@ -152,26 +152,25 @@ export function computeDayOfWeek(matches) {
 
 export function computeDailyTrend(matches) {
   var DOW_NAMES = ['月', '火', '水', '木', '金', '土', '日'];
+  // 年をまたいでも同じ月日を合算しないよう YYYY-MM-DD で集計し、表示だけ MM/DD にする
   var daily = {};
-  var dateOrder = {};
   for (var i = 0; i < matches.length; i++) {
     var m = matches[i];
-    var dateKey = m.date.substring(5, 10).replace('-', '/');
-    if (!daily[dateKey]) { daily[dateKey] = []; dateOrder[dateKey] = m.date.substring(0, 10); }
-    daily[dateKey].push(m);
+    var dayKey = m.date.substring(0, 10);
+    if (!daily[dayKey]) daily[dayKey] = [];
+    daily[dayKey].push(m);
   }
-  var sortedKeys = Object.keys(daily).sort(function (a, b) {
-    return dateOrder[a] < dateOrder[b] ? -1 : dateOrder[a] > dateOrder[b] ? 1 : 0;
-  });
-  var results = sortedKeys.map(function (dateStr) {
-    var ms = daily[dateStr];
+  var sortedKeys = Object.keys(daily).sort();
+  function label(dayKey) { return dayKey.substring(5).replace('-', '/'); }
+  var results = sortedKeys.map(function (dayKey) {
+    var ms = daily[dayKey];
     var wr = jsWinRate(ms);
     var d = new Date(ms[0].date.replace(' ', 'T'));
     var dow = (d.getDay() + 6) % 7;
-    return { date: dateStr, dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 45 ? 'bad' : '' };
+    return { date: label(dayKey), sort_key: Number(dayKey.replace(/-/g, '')), dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 45 ? 'bad' : '' };
   });
   var tips = [];
-  var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; });
+  var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; }).map(label);
   if (badDays.length) tips.push('勝率40%以下の日（5戦以上）: **' + badDays.join(', ') + '**');
   return { days: results, tips: tips };
 }
@@ -663,7 +662,7 @@ export function computeBurstCount(matches) {
 // 「2回以上覚醒」「未覚醒(0回)」の割合と加重勝率を算出する。
 // データ無し（null や空）のときは各値 null を返す。
 export function burstKpi(burstCount) {
-  var empty = { rate2: null, winRate2: null, rate0: null, winRate0: null };
+  var empty = { rate2: null, winRate2: null, matches2: null, rate0: null, winRate0: null, matches0: null };
   if (!burstCount || !burstCount.by_count || !burstCount.by_count.length) return empty;
   var byCount = burstCount.by_count;
   var total = 0;
@@ -681,12 +680,27 @@ export function burstKpi(burstCount) {
     return {
       rate: round1(m / total * 100),
       winRate: m ? round1(wins / m * 100) : null,
+      matches: m,
     };
   }
 
   var two = group(function (c) { return c >= 2; });
   var zero = group(function (c) { return c === 0; });
-  return { rate2: two.rate, winRate2: two.winRate, rate0: zero.rate, winRate0: zero.winRate };
+  return {
+    rate2: two.rate, winRate2: two.winRate, matches2: two.matches,
+    rate0: zero.rate, winRate0: zero.winRate, matches0: zero.matches,
+  };
+}
+
+// 敵機相性の要約用。強/弱/互角の合計件数と、勝率が最も低い敵機（同率は試合数の多い方、なお同じなら先頭）。
+export function enemyKpi(enemyMatchup) {
+  if (!enemyMatchup) return { total: 0, worst: null };
+  var all = [].concat(enemyMatchup.strong || [], enemyMatchup.weak || [], enemyMatchup.even || []);
+  var worst = null;
+  all.forEach(function (r) {
+    if (!worst || r.win_rate < worst.win_rate || (r.win_rate === worst.win_rate && r.matches > worst.matches)) worst = r;
+  });
+  return { total: all.length, worst: worst };
 }
 
 // タブ別KPI用。computeTimeOfDay の結果から勝率が最高/最低の時間帯を返す。

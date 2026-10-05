@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChrome, InfraError } from './cdp.js';
 import { listen } from './server.js';
-import { SCREENS } from './screens.js';
+import { SCREENS, THEMES } from './screens.js';
 import { determinismSource } from './page-determinism.js';
 import { comparePng } from './png.js';
 
@@ -31,6 +31,15 @@ function countExpr(sel, text) {
     'return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)}).length})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
 }
 
+// selector+text の最初の可視要素の中心がビューポート内にあり、その点の最前面が自身か子孫かを返す式（無ければ false）
+function inviewExpr(sel, text) {
+  return '(function(s,t){var e=Array.from(document.querySelectorAll(s)).filter(function(e){' +
+    'return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)})[0];if(!e)return false;' +
+    'var r=e.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;' +
+    'if(x<0||y<0||x>innerWidth||y>innerHeight)return false;var top=document.elementFromPoint(x,y);' +
+    'return !!top&&(top===e||e.contains(top))})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
+}
+
 // 画面の左右端をまたぐ要素（横スクロールする祖先の中と、全体が画面外のものは除く）の最初の1件を返す式
 var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelectorAll("*");' +
   'for(var i=0;i<all.length;i++){var e=all[i],r=e.getBoundingClientRect();if(r.width<1||r.height<1)continue;' +
@@ -40,7 +49,21 @@ var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelecto
   'return e.tagName.toLowerCase()+(e.className&&typeof e.className==="string"?"."+e.className.trim().split(/\\s+/).join("."):"")+" (x "+Math.round(r.left)+"〜"+Math.round(r.right)+", 画面幅 "+W+")"}' +
   'return null})()';
 
-async function runScreen(conn, origin, screen, update) {
+// 表示中の全テキスト(::before/::after を含む)の最小 font-size が 14px 未満の最初の1件を返す式
+var SMALL_TEXT_EXPR = '(function(){var all=document.body.querySelectorAll("*");for(var i=0;i<all.length;i++){var e=all[i];' +
+  'if(!e.getClientRects().length)continue;var cs=getComputedStyle(e);if(cs.visibility==="hidden")continue;' +
+  'var own=Array.prototype.some.call(e.childNodes,function(n){return n.nodeType===3&&n.textContent.trim()});' +
+  'var px=own?parseFloat(cs.fontSize):99;["::before","::after"].forEach(function(p){var s=getComputedStyle(e,p),c=s.content;' +
+  'if(c&&c!=="none"&&c!=="normal"&&c!==\'""\')px=Math.min(px,parseFloat(s.fontSize))});' +
+  'if(px<14)return e.tagName.toLowerCase()+(typeof e.className==="string"&&e.className?"."+e.className.trim().split(/\\s+/).join("."):"")+" "+px+"px"}return null})()';
+
+// selector に合致する可視要素の件数と、高さ 44px 未満の要素(文字列先頭20字+高さ)を返す式
+function tapExpr(sel) {
+  return '(function(s){var all=Array.from(document.querySelectorAll(s)).filter(function(e){return e.getClientRects().length>0});' +
+    'return{count:all.length,small:all.map(function(e){return[(e.textContent||"").trim().slice(0,20),e.getBoundingClientRect().height]}).filter(function(x){return x[1]<44}).map(function(x){return x[0]+" "+Math.round(x[1])+"px"})}})(' + JSON.stringify(sel) + ')';
+}
+
+async function runScreen(conn, origin, screen, theme, update) {
   var ctx = await conn.send('Target.createBrowserContext', {});
   var ctxId = ctx.browserContextId;
   var targetId = (await conn.send('Target.createTarget', { url: 'about:blank', browserContextId: ctxId })).targetId;
@@ -95,9 +118,11 @@ async function runScreen(conn, origin, screen, update) {
     await Promise.all(['Page.enable', 'Runtime.enable', 'Log.enable'].map(function (m) { return send(m); }));
     await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
     await send('Page.addScriptToEvaluateOnNewDocument', { source: determinismSource });
-    await send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: screen.viewport.height, deviceScaleFactor: 1, mobile: false });
+    var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
+    await metrics(screen.viewport.height);
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
 
     if (!START_URL[screen.start]) throw new InfraError('未知の start: ' + screen.start);
     var loaded = new Promise(function (resolve, reject) {
@@ -117,7 +142,18 @@ async function runScreen(conn, origin, screen, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!(await waitCount(a[0], kind === 'click' ? a[1] : null, 1))) return fail('必須要素なし ' + a[0]);
+      if (!['click', 'type', 'scroll', 'wait', 'reload'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (kind === 'reload') {
+        var reloaded = new Promise(function (resolve, reject) {
+          loadWaiters.push(resolve);
+          setTimeout(function () { reject(new InfraError('再読み込みタイムアウト')); }, NAV_MS).unref();
+        });
+        await send('Page.reload', {});
+        await reloaded;
+        continue;
+      }
+      if (!(await waitCount(a[0], kind === 'click' || kind === 'wait' ? a[1] : null, 1))) return fail('必須要素なし ' + a[0]);
+      if (kind === 'wait') continue;
       if (kind === 'scroll') {
         await evalJs('document.querySelector(' + JSON.stringify(a[0]) + ').scrollIntoView({block:"center"})');
       } else if (kind === 'click') {
@@ -133,17 +169,26 @@ async function runScreen(conn, origin, screen, update) {
     m = await missing(screen.required, false);
     if (m) return fail('必須要素なし ' + m);
 
+    var inview = screen.inview || [];
+    for (var vi = 0; vi < inview.length; vi++) {
+      if (!(await evalJs(inviewExpr(inview[vi][0], inview[vi][1])))) return fail('画面内に見えない ' + inview[vi][0] + (inview[vi][1] ? ' (' + inview[vi][1] + ')' : ''));
+    }
+
     await evalJs('Promise.race([new Promise(function(r){setTimeout(r,5000)}),Promise.all([document.fonts.ready].concat(Array.from(document.images).map(function(i){i.loading="eager";return i.complete?1:new Promise(function(r){i.onload=i.onerror=r})})))]).then(function(){window.scrollTo(0,0);return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
 
     var shot = async function () {
       var p = { format: 'png' };
-      if (screen.full) {
-        var h = await evalJs('Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)');
-        if (h > MAX_PX) throw new Error('高さ ' + h + 'px が上限 ' + MAX_PX + ' を超える');
-        p.captureBeyondViewport = true;
+      if (!screen.full) return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
+      var h = await evalJs('Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)');
+      if (h > MAX_PX) throw new Error('高さ ' + h + 'px が上限 ' + MAX_PX + ' を超える');
+      // ビューポートを全高に広げて撮る。固定要素(下部タブバー)が画面途中に写り込むのを防ぐ
+      await metrics(h);
+      try {
         p.clip = { x: 0, y: 0, width: screen.viewport.width, height: h, scale: 1 };
+        return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
+      } finally {
+        await metrics(screen.viewport.height);
       }
-      return Buffer.from((await send('Page.captureScreenshot', p)).data, 'base64');
     };
     var prev = await shot(), png = null;
     for (var n = 0; n < 12 && !png; n++) {
@@ -154,14 +199,22 @@ async function runScreen(conn, origin, screen, update) {
     if (!png) return fail('画面が安定しない');
 
     fs.mkdirSync(ACTUAL, { recursive: true });
-    fs.writeFileSync(path.join(ACTUAL, screen.id + '.png'), png);
+    fs.writeFileSync(path.join(ACTUAL, screen.id + '-' + theme + '.png'), png);
     if (external.length) return fail('外部リクエスト ' + external[0]);
     if (dialogs.length) return fail('ダイアログ ' + dialogs[0]);
     if (consoleErrors.length) return fail('console エラー ' + consoleErrors[0]);
     var overflow = await evalJs(OVERFLOW_EXPR);
     if (overflow) return fail('画面の左右にはみ出し ' + overflow);
+    var small = await evalJs(SMALL_TEXT_EXPR);
+    if (small) return fail('14px 未満の文字 ' + small);
+    var taps = screen.tap || [];
+    for (var ti = 0; ti < taps.length; ti++) {
+      var tapRes = await evalJs(tapExpr(taps[ti]));
+      if (!tapRes.count) return fail('タップ領域の対象なし ' + taps[ti]);
+      if (tapRes.small.length) return fail(tapRes.small.map(function (x) { return 'タップ領域 44px 未満 ' + taps[ti] + ' ' + x; }).join(' / '));
+    }
 
-    var basePath = path.join(BASELINE, screen.id + '.png');
+    var basePath = path.join(BASELINE, screen.id + '-' + theme + '.png');
     if (update) {
       fs.mkdirSync(BASELINE, { recursive: true });
       fs.writeFileSync(basePath, png);
@@ -204,7 +257,7 @@ async function main() {
     process.on(sig, function () { cleanup(); process.exit(130); });
   });
   try {
-    if (ONLY.length) screens.forEach(function (s) { fs.rmSync(path.join(ACTUAL, s.id + '.png'), { force: true }); });
+    if (ONLY.length) screens.forEach(function (s) { THEMES.forEach(function (t) { fs.rmSync(path.join(ACTUAL, s.id + '-' + t + '.png'), { force: true }); }); });
     else fs.rmSync(ACTUAL, { recursive: true, force: true });
     srv = await listen(0);
     chrome = await launchChrome(CHROME, userDataDir);
@@ -214,23 +267,26 @@ async function main() {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
       if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
-    var okCount = 0;
+    var okCount = 0, total = 0;
     for (var i = 0; i < screens.length; i++) {
-      var r;
-      try {
-        r = await runScreen(chrome.conn, origin, screens[i], UPDATE);
-      } catch (e) {
-        if (e instanceof InfraError) throw e;
-        r = { id: screens[i].id, ok: false, reason: e.message };
+      for (var j = 0; j < THEMES.length; j++) {
+        var r, label = screens[i].id + ' (' + THEMES[j] + ')';
+        total++;
+        try {
+          r = await runScreen(chrome.conn, origin, screens[i], THEMES[j], UPDATE);
+        } catch (e) {
+          if (e instanceof InfraError) throw e;
+          r = { ok: false, reason: e.message };
+        }
+        console.log(r.ok ? 'OK ' + label : 'FAIL ' + label + ': ' + r.reason);
+        if (r.ok) okCount++;
       }
-      console.log(r.ok ? 'OK ' + r.id : 'FAIL ' + r.id + ': ' + r.reason);
-      if (r.ok) okCount++;
     }
     if (UPDATE) {
       fs.writeFileSync(path.join(BASELINE, 'meta.json'), JSON.stringify({ chrome: chrome.version, platform: process.platform + '-' + process.arch }, null, 2) + '\n');
     }
-    console.log('ui-check: ' + okCount + '/' + screens.length + ' OK');
-    return okCount === screens.length ? 0 : 1;
+    console.log('ui-check: ' + okCount + '/' + total + ' OK');
+    return okCount === total ? 0 : 1;
   } finally {
     clearTimeout(timer);
     cleanup();

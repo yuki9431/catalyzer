@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, pct, num, cellValue, cellDisplay, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
+import { esc, pct, num, cellValue, cellDisplay, wrMark, wrTone, wrBarTone, signed, sortNumber, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
 
 // --- esc ---
 
@@ -70,6 +70,28 @@ describe('num', function () {
   });
 });
 
+// --- sortNumber ---
+
+describe('sortNumber', function () {
+  it('カンマ入りの数値文字列を数値として読む (#401)', function () {
+    assert.equal(sortNumber('1,000戦'), 1000);
+    assert.equal(sortNumber('12,345'), 12345);
+    assert.ok(sortNumber('1,000戦') > sortNumber('26戦'));
+  });
+
+  it('単位・符号付きの文字列と sortValue を読む', function () {
+    assert.equal(sortNumber('53.8%'), 53.8);
+    assert.equal(sortNumber('+3.9'), 3.9);
+    assert.equal(sortNumber({ sortValue: 7, display: '7件' }), 7);
+    assert.equal(sortNumber(5), 5);
+  });
+
+  it('数値として読めない文字列は NaN', function () {
+    assert.ok(Number.isNaN(sortNumber('ヴァルキュリア')));
+    assert.ok(Number.isNaN(sortNumber('-')));
+  });
+});
+
 // --- cellValue ---
 
 describe('cellValue', function () {
@@ -126,5 +148,42 @@ describe('isTimeUp', function () {
     assert.equal(isTimeUp({ game_end_sec: 0 }), false);
     assert.equal(isTimeUp({}), false);
     assert.equal(isTimeUp(null), false);
+  });
+});
+
+// --- wrMark / wrTone / wrBarTone ---
+
+describe('勝率の色分け', function () {
+  it('wrMark は 60 以上 ▲ / 40 以下 ▼', function () {
+    assert.equal(wrMark(60), '▲ ');
+    assert.equal(wrMark(59.9), '');
+    assert.equal(wrMark(40.1), '');
+    assert.equal(wrMark(40), '▼ ');
+    assert.equal(wrMark(null), '');
+  });
+
+  it('wrTone は 60 以上 good / 40 以下 bad', function () {
+    assert.equal(wrTone(60), 'good');
+    assert.equal(wrTone(59.9), '');
+    assert.equal(wrTone(40.1), '');
+    assert.equal(wrTone(40), 'bad');
+    assert.equal(wrTone(null), '');
+  });
+
+  it('wrBarTone は 60/50 境界の3段階', function () {
+    assert.equal(wrBarTone(60), 'good');
+    assert.equal(wrBarTone(59.9), 'mid');
+    assert.equal(wrBarTone(50), 'mid');
+    assert.equal(wrBarTone(49.9), 'bad');
+    assert.equal(wrBarTone(null), null);
+  });
+});
+
+describe('signed', function () {
+  it('符号付きで小数1桁、丸め後に符号を判定して -0.0 を出さない', function () {
+    assert.equal(signed(3.94), '+3.9');
+    assert.equal(signed(-10.8), '-10.8');
+    assert.equal(signed(0), '+0.0');
+    assert.equal(signed(-0.04), '+0.0');
   });
 });

@@ -1,12 +1,11 @@
 /* ===== Share ===== */
-.share-area { display: flex; align-items: center; gap: 8px; }
-.share-label { color: var(--muted); font-size: 0.85em; margin-right: 4px; }
-.share-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; text-decoration: none; border: none; transition: transform 0.15s ease; }
-.share-btn:hover { transform: scale(1.1); }
-.share-btn svg { width: 20px; height: 20px; fill: var(--share-icon); }
+.share-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.share-item, a.share-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: auto; min-height: 64px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text); font-size: 0.875rem; font-weight: normal; text-decoration: none; cursor: pointer; transition: none; }
+.share-item:hover, a.share-item:hover { background: var(--accent-a10); text-decoration: none; }
+.share-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; }
+.share-icon svg { width: 16px; height: 16px; fill: var(--share-icon); }
 .share-x { background: var(--brand-x); }
 .share-bsky { background: var(--brand-bsky); }
 .share-line { background: var(--brand-line); }
 .share-copy { background: var(--share-copy-bg); }
-.share-copy.copied { background: var(--accent); }
-
+.share-item.copied .share-copy { background: var(--accent); }

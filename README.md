@@ -9,7 +9,7 @@
 ## 分析機能
 
 ### 総合
-- 勝率・与被ダメ比・K/D比・EXダメージなどのKPIダッシュボード
+- 勝率・与被ダメ比・K/D比・EXダメージなどをタブごとの要約と行リストで見られるレポート
 - 勝利時/敗北時の傾向比較（レーダーチャート）
 - シーズン別分析（前半/後半の推移チャート付き）
 - 各分析の要点（時間帯・曜日・シーズン・覚醒・先落ち/後落ちなどの数値比較）
@@ -70,7 +70,7 @@
 │       └── block403.go            # 403時の一時ブロック管理
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
-│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
@@ -79,17 +79,17 @@
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー
-│   │   ├── charts.js              # Chart.jsグラフ・レポートセクション
+│   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
-│   │   ├── shell.js               # AppShell（トップバー・メニュー・本文）
+│   │   ├── shell.js               # AppShell（トップバー・本文・下部タブバー）とその他画面
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
-│   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー）
+│   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── format.test.js         # format.js テスト
@@ -98,13 +98,16 @@
 │   │   ├── classrecord.test.js    # classrecord.js テスト
 │   │   ├── popover.test.js        # popover.js テスト
 │   │   ├── chart-canvas.test.js   # chart-canvas.js テスト
-│   │   ├── skeleton-actions.test.js # Skeleton への actions 渡し忘れ検査
+│   │   ├── skeleton-actions.test.js # Skeleton/AppShell/MoreView への props 渡し忘れ検査
+│   │   ├── shell.test.js          # タブ定義と画面状態の読み出し
+│   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
+│   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・スクロール隠しが無いことの静的検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
 │   ├── htm-preact-standalone.js   # htm + Preactライブラリ
 │   └── chart.umd.min.js          # Chart.jsライブラリ
-├── tools/ui-check/                # UIプレビュー（サンプルデータ）と画面確認スクリプト（依存ゼロ・要Chrome）
+├── tools/ui-check/                # UIプレビュー（サンプルデータ）と画面確認スクリプト（ダーク・ライト両テーマで撮影。依存ゼロ・要Chrome）
 ├── data/
 │   ├── ms_list.json               # 機体名・コストマッピング
 │   └── grade_list.json            # 階級画像URL→階級名・グレードマッピング
@@ -203,7 +206,7 @@ http://localhost:8080 にアクセスしてログインすると分析レポー�
 | `SCRAPER_BURST_COUNT` | バースト区間で高速取得する先頭リクエスト数（0でバースト無効） | 100 |
 | `SCRAPER_BURST_PARALLELISM` | バースト区間の最大同時リクエスト数 | 3 |
 | `SCRAPER_THROTTLE_DELAY_MS` | スロットル区間の各リクエスト完了後の待機（ミリ秒） | 900 |
-| `SCRAPER_MAX_DETAIL` | 詳細取得件数の上限（0または未設定で無制限） | 0 |
+| `SCRAPER_MAX_DETAIL` | 詳細取得件数の上限（古い順の先頭N件。0または未設定で無制限） | 0 |
 
 スロットル区間は同時リクエスト数1で直列実行されます（403回避のため固定）。例（バーストを無効化し全件を低レート取得）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 

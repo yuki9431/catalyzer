@@ -2,6 +2,7 @@ import { html, render } from './htm-preact-standalone.js';
 import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild } from './lib/db.js';
 import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
+import { VIEW_KEY } from './components/shell.js';
 
 // --- Constants ---
 var STATUS_MESSAGES = {
@@ -75,15 +76,7 @@ async function reanalyzeWithSession() {
 
     if (data.error) {
       if (res.status === 401) {
-        localStorage.removeItem('catalyzer_user_key');
-        localStorage.removeItem('catalyzer_has_session');
-        // ログイン画面へ戻す。pageTitle(ロゴ)を復帰させ、その safe-area で上端の被りを防ぐ
-        var rep = document.getElementById('report');
-        if (rep) { render(null, rep); rep.style.display = 'none'; }
-        var lf = document.getElementById('loginForm');
-        if (lf) lf.style.display = 'block';
-        var t = document.getElementById('pageTitle');
-        if (t) t.style.display = '';
+        returnToLogin();
         error.style.display = 'block';
         error.textContent = data.error;
         status.style.display = 'none';
@@ -146,12 +139,7 @@ async function reanalyzeWithSession() {
       if (statusData.status === 'cancelled') return;
 
       if (statusData.status === 'error') {
-        if (statusData.error && statusData.error.indexOf('セッション') >= 0) {
-          localStorage.removeItem('catalyzer_user_key');
-          localStorage.removeItem('catalyzer_has_session');
-          var lf = document.getElementById('loginForm');
-          if (lf) lf.style.display = 'block';
-        }
+        if (statusData.error && statusData.error.indexOf('セッション') >= 0) returnToLogin();
         throw new Error(statusData.error || '分析に失敗しました');
       }
 
@@ -164,7 +152,8 @@ async function reanalyzeWithSession() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
-        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
+        clearRebuildError();
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record, tag_partners: resultData.tag_partners }, resultData.user_key);
         break;
       }
     }
@@ -192,6 +181,7 @@ async function logout() {
   localStorage.removeItem('catalyzer_has_session');
   localStorage.removeItem(CLASS_RECORD_KEY);
   localStorage.removeItem(FOCUS_KEY);
+  localStorage.removeItem(VIEW_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
   var rep = document.getElementById('report');
@@ -244,10 +234,28 @@ function setRebuildBackoff(active) {
   } catch (e) {}
 }
 
-// IndexedDBキャッシュをサーバー側の全件データで丸ごと置き換える（スクレイピング無し）。
-// スキーマバージョン不一致の自動検知、またはHamburgerMenuの「データを再取得」導線から呼ばれる。
-// 再構築できたらtrueを返す。失敗・0件応答時はバックオフを張って毎起動リトライを防ぐ。
+// セッション失効時にログイン画面へ戻す。pageTitle(ロゴ)を復帰させ、その safe-area で上端の被りを防ぐ
+function returnToLogin() {
+  localStorage.removeItem('catalyzer_user_key');
+  localStorage.removeItem('catalyzer_has_session');
+  var rep = document.getElementById('report');
+  if (rep) { render(null, rep); rep.style.display = 'none'; }
+  var lf = document.getElementById('loginForm');
+  if (lf) lf.style.display = 'block';
+  var t = document.getElementById('pageTitle');
+  if (t) t.style.display = '';
+}
+
+// 分析中・ユーザーが替わった再構築は反映しない(新しい分析結果を古い全件で上書きしないため)
+function rebuildStale(userKey) {
+  var current = null;
+  try { current = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
+  return activeJobId !== null || current !== userKey;
+}
+
+// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件は false、セッション無しは 'unauthorized'(いずれもバックオフ)、反映を見送ったら null
 async function rebuildCacheFromServer(userKey) {
+  if (rebuildStale(userKey)) return null;
   var statusText = document.getElementById('statusText');
   var status = document.getElementById('status');
   // 分析ポーリング等が既にステータスを出している場合は横取りしない（終了時にも消さない）。
@@ -257,12 +265,23 @@ async function rebuildCacheFromServer(userKey) {
     statusText.textContent = STATUS_MESSAGES.rebuilding;
   }
   try {
-    var res = await fetch('/matches?user_key=' + encodeURIComponent(userKey));
+    var res = await fetch('/matches');
+    // ログイン状態を保持していない(セッションが無い)と本人の全件は取れない
+    if (res.status === 401) {
+      setRebuildBackoff(true);
+      return 'unauthorized';
+    }
     var data = await res.json();
     // 空配列(0件)はサーバー側の異常応答の可能性があるため再構築せず既存キャッシュを温存する
     if (!res.ok || !data.matches || !data.matches.length) {
       setRebuildBackoff(true);
       return false;
+    }
+    if (rebuildStale(userKey)) return null;
+    // Cookie の本人がローカルのユーザーと違う(ログアウトを経ない再ログインの残り)=本人のセッションが無い
+    if (data.user_key !== userKey) {
+      setRebuildBackoff(true);
+      return 'unauthorized';
     }
     await replaceMatchesForUser(userKey, data.matches, data.schema_version);
     setRebuildBackoff(false);
@@ -276,28 +295,51 @@ async function rebuildCacheFromServer(userKey) {
   }
 }
 
-// HamburgerMenuの「データを再取得」ボタンから呼ばれる明示操作版。確認ダイアログを挟む。
+// その他画面の「試合データを取得し直す」から呼ばれる明示操作版。確認は画面内で済んでいる。
 // 明示操作なのでバックオフ中でも実行し、失敗はエラー表示でユーザーに伝える。
+var rebuildingCache = false;
 async function rebuildCache() {
+  // 画面内確認は再タップできるため、実行中の二重起動を防ぐ
+  if (rebuildingCache) return;
   var userKey = null;
   try { userKey = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
-  if (!userKey) return;
-  if (!window.confirm('試合データをサーバーから全件取得し直します。よろしいですか?')) return;
-
   var error = document.getElementById('error');
+  // ユーザーキーが無い(初回分析中・セッション失効)。既に出ている失効メッセージは上書きしない
+  if (!userKey) {
+    if (!error || error.style.display !== 'block') showRebuildError(error, '分析が終わってから実行してください。');
+    return;
+  }
+
   if (error) error.style.display = 'none';
   var rebuilt = false;
+  rebuildingCache = true;
   try {
     rebuilt = await rebuildCacheFromServer(userKey);
-  } catch (e) {}
-  if (!rebuilt && error) {
-    // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
-    error.style.backgroundColor = '';
-    error.style.borderColor = '';
-    error.style.color = '';
-    error.textContent = '試合データの再取得に失敗しました。時間をおいて再度お試しください。';
-    error.style.display = 'block';
+  } catch (e) {
+  } finally {
+    rebuildingCache = false;
   }
+  // 見送りの理由がログアウト(キー消失)なら案内しない
+  if (rebuilt === null) { if (localStorage.getItem('catalyzer_user_key')) showRebuildError(error, '分析が終わってから実行してください。'); }
+  else if (rebuilt === 'unauthorized') showRebuildError(error, 'ログイン状態を保持していないため取得し直せません。再分析してください。');
+  else if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
+}
+
+function showRebuildError(error, message) {
+  if (!error) return;
+  error.dataset.source = 'rebuild';
+  // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
+  error.style.backgroundColor = '';
+  error.style.borderColor = '';
+  error.style.color = '';
+  error.textContent = message;
+  error.style.display = 'block';
+}
+
+// 分析完了時、再取得由来の表示だけを消す(partial 警告などは各経路が上書きする)
+function clearRebuildError() {
+  var error = document.getElementById('error');
+  if (error && error.dataset.source === 'rebuild') { error.style.display = 'none'; delete error.dataset.source; }
 }
 
 async function analyze() {
@@ -435,7 +477,8 @@ async function analyze() {
         if (resultData.user_key && resultData.matches) {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
-        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
+        clearRebuildError();
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record, tag_partners: resultData.tag_partners }, resultData.user_key);
         renderedReal = true;
         if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
@@ -532,8 +575,7 @@ if (rememberInfoBtn && rememberModal) {
         if (!d) return;
         if (!needsRebuild(cachedMatches, d.schema_version)) return;
         if (rebuildBackoffActive()) return;
-        // 自動実行なので失敗は黙って見送る（ユーザーは古いキャッシュで作業を継続できる。
-        // 明示的な再取得はハンバーガーメニューの導線から行える）。
+        // 自動実行なので失敗は黙って見送る（明示の再取得はその他画面から）
         rebuildCacheFromServer(cachedUserKey).catch(function () {});
       })
       .catch(function () {});

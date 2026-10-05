@@ -1,15 +1,15 @@
 import { html, useState, useMemo, useRef, useEffect } from '../htm-preact-standalone.js';
-import { boldText, cellValue, cellDisplay, esc } from '../lib/format.js';
+import { boldText, cellValue, cellDisplay, sortNumber, esc } from '../lib/format.js';
 import { usePopover, useDismiss, Popover } from './popover.js';
 
 export function Tips({ tips }) {
   if (!tips || !tips.length) return null;
-  return html`<blockquote><strong>💡アドバイス:</strong><br />${tips.map(function (t, i) {
+  return html`<ul class="facts" data-ui="facts">${tips.map(function (t) {
     var text = typeof t === 'string' ? t : t.text;
     var details = typeof t === 'object' && t.details ? t.details : null;
-    return html`${i > 0 && html`<br />`}${boldText(text)}
-      ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}`;
-  })}</blockquote>`;
+    return html`<li>${boldText(text)}
+      ${details && html`<ul class="advice-details">${details.map(function (d) { return html`<li>${boldText(d)}</li>`; })}</ul>`}</li>`;
+  })}</ul>`;
 }
 
 export function SortableTable({ headers, rows, sortableColumns, defaultLimit }) {
@@ -23,9 +23,7 @@ export function SortableTable({ headers, rows, sortableColumns, defaultLimit }) 
     if (sortState.col < 0) return rows;
     var col = sortState.col;
     var sorted = rows.slice().sort(function (a, b) {
-      var va = cellValue(a[col]), vb = cellValue(b[col]);
-      var na = typeof va === 'number' ? va : parseFloat(String(va).replace(/[%+戦件回]/g, ''));
-      var nb = typeof vb === 'number' ? vb : parseFloat(String(vb).replace(/[%+戦件回]/g, ''));
+      var na = sortNumber(a[col]), nb = sortNumber(b[col]);
       if (!isNaN(na) && !isNaN(nb)) {
         return sortState.asc ? na - nb : nb - na;
       }
@@ -154,7 +152,7 @@ export function RangeCalendar({ startDate, endDate, onSelectStart, onSelectEnd }
       <span class="cal-title">${view.year}年${view.month + 1}月</span>
       <button class="cal-nav" onClick=${nextMonth}>▶</button>
     </div>
-    <div style="text-align:center;font-size:0.8em;color:var(--accent);margin-bottom:4px">${hint}</div>
+    <div style="text-align:center;font-size:0.875rem;color:var(--accent);margin-bottom:4px">${hint}</div>
     <div class="cal-grid">
       ${DOW_LABELS.map(function (d) { return html`<span class="cal-dow">${d}</span>`; })}
       ${cells.map(function (day) {
@@ -288,7 +286,7 @@ export function Autocomplete({ value, onChange, options, placeholder }) {
 
 export function Panel({ title, children }) {
   return html`<div class="panel" data-ui="panel">
-    ${title && html`<h2><span class="dot" />${title}</h2>`}
+    ${title && html`<h2>${title}</h2>`}
     ${children}
   </div>`;
 }
