@@ -197,7 +197,8 @@ function useCollapsingBar(enabled) {
     function apply() {
       raf = 0;
       var bar = barRef.current, tabs = tabsRef.current;
-      if (!bar || !tabs) return;
+      // シート表示中に隠れ状態へ遷移すると visibility:hidden が fixed のシートに継承されて消える
+      if (!bar || !tabs || scrollLocked()) return;
       var sh = Math.round(tabs.getBoundingClientRect().top - bar.getBoundingClientRect().top);
       var top = bar.parentElement.getBoundingClientRect().top + window.scrollY + sh;
       var max = document.documentElement.scrollHeight - window.innerHeight;

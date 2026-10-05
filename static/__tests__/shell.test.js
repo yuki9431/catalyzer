@@ -37,4 +37,11 @@ describe('shell ソース', () => {
     assert.match(src, /var hasShare = !!\(shareData && shareData\.length\);/);
     assert.doesNotMatch(src, /\.length\s*&&\s*html`/);
   });
+
+  it('useCollapsingBar はスクロールロック中(シート表示中)に状態を更新しない', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../components/shell.js', import.meta.url), 'utf8');
+    const apply = src.slice(src.indexOf('function apply()'), src.indexOf('function schedule()'));
+    assert.ok(/scrollLocked\(\)\) return;/.test(apply));
+  });
 });
