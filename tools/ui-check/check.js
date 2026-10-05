@@ -150,8 +150,17 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'release', 'absentNow'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
       if ((kind === 'scrollBy' || kind === 'pull') && typeof a[0] !== 'number') throw new InfraError(kind + ' の第1引数は数値');
+      if (kind === 'absentNow') {
+        if (await evalJs(countExpr(a[0], null))) return fail('在ってはいけない要素 ' + a[0]);
+        continue;
+      }
+      if (kind === 'release') {
+        await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await evalJs('new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        continue;
+      }
       if (kind === 'scrollBy') {
         await evalJs('window.scrollBy(0,' + a[0] + ');new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
         continue;

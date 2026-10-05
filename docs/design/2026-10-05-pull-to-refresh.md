@@ -23,7 +23,7 @@
 | 抑止したとき | 起動時の差分取り込み(`pullAutoRefresh`)を従来どおり行う | 切り離された分析の結果は Firestore に入るので、差分取り込みで画面に出る |
 | 再読み込みで起動するとき | 起動時の差分取り込みは行わない | 再分析が最新を取るので、Firestore の読み取りを1回減らせる |
 | ホーム画面アプリの判定 | `navigator.standalone === true` または `matchMedia('(display-mode: standalone)').matches`(manifest の `display` は `standalone`)。JS で1回だけ判定し、`html[data-standalone]` 属性で CSS に渡す | iOS と Android の両方を1か所で判定できる。CSS の `@media (display-mode)` を別に持つと判定元が2つになり、ui-check で同じ状態を作れない |
-| 再分析ボタンを出す条件 | 幅 `min-width: 721px`(隠す CSS の境界 720px・`SHEET_MAX_WIDTH` と同じ) | 「ポインタが細かい/ホバー可能」も検討した。ui-check は `mobile:false` でタッチを模擬しないため、390px 幅の画面でも `pointer:fine` に一致してボタンが出てしまう。また広い画面のタッチ端末(タブレット・スマホ横向き)では隠す動作がないので、ボタンがあっても邪魔にならない。幅 720px 以下のマウス利用者には出ないが、再読み込みとその他画面で再分析できる |
+| 再分析ボタンを出す条件 | 幅が `max-width: 720px` でないとき(CSS は `not all and (max-width: 720px)`。隠す CSS の境界 720px・`SHEET_MAX_WIDTH` と同じで、小数幅でも隙間が出ない) | 「ポインタが細かい/ホバー可能」も検討した。ui-check は `mobile:false` でタッチを模擬しないため、390px 幅の画面でも `pointer:fine` に一致してボタンが出てしまう。また広い画面のタッチ端末(タブレット・スマホ横向き)では隠す動作がないので、ボタンがあっても邪魔にならない。幅 720px 以下のマウス利用者には出ないが、再読み込みとその他画面で再分析できる |
 | 試合検索・総合戦歴 | 引っ張り・ボタンとも無し(r1 と同じ) | 再読み込みとその他画面で再分析できる |
 | 隠している間の範囲表示 | 既存の本文先頭 `.report-scope` で足りる(r1 と同じ) | バーに常時出すと 120px を超える |
 
@@ -187,7 +187,7 @@ nextBar(y は `[0, max(limits.max, 0)]` に丸める。iOS の上下バウンス
 @media (max-width: 720px) and (prefers-reduced-motion: no-preference) { .topbar, .topbar::before { transition: top 0.2s ease; } }
 .controls-reanalyze { display: none; align-items: center; min-height: 44px; width: auto; padding: 0 16px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--accent); font-size: 0.875rem; white-space: nowrap; cursor: pointer; }
 .controls-reanalyze:hover { border-color: var(--accent); background: var(--accent-a10); }
-@media (min-width: 721px) { .controls-reanalyze { display: inline-flex; } }
+@media not all and (max-width: 720px) { .controls-reanalyze { display: inline-flex; } }
 /* shell.css(r2: ホーム画面アプリのときだけ) */
 html[data-standalone]:has(.view-root) { overscroll-behavior-y: contain; }
 .pull-zone { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; overflow: hidden; margin: calc(var(--gutter) * -1) 0 var(--gutter); color: var(--muted); font-size: 0.875rem; }
@@ -237,12 +237,13 @@ var ACTIVE_TAB = ['[data-ui="tab"][aria-selected="true"]', '総合'];
 // r2:
 var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 // report-overview の required に REANALYZE_BTN を追加。mobile-report-overview に absent: [['[data-ui="reanalyze-button"]']]
-{ id: 'mobile-pull-browser', viewport: M, full: false, start: 'report', ops: [{ wait: ['[data-ui="report-scope"]'] }, { pull: [200, 'release'] }, { pull: [200] }],
-  required: [['[data-ui="report-scope"]', '全期間・60試合']], absent: [['[data-ui="pull-indicator"]']] },
+{ id: 'mobile-pull-browser', viewport: M, full: false, start: 'report', ops: [{ wait: ['[data-ui="report-scope"]'] }, { pull: [200] }, { absentNow: ['[data-ui="pull-indicator"]'] }, { release: [0] }],
+  required: [['[data-ui="report-scope"]', '全期間・60試合']] },
 { id: 'report-reanalyze', viewport: D, full: false, start: 'report', ops: [{ click: REANALYZE_BTN }], required: [['#loginForm'], ['#analyzeBtn']] },
 ```
 - mobile-pull / mobile-pull-release(U5 で作成済み)は `standalone: true` が要る。r2 ではブラウザのタブで引っ張りが動かないため、無いと「離すと再分析」も再分析も起きず落ちる。見た目は変わらないので基準画像は撮り直さない見込み(落ちたら理由を調べる)
-- mobile-pull-browser: ブラウザのタブでは、しきい値を超えて離しても再分析せず(レポートが表示されたまま)、保持しても表示が出ないことを確かめる
+- mobile-pull-browser: ブラウザのタブでは、しきい値を超えて保持しても表示が出ない(`absentNow`)ことを確かめ、その後 `release` で離す。保持のまま撮るとブラウザ標準のオーバースクロールで画素が揺れるため離してから撮る。離しても再分析せず(レポートが表示されたまま)
+- `useCollapsingBar` の `apply` はスクロールロック中(シート・モーダル表示中)は状態を更新しない(隠れ状態の `visibility:hidden` が fixed のシートに継承されて消えるため)
 - 再読み込みでの起動は ui-check では確かめない。プレビューのモックは `/session` が `valid:false` を返し、セッションが無い。mobile-more の `{reload:true}` は navigation type が reload になるが、セッションが無いので起動しない(既存の基準画像は不変)
 - mobile-pull: 40px の離し(distance 20)で再分析しないことを「レポートが表示されたまま」で、200px の保持(distance 96)で「離すと再分析」の表示を確認し、その見た目を基準画像に撮る。プレビューはセッションが無いので、再分析が走るとログインフォームが出る(mobile-pull-release・more-reanalyze はこれで配線を確かめる)
 - check.js は撮影前に `scrollTo(0,0)` と全高ビューポートにするため、スクロール中の見た目は基準画像に写らない。スクロール中の状態は inview/outview/fixedMax の数値検査で判定する
@@ -255,7 +256,7 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 - runlock.test.js(新, 4件): run 中 busy・終了後 false・戻り値 true / busy 中の run は false で fn 未呼び出し / release 後に新しい run が始められ、古い run の完了で新しい run が解放されない / fn の reject で busy false かつ reject が伝播
 - skeleton-actions.test.js(+2): 全 `<${MoreView}` に `onReanalyze=`(2か所以上)/ `onPull=` を持つ全 `<${AppShell}` に `canPull=`(1か所以上)
 - surface.test.js(+1): static 配下の .js(`__tests__`・`htm-preact-standalone.js`・`chart.umd.min.js` を除く)で `addEventListener('scroll'` を含むのは shell.js だけで1件、`.style.maxHeight` は0件。既存「report.js に…」は名前を「report.js はスクロール連動処理を持たない(shell.js に一元化)」へ
-- screens.test.js(r2 追加): selectors() に absent も含める / mobile-pull・mobile-pull-release は `standalone: true`、mobile-pull-browser は standalone でなく absent に pull-indicator / report-overview は REANALYZE_BTN を必須、mobile-report-overview は absent に reanalyze-button
+- screens.test.js(r2 追加): selectors() に absent も含める / mobile-pull・mobile-pull-release は `standalone: true`、mobile-pull-browser は standalone でなく pull→absentNow(pull-indicator)→release の順 / report-overview は REANALYZE_BTN を必須、mobile-report-overview は absent に reanalyze-button
 - screens.test.js(r1): selectors() に outview を含め、selectors テストの期待値を `['a','[data-ui="x"]','[data-ui="y"]','b']` に / 「mobile-report-overview は…フィルタ群が画面内に見える」を「正の scrollBy の後に FILTERS 3つが outview、ACTIVE_TAB が inview、fixedMax <= 120」に置換 / 新: mobile-report-scroll-up は正→負の scrollBy の後に FILTERS が inview / 新: mobile-pull は `PULL.threshold / PULL.resist` 未満の pull を release した後に以上の pull を保持し、mobile-pull-release は以上の pull を release して `#loginForm` を必須にする(PULL は static/lib/topbar.js から import)
 - ui-check: 既存の基準画像更新+新4画面(§5 C6〜C12)
 
@@ -266,7 +267,7 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 | C2 | 純粋関数テスト | `node --test static/__tests__/topbar.test.js static/__tests__/launch.test.js` | exit 0、fail 0、pass 35 以上(19+16) |
 | C3 | ロックのテスト | `node --test static/__tests__/runlock.test.js` | exit 0、fail 0、pass 4 |
 | C4 | props 注入・静的検査 | `node --test static/__tests__/skeleton-actions.test.js static/__tests__/surface.test.js` | exit 0、fail 0、pass 9 |
-| C5 | 画面定義の規約 | `node --test tools/ui-check/screens.test.js` | exit 0、fail 0、pass 12 |
+| C5 | 画面定義の規約 | `node --test tools/ui-check/screens.test.js` | exit 0、fail 0、pass 13 |
 | C6 | ui-check 全 OK を2回連続 | `make ui-check` を2回 | 両方 exit 0、最終行 `ui-check: 58/58 OK` |
 | C7 | console エラー0 | `make ui-check 2>&1 \| grep -c "console エラー"` | 0 |
 | C8 | 固定高さ(タブバー込み)120px 以下 | `node tools/ui-check/check.js mobile-report-overview \| grep '^OK' \| grep -oE '固定 [0-9]+px' \| grep -oE '[0-9]+' \| awk '$1<=120{n++} END{print n+0}'` | 2 |
@@ -278,7 +279,7 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 | C14 | 再分析の入口(引っ張り・再表示・その他・ボタン・タブでは引っ張らない) | `node tools/ui-check/check.js mobile-report-scroll-up mobile-pull mobile-pull-release more-reanalyze mobile-pull-browser report-reanalyze report-overview \| grep -c "^OK"` | 14 |
 | C15 | 上部の行の撤去 | `grep -rnE "topbar-head\|topbar-refresh\|onRefresh\|\.topbar \.brand" static \| wc -l` / `grep -c 'class="brand"' static/components/shell.js` | 0 / 0 |
 | C16 | 上端の抑止はホーム画面アプリだけ(r2) | `grep -c "html\[data-standalone\]:has(.view-root) { overscroll-behavior-y: contain; }" static/styles/shell.css` / `grep -c "^html:has(.view-root)" static/styles/shell.css` / `grep -c "setAttribute('data-standalone'" static/app.js` | 1 / 0 / 1 |
-| C17 | 起動経路の配線(r2) | `grep -c "shouldReanalyzeOnReload(" static/app.js` / `grep -c "navigationType(" static/app.js` / `grep -c "pullEnabled: STANDALONE" static/app.js` / `grep -c "actions.pullEnabled ? actions.onReanalyze : null" static/components/report/report.js` / `grep -c "hasSession && !reloadRun" static/app.js` / `grep -cE "!hasLocalData .{4}reloadRun" static/app.js` | 1 / 1 / 1 / 1 / 1 / 1 |
+| C17 | 起動経路の配線(r2) | `grep -c "shouldReanalyzeOnReload(" static/app.js` / `grep -c "navigationType(" static/app.js` / `grep -c "pullEnabled: STANDALONE" static/app.js` / `grep -c "actions.pullEnabled ? actions.onReanalyze : null" static/components/report/report.js` / `grep -c "hasSession && !reloadRun" static/app.js` / `grep -cE "!hasLocalData .{3}reloadRun" static/app.js` | 1 / 1 / 1 / 1 / 1 / 1 |
 | C18 | 分析の記録(r2) | `grep -c "ANALYSIS_STARTED_KEY" static/app.js` / `grep -c "ANALYSIS_FINISHED_KEY" static/app.js` | 各 4 以上(定義・開始/終了の書き込み・起動時の読み出し・ログアウトの削除) |
 | C19 | 分析中ガードの配線 | `grep -c "analysis.run(" static/app.js` / `grep -cE "^\s*(reanalyzeWithSession\|analyze)\(\);" static/app.js` / `grep -c "if (analysisBusy()) return;" static/app.js` / `grep -c "analysis.release()" static/app.js` / `grep -c "canReanalyze:" static/app.js` | 4 / 0 / 1 / 1 / 1 |
 | C20 | #413 C8 の維持・変えない基準画像・Go 不変 | `grep -c "topbarRef" static/components/report/report.js static/components/shell.js` / `git diff --name-only afc9aa5 -- 'tools/ui-check/baseline/login-*.png' 'tools/ui-check/baseline/parts-*.png' \| wc -l` / `git diff --name-only afc9aa5 -- '*.go' go.mod go.sum \| wc -l` | 各 0 / 0 / 0 |

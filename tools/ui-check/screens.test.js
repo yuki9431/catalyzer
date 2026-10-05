@@ -99,7 +99,9 @@ describe('screens', () => {
   it('mobile-pull-browser はタブ(standalone でない)で引っ張り表示が無いことを検査する', () => {
     var s = get('mobile-pull-browser');
     assert.ok(!s.standalone);
-    assert.ok(s.absent.some(function (r) { return r[0] === '[data-ui="pull-indicator"]'; }));
+    var kinds = s.ops.map(function (o) { return Object.keys(o)[0]; });
+    assert.ok(kinds.indexOf('pull') < kinds.indexOf('absentNow') && kinds.indexOf('absentNow') < kinds.indexOf('release'));
+    assert.deepStrictEqual(s.ops[kinds.indexOf('absentNow')].absentNow, ['[data-ui="pull-indicator"]']);
   });
 
   it('report-overview は再分析ボタンを必須にし、mobile-report-overview は不在を検査する', () => {
