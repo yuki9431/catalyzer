@@ -186,7 +186,6 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
 }
 
 // 下スクロールで絞り込み行を隠し、上に少し戻すと出す(隠す見た目はスマホ幅の CSS だけ)
-
 function useCollapsingBar(enabled) {
   var barRef = useRef(null), tabsRef = useRef(null);
   var cState = useState(false), collapsed = cState[0], setCollapsed = cState[1];
@@ -271,7 +270,7 @@ function PullToRefresh({ onPull, canPull }) {
 }
 
 // 上部バー(絞り込み行+タブ行)・本文・下部タブバーの外枠。絞り込みもタブも無い画面の上部バーは safe-area だけ
-export function AppShell({ filters, tabs, onPull, canPull, nav, children }) {
+export function AppShell({ filters, tabs, trailing, onPull, canPull, nav, children }) {
   var bare = !filters && !tabs;
   var collapsible = !!(filters && tabs);
   var bar = useCollapsingBar(collapsible);
@@ -280,6 +279,7 @@ export function AppShell({ filters, tabs, onPull, canPull, nav, children }) {
     <div class=${'topbar' + (bare ? ' topbar-bare' : '')} data-ui="topbar" data-collapsed=${collapsible && bar.collapsed ? 'true' : 'false'} ref=${bar.barRef}
       style=${collapsible ? { '--topbar-shift': bar.shift + 'px' } : undefined}>
       ${filters}
+      ${bare && trailing && html`<div class="topbar-trailing">${trailing}</div>`}
       ${tabs && html`<div class="topbar-tabs" ref=${bar.tabsRef}>${tabs}</div>`}
     </div>
     ${children}

@@ -73,7 +73,7 @@ function reAnalyze() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-async function reanalyzeWithSession() {
+async function reanalyzeWithSession(auto) {
   var status = document.getElementById('status');
   var statusText = document.getElementById('statusText');
   var error = document.getElementById('error');
@@ -96,12 +96,22 @@ async function reanalyzeWithSession() {
   error.style.display = 'none';
 
   var lastPreliminaryVersion = 0;
+  var posted = false; // POST を投げたら失敗しても終了を記録する(再読み込みごとの再分析を防ぐ)
+  var busyNotice = false;
 
   try {
+    posted = true;
     var res = await fetch('/reanalyze', { method: 'POST' });
     var data = await res.json();
 
     if (data.error) {
+      // 再読み込みでの自動起動が lease 中の409になったときは、エラーにせず事実だけ短く出す
+      if (auto && res.status === 409) {
+        busyNotice = true;
+        statusText.textContent = '自動更新で取得中のため、再分析は後で行えます';
+        setTimeout(function () { status.style.display = 'none'; }, 4000);
+        return;
+      }
       if (res.status === 401) {
         returnToLogin();
         error.style.display = 'block';
@@ -189,11 +199,11 @@ async function reanalyzeWithSession() {
     error.style.display = 'block';
     error.textContent = e.message;
   } finally {
-    if (activeJobId === jobId) {
+    if (posted && (jobId === undefined || activeJobId === jobId)) {
       activeJobId = null;
       markAnalysis(ANALYSIS_FINISHED_KEY);
     }
-    status.style.display = 'none';
+    if (!busyNotice) status.style.display = 'none';
   }
 }
 
@@ -668,7 +678,7 @@ if (rememberInfoBtn && rememberModal) {
         var t = document.getElementById('pageTitle');
         if (t) t.style.display = '';
       } else if (!hasLocalData || reloadRun) {
-        analysis.run(reanalyzeWithSession);
+        analysis.run(function () { return reanalyzeWithSession(true); });
       }
     }).catch(function () {
       if (loginForm) loginForm.style.display = 'block';

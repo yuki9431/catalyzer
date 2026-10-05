@@ -31,6 +31,13 @@ function scopeText(periodKey, periods, ms, lens) {
   return parts.join('・');
 }
 
+// 広い画面の再分析ボタン(スマホ幅は CSS で非表示)。分析中は押せない
+function reanalyzeButton(actions) {
+  return html`<button type="button" class="controls-reanalyze" data-ui="reanalyze-button" disabled=${actions.canReanalyze ? !actions.canReanalyze() : false} onClick=${actions.onReanalyze}>再分析</button>`;
+}
+
+function pullAction(actions) { return actions.pullEnabled ? actions.onReanalyze : null; }
+
 export function Report({ data, userKey, actions }) {
   var periodRef = useState('all');
   var selectedPeriod = periodRef[0], setSelectedPeriod = periodRef[1];
@@ -206,13 +213,13 @@ export function Report({ data, userKey, actions }) {
   // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
   // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
   if (view === 'search') {
-    return html`<${AppShell} nav=${nav}>
+    return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
       <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
     </${AppShell}>`;
   }
 
   if (view === 'classrecord') {
-    return html`<${AppShell} nav=${nav}>
+    return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
       <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
     </${AppShell}>`;
   }
@@ -246,14 +253,14 @@ export function Report({ data, userKey, actions }) {
           userKey=${userKey} onCustomReport=${handleCustomReport} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
-        <button type="button" class="controls-reanalyze" data-ui="reanalyze-button" onClick=${actions.onReanalyze}>再分析</button>
+        ${reanalyzeButton(actions)}
       </div>`;
   var tabs = html`<div class="tabs" role="tablist">${TAB_DEFS.map(function (t) {
         return html`<button data-ui="tab" role="tab" aria-selected=${activeTab === t[0]} class=${'tab' + (activeTab === t[0] ? ' active' : '')}
           onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
       })}</div>`;
 
-  return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${actions.pullEnabled ? actions.onReanalyze : null} canPull=${actions.canReanalyze} nav=${nav}>
+  return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${pullAction(actions)} canPull=${actions.canReanalyze} nav=${nav}>
     <${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />
 
     ${pane}

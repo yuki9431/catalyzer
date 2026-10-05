@@ -15,6 +15,7 @@
 1. **再読み込みで開いたときだけ**(Navigation Timing の type が `reload`)、ログイン状態を保持していれば既存の再分析(`reanalyzeWithSession`)を起動する。通常の遷移・ホーム画面アイコン・リンクでは起動しない。スマホのブラウザ標準の引っ張り再読み込みがこの経路になる
 2. **ホーム画面に追加したアプリのときだけ**自前の「引っ張って再分析」を動かす(表示・しきい値・案内・分析中は受け付けない、は r1 のまま)。ブラウザのタブでは動かさない(標準の再読み込みと二重になる)。`overscroll-behavior` と `preventDefault` もホーム画面アプリのときだけ
 3. **広い画面では絞り込み行の右端に「再分析」ボタン**。スマホ幅では置かない
+4. (r3)自前の引っ張りは試合検索・総合戦歴でも有効(「その他」は無効。シート・モーダル表示中は scrollLocked で無効)。広い画面(720px より広い)の試合検索・総合戦歴は絞り込み行が無いので、上部バーの右端(`.topbar-trailing`)に同じ見た目・同じ disabled 条件の再分析ボタンを置く。スマホ幅では非表示で固定高さは不変
 
 既定値(停止不要。事後確認を推奨)
 | 論点 | 採用 | 理由・影響 |
@@ -273,7 +274,7 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 | C8 | 固定高さ(タブバー込み)120px 以下 | `node tools/ui-check/check.js mobile-report-overview \| grep '^OK' \| grep -oE '固定 [0-9]+px' \| grep -oE '[0-9]+' \| awk '$1<=120{n++} END{print n+0}'` | 2 |
 | C9 | 帯が無い | `node tools/ui-check/check.js mobile-report-overview \| grep -c '帯 0px'` | 2 |
 | C10 | 固定高さ検査が効く | `UI_CHECK_INJECT='mobile-report-overview:document.querySelector("[role=tablist]").style.paddingBottom="30px"' node tools/ui-check/check.js mobile-report-overview` と同コマンドの `\| grep -c "固定高さ"` | exit 1 / 2 |
-| C11 | 帯の検査が効く | `UI_CHECK_INJECT='mobile-report-overview:document.querySelector("[data-ui=topbar]").style.top="calc(12px - var(--topbar-shift))"' node tools/ui-check/check.js mobile-report-overview` と同コマンドの `\| grep -c "上部バーの帯"` | exit 1 / 2 |
+| C11 | 帯の検査が効く | `UI_CHECK_INJECT='mobile-report-overview:(function(){var s=document.createElement("style");s.textContent=".topbar[data-collapsed=true]{top:calc(12px - var(--topbar-shift)) !important}.topbar[data-collapsed=true]::before{top:0 !important}";document.head.appendChild(s)})()' node tools/ui-check/check.js mobile-report-overview` と同コマンドの `\| grep -c "上部バーの帯"` | exit 1 / 2 |
 | C12 | 隠れ検査が効く | `UI_CHECK_INJECT='mobile-report-overview:document.querySelector("[data-ui=topbar]").dataset.collapsed="false"' node tools/ui-check/check.js mobile-report-overview` と同コマンドの `\| grep -c "画面内に見える"` | exit 1 / 2 |
 | C13 | 不在検査が効く(r2) | `UI_CHECK_INJECT='mobile-report-overview:document.querySelector("[data-ui=reanalyze-button]").style.display="inline-flex"' node tools/ui-check/check.js mobile-report-overview` と同コマンドの `\| grep -c "在ってはいけない要素"` | exit 1 / 2 |
 | C14 | 再分析の入口(引っ張り・再表示・その他・ボタン・タブでは引っ張らない) | `node tools/ui-check/check.js mobile-report-scroll-up mobile-pull mobile-pull-release more-reanalyze mobile-pull-browser report-reanalyze report-overview \| grep -c "^OK"` | 14 |

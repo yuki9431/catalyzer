@@ -43,8 +43,8 @@ function inviewExpr(sel, text) {
 // 上部バーの下端+下部タブバーの高さ(fixed)と、タブ行の上に残る帯の高さ(band)を返す式。対象が無ければ fixed=-1
 var FIXED_EXPR = '(function(){var bar=document.querySelector(\'[data-ui="topbar"]\'),tab=document.querySelector(\'[data-ui="tabbar"]\');' +
   'if(!bar||!tab)return{fixed:-1,band:0};var H=innerHeight,cl=function(v){return Math.min(Math.max(v,0),H)};' +
-  'var br=bar.getBoundingClientRect(),tr=tab.getBoundingClientRect(),tl=bar.querySelector(\'[role="tablist"]\');' +
-  'return{fixed:Math.round(cl(br.bottom)+cl(H-tr.top)),band:tl?Math.round(tl.getBoundingClientRect().top-Math.max(0,br.top)):0}})()';
+  'var br=bar.getBoundingClientRect(),tr=tab.getBoundingClientRect(),tl=bar.querySelector(\'[role="tablist"]\'),pt=parseFloat(getComputedStyle(bar,"::before").top)||0;' +
+  'return{fixed:Math.round(cl(br.bottom)+cl(H-tr.top)),band:tl?Math.round(tl.getBoundingClientRect().top-Math.max(0,br.top+pt)):0}})()';
 
 // 画面の左右端をまたぐ要素（横スクロールする祖先の中と、全体が画面外のものは除く）の最初の1件を返す式
 var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelectorAll("*");' +

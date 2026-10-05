@@ -22,7 +22,8 @@ export function pullStep(state, ev) {
   var dy = ev.y - state.startY;
   var vert = dy > 0 && dy >= Math.abs(dx);
   if (state.phase === 'armed') {
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < PULL.slop) return result(state, false, vert);
+    // slop 内は prevent しない(cancel 済みのタッチ列はネイティブスクロールを始めない)
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < PULL.slop) return result(state, false, false);
     if (vert && ev.scrollY <= 0) return result(pulling(state, dy), false, true);
     return result(PULL_IDLE, false, false);
   }
@@ -43,7 +44,9 @@ export var BAR_SHOWN = { hidden: false, anchor: 0 };
 
 // limits: {top, max}。y は [0, max] に丸める(iOS の上下バウンスで誤判定しない)
 export function nextBar(prev, y, limits) {
-  var yy = Math.min(Math.max(y, 0), Math.max(limits.max, 0));
+  var max = Math.max(limits.max, 0);
+  var yy = Math.min(Math.max(y, 0), max);
+  if (prev.anchor > max) prev = { hidden: prev.hidden, anchor: max }; // max が縮んだら anchor も丸める
   if (yy <= limits.top) return { hidden: false, anchor: yy };
   if (!prev.hidden) {
     if (yy < prev.anchor) return { hidden: false, anchor: yy };

@@ -19,10 +19,10 @@ describe('pullStep', () => {
   it('scrollY=1 の start は idle', () => {
     assert.strictEqual(pullStep(PULL_IDLE, { ...start, scrollY: 1 }).state.phase, 'idle');
   });
-  it('slop 内の下向きは armed・prevent true', () => {
+  it('slop 内の下向きは armed・prevent false', () => {
     var r = run([start, mv(0, 4)]);
     assert.strictEqual(r.state.phase, 'armed');
-    assert.strictEqual(r.prevent, true);
+    assert.strictEqual(r.prevent, false);
   });
   it('slop 内の横優勢は prevent false', () => {
     var r = run([start, mv(5, 2)]);
@@ -87,6 +87,10 @@ describe('nextBar', () => {
   it('shown から下へ23は shown・24で hidden', () => {
     assert.strictEqual(nextBar(shown, 500 + BAR.hideAfter - 1, L).hidden, false);
     assert.strictEqual(nextBar(shown, 500 + BAR.hideAfter, L).hidden, true);
+  });
+  it('max が縮んでも anchor が丸められ、上に戻したと誤認しない', () => {
+    var s = nextBar({ hidden: true, anchor: 1000 }, 900, { top: 100, max: 900 });
+    assert.strictEqual(s.hidden, true);
   });
   it('hidden から上へ15は hidden・16で shown', () => {
     assert.strictEqual(nextBar(hidden, 500 - BAR.showAfter + 1, L).hidden, true);
