@@ -1,8 +1,13 @@
 package firestore
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSessionExpired(t *testing.T) {
@@ -20,5 +25,18 @@ func TestSessionExpired(t *testing.T) {
 		if got := sessionExpired(tt.exp, now); got != tt.want {
 			t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
 		}
+	}
+}
+
+func TestSessionUpdateError(t *testing.T) {
+	const token = "secret-token-1234"
+	nf := status.Error(codes.NotFound, "no document projects/p/documents/sessions/"+token)
+	if got := sessionUpdateError(nf); !errors.Is(got, ErrSessionNotFound) {
+		t.Errorf("NotFound は sentinel: got %v", got)
+	}
+	other := status.Error(codes.Unavailable, "failed projects/p/documents/sessions/"+token)
+	got := sessionUpdateError(other)
+	if errors.Is(got, ErrSessionNotFound) || strings.Contains(got.Error(), token) {
+		t.Errorf("他のエラーは token を含めない: %v", got)
 	}
 }

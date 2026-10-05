@@ -55,6 +55,7 @@ func TestNextUpdate(t *testing.T) {
 		{"access_denied は止めるが token は残す", prev, OutcomeAccessDenied, model.RefreshUpdate{LastResult: "access_denied", ConsecutiveFailures: 1, StopActive: true}},
 		{"error は回数を増やす", model.AutoRefreshState{}, OutcomeError, model.RefreshUpdate{LastResult: "error", ConsecutiveFailures: 1}},
 		{"error 2 回目はまだ続ける", prev, OutcomeError, model.RefreshUpdate{LastResult: "error", ConsecutiveFailures: 2}},
+		{"処理に使った token を引き継ぐ", model.AutoRefreshState{SessionToken: "T1"}, OutcomeOK, model.RefreshUpdate{LastResult: "ok", SessionToken: "T1"}},
 		{"error 3 回目で止める", model.AutoRefreshState{ConsecutiveFailures: 2}, OutcomeError, model.RefreshUpdate{LastResult: "error", ConsecutiveFailures: 3, StopActive: true}},
 	}
 	for _, tt := range tests {

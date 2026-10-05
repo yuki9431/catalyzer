@@ -219,6 +219,28 @@ func AcquireRefreshLease(ctx context.Context, userKey, owner string, now time.Ti
 	return acquired, nil
 }
 
+// finishFields は終了時に書くフィールドを返す。token が処理中に変わっていたら(別端末の touch)token と期間は消さない。
+func finishFields(st model.AutoRefreshState, upd model.RefreshUpdate, now time.Time) map[string]interface{} {
+	fields := map[string]interface{}{
+		"lease_until":          time.Time{},
+		"lease_owner":          "",
+		"last_run_at":          now,
+		"last_result":          upd.LastResult,
+		"consecutive_failures": upd.ConsecutiveFailures,
+		"updated_at":           firestore.ServerTimestamp,
+	}
+	if st.SessionToken != upd.SessionToken {
+		return fields
+	}
+	if upd.ClearSessionToken {
+		fields["session_token"] = ""
+	}
+	if upd.StopActive {
+		fields["active_until"] = time.Time{}
+	}
+	return fields
+}
+
 // FinishRefresh は owner が lease を持っているときだけ、lease を空けて結果を書く。
 func FinishRefresh(ctx context.Context, userKey, owner string, upd model.RefreshUpdate) error {
 	ref, c, err := autoRefreshRef(userKey)
@@ -240,21 +262,7 @@ func FinishRefresh(ctx context.Context, userKey, owner string, upd model.Refresh
 		if st.LeaseOwner != owner {
 			return nil
 		}
-		fields := map[string]interface{}{
-			"lease_until":          time.Time{},
-			"lease_owner":          "",
-			"last_run_at":          time.Now(),
-			"last_result":          upd.LastResult,
-			"consecutive_failures": upd.ConsecutiveFailures,
-			"updated_at":           firestore.ServerTimestamp,
-		}
-		if upd.ClearSessionToken {
-			fields["session_token"] = ""
-		}
-		if upd.StopActive {
-			fields["active_until"] = time.Time{}
-		}
-		return tx.Set(ref, fields, firestore.MergeAll)
+		return tx.Set(ref, finishFields(st, upd, time.Now()), firestore.MergeAll)
 	})
 	if err != nil {
 		return fmt.Errorf("finish refresh: %w", err)

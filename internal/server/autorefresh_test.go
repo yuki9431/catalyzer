@@ -75,12 +75,6 @@ func TestCheckPassphrase(t *testing.T) {
 			}
 		}
 	})
-
-	t.Run("未設定は 503", func(t *testing.T) {
-		if got := checkPassphrase(autorefresh.Gate{}, newTestLimiter(), "u", "1.1.1.1", "x"); got != http.StatusServiceUnavailable {
-			t.Errorf("= %d", got)
-		}
-	})
 }
 
 func TestTickHandler(t *testing.T) {
@@ -283,5 +277,32 @@ func TestAcquireManualLease(t *testing.T) {
 	acquire(false, errors.New("firestore down"))
 	if _, ok := acquireManualLease("u"); !ok {
 		t.Error("Firestore 障害では fail-open で続行する")
+	}
+}
+
+func TestLazyLauncherRetriesAfterClientFailure(t *testing.T) {
+	calls := 0
+	newClient := func(context.Context) (*http.Client, error) {
+		calls++
+		if calls == 1 {
+			return nil, errors.New("adc unavailable")
+		}
+		return &http.Client{}, nil
+	}
+	launched := 0
+	launch := func(context.Context, *http.Client, string) error { launched++; return nil }
+	l := newLazyLauncher(newClient, launch, "job")
+
+	if err := l(context.Background()); err == nil {
+		t.Fatal("1 回目は失敗するはず")
+	}
+	if err := l(context.Background()); err != nil {
+		t.Fatalf("2 回目は再試行して成功するはず: %v", err)
+	}
+	if err := l(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || launched != 2 {
+		t.Errorf("newClient=%d launch=%d, want 2/2(成功後はキャッシュ)", calls, launched)
 	}
 }

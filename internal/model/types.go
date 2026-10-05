@@ -184,6 +184,8 @@ func (s AutoRefreshState) LeaseFree(owner string, now time.Time) bool {
 type RefreshUpdate struct {
 	LastResult          string
 	ConsecutiveFailures int
-	ClearSessionToken   bool
-	StopActive          bool
+	// SessionToken は処理に使った token。現在の token と同じときだけ ClearSessionToken/StopActive を適用する。
+	SessionToken      string
+	ClearSessionToken bool
+	StopActive        bool
 }

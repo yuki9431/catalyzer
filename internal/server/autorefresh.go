@@ -28,9 +28,6 @@ var passphraseLimiter = newRateLimiter(rate.Every(12*time.Minute), 5)
 // checkPassphrase は有効化の合言葉を照合して HTTP ステータスを返す(200 なら通過)。
 // 試行制限は argon2 の計算より前に判定する。照合が不要な開放モードでは制限もかけない。
 func checkPassphrase(g autorefresh.Gate, l *rateLimiter, userKey, ip, passphrase string) int {
-	if !g.Available() {
-		return http.StatusServiceUnavailable
-	}
 	if !g.Required() {
 		return http.StatusOK
 	}
@@ -353,17 +350,28 @@ func registerAutoRefresh(mux *http.ServeMux, cfg autorefresh.Config) {
 
 // lazyLauncher は初回の起動時に ADC のクライアントを作る(ADC が無いローカルでもサーバーを起動できるようにする)。
 func lazyLauncher(jobName string) func(context.Context) error {
+	return newLazyLauncher(autorefresh.NewLaunchClient, autorefresh.LaunchJob, jobName)
+}
+
+// newLazyLauncher は client の作成に成功したときだけキャッシュする(失敗は次回再試行する)。
+func newLazyLauncher(newClient func(context.Context) (*http.Client, error), launch func(context.Context, *http.Client, string) error, jobName string) func(context.Context) error {
 	var (
-		once   sync.Once
+		mu     sync.Mutex
 		client *http.Client
-		cerr   error
 	)
 	return func(ctx context.Context) error {
-		once.Do(func() { client, cerr = autorefresh.NewLaunchClient(context.Background()) })
-		if cerr != nil {
-			return cerr
+		mu.Lock()
+		if client == nil {
+			c, err := newClient(context.Background())
+			if err != nil {
+				mu.Unlock()
+				return err
+			}
+			client = c
 		}
-		return autorefresh.LaunchJob(ctx, client, jobName)
+		c := client
+		mu.Unlock()
+		return launch(ctx, c, jobName)
 	}
 }
 

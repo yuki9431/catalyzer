@@ -80,7 +80,7 @@ func classify(err error) Outcome {
 
 // nextUpdate は結果を状態への反映内容にする。
 func nextUpdate(prev model.AutoRefreshState, o Outcome) model.RefreshUpdate {
-	upd := model.RefreshUpdate{LastResult: string(o), ConsecutiveFailures: prev.ConsecutiveFailures}
+	upd := model.RefreshUpdate{LastResult: string(o), ConsecutiveFailures: prev.ConsecutiveFailures, SessionToken: prev.SessionToken}
 	switch o {
 	case OutcomeOK:
 		upd.ConsecutiveFailures = 0
@@ -330,6 +330,10 @@ func saveJar(ctx context.Context, d deps, token string, jar http.CookieJar) {
 		return
 	}
 	if err := d.store.UpdateSessionJar(ctx, token, enc); err != nil {
+		if errors.Is(err, fs.ErrSessionNotFound) {
+			log.Printf("[INFO] auto-refresh: ログアウト済みのため jar を保存しない")
+			return
+		}
 		log.Printf("[WARN] auto-refresh: jar の保存に失敗: %v", err)
 	}
 }
