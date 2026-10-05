@@ -16,11 +16,11 @@
 .topbar-tabs { flex-basis: 100%; min-width: 0; } /* min-width:0 が無いとタブ行の内容幅で横にはみ出す */
 .topbar.topbar-bare { padding: env(safe-area-inset-top) 0 0; margin-bottom: var(--gutter); border-bottom: none; }
 @media (max-width: 720px) {
-  .topbar[data-collapsed="true"] { top: calc(env(safe-area-inset-top) - var(--topbar-shift, 0px)); }
-  .topbar[data-collapsed="true"]::before { top: calc(var(--topbar-shift, 0px) - env(safe-area-inset-top)); }
+  .topbar[data-collapsed="true"] { top: calc(env(safe-area-inset-top) - var(--topbar-shift)); }
+  .topbar[data-collapsed="true"]::before { top: calc(var(--topbar-shift) - env(safe-area-inset-top)); }
   .topbar[data-collapsed="true"] .controls-row { visibility: hidden; }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: no-preference) { .topbar, .topbar::before { transition: top 0.2s ease; } }
 .controls-reanalyze { display: none; align-items: center; min-height: 44px; width: auto; padding: 0 16px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--accent); font-size: 0.875rem; white-space: nowrap; cursor: pointer; }
 .controls-reanalyze:hover { border-color: var(--accent); background: var(--accent-a10); }
-@media (min-width: 721px) { .controls-reanalyze { display: inline-flex; } }
+@media not all and (max-width: 720px) { .controls-reanalyze { display: inline-flex; } }

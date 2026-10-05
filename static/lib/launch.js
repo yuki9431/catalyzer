@@ -19,7 +19,7 @@ export var RELOAD_GUARD = { runningMs: 10 * 60 * 1000, cooldownMs: 60 * 1000 };
 
 function stamp(v, now) {
   var n = Number(v);
-  return isFinite(n) && n > 0 && n <= now ? n : 0;
+  return Number.isFinite(n) && n > 0 && n <= now ? n : 0;
 }
 
 // s: { navType, hasSession, now, startedAt, finishedAt }(startedAt/finishedAt は localStorage の生の値)
