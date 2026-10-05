@@ -9,7 +9,7 @@ var CLASS_SEL = /\.[A-Za-z_-]/;
 function hasClassSel(sel) { return CLASS_SEL.test(sel.replace(/\[[^\]]*\]/g, '[]')); }
 
 function selectors(screen) {
-  var ops = screen.ops.map(function (op) { var a = op.click || op.type || op.scroll || op.wait; return a && a[0]; }).filter(Boolean);
+  var ops = screen.ops.map(function (op) { var a = op.click || op.type || op.scroll || op.wait || op.absentNow; return a && a[0]; }).filter(Boolean);
   return ops.concat(screen.required.map(function (r) { return r[0]; }), (screen.inview || []).map(function (r) { return r[0]; }), (screen.outview || []).map(function (r) { return r[0]; }), (screen.absent || []).map(function (r) { return r[0]; }), screen.tap || []);
 }
 
@@ -30,6 +30,7 @@ describe('screens', () => {
   it('selectors() が inview のセレクタも検査対象に含める', () => {
     var sel = selectors({ ops: [], required: [['a']], inview: [['[data-ui="x"]', 't']], outview: [['[data-ui="y"]']], absent: [['[data-ui="z"]']], tap: ['b'] });
     assert.deepStrictEqual(sel, ['a', '[data-ui="x"]', '[data-ui="y"]', '[data-ui="z"]', 'b']);
+    assert.deepStrictEqual(selectors({ ops: [{ absentNow: ['.bad'] }], required: [] }), ['.bad']);
   });
 
   it('mobile-report-overview は正の scrollBy の後に絞り込み行が画面外・タブ行が画面内で、固定高さが 120px 以下', () => {

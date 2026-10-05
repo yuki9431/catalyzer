@@ -38,7 +38,7 @@
 - 再分析の起動は3経路+その他画面。判定はすべて純粋関数(`static/lib/launch.js`)
   - ブラウザのタブ: 再読み込みで開いた起動時に `shouldReanalyzeOnReload` が真なら `analysis.run(reanalyzeWithSession)`。標準の引っ張り再読み込みはそのまま使う
   - ホーム画面アプリ: 自前の引っ張り(`PullToRefresh`)。`REPORT_ACTIONS.pullEnabled`(起動時に判定した定数)が真のときだけ Report が `onPull` を渡す
-  - 広い画面: 絞り込み行の右端の「再分析」ボタン(全幅で描き、CSS で 721px 以上だけ表示)
+  - 広い画面: 絞り込み行の右端の「再分析」ボタン(全幅で描き、CSS で 720px より広いときだけ表示)
 - 引っ張り(ホーム画面アプリのみ): `document` に touchstart(passive)/touchmove(**passive:false**)/touchend/touchcancel。純粋関数が `prevent` を返したときだけ `preventDefault`(ページ最上部で下向きが優勢な移動のみ)。離したとき `distance >= しきい値` なら `onPull()`。ブラウザのタブでは `PullToRefresh` 自体を描かないのでリスナも登録されない
   - 表示はモック 4b のとおり上部バーの上に差し込む(本文が下がる)。引っ張り中だけ描き、高さ = distance
 - 上端の伸び・標準の引っ張り更新の抑止: `html[data-standalone]:has(.view-root){overscroll-behavior-y:contain}`(ホーム画面アプリのアプリ画面だけ)。ブラウザのタブでは何も止めない(標準の再読み込みが再分析の経路なので)
@@ -205,7 +205,7 @@ html[data-standalone]:has(.view-root) { overscroll-behavior-y: contain; }
 - **定義**: 「スクロール中に固定される高さ」= 下スクロールで絞り込み行が隠れた状態での (A) 画面上端〜上部バー下端の高さ(上部バーの画面内に見えている部分)+ (B) 下部タブバーの高さ。**完了条件は A+B ≦ 120px(タブバー込み)**。あわせて「帯」= タブ行の上端 − 上部バーの見えている上端 = 0px を検査する
 - 見込み: A = タブ行 49 + 下余白 6 + 下線 1 = 56px、B = 57px、**計 113px**(モック 3b は帯 約12px を含み 125px)。展開時の上部バーは 12+48+8+49+6+1 = 124px(現 169px)。上スクロールで再表示中は 124+57px になる(一時的)
 - 実測が 120 を超えたら architect に戻す(タブ行・タブバーの寸法を独断で変えない)
-- r2 の再分析ボタンは 721px 以上だけ表示し、しかも絞り込み行(高さ 44px のチップと同じ行)の中なので、スマホ幅の固定高さにも広い画面の上部バーの高さにも影響しない
+- r2 の再分析ボタンは 720px より広いときだけ表示し、しかも絞り込み行(高さ 44px のチップと同じ行)の中なので、スマホ幅の固定高さにも広い画面の上部バーの高さにも影響しない
 
 ### ui-check の追加仕様(check.js)
 - `{ scrollBy: [dy] }`: `scrollBy(0,dy)` の後に2フレーム待つ(`awaitPromise`)。`{ pull: [dy, 'release'?] }`: CDP `Input.dispatchTouchEvent` で (幅/2, 300) から touchStart → touchMove 10段で y+dy → `'release'` のときだけ touchEnd。どちらも a[0] は数値(違えば InfraError)。操作前の要素待ち(:155)は click/type/scroll/wait だけにする
@@ -237,7 +237,7 @@ var ACTIVE_TAB = ['[data-ui="tab"][aria-selected="true"]', '総合'];
 // r2:
 var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 // report-overview の required に REANALYZE_BTN を追加。mobile-report-overview に absent: [['[data-ui="reanalyze-button"]']]
-{ id: 'mobile-pull-browser', viewport: M, full: false, start: 'report', ops: [{ wait: ['[data-ui="report-scope"]'] }, { pull: [200] }, { absentNow: ['[data-ui="pull-indicator"]'] }, { release: [0] }],
+{ id: 'mobile-pull-browser', viewport: M, full: false, start: 'report', ops: [{ wait: ['[data-ui="report-scope"]'] }, { pull: [200] }, { absentNow: ['[data-ui="pull-indicator"]'] }, { release: true }],
   required: [['[data-ui="report-scope"]', '全期間・60試合']] },
 { id: 'report-reanalyze', viewport: D, full: false, start: 'report', ops: [{ click: REANALYZE_BTN }], required: [['#loginForm'], ['#analyzeBtn']] },
 ```
@@ -338,8 +338,8 @@ r2 のユニット(U1〜U4 はコミット済み、U5 は未コミット。§11 
 5. ホーム画面アプリ: 隠れた状態でステータスバーの下にチップが透けず、タブ行の上に帯が無い。試合検索・総合戦歴で本文がステータスバーに潜らない
 6. 下スクロールで絞り込み行が隠れ、少し上に戻すと出る。ゆっくりのスクロール・下端のバウンスでちらつかない
 7. 期間シート・試合詳細モーダルを開いた状態で引っ張っても再分析しない(ホーム画面アプリ)。最上部でタブ行を横にスワイプしても引っ張りにならない
-8. パソコン: 絞り込み行の右端に「再分析」が出て、押すと再分析が始まる。F5 でも始まる。その他→「再分析」も動く。721px 以上では行が隠れない。幅を 720px 以下に縮めるとボタンが消える
-9. スマホを横向きにして幅が 721px を超えたとき、ボタンが出ても行が崩れない
+8. パソコン: 絞り込み行の右端に「再分析」が出て、押すと再分析が始まる。F5 でも始まる。その他→「再分析」も動く。720px より広いと行が隠れない。幅を 720px 以下に縮めるとボタンが消える
+9. スマホを横向きにして幅が 720px を超えたとき、ボタンが出ても行が崩れない
 10. ログイン画面では、ブラウザ標準の引っ張り更新が従来どおり使える
 11. 長時間バックグラウンドにしてタブがブラウザに破棄され、戻ったときに再分析が走るか(navigation type が reload になるか)を観察する(§9)
 
@@ -361,7 +361,7 @@ r2 のユニット(U1〜U4 はコミット済み、U5 は未コミット。§11 
 - `static/app.js`: STANDALONE の判定と `html[data-standalone]`、`REPORT_ACTIONS.pullEnabled`、分析の開始/終了の記録(2キー)とログアウトでの削除、initSession の `reloadRun`(§3「app.js(r2 の追加)」)
 - `static/components/report/report.js`: レポート本体の `onPull` を `actions.pullEnabled ? actions.onReanalyze : null` に。filters の右端に再分析ボタン(Skeleton には置かない)
 - `static/styles/shell.css`: `html:has(.view-root)` → `html[data-standalone]:has(.view-root)`
-- `static/styles/topbar.css`: `.controls-reanalyze`(+:hover と 721px 以上の表示)を追加
+- `static/styles/topbar.css`: `.controls-reanalyze`(+:hover と 720px より広いときの表示)を追加
 - `tools/ui-check/check.js`: 画面の `standalone`(navigator.standalone の注入)と `absent`。先頭コメントも
 - `tools/ui-check/screens.js`(未コミット分を含む): mobile-pull・mobile-pull-release に `standalone: true`、report-overview に REANALYZE_BTN、mobile-report-overview に absent、新 mobile-pull-browser・report-reanalyze
 - `tools/ui-check/screens.test.js`: §4 の r2 追加分
