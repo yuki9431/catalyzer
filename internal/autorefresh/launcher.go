@@ -31,12 +31,12 @@ func LaunchJob(ctx context.Context, client *http.Client, jobName string) error {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Job 起動: %w", err)
+		return fmt.Errorf("ジョブ起動: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("Job 起動が HTTP %d: %s", resp.StatusCode, body)
+		return fmt.Errorf("ジョブ起動が HTTP %d: %s", resp.StatusCode, body)
 	}
 	return nil
 }

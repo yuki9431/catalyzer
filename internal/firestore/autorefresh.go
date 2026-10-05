@@ -123,16 +123,16 @@ func TouchAutoRefresh(ctx context.Context, userKey, token string, now time.Time,
 	var out *model.AutoRefreshState
 	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
 		out = nil
-		doc, err := tx.Get(ref)
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
+		doc, getErr := tx.Get(ref)
+		if getErr != nil {
+			if status.Code(getErr) == codes.NotFound {
 				return nil
 			}
-			return err
+			return getErr
 		}
-		st, err := snapshotState(doc)
-		if err != nil {
-			return err
+		st, parseErr := snapshotState(doc)
+		if parseErr != nil {
+			return parseErr
 		}
 		out = &st
 		if !st.Enabled {
@@ -191,17 +191,17 @@ func AcquireRefreshLease(ctx context.Context, userKey, owner string, now time.Ti
 	acquired := false
 	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
 		acquired = false
-		doc, err := tx.Get(ref)
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
+		doc, getErr := tx.Get(ref)
+		if getErr != nil {
+			if status.Code(getErr) == codes.NotFound {
 				acquired = true
 				return nil
 			}
-			return err
+			return getErr
 		}
-		st, err := snapshotState(doc)
-		if err != nil {
-			return err
+		st, parseErr := snapshotState(doc)
+		if parseErr != nil {
+			return parseErr
 		}
 		if !st.LeaseFree(owner, now) {
 			return nil
@@ -226,16 +226,16 @@ func FinishRefresh(ctx context.Context, userKey, owner string, upd model.Refresh
 		return err
 	}
 	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
-		doc, err := tx.Get(ref)
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
+		doc, getErr := tx.Get(ref)
+		if getErr != nil {
+			if status.Code(getErr) == codes.NotFound {
 				return nil
 			}
-			return err
+			return getErr
 		}
-		st, err := snapshotState(doc)
-		if err != nil {
-			return err
+		st, parseErr := snapshotState(doc)
+		if parseErr != nil {
+			return parseErr
 		}
 		if st.LeaseOwner != owner {
 			return nil
@@ -269,16 +269,16 @@ func ReleaseRefreshLease(ctx context.Context, userKey, owner string) error {
 		return err
 	}
 	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
-		doc, err := tx.Get(ref)
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
+		doc, getErr := tx.Get(ref)
+		if getErr != nil {
+			if status.Code(getErr) == codes.NotFound {
 				return nil
 			}
-			return err
+			return getErr
 		}
-		st, err := snapshotState(doc)
-		if err != nil {
-			return err
+		st, parseErr := snapshotState(doc)
+		if parseErr != nil {
+			return parseErr
 		}
 		if st.LeaseOwner != owner {
 			return nil

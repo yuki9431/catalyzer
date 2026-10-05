@@ -25,10 +25,12 @@ const (
 	// ManualLeaseTTL は手動分析が取る lease の期限
 	ManualLeaseTTL = 15 * time.Minute
 
+	// MaxFailures は error が連続したときに自動更新を止める回数
+	MaxFailures = 3
+
 	jobLeaseTTL    = 5 * time.Minute
 	perUserTimeout = 200 * time.Second
 	finishTimeout  = 30 * time.Second
-	maxFailures    = 3
 )
 
 // Config は環境変数から読む自動更新の設定。
@@ -90,7 +92,7 @@ func nextUpdate(prev model.AutoRefreshState, o Outcome) model.RefreshUpdate {
 		upd.StopActive = true
 	case OutcomeError:
 		upd.ConsecutiveFailures++
-		upd.StopActive = upd.ConsecutiveFailures >= maxFailures
+		upd.StopActive = upd.ConsecutiveFailures >= MaxFailures
 	}
 	return upd
 }

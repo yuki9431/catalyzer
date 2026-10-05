@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yuki9431/catalyzer/internal/autorefresh"
 	"github.com/yuki9431/catalyzer/internal/firestore"
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/mslist"
@@ -124,10 +125,18 @@ func StartServer() {
 			return
 		}
 
+		// 自動更新が同じユーザーを取得中なら重複取得を避ける
+		leaseOwner, leased := acquireManualLease(userHash)
+		if !leased {
+			sendJSON(w, http.StatusConflict, map[string]string{"error": manualLeaseBusyMessage})
+			return
+		}
+
 		// 同時実行数制限
 		select {
 		case requestLimiter <- struct{}{}:
 		default:
+			releaseManualLease(userHash, leaseOwner)
 			sendJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Server is busy, please try again later"})
 			return
 		}
@@ -144,6 +153,7 @@ func StartServer() {
 		// バックグラウンドで実行
 		go func() {
 			defer func() { <-requestLimiter }()
+			defer releaseManualLease(userHash, leaseOwner)
 			pipeline.Run(j, req.Username, req.Password, forbidden403.Block)
 		}()
 
@@ -277,6 +287,9 @@ func StartServer() {
 		handleReanalyze(w, r, rl)
 	})
 
+	// 自動更新（GET/POST /auto-refresh, POST /auto-refresh/touch, POST /internal/auto-refresh/tick）
+	registerAutoRefresh(http.DefaultServeMux, autorefresh.ConfigFromEnv())
+
 	// 静的ファイル（フロントエンド）
 	// .webmanifest はGo組み込みのMIMEテーブルに無く、実行環境(alpine)に
 	// /etc/mime.types も無いため、PWA仕様が要求するContent-Typeを明示登録する
@@ -287,7 +300,7 @@ func StartServer() {
 	http.Handle("/", staticCacheControl(fs))
 
 	log.Printf("[INFO] Server starting on port %s", port)
-	handler := basicAuth(securityHeaders(http.DefaultServeMux), "/health")
+	handler := basicAuth(securityHeaders(http.DefaultServeMux), "/health", "/internal/auto-refresh/tick")
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("[ERROR] Server failed: %v", err)
 	}
@@ -633,10 +646,18 @@ func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter) {
 		return
 	}
 
+	// 自動更新が同じユーザーを取得中なら重複取得を避ける
+	leaseOwner, leased := acquireManualLease(userKey)
+	if !leased {
+		sendJSON(w, http.StatusConflict, map[string]string{"error": manualLeaseBusyMessage})
+		return
+	}
+
 	// 同時実行数制限
 	select {
 	case requestLimiter <- struct{}{}:
 	default:
+		releaseManualLease(userKey, leaseOwner)
 		sendJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Server is busy, please try again later"})
 		return
 	}
@@ -649,6 +670,7 @@ func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter) {
 
 	go func() {
 		defer func() { <-requestLimiter }()
+		defer releaseManualLease(userKey, leaseOwner)
 		pipeline.Run(j, "", "", forbidden403.Block)
 	}()
 
