@@ -53,7 +53,7 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 | infra-ci の `pulumi preview`(shared・app) | refresh の読み取り(viewer。projects.getIamPolicy を含む) | viewer 維持。**projectIamAdmin は不要** |
 | API 利用の確認 | `serviceusage.services.use` | serviceUsageAdmin → serviceUsageConsumer(要テスト。§4 Step 5) |
 
-- `run.developer` は `run.services.setIamPolicy`・`run.jobs.setIamPolicy` を持たない(run.admin のみ)。今の CI が通るのは Service の IAM binding と DomainMapping に変更が無いから。**変更が要る PR は CI では権限不足になる**(手動 apply か run.admin 付与が要る。付与は推奨しない)。
+- `run.developer` は `run.services.setIamPolicy`・`run.jobs.setIamPolicy` を持たない(run.admin のみ)。今の CI が通るのは Service の IAM binding・DomainMapping・CNAME(`dns.changes.create` も viewer・run.developer に無い)に変更が無いから。**変更が要る PR は CI では権限不足になる**(手動 apply か run.admin 付与が要る。付与は推奨しない)。
 - `run.developer` は `run.jobs.run`・`runWithOverrides` を含む(github-actions は Job を起動できるが、CI に Job 起動の用途は無い。縮小の余地はあるが run.developer は Job 作成に要るので維持)。
 - projectIamAdmin を持つ理由が CI に見当たらない: deploy.yml は app のみ up、shared は preview のみ。`projects.IAMMember` の書き込み(`setIamPolicy`)は手動 apply(オーナー権限)でだけ起きる。
 
@@ -69,9 +69,9 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 
 | SA | ロール | 粒度 | 置き場 |
 |---|---|---|---|
-| **実行 SA**(新設 `<RUN_SA>`、prod・stg 共用) | `roles/datastore.user` | project | shared/iam.ts |
+| **実行 SA**(新設 `catalyzer-run`、prod・stg 共用) | `roles/datastore.user` | project | shared/iam.ts |
 | | `roles/run.invoker`(#288 の Job 起動用) | project(§3 D3) | shared/iam.ts |
-| **ビルド SA**(新設 `<BUILD_SA>`) | `roles/logging.logWriter` | project | shared/iam.ts |
+| **ビルド SA**(新設 `catalyzer-build`) | `roles/logging.logWriter` | project | shared/iam.ts |
 | | `roles/artifactregistry.writer` | AR リポジトリ単位 | shared/iam.ts |
 | | `roles/storage.objectViewer` | ソースバケット単位 | shared/iam.ts |
 | **Job SA**(#288 `auto-refresh-job`) | `roles/datastore.user` | project | #288 PR-1 |
@@ -92,7 +92,7 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 | D1 | ビルドの実行 SA | **専用ビルド SA を新設** | compute SA に `builds.builder` を付けて済ませる案。実行 SA にビルド権限(AR への push・ストレージ全般)が残り、実行時の侵害からイメージ差し替え→デプロイに至る経路が残る。ビルドと実行の権限を分けるのが本 issue の目的 |
 | D2 | ビルドのログ | `cloudbuild.yaml` を新設し `options.logging: CLOUD_LOGGING_ONLY`。docker build + `images` の1ステップ | `--tag` のまま回避する案は未検証。LEGACY のまま専用 SA は不可 |
 | D3 | サービスの Job 起動権限 | **project 単位の `roles/run.invoker`** を実行 SA に付与(shared) | Job 単位の付与(#288 の理想形)は `run.jobs.setIamPolicy` が要り、github-actions に run.admin を足すことになる(Service の IAM まで書ける。本 issue の目的に反する)。project 単位でも、サービスは既に `allUsers` に公開されており、service への invoke は新たな露出にならない。Job は1つだけ |
-| D4 | 実行 SA の共用 | prod・stg で1つ | stg と prod は Firestore DB を共有するので分けても権限は変わらない |
+| D4 | 実行 SA の共用 | prod・stg で1つ | stg と prod は Firestore DB を共有するので分けても権限は変わらない。#288 後は project 単位の run.invoker で stg から prod の Job も起動できるが、Job は差分取り込みだけで低リスクなので許容 |
 | D5 | Job SA を実行 SA と共用するか | 分ける(#288 のとおり) | 現状の権限は同じ(datastore.user)だが、Job は Cookie 復号と取り込み専用で将来の差に備える。コストは SA 1つ |
 | D6 | Firestore の DB 条件(IAM Condition) | 初回は付けない(§7 U4) | `resource.name=="projects/<PROJECT>/databases/<DB>"` で絞れるが、条件式の誤りは本番停止になる。利得は同一 project に別 DB が無い限り小さい |
 | D7 | 既存 compute SA の扱い | ロールを全部外す(SA 自体は消さない) | 消せない(GCP が既定で用意するもので、他の GCP 機能が参照する場合がある) |
@@ -113,25 +113,26 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 
 ### Step 2: ビルド SA の実地テスト → build.yml 切替
 1. オーナーが手元で `gcloud builds submit --config cloudbuild.yaml --service-account=<BUILD_SA> --substitutions=_IMAGE=<テスト用タグ>` を実行し成功を確認(本番のタグを使わない。AR に残るテストイメージは後で削除)。不足権限があればエラーが示すので Step 1 のロールに戻る(加算)。
-2. build.yml を `--config` + `--service-account`(GitHub のシークレット `BUILD_SERVICE_ACCOUNT` から)に変更。**この変更は content key に入らない**(Dockerfile の COPY 対象外)ので、develop へのマージ後に `gh workflow run build.yml --ref develop` を手動実行して stg ビルドを通す。
-- 確認: C2。ロールバック: build.yml を revert(compute SA はまだ editor を持つので旧経路は生きている)。
+2. オーナーが GitHub のシークレット `BUILD_SERVICE_ACCOUNT` を登録する(値は `--service-account` が受け付ける SA の完全リソース名)。未登録のまま 3 をマージすると stg ビルドが失敗する。
+3. build.yml を `--config` + `--service-account` に変更する。**build.yml の変更は content key に入らず、content key が既存だと build.yml は `gcloud builds submit` を飛ばす**ので、手動 dispatch だけでは新経路を通らない。確認は COPY 対象の実変更(static/ や internal/ を含む)を載せた作業ブランチを `gh workflow run build.yml --ref <branch>` で stg に出して行う(#288 PR-2 の Go 変更で兼ねてもよい)。
+- 確認: C2(GitHub Actions から起動されたビルドであること)。ロールバック: build.yml を revert(compute SA はまだ editor を持つので旧経路は生きている)。
 
 ### Step 3: サービスを実行 SA へ切替(app スタック)
 - `infra/app/index.ts` の Service に `serviceAccount` = shared の出力(実行 SA)を指定。Pulumi.*.yaml の変更は不要。
-- 順序: **stg(develop マージ → deploy.yml)→ 確認 → prod(develop→main)**。stg と prod は Firestore DB を共有するので、stg の Firestore 動作確認が prod の権限確認にもなる。
+- 順序: **stg → 確認 → prod**。`infra/app/index.ts` だけの変更では deploy.yml が起動しない(push トリガーは `Pulumi.*.yaml` のみ、content key 不変なら build.yml もデプロイを呼ばない)ので、マージ後に `gh workflow run deploy.yml --ref develop -f environment=stg`、prod は `--ref main -f environment=prod` を手動実行する(#288 PR-2 と同梱すれば Go 変更で自動デプロイに乗る)。stg と prod は Firestore DB を共有するので、stg の Firestore 動作確認が prod の権限確認にもなる。
 - 確認: C3(`serviceAccountName`)、新リビジョンのログに権限エラーが無いこと(C4)、画面から分析・セッション復元の実操作(Firestore の read/write/delete を通す)。#288 の Job 起動は #288 側の stg/prod 検証で確認し、**Job SA への actAs が要るかも #288 の検証で確定する**(`run.jobs.run` は Job の実行 SA を変えないので不要と見ているが公式で明記を確認できていない)。要る場合は実行 SA に Job SA 単位の serviceAccountUser を shared に加算する。
-- ロールバック: 旧リビジョンへトラフィックを戻す(`gcloud run services update-traffic <svc> --to-revisions=<旧リビジョン>=100`)。恒久は PR の revert。compute SA はこの時点でまだ editor を持つので戻せる。
+- ロールバック: 旧リビジョンへトラフィックを戻す(`gcloud run services update-traffic <svc> --to-revisions=<旧リビジョン>=100`)。恒久は PR の revert と deploy.yml の手動 dispatch。compute SA はこの時点でまだ editor を持つので戻せる。
 
 ### Step 4: compute SA の権限削除
-- 前提: Step 2・3 が prod で安定(目安: prod で**数日**・ビルドとデプロイが各1回以上成功、C4 がゼロ)。
+- 前提: Step 2・3 が prod で安定(目安: prod で**数日**・**content key が変わる**ビルド(実際に `gcloud builds submit` が走るもの)とデプロイが各1回以上成功、C4 がゼロ)。
 - `gcloud projects remove-iam-policy-binding` で compute SA の `roles/editor` を外す。続けて `datastore.user` と、compute SA 宛の github-actions の serviceAccountUser を外す(後者2つは iam.ts の削除と Pulumi 管理外の差分を揃える)。
-- 確認: C5、反映待ち(5〜10分)後に手動でビルド・デプロイを1回通し、`UpdateService` と `CreateBuild` が成功し、サービスの画面操作が通ること。
+- 確認: C5、反映待ち(5〜10分)後に、content key が変わるビルドとデプロイを1回通し(手動 dispatch だけではスキップされる)、`CreateBuild` と `UpdateService` が成功し、サービスの画面操作が通ること。
 - ロールバック: `gcloud projects add-iam-policy-binding ... --role=roles/editor`(控えた基線で復元。反映待ち後に再確認)。
 
 ### Step 5: github-actions SA の縮小
 - 5a: オーナーが `gcloud projects remove-iam-policy-binding` で `projectIamAdmin` を外す。反映待ち後に infra-ci(shared・app の preview)を再実行し成功を確認。失敗したら `add-iam-policy-binding` で戻し、原因(viewer の不足)を調べる。
-- 5b: 同様に `serviceUsageAdmin` を外し(`serviceUsageConsumer` は Step 1 で付与済み)、infra-ci と deploy.yml(手動 dispatch)で成功を確認。失敗したら戻す。
-- 5c: iam.ts から該当コードを削除する PR をマージし、**2回目の shared の手動 apply**(`projectIamAdmin`・`serviceUsageAdmin`・compute SA の datastore.user の削除。5a・5b・Step 4 で既に外れているので refresh で状態が揃い、実質差分ゼロの確認になる)。
+- 5b: 同様に `serviceUsageAdmin` を外し(`serviceUsageConsumer` は Step 1 で付与済み)、infra-ci・deploy.yml(手動 dispatch)・build.yml(手動 dispatch。スキップ分岐でも gcloud の API 呼び出しが走る)で成功を確認。失敗したら戻す。
+- 5c: iam.ts から該当コードを削除する PR をマージし、**2回目の shared の手動 apply**(`projectIamAdmin`・`serviceUsageAdmin`・compute SA の datastore.user の削除。5a・5b・Step 4 で既に外れている)。`pulumi refresh` → `pulumi preview`(差分ゼロを期待)→ `pulumi up` の順で行う。不要になる `computeSa` の config(iam.ts と Pulumi.shared.yaml)もこの PR で削除する。
 - 確認: C6・C7。
 
 ## 5. #288 PR-1 との統合
@@ -151,15 +152,15 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 
 | # | コマンド | 期待値 |
 |---|---|---|
-| C0 | `gcloud projects get-iam-policy $P --format=json > <ローカル保存>` | Step 0 で保存済み(コミットしない) |
-| C1 | `gcloud iam service-accounts list --format='value(email)'` | 実行 SA・ビルド SA(と #288 の2つ)が増えている(Step 1 後) |
-| C2 | `gcloud builds describe $(gcloud builds list --limit=1 --format='value(id)') --format='value(serviceAccount,options.logging,status)'` | ビルド SA・`CLOUD_LOGGING_ONLY`・`SUCCESS`(Step 2 後) |
+| C0 | `gcloud projects get-iam-policy $P --format=json > <ローカル保存>` と、compute SA・github-actions SA それぞれの `gcloud iam service-accounts get-iam-policy <SA> --format=json > <ローカル保存>` | Step 0 で保存済み(コミットしない) |
+| C1 | `gcloud iam service-accounts list --filter='email~^(catalyzer-run\|catalyzer-build\|auto-refresh-job\|auto-refresh-scheduler)@' --format='value(email)'` | 4行(Step 1 後) |
+| C2 | `gcloud builds describe $(gcloud builds list --limit=1 --format='value(id)') --format='value(serviceAccount,options.logging,status)'` | ビルド SA・`CLOUD_LOGGING_ONLY`・`SUCCESS`(Step 2 後。GitHub Actions の run から起動されたビルドで確認し、手元のテストビルドで代用しない) |
 | C3 | `gcloud run services describe <prod / stg サービス> --region <R> --format='value(spec.template.spec.serviceAccountName)'` | どちらも実行 SA(compute SA でない) |
-| C4 | `gcloud logging read 'resource.type="cloud_run_revision" AND severity>=ERROR AND textPayload:"PERMISSION_DENIED"' --freshness=3d --limit=5` | 出力なし |
+| C4 | `gcloud logging read 'resource.type="cloud_run_revision" AND severity>=ERROR AND textPayload:("PermissionDenied" OR "PERMISSION_DENIED" OR "insufficient permissions")' --freshness=3d --limit=5` | 出力なし |
 | C5 | `gcloud projects get-iam-policy $P --flatten='bindings[].members' --filter='bindings.members:<compute SA>' --format='value(bindings.role)'` | 出力なし(compute SA にロール無し) |
 | C6 | `gcloud projects get-iam-policy $P --flatten='bindings[].members' --filter='bindings.members:<github-actions SA>' --format='value(bindings.role)'` | builds.editor・run.developer・viewer・serviceUsageConsumer(・#288 の cloudscheduler.admin)のみ。`projectIamAdmin`・`serviceUsageAdmin` が無い |
 | C7 | `gcloud projects get-iam-policy $P --format=json \| jq '[.bindings[] \| select(.role=="roles/editor" or .role=="roles/owner") \| .members[] \| select(startswith("serviceAccount:"))] \| length'` | `0`(owner・editor を持つ SA が無い) |
-| C8 | build.yml(stg)と deploy.yml が最新コミットで `gh run list --workflow build.yml --limit 1 --json conclusion` ほか | どちらも `success` |
+| C8 | `gcloud builds submit` を実際に実行した build.yml の run と、その後の deploy.yml の run(`gh run view <id> --log` で submit の実行を確認) | どちらも `success` |
 | C9 | infra-ci の再実行(`gh run list --workflow infra-ci.yml --limit 1 --json conclusion`) | `success` |
 
 C4 は反映の遅れで偽陰性になりうるので、Step 3 後に画面操作を実際に行ってからログを見る。
