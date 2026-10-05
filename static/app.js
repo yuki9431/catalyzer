@@ -4,6 +4,7 @@ import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
+import { createRunLock } from './lib/runlock.js';
 
 // --- Constants ---
 var STATUS_MESSAGES = {
@@ -24,23 +25,28 @@ var REBUILD_BACKOFF_KEY = 'catalyzer_rebuild_backoff_until';
 // 実行中の分析ジョブID。ログアウト時にこのジョブのスクレイピングを中断し、ポーリングを停止するために使う
 var activeJobId = null;
 
+// 分析の多重起動ロック。activeJobId は POST の応答後にしか入らないため、それより前の二重起動をここで防ぐ
+var analysis = createRunLock();
+function analysisBusy() { return analysis.busy() || activeJobId !== null; }
+
 // 自動更新(サーバーが定期取得した試合)の取り込み。起動時と画面が前面に戻ったときに差分だけ取り、直近の取り込みから20秒は飛ばす
 var lastPullAt = 0; // 取り込みを試みた時刻(間隔制御用)
 var lastImportedAt = 0; // 差分を保存できた時刻(画面表示用)
 var pulling = false;
 
 function reAnalyze() {
+  if (analysisBusy()) return;
   // セッション保持中はパスワード不要で再分析
   if (localStorage.getItem('catalyzer_has_session')) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    reanalyzeWithSession();
+    analysis.run(reanalyzeWithSession);
     return;
   }
   var u = document.getElementById('username');
   var p = document.getElementById('password');
   if (u && p && u.value && p.value) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    analyze();
+    analysis.run(analyze);
     return;
   }
   var rep = document.getElementById('report');
@@ -176,6 +182,7 @@ async function logout() {
   // 実行中の分析ジョブがあればスクレイピングを中断し、ポーリングを停止する
   var jid = activeJobId;
   activeJobId = null;
+  analysis.release();
   // キャンセルは撃ちっぱなし（await しない）。/cancel が詰まってもセッション削除・UIリセットを止めない
   if (jid) {
     try { fetch('/cancel/' + jid, { method: 'POST' }).catch(function () {}); } catch (e) {}
@@ -222,7 +229,7 @@ var AUTO_REFRESH_ACTIONS = {
 };
 
 // report/ は app.js を import できない(循環)ため、操作は props で渡す
-var REPORT_ACTIONS = { onReanalyze: reAnalyze, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
+var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
 
 function showSkeleton() {
   var reportEl = document.getElementById('report');
@@ -542,7 +549,7 @@ var loginForm = document.getElementById('loginForm');
 if (loginForm) {
   loginForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    analyze();
+    analysis.run(analyze);
   });
   try {
     var cred = JSON.parse(sessionStorage.getItem('catalyzer_cred'));
@@ -611,7 +618,7 @@ if (rememberInfoBtn && rememberModal) {
 
   // キャッシュからレポートを表示したらログイン画面を隠す。
   // セッション有無に関わらず、レポートの上にログイン画面が残るのを防ぐ
-  // （ログインが必要な場合は再分析ボタン経由で reAnalyze が再表示する）。
+  // （ログインが必要な場合は引っ張り・その他の再分析経由で reAnalyze が再表示する）。
   if (renderedFromCache && loginForm) loginForm.style.display = 'none';
 
   if (hasSession) pullAutoRefresh();
@@ -631,7 +638,7 @@ if (rememberInfoBtn && rememberModal) {
         var t = document.getElementById('pageTitle');
         if (t) t.style.display = '';
       } else if (!hasLocalData) {
-        reanalyzeWithSession();
+        analysis.run(reanalyzeWithSession);
       }
     }).catch(function () {
       if (loginForm) loginForm.style.display = 'block';
