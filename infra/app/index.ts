@@ -21,8 +21,9 @@ const autoRefreshPassphraseHash = config.getSecret("autoRefreshPassphraseHash");
 const sharedStackName = config.require("sharedStack");
 const shared = new pulumi.StackReference(sharedStackName);
 const dnsZoneName = shared.getOutput("dnsZoneName") as pulumi.Output<string>;
-const autoRefreshJobSaEmail = shared.getOutput("autoRefreshJobSaEmail") as pulumi.Output<string>;
-const autoRefreshSchedulerSaEmail = shared.getOutput("autoRefreshSchedulerSaEmail") as pulumi.Output<string>;
+// 有効時のみ必須。shared 未 apply なら広い権限の SA で Job を作らず失敗させる
+const autoRefreshJobSaEmail = autoRefreshEnabled ? (shared.requireOutput("autoRefreshJobSaEmail") as pulumi.Output<string>) : undefined;
+const autoRefreshSchedulerSaEmail = autoRefreshEnabled ? (shared.requireOutput("autoRefreshSchedulerSaEmail") as pulumi.Output<string>) : undefined;
 
 // 自動更新の Cloud Run Job(サービスと同じイメージ)
 const autoRefreshJob = autoRefreshEnabled
@@ -60,7 +61,7 @@ const autoRefreshEnvs = autoRefreshJob
   ? [
       {
         name: "AUTO_REFRESH_JOB",
-        value: pulumi.interpolate`projects/${gcp.config.project}/locations/${gcp.config.region}/jobs/${autoRefreshJob.name}`,
+        value: pulumi.interpolate`projects/${gcp.config.project!}/locations/${gcp.config.region}/jobs/${autoRefreshJob.name}`,
       },
       { name: "AUTO_REFRESH_AUDIENCE", value: `https://${domain}` },
       { name: "AUTO_REFRESH_INVOKER", value: autoRefreshSchedulerSaEmail },
@@ -196,7 +197,7 @@ export const autoRefreshTick = autoRefreshEnabled
         httpMethod: "POST",
         uri: `https://${domain}/internal/auto-refresh/tick`,
         oidcToken: {
-          serviceAccountEmail: autoRefreshSchedulerSaEmail,
+          serviceAccountEmail: autoRefreshSchedulerSaEmail!,
           audience: `https://${domain}`,
         },
       },

@@ -495,3 +495,5 @@ U3:
 - colly は 4xx で OnResponse が呼ばれないため、ランクページの判定は `classifyRankpageResponse` に置き換えた
 - `POST /auto-refresh` の 401/409: Cookie 無しは 409、Cookie 有でセッション解決不可は 401
 - app の Job・Scheduler は config `autoRefreshEnabled`(prod のみ true)で作る。Job の `APP_ENV` は不要になり入れていない
+- デプロイ順(§7)の stg 手順は prod に読み替える(合言葉は prod にのみ設定)。§9.2 の app preview は `STACK=prod`(stg は無効なので Service の `~` のみ)
+- §9.2 の「新しいモジュールを足していない」許可リストに `google.golang.org/grpc`(indirect→direct の昇格のみ)を足す
