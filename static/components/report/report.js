@@ -206,20 +206,20 @@ export function Report({ data, userKey, actions }) {
   // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
   // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
   if (view === 'search') {
-    return html`<${AppShell} onRefresh=${actions.onReanalyze} nav=${nav}>
+    return html`<${AppShell} nav=${nav}>
       <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
     </${AppShell}>`;
   }
 
   if (view === 'classrecord') {
-    return html`<${AppShell} onRefresh=${actions.onReanalyze} nav=${nav}>
+    return html`<${AppShell} nav=${nav}>
       <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
     </${AppShell}>`;
   }
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} autoRefresh=${actions.autoRefresh} />
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />
     </${AppShell}>`;
   }
 
@@ -241,18 +241,18 @@ export function Report({ data, userKey, actions }) {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} allMatches=${allMatches} userKey=${userKey} />`;
   }
 
-  var controls = html`<div class="controls-row" data-ui="filter-bar">
+  var filters = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
-      </div>
-      <div class="tabs" role="tablist">${TAB_DEFS.map(function (t) {
+      </div>`;
+  var tabs = html`<div class="tabs" role="tablist">${TAB_DEFS.map(function (t) {
         return html`<button data-ui="tab" role="tab" aria-selected=${activeTab === t[0]} class=${'tab' + (activeTab === t[0] ? ' active' : '')}
           onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
       })}</div>`;
 
-  return html`<${AppShell} onRefresh=${actions.onReanalyze} controls=${controls} nav=${nav}>
+  return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${actions.onReanalyze} canPull=${actions.canReanalyze} nav=${nav}>
     <${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />
 
     ${pane}
@@ -266,22 +266,22 @@ export function Skeleton({ actions, nav }) {
   function bar(w, h, mb) {
     return html`<div class="skel" data-ui="skeleton" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
-  var controls = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+  var filters = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
         <${Chip} expanded=${false}><span class="ui-chip-text">全データ</span></${Chip}>
         <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
         <${LensToggle} lens=${'all'} onSelect=${function () {}} />
-      </div>
-      <div class="tabs" role="tablist" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+      </div>`;
+  var tabs = html`<div class="tabs" role="tablist" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
         ${TAB_DEFS.map(function (t) {
           return html`<button data-ui="tab" role="tab" aria-selected=${t[0] === 'overview'} class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
         })}
       </div>`;
   if (n.view === 'more') {
     return html`<${AppShell} nav=${n}>
-      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} autoRefresh=${actions.autoRefresh} />
+      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { n.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />
     </${AppShell}>`;
   }
-  return html`<${AppShell} controls=${controls} nav=${n}>
+  return html`<${AppShell} filters=${filters} tabs=${tabs} nav=${n}>
     <div class="report-summary">
       <div class="ui-summary">${bar('30%', 14, 10)}${bar('40%', 44, 20)}${bar('100%', 56)}</div>
     </div>

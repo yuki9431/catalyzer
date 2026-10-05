@@ -31,12 +31,14 @@ describe('screens', () => {
     assert.deepStrictEqual(sel, ['a', '[data-ui="x"]', '[data-ui="y"]', 'b']);
   });
 
-  it('mobile-report-overview はスクロール後にフィルタ群が画面内に見えることを検査する', () => {
+  it('mobile-report-overview は正の scrollBy の後に絞り込み行が画面外・タブ行が画面内で、固定高さが 120px 以下', () => {
     var s = SCREENS.find(function (x) { return x.id === 'mobile-report-overview'; });
-    assert.ok(s.ops.some(function (op) { return op.scroll; }));
+    assert.ok(s.ops.some(function (op) { return op.scrollBy && op.scrollBy[0] > 0; }));
     ['[data-ui="period-trigger"]', '[data-ui="ms-trigger"]', '[data-ui="lens-toggle"] button'].forEach(function (sel) {
-      assert.ok(s.inview.some(function (r) { return r[0] === sel; }), sel);
+      assert.ok(s.outview.some(function (r) { return r[0] === sel; }), sel);
     });
+    assert.ok(s.inview.some(function (r) { return r[0] === '[data-ui="tab"][aria-selected="true"]'; }));
+    assert.ok(s.fixedMax <= 120);
   });
 
   it('レポート5画面は要約の主指標が種別ごとに違う', () => {

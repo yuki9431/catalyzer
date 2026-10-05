@@ -59,4 +59,24 @@ describe('Skeleton', () => {
     assert.ok(r.found >= 2);
     assert.deepStrictEqual(r.bad, []);
   });
+
+  it('全ての <${MoreView} 呼び出しに onReanalyze が付く(未注入だと「再分析」行で TypeError になる)', () => {
+    var r = missingAttr('MoreView', 'onReanalyze');
+    assert.ok(r.found >= 2);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
+  it('onPull を持つ全ての <${AppShell} 呼び出しに canPull が付く(無いと分析中でも引っ張りで再分析が走る)', () => {
+    var root = new URL('..', import.meta.url).pathname;
+    var found = 0, bad = [];
+    jsFiles(root).forEach(function (f) {
+      Array.from(fs.readFileSync(f, 'utf8').matchAll(/<\$\{AppShell\}([^>]*)>/g)).forEach(function (m) {
+        if (!/(^|\s)onPull=/.test(m[1])) return;
+        found++;
+        if (!/(^|\s)canPull=/.test(m[1])) bad.push(f + ': ' + m[0]);
+      });
+    });
+    assert.ok(found >= 1);
+    assert.deepStrictEqual(bad, []);
+  });
 });
