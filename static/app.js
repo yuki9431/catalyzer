@@ -76,15 +76,7 @@ async function reanalyzeWithSession() {
 
     if (data.error) {
       if (res.status === 401) {
-        localStorage.removeItem('catalyzer_user_key');
-        localStorage.removeItem('catalyzer_has_session');
-        // ログイン画面へ戻す。pageTitle(ロゴ)を復帰させ、その safe-area で上端の被りを防ぐ
-        var rep = document.getElementById('report');
-        if (rep) { render(null, rep); rep.style.display = 'none'; }
-        var lf = document.getElementById('loginForm');
-        if (lf) lf.style.display = 'block';
-        var t = document.getElementById('pageTitle');
-        if (t) t.style.display = '';
+        returnToLogin();
         error.style.display = 'block';
         error.textContent = data.error;
         status.style.display = 'none';
@@ -147,12 +139,7 @@ async function reanalyzeWithSession() {
       if (statusData.status === 'cancelled') return;
 
       if (statusData.status === 'error') {
-        if (statusData.error && statusData.error.indexOf('セッション') >= 0) {
-          localStorage.removeItem('catalyzer_user_key');
-          localStorage.removeItem('catalyzer_has_session');
-          var lf = document.getElementById('loginForm');
-          if (lf) lf.style.display = 'block';
-        }
+        if (statusData.error && statusData.error.indexOf('セッション') >= 0) returnToLogin();
         throw new Error(statusData.error || '分析に失敗しました');
       }
 
@@ -247,8 +234,28 @@ function setRebuildBackoff(active) {
   } catch (e) {}
 }
 
-// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件ならバックオフを張る
+// セッション失効時にログイン画面へ戻す。pageTitle(ロゴ)を復帰させ、その safe-area で上端の被りを防ぐ
+function returnToLogin() {
+  localStorage.removeItem('catalyzer_user_key');
+  localStorage.removeItem('catalyzer_has_session');
+  var rep = document.getElementById('report');
+  if (rep) { render(null, rep); rep.style.display = 'none'; }
+  var lf = document.getElementById('loginForm');
+  if (lf) lf.style.display = 'block';
+  var t = document.getElementById('pageTitle');
+  if (t) t.style.display = '';
+}
+
+// 分析中・ユーザーが替わった再構築は反映しない(新しい分析結果を古い全件で上書きしないため)
+function rebuildStale(userKey) {
+  var current = null;
+  try { current = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
+  return activeJobId !== null || current !== userKey;
+}
+
+// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件は false でバックオフ、反映を見送ったら null
 async function rebuildCacheFromServer(userKey) {
+  if (rebuildStale(userKey)) return null;
   var statusText = document.getElementById('statusText');
   var status = document.getElementById('status');
   // 分析ポーリング等が既にステータスを出している場合は横取りしない（終了時にも消さない）。
@@ -265,6 +272,7 @@ async function rebuildCacheFromServer(userKey) {
       setRebuildBackoff(true);
       return false;
     }
+    if (rebuildStale(userKey)) return null;
     await replaceMatchesForUser(userKey, data.matches, data.schema_version);
     setRebuildBackoff(false);
     renderReport({ matches: data.matches }, userKey);
@@ -301,7 +309,9 @@ async function rebuildCache() {
   } finally {
     rebuildingCache = false;
   }
-  if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
+  // 見送りの理由がログアウト(キー消失)なら案内しない
+  if (rebuilt === null) { if (localStorage.getItem('catalyzer_user_key')) showRebuildError(error, '分析が終わってから実行してください。'); }
+  else if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
 }
 
 function showRebuildError(error, message) {
