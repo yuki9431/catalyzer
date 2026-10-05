@@ -5,6 +5,11 @@ import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.j
 import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
 import { createRunLock } from './lib/runlock.js';
+import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
+
+// ホーム画面アプリのときだけ自前の引っ張り再分析を使う(ブラウザのタブは標準の再読み込みが再分析の経路)
+var STANDALONE = isStandalone({ standalone: navigator.standalone, matchMedia: window.matchMedia ? function (q) { return window.matchMedia(q); } : null });
+if (STANDALONE) document.documentElement.setAttribute('data-standalone', '');
 
 // --- Constants ---
 var STATUS_MESSAGES = {
@@ -21,6 +26,16 @@ var STATUS_MESSAGES = {
 // 毎起動で/matches(=Firestore全件読み取り)を叩き続けるのを防ぐ。
 var REBUILD_BACKOFF_MS = 6 * 60 * 60 * 1000;
 var REBUILD_BACKOFF_KEY = 'catalyzer_rebuild_backoff_until';
+
+// 再読み込みでの再分析の連続起動を抑える。この端末で直近に分析を始めた/終えた時刻
+var ANALYSIS_STARTED_KEY = 'catalyzer_analysis_started_at';
+var ANALYSIS_FINISHED_KEY = 'catalyzer_analysis_finished_at';
+function markAnalysis(key) {
+  try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
+}
+function readMark(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
 
 // 実行中の分析ジョブID。ログアウト時にこのジョブのスクレイピングを中断し、ポーリングを停止するために使う
 var activeJobId = null;
@@ -99,6 +114,7 @@ async function reanalyzeWithSession() {
 
     var jobId = data.id;
     activeJobId = jobId;
+    markAnalysis(ANALYSIS_STARTED_KEY);
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
@@ -173,7 +189,10 @@ async function reanalyzeWithSession() {
     error.style.display = 'block';
     error.textContent = e.message;
   } finally {
-    if (activeJobId === jobId) activeJobId = null;
+    if (activeJobId === jobId) {
+      activeJobId = null;
+      markAnalysis(ANALYSIS_FINISHED_KEY);
+    }
     status.style.display = 'none';
   }
 }
@@ -192,6 +211,8 @@ async function logout() {
   } catch (e) {}
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
+  localStorage.removeItem(ANALYSIS_STARTED_KEY);
+  localStorage.removeItem(ANALYSIS_FINISHED_KEY);
   localStorage.removeItem(CLASS_RECORD_KEY);
   localStorage.removeItem(FOCUS_KEY);
   localStorage.removeItem(VIEW_KEY);
@@ -229,7 +250,7 @@ var AUTO_REFRESH_ACTIONS = {
 };
 
 // report/ は app.js を import できない(循環)ため、操作は props で渡す
-var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
+var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, pullEnabled: STANDALONE, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
 
 function showSkeleton() {
   var reportEl = document.getElementById('report');
@@ -442,6 +463,7 @@ async function analyze() {
 
     var jobId = data.id;
     activeJobId = jobId;
+    markAnalysis(ANALYSIS_STARTED_KEY);
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
@@ -539,7 +561,10 @@ async function analyze() {
     }
     document.getElementById('loginForm').style.display = 'block';
   } finally {
-    if (activeJobId === jobId) activeJobId = null;
+    if (activeJobId === jobId) {
+      activeJobId = null;
+      markAnalysis(ANALYSIS_FINISHED_KEY);
+    }
     btn.disabled = false;
     status.style.display = 'none';
   }
@@ -588,6 +613,11 @@ if (rememberInfoBtn && rememberModal) {
     hasSession = !!localStorage.getItem('catalyzer_has_session');
   } catch (e) {}
 
+  var reloadRun = hasSession && shouldReanalyzeOnReload({
+    navType: navigationType(performance.getEntriesByType ? performance.getEntriesByType('navigation') : [], performance.navigation ? performance.navigation.type : undefined),
+    hasSession: true, now: Date.now(), startedAt: readMark(ANALYSIS_STARTED_KEY), finishedAt: readMark(ANALYSIS_FINISHED_KEY),
+  });
+
   var renderedFromCache = false;
   if (cachedUserKey) {
     try {
@@ -621,7 +651,7 @@ if (rememberInfoBtn && rememberModal) {
   // （ログインが必要な場合は引っ張り・その他の再分析経由で reAnalyze が再表示する）。
   if (renderedFromCache && loginForm) loginForm.style.display = 'none';
 
-  if (hasSession) pullAutoRefresh();
+  if (hasSession && !reloadRun) pullAutoRefresh();
 
   if (hasSession) {
     if (loginForm) loginForm.style.display = 'none';
@@ -637,7 +667,7 @@ if (rememberInfoBtn && rememberModal) {
         if (loginForm) loginForm.style.display = 'block';
         var t = document.getElementById('pageTitle');
         if (t) t.style.display = '';
-      } else if (!hasLocalData) {
+      } else if (!hasLocalData || reloadRun) {
         analysis.run(reanalyzeWithSession);
       }
     }).catch(function () {

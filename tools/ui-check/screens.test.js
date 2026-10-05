@@ -95,4 +95,15 @@ describe('screens', () => {
   it('mobile-pull・mobile-pull-release はホーム画面アプリ(standalone)として開く', () => {
     ['mobile-pull', 'mobile-pull-release'].forEach(function (id) { assert.strictEqual(get(id).standalone, true, id); });
   });
+
+  it('mobile-pull-browser はタブ(standalone でない)で引っ張り表示が無いことを検査する', () => {
+    var s = get('mobile-pull-browser');
+    assert.ok(!s.standalone);
+    assert.ok(s.absent.some(function (r) { return r[0] === '[data-ui="pull-indicator"]'; }));
+  });
+
+  it('report-overview は再分析ボタンを必須にし、mobile-report-overview は不在を検査する', () => {
+    assert.ok(get('report-overview').required.some(function (r) { return r[0] === '[data-ui="reanalyze-button"]'; }));
+    assert.ok(get('mobile-report-overview').absent.some(function (r) { return r[0] === '[data-ui="reanalyze-button"]'; }));
+  });
 });

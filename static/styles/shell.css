@@ -25,7 +25,7 @@ body:has(.view-root:not(.view-more)) .disclaimer { display: none; }
 .auto-form .more-btn, .auto-refresh > .more-btn, .auto-refresh > .more-btn-sub { flex: none; width: 100%; margin-top: 8px; }
 
 /* 引っ張って再分析 */
-html:has(.view-root) { overscroll-behavior-y: contain; }
+html[data-standalone]:has(.view-root) { overscroll-behavior-y: contain; }
 .pull-zone { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; overflow: hidden; margin: calc(var(--gutter) * -1) 0 var(--gutter); color: var(--muted); font-size: 0.875rem; }
 .pull-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border: 2px solid var(--accent); border-radius: 50%; color: var(--accent); }
 .pull-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

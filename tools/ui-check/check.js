@@ -12,7 +12,7 @@ var HERE = path.dirname(fileURLToPath(import.meta.url));
 var BASELINE = path.join(HERE, 'baseline');
 var ACTUAL = path.resolve(HERE, '../../tmp/ui-check/actual');
 var CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 180000;
+var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });

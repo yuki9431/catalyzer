@@ -246,13 +246,14 @@ export function Report({ data, userKey, actions }) {
           userKey=${userKey} onCustomReport=${handleCustomReport} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
+        <button type="button" class="controls-reanalyze" data-ui="reanalyze-button" onClick=${actions.onReanalyze}>再分析</button>
       </div>`;
   var tabs = html`<div class="tabs" role="tablist">${TAB_DEFS.map(function (t) {
         return html`<button data-ui="tab" role="tab" aria-selected=${activeTab === t[0]} class=${'tab' + (activeTab === t[0] ? ' active' : '')}
           onClick=${function () { setActiveTab(t[0]); }}>${t[1]}</button>`;
       })}</div>`;
 
-  return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${actions.onReanalyze} canPull=${actions.canReanalyze} nav=${nav}>
+  return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${actions.pullEnabled ? actions.onReanalyze : null} canPull=${actions.canReanalyze} nav=${nav}>
     <${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />
 
     ${pane}
