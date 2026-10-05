@@ -9,6 +9,7 @@ const requiredApis = [
   "cloudresourcemanager.googleapis.com",
   "compute.googleapis.com",
   "firestore.googleapis.com",
+  "cloudscheduler.googleapis.com",
 ];
 
 export const services = requiredApis.map(

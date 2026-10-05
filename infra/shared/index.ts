@@ -2,7 +2,15 @@ import { services } from "./apis";
 import { repository } from "./artifact-registry";
 import { dnsZone, nameServers } from "./dns";
 import { stateBucket } from "./storage";
-import { githubActionsSa, wifPool, wifProvider } from "./iam";
+import {
+  githubActionsSa,
+  runSa,
+  buildSa,
+  autoRefreshJobSa,
+  autoRefreshSchedulerSa,
+  wifPool,
+  wifProvider,
+} from "./iam";
 import { firestoreDb } from "./firestore";
 // TODO: budget importはBilling Budget APIのquota project設定後に対応
 // import { budget } from "./budget";
@@ -16,6 +24,10 @@ export const enabledApis = services.map((s) => s.service);
 export const artifactRegistryId = repository.id;
 export const pulumiStateBucketName = stateBucket.name;
 export const serviceAccountEmail = githubActionsSa.email;
+export const runSaEmail = runSa.email;
+export const buildSaEmail = buildSa.email;
+export const autoRefreshJobSaEmail = autoRefreshJobSa.email;
+export const autoRefreshSchedulerSaEmail = autoRefreshSchedulerSa.email;
 export const wifPoolId = wifPool.workloadIdentityPoolId;
 export const wifProviderId = wifProvider.workloadIdentityPoolProviderId;
 export const firestoreDbName = firestoreDb.name;
