@@ -113,7 +113,7 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 
 ### Step 2: ビルド SA の実地テスト → build.yml 切替
 1. (2026-10-05 実施済み: SUCCESS、実行 SA が catalyzer-build・ログ CLOUD_LOGGING_ONLY を確認し、テストイメージは削除)手元で `gcloud builds submit --config cloudbuild.yaml --service-account=<BUILD_SA> --substitutions=_IMAGE=<テスト用タグ>` を実行し成功を確認(本番のタグを使わない。AR に残るテストイメージは後で削除)。不足権限があればエラーが示すので Step 1 のロールに戻る(加算)。
-2. オーナーが GitHub のシークレット `BUILD_SERVICE_ACCOUNT` を登録する(値は `--service-account` が受け付ける SA の完全リソース名)。未登録のまま 3 をマージすると stg ビルドが失敗する。
+2. オーナーが GitHub のシークレット `BUILD_SERVICE_ACCOUNT` を登録する(値は `--service-account` が受け付ける SA の完全リソース名)。未登録の secret は空文字になり、gcloud は空の SA を拒否せず既定 SA で黙ってビルドするので、build.yml の空チェックで失敗させる。
 3. build.yml を `--config` + `--service-account` に変更する。**build.yml の変更は content key に入らず、content key が既存だと build.yml は `gcloud builds submit` を飛ばす**ので、手動 dispatch だけでは新経路を通らない。確認は COPY 対象の実変更(static/ や internal/ を含む)を載せた作業ブランチを `gh workflow run build.yml --ref <branch>` で stg に出して行う(#288 PR-2 の Go 変更で兼ねてもよい)。
 - 確認: C2(GitHub Actions から起動されたビルドであること)。ロールバック: build.yml を revert(compute SA はまだ editor を持つので旧経路は生きている)。
 
