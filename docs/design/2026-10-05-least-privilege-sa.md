@@ -112,7 +112,7 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 - ロールバック: 追加したリソースの削除(`pulumi destroy -t` または該当コードの revert→apply)。既存に依存されていないので安全。
 
 ### Step 2: ビルド SA の実地テスト → build.yml 切替
-1. オーナーが手元で `gcloud builds submit --config cloudbuild.yaml --service-account=<BUILD_SA> --substitutions=_IMAGE=<テスト用タグ>` を実行し成功を確認(本番のタグを使わない。AR に残るテストイメージは後で削除)。不足権限があればエラーが示すので Step 1 のロールに戻る(加算)。
+1. (2026-10-05 実施済み: SUCCESS、実行 SA が catalyzer-build・ログ CLOUD_LOGGING_ONLY を確認し、テストイメージは削除)手元で `gcloud builds submit --config cloudbuild.yaml --service-account=<BUILD_SA> --substitutions=_IMAGE=<テスト用タグ>` を実行し成功を確認(本番のタグを使わない。AR に残るテストイメージは後で削除)。不足権限があればエラーが示すので Step 1 のロールに戻る(加算)。
 2. オーナーが GitHub のシークレット `BUILD_SERVICE_ACCOUNT` を登録する(値は `--service-account` が受け付ける SA の完全リソース名)。未登録のまま 3 をマージすると stg ビルドが失敗する。
 3. build.yml を `--config` + `--service-account` に変更する。**build.yml の変更は content key に入らず、content key が既存だと build.yml は `gcloud builds submit` を飛ばす**ので、手動 dispatch だけでは新経路を通らない。確認は COPY 対象の実変更(static/ や internal/ を含む)を載せた作業ブランチを `gh workflow run build.yml --ref <branch>` で stg に出して行う(#288 PR-2 の Go 変更で兼ねてもよい)。
 - 確認: C2(GitHub Actions から起動されたビルドであること)。ロールバック: build.yml を revert(compute SA はまだ editor を持つので旧経路は生きている)。
@@ -153,7 +153,7 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 | # | コマンド | 期待値 |
 |---|---|---|
 | C0 | `gcloud projects get-iam-policy $P --format=json > <ローカル保存>` と、compute SA・github-actions SA それぞれの `gcloud iam service-accounts get-iam-policy <SA> --format=json > <ローカル保存>` | Step 0 で保存済み(コミットしない) |
-| C1 | `gcloud iam service-accounts list --filter='email~^(catalyzer-run\|catalyzer-build\|auto-refresh-job\|auto-refresh-scheduler)@' --format='value(email)'` | 4行(Step 1 後) |
+| C1 | `gcloud iam service-accounts list --filter='email ~ "^(catalyzer-run\|catalyzer-build\|auto-refresh-job\|auto-refresh-scheduler)@"' --format='value(email)'` | 4行(Step 1 後) |
 | C2 | `gcloud builds describe $(gcloud builds list --limit=1 --format='value(id)') --format='value(serviceAccount,options.logging,status)'` | ビルド SA・`CLOUD_LOGGING_ONLY`・`SUCCESS`(Step 2 後。GitHub Actions の run から起動されたビルドで確認し、手元のテストビルドで代用しない) |
 | C3 | `gcloud run services describe <prod / stg サービス> --region <R> --format='value(spec.template.spec.serviceAccountName)'` | どちらも実行 SA(compute SA でない) |
 | C4 | `gcloud logging read 'resource.type="cloud_run_revision" AND severity>=ERROR AND textPayload:("PermissionDenied" OR "PERMISSION_DENIED" OR "insufficient permissions")' --freshness=3d --limit=5` | 出力なし |

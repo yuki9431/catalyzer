@@ -123,7 +123,8 @@ jobs:
           if gcloud artifacts docker images describe "$IMAGE_KEY" >/dev/null 2>&1; then
             echo "同一内容のイメージが既存: $IMAGE_KEY — ビルドをスキップ"
           else
-            gcloud builds submit --tag "$IMAGE_KEY"
+            gcloud builds submit --config cloudbuild.yaml --substitutions=_IMAGE="$IMAGE_KEY" \
+              --service-account="${{ secrets.BUILD_SERVICE_ACCOUNT }}"
             # コミットSHAからも辿れるよう、同一イメージに追跡用タグを付与（失敗してもデプロイは止めず警告に留める）
             gcloud artifacts docker tags add "$IMAGE_KEY" "$IMAGE_SHA" \
               || echo "::warning::追跡用タグ付与に失敗: ${{ github.sha }}"
