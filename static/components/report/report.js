@@ -116,7 +116,7 @@ export function Report({ data, userKey, actions }) {
     }).catch(function () {});
     fetch('/tag-partners')
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) { if (d && d.tag_partners) setTagPartners(d.tag_partners); })
+      .then(function (d) { if (d && d.tag_partners && d.user_key === userKey) setTagPartners(d.tag_partners); })
       .catch(function () {});
   }, [userKey]);
 

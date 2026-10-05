@@ -278,6 +278,11 @@ async function rebuildCacheFromServer(userKey) {
       return false;
     }
     if (rebuildStale(userKey)) return null;
+    // Cookie の本人がローカルのユーザーと違う(ログアウトを経ない再ログインの残り)=本人のセッションが無い
+    if (data.user_key !== userKey) {
+      setRebuildBackoff(true);
+      return 'unauthorized';
+    }
     await replaceMatchesForUser(userKey, data.matches, data.schema_version);
     setRebuildBackoff(false);
     renderReport({ matches: data.matches }, userKey);

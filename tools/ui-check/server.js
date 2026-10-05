@@ -44,8 +44,8 @@ export function createServer() {
     if (get && p === '/ms-list') return json(res, 200, fx.msList());
     if (get && p === '/national-ms-stats') return json(res, 200, fx.nationalStats());
     if (get && p === '/schema-version') return json(res, 200, { schema_version: fx.SCHEMA_VERSION });
-    if (get && p === '/matches') return json(res, 200, { matches: matches, total: matches.length, schema_version: fx.SCHEMA_VERSION });
-    if (get && p === '/tag-partners') return json(res, 200, { tag_partners: fx.tagPartners() });
+    if (get && p === '/matches') return json(res, 200, { user_key: fx.USER_KEY, matches: matches, total: matches.length, schema_version: fx.SCHEMA_VERSION });
+    if (get && p === '/tag-partners') return json(res, 200, { user_key: fx.USER_KEY, tag_partners: fx.tagPartners() });
     if (get && p === '/session') return json(res, 200, { valid: false });
     if (p === '/session' && req.method === 'DELETE') return json(res, 200, {});
     if (p === '/analyze' && req.method === 'POST') return json(res, 202, { id: 'preview-job' });

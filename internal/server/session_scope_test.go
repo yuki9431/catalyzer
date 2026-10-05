@@ -18,7 +18,7 @@ func TestDataAPIsRequireSession(t *testing.T) {
 			cookie bool
 		}{
 			{"Cookie なし・user_key 指定", false},
-			{"特定できないセッション", true},
+			{"解決できないセッション", true},
 		} {
 			t.Run(path+"/"+tc.name, func(t *testing.T) {
 				req := httptest.NewRequest(http.MethodGet, path+"?user_key=0123456789abcdef", nil)

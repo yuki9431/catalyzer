@@ -365,6 +365,7 @@ func handleTagPartners(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"user_key":     userKey,
 		"tag_partners": partners,
 	})
 }
@@ -426,6 +427,7 @@ func handleMatches(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"user_key":       userKey,
 		"matches":        matches,
 		"total":          len(matches),
 		"schema_version": pipeline.MatchDataSchemaVersion,
