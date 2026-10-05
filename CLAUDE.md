@@ -87,7 +87,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 フロントエンドがIndexedDBにmatchesを保存し、JS分析関数で統計を計算・表示
 ```
 
-**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `POST /cancel/{id}`（実行中スクレイピングの中断。ログアウト時に使用）, `GET /matches`, `GET /schema-version`（MatchDataの現行スキーマバージョン。Firestore未アクセス。フロントのIndexedDBキャッシュ再構築判定に使用）, `GET /tag-partners`, `GET /ms-list`（機体名→画像URL）, `GET /national-ms-stats`（機体ごとの全国勝率・使用率。深夜バッチが取得した静的データを起動時に読み込んで配信）, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
+**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `POST /cancel/{id}`（実行中スクレイピングの中断。ログアウト時に使用）, `GET /matches`（セッション本人の試合のみ）, `GET /schema-version`（MatchDataの現行スキーマバージョン。Firestore未アクセス。フロントのIndexedDBキャッシュ再構築判定に使用）, `GET /tag-partners`（セッション本人のみ。分析直後は `/result` にも含む）, `GET /ms-list`（機体名→画像URL）, `GET /national-ms-stats`（機体ごとの全国勝率・使用率。深夜バッチが取得した静的データを起動時に読み込んで配信）, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）
 
 ## コード構成
 

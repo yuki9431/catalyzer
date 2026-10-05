@@ -16,7 +16,7 @@ describe('preview server', function () {
     assert.ok(buf.equals(fs.readFileSync(new URL('../../static/index.html', import.meta.url))));
   });
   it('serves /matches with fixture count and schema_version', async function () {
-    var d = await (await fetch(base + '/matches?user_key=x')).json();
+    var d = await (await fetch(base + '/matches')).json();
     assert.equal(d.matches.length, MATCH_COUNT);
     assert.equal(d.schema_version, SCHEMA_VERSION);
   });

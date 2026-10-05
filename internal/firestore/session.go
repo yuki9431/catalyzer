@@ -46,6 +46,11 @@ func SaveSession(token, userKey string, encryptedJar []byte) error {
 
 // LoadSession はFirestoreからセッション情報を読み取る。
 // 存在しない場合はuserKey=""、jar=nilを返す。
+// sessionExpired は expire_at を過ぎたかを返す。expire_at の無い古いセッションは期限なし扱い
+func sessionExpired(expireAt, now time.Time) bool {
+	return !expireAt.IsZero() && now.After(expireAt)
+}
+
 func LoadSession(token string) (userKey string, encryptedJar []byte, err error) {
 	c := getClient()
 	if c == nil {
@@ -68,6 +73,10 @@ func LoadSession(token string) (userKey string, encryptedJar []byte, err error) 
 	uk, _ := data["user_key"].(string)
 	jarStr, _ := data["jar"].(string)
 	if uk == "" || jarStr == "" {
+		return "", nil, nil
+	}
+	// TTL の物理削除は遅れるため、期限切れはここで無効として扱う
+	if exp, ok := data["expire_at"].(time.Time); ok && sessionExpired(exp, time.Now()) {
 		return "", nil, nil
 	}
 
