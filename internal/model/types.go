@@ -166,3 +166,24 @@ func MatchIDFromURL(detailURL string) string {
 	hash := sha256.Sum256([]byte(detailURL))
 	return fmt.Sprintf("%x", hash[:8])
 }
+
+// AutoRefreshState は自動更新の状態(Firestore auto_refresh/{userKey})。
+type AutoRefreshState struct {
+	UserKey, SessionToken, PassphraseFP, LeaseOwner, LastResult string
+	Enabled                                                     bool
+	LastAccess, ActiveUntil, LeaseUntil, LastRunAt              time.Time
+	ConsecutiveFailures                                         int
+}
+
+// LeaseFree は lease が空いているか(期限切れ、または owner 自身が保持)を返す。
+func (s AutoRefreshState) LeaseFree(owner string, now time.Time) bool {
+	return !s.LeaseUntil.After(now) || s.LeaseOwner == owner
+}
+
+// RefreshUpdate は自動更新 1 回の結果として状態に反映する内容。
+type RefreshUpdate struct {
+	LastResult          string
+	ConsecutiveFailures int
+	ClearSessionToken   bool
+	StopActive          bool
+}
