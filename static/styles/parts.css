@@ -6,14 +6,22 @@ button.ui-chip:hover { background: var(--accent-a10); }
 .ui-chip-bad { border-color: var(--terrible); color: var(--terrible); background: var(--terrible-a15); }
 .ui-chip-active, button.ui-chip-active:hover { border-color: var(--accent); background: var(--accent-a18); color: var(--accent-2); }
 
-.ui-chip-opener, .ui-chip-opener.ui-chip-active { min-height: 44px; border-radius: 8px; padding: 0 12px; background: var(--panel); }
+/* 押せる範囲は44pxのまま、枠は ::before で上下5px内側に描いて細く見せる */
+.ui-chip-opener, .ui-chip-opener.ui-chip-active { position: relative; isolation: isolate; min-height: 44px; border: none; border-radius: 8px; padding: 0 12px; background: none; }
+button.ui-chip-opener:hover, button.ui-chip-opener.ui-chip-active:hover { background: none; }
+.ui-chip-opener::before { content: ''; position: absolute; inset: 5px 0; z-index: -1; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+button.ui-chip-opener:hover::before { background: var(--accent-a10); }
+.ui-chip-opener.ui-chip-active::before, button.ui-chip-opener.ui-chip-active:hover::before { border-color: var(--accent); background: var(--accent-a18); }
 .ui-chip-opener::after { content: ''; width: 6px; height: 6px; margin-left: 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg) translateY(-2px); }
 .ui-chip-text { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.ui-toggle { display: inline-flex; padding: 2px; border: none; border-radius: 8px; background: var(--panel-2); }
-.ui-toggle-btn { width: auto; min-height: 44px; padding: 0 12px; border: none; border-radius: 6px; background: transparent; color: var(--muted); font-size: 0.875rem; font-weight: normal; white-space: nowrap; cursor: pointer; transition: none; }
-.ui-toggle-btn:hover { background: var(--accent-a10); }
-.ui-toggle-btn[aria-pressed="true"], .ui-toggle-btn[aria-pressed="true"]:hover { background: var(--panel); color: var(--text); font-weight: bold; }
+.ui-toggle { position: relative; isolation: isolate; display: inline-flex; padding: 0 2px; border: none; border-radius: 8px; background: none; }
+.ui-toggle::before { content: ''; position: absolute; inset: 5px 0; z-index: -1; border-radius: 8px; background: var(--panel-2); }
+.ui-toggle-btn { position: relative; width: auto; min-height: 44px; padding: 0 12px; border: none; border-radius: 6px; background: transparent; color: var(--muted); font-size: 0.875rem; font-weight: normal; white-space: nowrap; cursor: pointer; transition: none; }
+.ui-toggle-btn::before { content: ''; position: absolute; inset: 7px 0; z-index: -1; border-radius: 6px; }
+.ui-toggle-btn:hover::before { background: var(--accent-a10); }
+.ui-toggle-btn[aria-pressed="true"] { color: var(--text); font-weight: bold; }
+.ui-toggle-btn[aria-pressed="true"]::before { background: var(--panel); }
 
 .ui-summary { padding: 20px 16px; border-radius: 16px; background: var(--panel); }
 .ui-summary-label { margin: 0; color: var(--muted); font-size: 0.875rem; }

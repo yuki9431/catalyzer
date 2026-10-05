@@ -48,18 +48,14 @@
 .two-col { display: grid; grid-template-columns: 360px 1fr; gap: 18px; align-items: center; }
 
 /* ===== Tabs ===== */
-.tabs {
-  display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  padding: 4px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 14px; flex-basis: 100%;
-}
+.tabs { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-basis: 100%; }
 .tab {
-  flex: 0 0 auto; padding: 9px 16px; border: none; border-radius: 10px;
-  background: transparent; color: var(--muted); font-size: 0.875rem; font-weight: 600;
-  cursor: pointer; white-space: nowrap; transition: all .18s; width: auto;
+  flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--muted); font-size: 0.875rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: color .18s, border-color .18s; width: auto;
 }
-.tab:hover { color: var(--text); background: var(--panel-2); }
-.tab.active { color: var(--on-accent); background: var(--accent); }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .tabpane { animation: fade .25s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
