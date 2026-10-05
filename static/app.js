@@ -199,7 +199,6 @@ async function logout() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// report/ は app.js を import できない(循環)ため、操作は props で渡す
 // 自動更新の設定 API。通信失敗は status 0。合言葉は本文だけで送り、URL・ログ・storage に載せない
 async function autoRefreshCall(method, body) {
   try {
@@ -222,6 +221,7 @@ var AUTO_REFRESH_ACTIONS = {
   set: function (enabled, passphrase) { return autoRefreshCall('POST', enabled ? { enabled: true, passphrase: passphrase } : { enabled: false }); },
 };
 
+// report/ は app.js を import できない(循環)ため、操作は props で渡す
 var REPORT_ACTIONS = { onReanalyze: reAnalyze, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
 
 function showSkeleton() {
@@ -274,7 +274,7 @@ function returnToLogin() {
   if (t) t.style.display = '';
 }
 
-// 分析中・ユーザーが替わった再構築は反映しない(新しい分析結果を古い全件で上書きしないため)
+// 分析中・ユーザーが替わったら IndexedDB への反映を見送る(全件の再構築と自動更新の取り込みで共通)
 function rebuildStale(userKey) {
   var current = null;
   try { current = localStorage.getItem('catalyzer_user_key'); } catch (e) {}
@@ -643,11 +643,6 @@ function currentUserKey() {
   try { return localStorage.getItem('catalyzer_user_key'); } catch (e) { return null; }
 }
 
-// ログアウトや再ログインで本人が替わった・手動分析が始まった場合は反映しない
-function pullStale(userKey) {
-  return activeJobId !== null || currentUserKey() !== userKey;
-}
-
 async function pullAutoRefresh() {
   var userKey = currentUserKey();
   var hasSession = false;
@@ -666,10 +661,10 @@ async function pullAutoRefresh() {
     if (!res.ok) return;
     var data = await res.json();
     if (data.user_key !== userKey || !data.matches || !data.matches.length) return;
-    if (pullStale(userKey)) return;
+    if (rebuildStale(userKey)) return;
     await saveMatchesToDB(userKey, data.matches, data.schema_version);
     lastImportedAt = Date.now();
-    if (pullStale(userKey)) return;
+    if (rebuildStale(userKey)) return;
     renderReport({ matches: await loadMatchesFromDB(userKey) }, userKey);
   } catch (e) {
     // 自動実行なので失敗は見送る(次の起動・前面復帰で再試行)

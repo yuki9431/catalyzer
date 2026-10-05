@@ -98,14 +98,12 @@ function ShareArea({ shareData }) {
 // autoRefresh = { load(), set(enabled, passphrase), lastImportedAt() }(app.js から props で注入)。load/set は { status, body } を返し、通信失敗は status 0
 function AutoRefreshSettings({ autoRefresh }) {
   var stRef = useState(null), st = stRef[0], setSt = stRef[1];
-  var lastRef = useState(0), lastImportedAt = lastRef[0], setLast = lastRef[1];
   var errRef = useState(''), error = errRef[0], setError = errRef[1];
   var passRef = useState(''), passphrase = passRef[0], setPassphrase = passRef[1];
   var statusRef = useState(0), errStatus = statusRef[0], setErrStatus = statusRef[1];
   var busyRef = useState(false), busy = busyRef[0], setBusy = busyRef[1];
 
   function apply(res) {
-    setLast(autoRefresh.lastImportedAt());
     if (res.status === 200 && res.body) { setSt(res.body); setError(''); return true; }
     setErrStatus(res.status);
     setError(errorMessage(res.status));
@@ -126,13 +124,14 @@ function AutoRefreshSettings({ autoRefresh }) {
   }
 
   // 保持していない・必要というのは異常でなく状態なので赤い警告にしない
-  var loadTone = errStatus === 401 || errStatus === 409 ? 'info' : 'error';
+  var errTone = errStatus === 401 || errStatus === 409 ? 'info' : 'error';
   if (!st) {
     return html`<div class="auto-refresh" data-ui="auto-refresh">
-      ${error ? html`<${Notice} tone=${loadTone}>${error}</${Notice}>` : html`<p class="more-lead">自動更新の状態を確認しています。</p>`}
+      ${error ? html`<${Notice} tone=${errTone}>${error}</${Notice}>` : html`<p class="more-lead">自動更新の状態を確認しています。</p>`}
     </div>`;
   }
-  var d = describeStatus(st, lastImportedAt);
+  // 開いたまま取り込みが走っても最新を出すため、描画のたびに読む
+  var d = describeStatus(st, autoRefresh.lastImportedAt());
   var row = [{ key: 'auto-refresh-status', main: '自動更新', sub: d.sub, aside: d.aside }];
   var on = st.available && st.enabled;
   var off = st.available && !st.enabled;
@@ -144,7 +143,7 @@ function AutoRefreshSettings({ autoRefresh }) {
       <button type="submit" class="more-btn" disabled=${busy || (st.passphrase_required && !passphrase)}>有効にする</button>
     </form>`}
     ${on && html`<button type="button" class="more-btn-sub" disabled=${busy} onClick=${function () { submit(false); }}>無効にする</button>`}
-    ${error && html`<${Notice} tone="error">${error}</${Notice}>`}
+    ${error && html`<${Notice} tone=${errTone}>${error}</${Notice}>`}
   </div>`;
 }
 
