@@ -215,12 +215,12 @@ func StartServer() {
 		handleResult(w, r, r.URL.Path[len("/result/"):])
 	})
 
-	// GET /tag-partners?user_key=... → タッグ相方情報
+	// GET /tag-partners → セッション本人のタッグ相方情報
 	http.HandleFunc("/tag-partners", func(w http.ResponseWriter, r *http.Request) {
 		handleTagPartners(w, r)
 	})
 
-	// GET /matches?user_key=...&after=... → 試合データ配信（IndexedDBキャッシュ用）
+	// GET /matches?after=... → セッション本人の試合データ配信（IndexedDBキャッシュ用）
 	http.HandleFunc("/matches", func(w http.ResponseWriter, r *http.Request) {
 		handleMatches(w, r)
 	})
@@ -341,43 +341,69 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 		SchemaVersion: pipeline.MatchDataSchemaVersion,
 		ClassRecord:   snap.ClassRecord,
 	}
+	if partners, err := loadTagPartnersJSON(snap.UserKey); err == nil {
+		resp.TagPartners = partners
+	} else {
+		log.Printf("[WARN] Failed to load tag partners for result: %v", err)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func handleTagPartners(w http.ResponseWriter, r *http.Request) {
-	userKey := r.URL.Query().Get("user_key")
+	userKey := sessionUserKey(r)
 	if userKey == "" {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "user_key parameter is required"})
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "ログイン状態が保持されていません"})
 		return
 	}
 
-	partners, err := firestore.LoadTagPartners(userKey)
+	partners, err := loadTagPartnersJSON(userKey)
 	if err != nil {
 		log.Printf("[ERROR] Failed to load tag partners: %v", err)
 		sendJSON(w, http.StatusInternalServerError, map[string]string{"error": "タッグ相方情報の取得に失敗しました"})
 		return
 	}
+	sendJSON(w, http.StatusOK, map[string]interface{}{
+		"tag_partners": partners,
+	})
+}
 
-	type partnerJSON struct {
-		TeamName   string `json:"team_name"`
-		PlayerName string `json:"player_name"`
+type partnerJSON struct {
+	TeamName   string `json:"team_name"`
+	PlayerName string `json:"player_name"`
+}
+
+func loadTagPartnersJSON(userKey string) ([]partnerJSON, error) {
+	partners, err := firestore.LoadTagPartners(userKey)
+	if err != nil {
+		return nil, fmt.Errorf("タッグ相方の読み込み: %w", err)
 	}
 	result := make([]partnerJSON, len(partners))
 	for i, p := range partners {
 		result[i] = partnerJSON{TeamName: p.TeamName, PlayerName: p.PlayerName}
 	}
+	return result, nil
+}
 
-	sendJSON(w, http.StatusOK, map[string]interface{}{
-		"tag_partners": result,
-	})
+// sessionUserKey はセッション Cookie から本人のユーザーキーを返す。特定できなければ空
+func sessionUserKey(r *http.Request) string {
+	token := getSessionToken(r)
+	if token == "" {
+		return ""
+	}
+	userKey, _, err := firestore.LoadSession(token)
+	if err != nil {
+		log.Printf("[WARN] Failed to load session: %v", err)
+		return ""
+	}
+	return userKey
 }
 
 func handleMatches(w http.ResponseWriter, r *http.Request) {
-	userKey := r.URL.Query().Get("user_key")
+	userKey := sessionUserKey(r)
 	if userKey == "" {
-		sendJSON(w, http.StatusBadRequest, map[string]string{"error": "user_key parameter is required"})
+		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "ログイン状態が保持されていません"})
 		return
 	}
 
@@ -457,6 +483,8 @@ type matchesResponse struct {
 	SchemaVersion int             `json:"schema_version"`
 
 	ClassRecord *model.ClassRecord `json:"class_record,omitempty"`
+	// 分析直後はセッションが無くても固定相方を出せるよう結果に含める
+	TagPartners []partnerJSON `json:"tag_partners,omitempty"`
 }
 
 func sendMatchesResponse(w http.ResponseWriter, code int, matchesJSON, status, userKey string, preliminary bool) {

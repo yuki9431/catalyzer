@@ -153,7 +153,7 @@ async function reanalyzeWithSession() {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
         clearRebuildError();
-        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record, tag_partners: resultData.tag_partners }, resultData.user_key);
         break;
       }
     }
@@ -253,7 +253,7 @@ function rebuildStale(userKey) {
   return activeJobId !== null || current !== userKey;
 }
 
-// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件は false でバックオフ、反映を見送ったら null
+// IndexedDB を /matches の全件で置き換える。成功で true、失敗・0件は false、セッション無しは 'unauthorized'(いずれもバックオフ)、反映を見送ったら null
 async function rebuildCacheFromServer(userKey) {
   if (rebuildStale(userKey)) return null;
   var statusText = document.getElementById('statusText');
@@ -265,7 +265,12 @@ async function rebuildCacheFromServer(userKey) {
     statusText.textContent = STATUS_MESSAGES.rebuilding;
   }
   try {
-    var res = await fetch('/matches?user_key=' + encodeURIComponent(userKey));
+    var res = await fetch('/matches');
+    // ログイン状態を保持していない(セッションが無い)と本人の全件は取れない
+    if (res.status === 401) {
+      setRebuildBackoff(true);
+      return 'unauthorized';
+    }
     var data = await res.json();
     // 空配列(0件)はサーバー側の異常応答の可能性があるため再構築せず既存キャッシュを温存する
     if (!res.ok || !data.matches || !data.matches.length) {
@@ -311,6 +316,7 @@ async function rebuildCache() {
   }
   // 見送りの理由がログアウト(キー消失)なら案内しない
   if (rebuilt === null) { if (localStorage.getItem('catalyzer_user_key')) showRebuildError(error, '分析が終わってから実行してください。'); }
+  else if (rebuilt === 'unauthorized') showRebuildError(error, 'ログイン状態を保持していないため取得し直せません。再分析してください。');
   else if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
 }
 
@@ -467,7 +473,7 @@ async function analyze() {
           await saveMatchesToDB(resultData.user_key, resultData.matches, resultData.schema_version);
         }
         clearRebuildError();
-        renderReport({ matches: resultData.matches, class_record: resultData.class_record }, resultData.user_key);
+        renderReport({ matches: resultData.matches, class_record: resultData.class_record, tag_partners: resultData.tag_partners }, resultData.user_key);
         renderedReal = true;
         if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
