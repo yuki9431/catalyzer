@@ -87,13 +87,16 @@
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
-│   │   ├── shell.js               # AppShell（トップバー・本文・下部タブバー）とその他画面（自動更新の設定を含む）
+│   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）とその他画面（再分析・自動更新の設定を含む）
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
 │   │   ├── autorefresh.js         # 自動更新の純粋ロジック（差分の起点・取り込み可否・状態の文言）
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
+│   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
+│   │   ├── runlock.js             # 分析の多重起動ロック
+│   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
@@ -107,8 +110,11 @@
 │   │   ├── skeleton-actions.test.js # Skeleton/AppShell/MoreView への props 渡し忘れ検査
 │   │   ├── shell.test.js          # タブ定義と画面状態の読み出し
 │   │   ├── autorefresh.test.js    # autorefresh.js テスト
+│   │   ├── topbar.test.js         # topbar.js テスト
+│   │   ├── runlock.test.js        # runlock.js テスト
+│   │   ├── launch.test.js         # launch.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
-│   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・スクロール隠しが無いことの静的検査
+│   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）

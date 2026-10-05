@@ -4,6 +4,12 @@ import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
+import { createRunLock } from './lib/runlock.js';
+import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
+
+// ホーム画面アプリのときだけ自前の引っ張り再分析を使う(ブラウザのタブは標準の再読み込みが再分析の経路)
+var STANDALONE = isStandalone({ standalone: navigator.standalone, matchMedia: window.matchMedia ? function (q) { return window.matchMedia(q); } : null });
+if (STANDALONE) document.documentElement.setAttribute('data-standalone', '');
 
 // --- Constants ---
 var STATUS_MESSAGES = {
@@ -21,8 +27,22 @@ var STATUS_MESSAGES = {
 var REBUILD_BACKOFF_MS = 6 * 60 * 60 * 1000;
 var REBUILD_BACKOFF_KEY = 'catalyzer_rebuild_backoff_until';
 
+// 再読み込みでの再分析の連続起動を抑える。この端末で直近に分析を始めた/終えた時刻
+var ANALYSIS_STARTED_KEY = 'catalyzer_analysis_started_at';
+var ANALYSIS_FINISHED_KEY = 'catalyzer_analysis_finished_at';
+function markAnalysis(key) {
+  try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
+}
+function readMark(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
 // 実行中の分析ジョブID。ログアウト時にこのジョブのスクレイピングを中断し、ポーリングを停止するために使う
 var activeJobId = null;
+
+// 分析の多重起動ロック。activeJobId は POST の応答後にしか入らないため、それより前の二重起動をここで防ぐ
+var analysis = createRunLock();
+function analysisBusy() { return analysis.busy() || activeJobId !== null; }
 
 // 自動更新(サーバーが定期取得した試合)の取り込み。起動時と画面が前面に戻ったときに差分だけ取り、直近の取り込みから20秒は飛ばす
 var lastPullAt = 0; // 取り込みを試みた時刻(間隔制御用)
@@ -30,17 +50,18 @@ var lastImportedAt = 0; // 差分を保存できた時刻(画面表示用)
 var pulling = false;
 
 function reAnalyze() {
+  if (analysisBusy()) return;
   // セッション保持中はパスワード不要で再分析
   if (localStorage.getItem('catalyzer_has_session')) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    reanalyzeWithSession();
+    analysis.run(reanalyzeWithSession);
     return;
   }
   var u = document.getElementById('username');
   var p = document.getElementById('password');
   if (u && p && u.value && p.value) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    analyze();
+    analysis.run(analyze);
     return;
   }
   var rep = document.getElementById('report');
@@ -52,7 +73,7 @@ function reAnalyze() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-async function reanalyzeWithSession() {
+async function reanalyzeWithSession(auto) {
   var status = document.getElementById('status');
   var statusText = document.getElementById('statusText');
   var error = document.getElementById('error');
@@ -75,12 +96,22 @@ async function reanalyzeWithSession() {
   error.style.display = 'none';
 
   var lastPreliminaryVersion = 0;
+  var posted = false; // POST を投げたら失敗しても終了を記録する(再読み込みごとの再分析を防ぐ)
+  var busyNotice = false;
 
   try {
+    posted = true;
     var res = await fetch('/reanalyze', { method: 'POST' });
     var data = await res.json();
 
     if (data.error) {
+      // 再読み込みでの自動起動が lease 中の409になったときは、エラーにせず事実だけ短く出す
+      if (auto && res.status === 409) {
+        busyNotice = true;
+        statusText.textContent = '自動更新で取得中のため、再分析は後で行えます';
+        setTimeout(function () { status.style.display = 'none'; }, 4000);
+        return;
+      }
       if (res.status === 401) {
         returnToLogin();
         error.style.display = 'block';
@@ -93,6 +124,7 @@ async function reanalyzeWithSession() {
 
     var jobId = data.id;
     activeJobId = jobId;
+    markAnalysis(ANALYSIS_STARTED_KEY);
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
@@ -167,8 +199,11 @@ async function reanalyzeWithSession() {
     error.style.display = 'block';
     error.textContent = e.message;
   } finally {
-    if (activeJobId === jobId) activeJobId = null;
-    status.style.display = 'none';
+    if (posted && (jobId === undefined || activeJobId === jobId)) {
+      activeJobId = null;
+      markAnalysis(ANALYSIS_FINISHED_KEY);
+    }
+    if (!busyNotice) status.style.display = 'none';
   }
 }
 
@@ -176,6 +211,7 @@ async function logout() {
   // 実行中の分析ジョブがあればスクレイピングを中断し、ポーリングを停止する
   var jid = activeJobId;
   activeJobId = null;
+  analysis.release();
   // キャンセルは撃ちっぱなし（await しない）。/cancel が詰まってもセッション削除・UIリセットを止めない
   if (jid) {
     try { fetch('/cancel/' + jid, { method: 'POST' }).catch(function () {}); } catch (e) {}
@@ -185,6 +221,8 @@ async function logout() {
   } catch (e) {}
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
+  localStorage.removeItem(ANALYSIS_STARTED_KEY);
+  localStorage.removeItem(ANALYSIS_FINISHED_KEY);
   localStorage.removeItem(CLASS_RECORD_KEY);
   localStorage.removeItem(FOCUS_KEY);
   localStorage.removeItem(VIEW_KEY);
@@ -222,7 +260,7 @@ var AUTO_REFRESH_ACTIONS = {
 };
 
 // report/ は app.js を import できない(循環)ため、操作は props で渡す
-var REPORT_ACTIONS = { onReanalyze: reAnalyze, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
+var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, pullEnabled: STANDALONE, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
 
 function showSkeleton() {
   var reportEl = document.getElementById('report');
@@ -435,6 +473,7 @@ async function analyze() {
 
     var jobId = data.id;
     activeJobId = jobId;
+    markAnalysis(ANALYSIS_STARTED_KEY);
 
     while (true) {
       await new Promise(function (r) { setTimeout(r, 3000); });
@@ -532,7 +571,10 @@ async function analyze() {
     }
     document.getElementById('loginForm').style.display = 'block';
   } finally {
-    if (activeJobId === jobId) activeJobId = null;
+    if (activeJobId === jobId) {
+      activeJobId = null;
+      markAnalysis(ANALYSIS_FINISHED_KEY);
+    }
     btn.disabled = false;
     status.style.display = 'none';
   }
@@ -542,7 +584,7 @@ var loginForm = document.getElementById('loginForm');
 if (loginForm) {
   loginForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    analyze();
+    analysis.run(analyze);
   });
   try {
     var cred = JSON.parse(sessionStorage.getItem('catalyzer_cred'));
@@ -581,6 +623,11 @@ if (rememberInfoBtn && rememberModal) {
     hasSession = !!localStorage.getItem('catalyzer_has_session');
   } catch (e) {}
 
+  var reloadRun = hasSession && shouldReanalyzeOnReload({
+    navType: navigationType(performance.getEntriesByType ? performance.getEntriesByType('navigation') : [], performance.navigation ? performance.navigation.type : undefined),
+    hasSession: true, now: Date.now(), startedAt: readMark(ANALYSIS_STARTED_KEY), finishedAt: readMark(ANALYSIS_FINISHED_KEY),
+  });
+
   var renderedFromCache = false;
   if (cachedUserKey) {
     try {
@@ -611,10 +658,10 @@ if (rememberInfoBtn && rememberModal) {
 
   // キャッシュからレポートを表示したらログイン画面を隠す。
   // セッション有無に関わらず、レポートの上にログイン画面が残るのを防ぐ
-  // （ログインが必要な場合は再分析ボタン経由で reAnalyze が再表示する）。
+  // （ログインが必要な場合は引っ張り・その他の再分析経由で reAnalyze が再表示する）。
   if (renderedFromCache && loginForm) loginForm.style.display = 'none';
 
-  if (hasSession) pullAutoRefresh();
+  if (hasSession && !reloadRun) pullAutoRefresh();
 
   if (hasSession) {
     if (loginForm) loginForm.style.display = 'none';
@@ -630,8 +677,8 @@ if (rememberInfoBtn && rememberModal) {
         if (loginForm) loginForm.style.display = 'block';
         var t = document.getElementById('pageTitle');
         if (t) t.style.display = '';
-      } else if (!hasLocalData) {
-        reanalyzeWithSession();
+      } else if (!hasLocalData || reloadRun) {
+        analysis.run(function () { return reanalyzeWithSession(true); });
       }
     }).catch(function () {
       if (loginForm) loginForm.style.display = 'block';

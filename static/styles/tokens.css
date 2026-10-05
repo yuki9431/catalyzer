@@ -14,6 +14,7 @@
   --terrible: #ff8d80;
   --font-sans: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif;
   --gutter: 16px;
+  --topbar-shift: 0px; /* 上部バー上端からタブ行上端までの距離。AppShell が実測値で上書きする */
   --shadow-pop: 0 8px 24px rgba(0,0,0,.4);
   --shadow-pop-strong: 0 8px 24px rgba(0,0,0,.45);
   --shadow-modal: 0 16px 48px rgba(0,0,0,.5);

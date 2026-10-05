@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/argon2"
+	"golang.org/x/text/unicode/norm"
 )
 
 // OWASP 推奨の argon2id 最小構成(m=19MiB, t=2, p=1)。
@@ -21,8 +22,17 @@ const (
 	argonSaltLen = 16
 )
 
+// normalizePassphrase は端末や入力方法による表記の揺れ(全角・半角、結合文字、前後の空白)を揃える。
+func normalizePassphrase(passphrase string) string {
+	return strings.TrimSpace(norm.NFKC.String(passphrase))
+}
+
 // HashPassphrase は合言葉を argon2id の PHC 文字列にする。
 func HashPassphrase(passphrase string) (string, error) {
+	passphrase = normalizePassphrase(passphrase)
+	if passphrase == "" {
+		return "", fmt.Errorf("合言葉が空です")
+	}
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("salt 生成: %w", err)
@@ -34,6 +44,7 @@ func HashPassphrase(passphrase string) (string, error) {
 
 // verifyPassphrase は PHC 文字列に対して合言葉を定数時間で照合する。
 func verifyPassphrase(phc, passphrase string) (bool, error) {
+	passphrase = normalizePassphrase(passphrase)
 	parts := strings.Split(phc, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return false, fmt.Errorf("argon2id の PHC 形式ではありません")

@@ -1,7 +1,8 @@
-import { html, useState, useEffect, useRef } from '../htm-preact-standalone.js';
+import { html, useState, useEffect, useLayoutEffect, useRef } from '../htm-preact-standalone.js';
 import { Panel } from './ui.js';
 import { RowList, Notice } from './parts.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
+import { PULL_IDLE, pullStep, pullReady, BAR_SHOWN, nextBar } from '../lib/topbar.js';
 import { buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK } from '../lib/format.js';
 
 // --- 画面切替(下部タブバー) ---
@@ -134,12 +135,13 @@ function AutoRefreshSettings({ autoRefresh }) {
   var d = describeStatus(st, autoRefresh.lastImportedAt());
   var row = [{ key: 'auto-refresh-status', main: '自動更新', sub: d.sub, aside: d.aside }];
   var on = st.available && st.enabled;
+  // 合言葉欄は type=password だと IME が無効で日本語を打てない。spellcheck・autocorrect は文字列だと真になるので真偽値で渡す
   var off = st.available && !st.enabled;
   return html`<div class="auto-refresh" data-ui="auto-refresh">
     <${RowList} rows=${row} />
     ${off && html`<form class="auto-form" onSubmit=${function (e) { e.preventDefault(); submit(true); }}>
       ${st.passphrase_required && html`<label for="autoRefreshPassphrase">合言葉</label>
-      <input id="autoRefreshPassphrase" type="password" autocomplete="off" required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
+      <input id="autoRefreshPassphrase" type="text" autocomplete="off" autocapitalize="off" autocorrect=${false} spellcheck=${false} required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
       <button type="submit" class="more-btn" disabled=${busy || (st.passphrase_required && !passphrase)}>有効にする</button>
     </form>`}
     ${on && html`<button type="button" class="more-btn-sub" disabled=${busy} onClick=${function () { submit(false); }}>無効にする</button>`}
@@ -149,7 +151,7 @@ function AutoRefreshSettings({ autoRefresh }) {
 
 // --- その他画面 ---
 
-export function MoreView({ shareData, onLogout, onRebuildCache, autoRefresh }) {
+export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
   var hasShare = !!(shareData && shareData.length);
@@ -161,11 +163,13 @@ export function MoreView({ shareData, onLogout, onRebuildCache, autoRefresh }) {
     </div>
   </div>`;
   var dataRows = [
+    { key: 'reanalyze', main: '再分析', sub: '公式サイトから新しい戦績を取得して分析し直します' },
     { key: 'refetch', main: '試合データを取得し直す', sub: 'サーバーから全件を再取得します', expand: confirmPanel || null },
     { key: 'vsmobile', main: 'ガンダムモバイルを開く', sub: '外部サイト', href: 'https://web.vsmobile.jp/exvs2ib/' },
   ];
   var accountRows = [{ key: 'logout', main: 'ログアウト', sub: '保存したログイン情報も削除します', tone: 'danger' }];
   return html`<div data-ui="more">
+    <div class="more-brand" data-ui="more-brand"><img src="logo.svg" alt="catalyzer" /></div>
     ${hasShare && html`<${Panel} title="結果を共有">
       <p class="more-lead">最多使用の機体と敵機との相性を文章にして共有します。</p>
       <${ShareArea} shareData=${shareData} />
@@ -174,7 +178,7 @@ export function MoreView({ shareData, onLogout, onRebuildCache, autoRefresh }) {
       <${AutoRefreshSettings} autoRefresh=${autoRefresh} />
     </${Panel}>
     <${Panel} title="データ">
-      <${RowList} rows=${dataRows} onSelect=${function (k) { if (k === 'refetch') setConfirming(!confirming); }} />
+      <${RowList} rows=${dataRows} onSelect=${function (k) { if (k === 'reanalyze') onReanalyze(); else if (k === 'refetch') setConfirming(!confirming); }} />
     </${Panel}>
     <${Panel} title="アカウント">
       <${RowList} rows=${accountRows} onSelect=${function () { onLogout(); }} />
@@ -182,15 +186,102 @@ export function MoreView({ shareData, onLogout, onRebuildCache, autoRefresh }) {
   </div>`;
 }
 
-// 上部バー・本文・下部タブバーの外枠
-export function AppShell({ onRefresh, controls, nav, children }) {
+// 下スクロールで絞り込み行を隠し、上に少し戻すと出す(隠す見た目はスマホ幅の CSS だけ)
+function useCollapsingBar(enabled) {
+  var barRef = useRef(null), tabsRef = useRef(null);
+  var cState = useState(false), collapsed = cState[0], setCollapsed = cState[1];
+  var sState = useState(0), shift = sState[0], setShift = sState[1];
+  useLayoutEffect(function () {
+    if (!enabled) return undefined;
+    var st = BAR_SHOWN, raf = 0;
+    function apply() {
+      raf = 0;
+      var bar = barRef.current, tabs = tabsRef.current;
+      // シート表示中に隠れ状態へ遷移すると visibility:hidden が fixed のシートに継承されて消える
+      if (!bar || !tabs || scrollLocked()) return;
+      var sh = Math.round(tabs.getBoundingClientRect().top - bar.getBoundingClientRect().top);
+      var top = bar.parentElement.getBoundingClientRect().top + window.scrollY + sh;
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      st = nextBar(st, window.scrollY, { top: top, max: max });
+      setShift(sh);
+      setCollapsed(st.hidden);
+    }
+    function schedule() { if (!raf) raf = requestAnimationFrame(apply); }
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    apply();
+    return function () {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [enabled]);
+  return { barRef: barRef, tabsRef: tabsRef, collapsed: collapsed, shift: shift };
+}
+
+// シート・モーダル表示中は body か html の overflow が hidden になる
+function scrollLocked() {
+  return document.body.style.overflow === 'hidden' || document.documentElement.style.overflow === 'hidden';
+}
+
+// レポート最上部で下に引っ張ると再分析する。表示は引っ張り中だけ上部バーの上に差し込む
+function PullToRefresh({ onPull, canPull }) {
+  var latest = useRef();
+  latest.current = { onPull: onPull, canPull: canPull };
+  var pState = useState(PULL_IDLE), pull = pState[0], setPull = pState[1];
+  useLayoutEffect(function () {
+    var st = PULL_IDLE;
+    function step(ev, e) {
+      var r = pullStep(st, ev);
+      st = r.state;
+      if (r.prevent && e && e.cancelable) e.preventDefault();
+      if (r.fire) latest.current.onPull();
+      setPull(function (prev) { return prev.phase === st.phase && prev.distance === st.distance ? prev : st; });
+    }
+    function point(e) { return e.touches[0]; }
+    function onStart(e) {
+      if (e.touches.length !== 1) return step({ type: 'cancel' }, e);
+      var c = latest.current.canPull;
+      var p = point(e);
+      step({ type: 'start', x: p.clientX, y: p.clientY, scrollY: window.scrollY, enabled: !scrollLocked() && !!(c && c()) }, e);
+    }
+    function onMove(e) {
+      if (st.phase === 'idle' || !e.touches.length) return;
+      var p = point(e);
+      step({ type: 'move', x: p.clientX, y: p.clientY, scrollY: window.scrollY }, e);
+    }
+    function onEnd(e) { step({ type: 'end' }, e); }
+    function onCancel(e) { step({ type: 'cancel' }, e); }
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    document.addEventListener('touchcancel', onCancel, { passive: true });
+    return function () {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onCancel);
+    };
+  }, []);
+  if (pull.phase !== 'pulling') return null;
+  return html`<div class="pull-zone" data-ui="pull-indicator" aria-hidden="true" style=${{ height: pull.distance + 'px' }}>
+    <span class="pull-icon"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" /></svg></span>
+    <span>${pullReady(pull) ? '離すと再分析' : '引っ張って再分析'}</span>
+  </div>`;
+}
+
+// 上部バー(絞り込み行+タブ行)・本文・下部タブバーの外枠。絞り込みもタブも無い画面の上部バーは safe-area だけ
+export function AppShell({ filters, tabs, trailing, onPull, canPull, nav, children }) {
+  var bare = !filters && !tabs;
+  var collapsible = !!(filters && tabs);
+  var bar = useCollapsingBar(collapsible);
   return html`<div class=${'view-root' + (nav.view === 'more' ? ' view-more' : '')}>
-    <div class="topbar" data-ui="topbar">
-      <div class="topbar-head">
-        <span class="brand"><img src="logo.svg" alt="catalyzer" /></span>
-        ${onRefresh && html`<button class="topbar-refresh" onClick=${onRefresh}>再分析</button>`}
-      </div>
-      ${controls}
+    ${onPull && html`<${PullToRefresh} onPull=${onPull} canPull=${canPull} />`}
+    <div class=${'topbar' + (bare ? ' topbar-bare' : '')} data-ui="topbar" data-collapsed=${collapsible && bar.collapsed ? 'true' : 'false'} ref=${bar.barRef}
+      style=${collapsible ? { '--topbar-shift': bar.shift + 'px' } : undefined}>
+      ${filters}
+      ${bare && trailing && html`<div class="topbar-trailing">${trailing}</div>`}
+      ${tabs && html`<div class="topbar-tabs" ref=${bar.tabsRef}>${tabs}</div>`}
     </div>
     ${children}
     <${TabBar} view=${nav.view} onNavigate=${nav.onNavigate} />
