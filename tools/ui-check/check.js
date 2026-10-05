@@ -127,6 +127,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
     await metrics(screen.viewport.height);
     if (screen.ops.some(function (o) { return o.pull; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    if (screen.standalone) await send('Page.addScriptToEvaluateOnNewDocument', { source: "Object.defineProperty(Navigator.prototype,'standalone',{configurable:true,get:function(){return true}})" });
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
@@ -199,6 +200,10 @@ async function runScreen(conn, origin, screen, theme, update) {
     for (var oi = 0; oi < outview.length; oi++) {
       if (!(await evalJs(countExpr(outview[oi][0], outview[oi][1])))) return fail('outview の対象なし ' + outview[oi][0]);
       if (await evalJs(inviewExpr(outview[oi][0], outview[oi][1]))) return fail('画面内に見える ' + outview[oi][0] + (outview[oi][1] ? ' (' + outview[oi][1] + ')' : ''));
+    }
+    var absent = screen.absent || [];
+    for (var ai = 0; ai < absent.length; ai++) {
+      if (await evalJs(countExpr(absent[ai][0], absent[ai][1]))) return fail('在ってはいけない要素 ' + absent[ai][0] + (absent[ai][1] ? ' (' + absent[ai][1] + ')' : ''));
     }
     var note = '';
     if (screen.fixedMax != null) {

@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import { SCREENS, THEMES } from './screens.js';
+import { PULL } from '../../static/lib/topbar.js';
 
 // クラス名セレクタ(`.foo`・`div.foo`)を検出する(属性値内は除く)。data-ui・id・タグ・ARIA だけで探す規約
 var CLASS_SEL = /\.[A-Za-z_-]/;
@@ -9,7 +10,7 @@ function hasClassSel(sel) { return CLASS_SEL.test(sel.replace(/\[[^\]]*\]/g, '[]
 
 function selectors(screen) {
   var ops = screen.ops.map(function (op) { var a = op.click || op.type || op.scroll || op.wait; return a && a[0]; }).filter(Boolean);
-  return ops.concat(screen.required.map(function (r) { return r[0]; }), (screen.inview || []).map(function (r) { return r[0]; }), (screen.outview || []).map(function (r) { return r[0]; }), screen.tap || []);
+  return ops.concat(screen.required.map(function (r) { return r[0]; }), (screen.inview || []).map(function (r) { return r[0]; }), (screen.outview || []).map(function (r) { return r[0]; }), (screen.absent || []).map(function (r) { return r[0]; }), screen.tap || []);
 }
 
 describe('screens', () => {
@@ -27,8 +28,8 @@ describe('screens', () => {
   });
 
   it('selectors() が inview のセレクタも検査対象に含める', () => {
-    var sel = selectors({ ops: [], required: [['a']], inview: [['[data-ui="x"]', 't']], outview: [['[data-ui="y"]']], tap: ['b'] });
-    assert.deepStrictEqual(sel, ['a', '[data-ui="x"]', '[data-ui="y"]', 'b']);
+    var sel = selectors({ ops: [], required: [['a']], inview: [['[data-ui="x"]', 't']], outview: [['[data-ui="y"]']], absent: [['[data-ui="z"]']], tap: ['b'] });
+    assert.deepStrictEqual(sel, ['a', '[data-ui="x"]', '[data-ui="y"]', '[data-ui="z"]', 'b']);
   });
 
   it('mobile-report-overview は正の scrollBy の後に絞り込み行が画面外・タブ行が画面内で、固定高さが 120px 以下', () => {
@@ -70,5 +71,28 @@ describe('screens', () => {
     assert.deepStrictEqual(s.ops[s.ops.length - 1], { reload: true });
     assert.ok(s.required.some(function (r) { return r[0].includes('aria-current') && r[1] === 'その他'; }));
     assert.ok(s.tap && s.tap.length > 0);
+  });
+
+  var get = function (id) { return SCREENS.find(function (x) { return x.id === id; }); };
+  var pulls = function (s) { return s.ops.filter(function (o) { return o.pull; }).map(function (o) { return o.pull; }); };
+
+  it('mobile-report-scroll-up は正→負の scrollBy の後に絞り込み行が画面内に見える', () => {
+    var d = get('mobile-report-scroll-up').ops.filter(function (o) { return o.scrollBy; }).map(function (o) { return o.scrollBy[0]; });
+    assert.ok(d[0] > 0 && d[1] < 0);
+    assert.ok(get('mobile-report-scroll-up').inview.length >= 3);
+  });
+
+  it('mobile-pull はしきい値未満を離して再分析せず、以上を保持する。mobile-pull-release は以上を離して #loginForm を必須にする', () => {
+    var min = PULL.threshold / PULL.resist;
+    var p = pulls(get('mobile-pull'));
+    assert.ok(p[0][0] < min && p[0][1] === 'release');
+    assert.ok(p[1][0] >= min && p[1][1] !== 'release');
+    var r = pulls(get('mobile-pull-release'))[0];
+    assert.ok(r[0] >= min && r[1] === 'release');
+    assert.ok(get('mobile-pull-release').required.some(function (x) { return x[0] === '#loginForm'; }));
+  });
+
+  it('mobile-pull・mobile-pull-release はホーム画面アプリ(standalone)として開く', () => {
+    ['mobile-pull', 'mobile-pull-release'].forEach(function (id) { assert.strictEqual(get(id).standalone, true, id); });
   });
 });
