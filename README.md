@@ -206,7 +206,7 @@ http://localhost:8080 にアクセスしてログインすると分析レポー�
 | `SCRAPER_BURST_COUNT` | バースト区間で高速取得する先頭リクエスト数（0でバースト無効） | 100 |
 | `SCRAPER_BURST_PARALLELISM` | バースト区間の最大同時リクエスト数 | 3 |
 | `SCRAPER_THROTTLE_DELAY_MS` | スロットル区間の各リクエスト完了後の待機（ミリ秒） | 900 |
-| `SCRAPER_MAX_DETAIL` | 詳細取得件数の上限（0または未設定で無制限） | 0 |
+| `SCRAPER_MAX_DETAIL` | 詳細取得件数の上限（古い順の先頭N件。0または未設定で無制限） | 0 |
 
 スロットル区間は同時リクエスト数1で直列実行されます（403回避のため固定）。例（バーストを無効化し全件を低レート取得）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 
