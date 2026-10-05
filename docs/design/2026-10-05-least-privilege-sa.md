@@ -193,5 +193,8 @@ C4 は反映の遅れで偽陰性になりうるので、Step 3 後に画面操�
 - `roles/run.developer` は service/job の `setIamPolicy` を持たず、`run.jobs.run` は持つ。`roles/run.invoker` は `runWithOverrides` を含まない。
 - `roles/viewer` は `resourcemanager.projects.getIamPolicy`・`logging.logEntries.list` を持つ。
 
+## 8.1 決定事項(2026-10-05 ユーザー判断)
+未決事項 U1〜U6 はすべて推奨どおり: 専用ビルド SA + cloudbuild.yaml / #288 PR-1 と同じ shared apply にまとめる / Job 起動は project 単位の run.invoker / Firestore の IAM Condition は付けない / editor 除去は prod で数日安定後 / 旧 Cloud Build SA は触らない
+
 ## 9. 変更予定ファイル(実装する場合)
 `infra/shared/iam.ts`、`infra/shared/index.ts`(出力)、`infra/app/index.ts`、`.github/workflows/build.yml`、`cloudbuild.yaml`(新規)、`CLAUDE.md`(コード構成・CI の説明)、README のプロジェクト構成。`infra/shared/apis.ts` は #288 側。
