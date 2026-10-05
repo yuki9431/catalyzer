@@ -487,3 +487,11 @@ U3:
 - **U3 実行 SA**: Job 用 SA を新設し最小権限(`roles/datastore.user` 相当)にする。既存の Cloud Run サービスの実行 SA(compute デフォルト・editor)と github-actions SA の最小化も行う(別 issue。本設計の PR-1 と合わせて設計し直す)
 - **U4 stg**: Scheduler と Job は **prod にだけ置く**。stg と prod は Firestore DB を共有しているので、prod が取り込んだ試合は stg の画面にも出る。これにより `auto_refresh.env` による環境分離は不要。動作確認は prod でオーナーのアカウントで行う
 - **U5 有効化の条件**: セッションの無いユーザーは有効化不可(409)
+
+---
+
+## 11. 実装時の差分
+- env 関連(`auto_refresh.env`)は §10 U4 のとおり実装していない
+- colly は 4xx で OnResponse が呼ばれないため、ランクページの判定は `classifyRankpageResponse` に置き換えた
+- `POST /auto-refresh` の 401/409: Cookie 無しは 409、Cookie 有でセッション解決不可は 401
+- app の Job・Scheduler は config `autoRefreshEnabled`(prod のみ true)で作る。Job の `APP_ENV` は不要になり入れていない

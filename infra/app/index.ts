@@ -11,10 +11,65 @@ const domain = config.require("domain");
 const firestoreDatabase = config.require("firestoreDatabase");
 const sessionEncryptionKey = config.getSecret("sessionEncryptionKey");
 
+// 自動更新(#288)。Job と Scheduler は prod のみ(config で制御)
+const autoRefreshEnabled = config.getBoolean("autoRefreshEnabled") ?? false;
+const autoRefreshPaused = config.getBoolean("autoRefreshPaused") ?? false;
+const autoRefreshOpen = config.getBoolean("autoRefreshOpen") ?? false;
+const autoRefreshPassphraseHash = config.getSecret("autoRefreshPassphraseHash");
+
 // shared スタックからDNSゾーン名を取得
 const sharedStackName = config.require("sharedStack");
 const shared = new pulumi.StackReference(sharedStackName);
 const dnsZoneName = shared.getOutput("dnsZoneName") as pulumi.Output<string>;
+const autoRefreshJobSaEmail = shared.getOutput("autoRefreshJobSaEmail") as pulumi.Output<string>;
+const autoRefreshSchedulerSaEmail = shared.getOutput("autoRefreshSchedulerSaEmail") as pulumi.Output<string>;
+
+// 自動更新の Cloud Run Job(サービスと同じイメージ)
+const autoRefreshJob = autoRefreshEnabled
+  ? new gcp.cloudrunv2.Job(`${serviceName}-auto-refresh`, {
+      name: `${serviceName}-auto-refresh`,
+      location: gcp.config.region!,
+      launchStage: "GA",
+      template: {
+        parallelism: 1,
+        taskCount: 1,
+        template: {
+          serviceAccount: autoRefreshJobSaEmail,
+          timeout: "240s",
+          maxRetries: 0,
+          containers: [
+            {
+              image: image,
+              commands: ["/app/auto-refresh"],
+              envs: [
+                { name: "FIRESTORE_DATABASE", value: firestoreDatabase },
+                ...(sessionEncryptionKey !== undefined
+                  ? [{ name: "SESSION_ENCRYPTION_KEY", value: sessionEncryptionKey }]
+                  : []),
+              ],
+              resources: { limits: { cpu: "1", memory: "512Mi" } },
+            },
+          ],
+        },
+      },
+    }, { ignoreChanges: ["client", "clientVersion"] })
+  : undefined;
+
+// サービスの自動更新用 env(prod のみ。無ければ機能は 404 で無効)
+const autoRefreshEnvs = autoRefreshJob
+  ? [
+      {
+        name: "AUTO_REFRESH_JOB",
+        value: pulumi.interpolate`projects/${gcp.config.project}/locations/${gcp.config.region}/jobs/${autoRefreshJob.name}`,
+      },
+      { name: "AUTO_REFRESH_AUDIENCE", value: `https://${domain}` },
+      { name: "AUTO_REFRESH_INVOKER", value: autoRefreshSchedulerSaEmail },
+      ...(autoRefreshPassphraseHash !== undefined
+        ? [{ name: "AUTO_REFRESH_PASSPHRASE_HASH", value: autoRefreshPassphraseHash }]
+        : []),
+      ...(autoRefreshOpen ? [{ name: "AUTO_REFRESH_OPEN", value: "true" }] : []),
+    ]
+  : [];
 
 // Cloud Run サービス
 export const service = new gcp.cloudrunv2.Service(
@@ -45,6 +100,7 @@ export const service = new gcp.cloudrunv2.Service(
                   },
                 ]
               : []),
+            ...autoRefreshEnvs,
           ],
           resources: {
             cpuIdle: true,
@@ -125,6 +181,27 @@ export const cnameRecord = new gcp.dns.RecordSet("cname", {
   ttl: 300,
   rrdatas: ["ghs.googlehosted.com."],
 });
+
+// 5分おきに tick を叩く Scheduler(OIDC で認証)
+export const autoRefreshTick = autoRefreshEnabled
+  ? new gcp.cloudscheduler.Job(`${serviceName}-auto-refresh-tick`, {
+      name: `${serviceName}-auto-refresh-tick`,
+      region: gcp.config.region!,
+      schedule: "*/5 * * * *",
+      timeZone: "Asia/Tokyo",
+      attemptDeadline: "30s",
+      paused: autoRefreshPaused,
+      retryConfig: { retryCount: 0 },
+      httpTarget: {
+        httpMethod: "POST",
+        uri: `https://${domain}/internal/auto-refresh/tick`,
+        oidcToken: {
+          serviceAccountEmail: autoRefreshSchedulerSaEmail,
+          audience: `https://${domain}`,
+        },
+      },
+    })
+  : undefined;
 
 export const url = service.uri;
 export const cloudRunServiceName = service.name;

@@ -7,13 +7,14 @@ RUN go mod download
 
 COPY internal/ internal/
 COPY cmd/ cmd/
-RUN go build -o server ./cmd/server
+RUN go build -o server ./cmd/server && go build -o auto-refresh ./cmd/auto-refresh
 
 FROM alpine:3.22
 
 WORKDIR /app
 
 COPY --from=builder /app/server .
+COPY --from=builder /app/auto-refresh .
 
 # データファイル
 COPY data/ms_list.json data/

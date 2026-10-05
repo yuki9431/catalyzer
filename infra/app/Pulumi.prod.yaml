@@ -1,6 +1,7 @@
 secretsprovider: gcpkms://projects/exvs2ib-analyzer/locations/asia-northeast1/keyRings/pulumi-secrets/cryptoKeys/pulumi-state
 encryptedkey: CiQAll9D5d1UfBgQCPwxIK7lhY2Nmj9h8+QoNlRNXZtG6hZ2ENgSSADTCZ+A4ORiOrqJM/CSYXSXcH2H9xpwwL5MsJbPD9yXTantitJt/o+fSKysqZ/lVXjn6tyI+Jj19I4AL5/1ioU2U1v7QvQWEg==
 config:
+  exvs-app:autoRefreshEnabled: "true"
   exvs-app:cpu: "2"
   exvs-app:domain: www.exvs-analyzer.com
   exvs-app:firestoreDatabase: exvs-analyzer
