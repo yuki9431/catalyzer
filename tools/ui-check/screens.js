@@ -11,7 +11,7 @@ function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
 var OPEN_SEARCH = [goTab('試合検索')];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
 var TAP_FORM = TAP.concat(['[data-ui="more"] input']);
-var AUTO_INPUT = '[data-ui="auto-refresh"] input[type="password"]';
+var AUTO_INPUT = '[data-ui="auto-refresh"] input#autoRefreshPassphrase';
 var AUTO_SUBMIT = '[data-ui="auto-refresh"] button';
 
 function report(id, tab, h2s, extra, moreOps) {
@@ -60,7 +60,7 @@ export var SCREENS = [
   { id: 'mobile-more', viewport: M, full: true, start: 'report',
     ops: [goTab('試合検索'), { wait: ['[data-ui="search-filter"]'] }, goTab('総合戦歴'), { wait: ['h2', '通算記録'] }, goTab('その他'), { wait: ['[data-ui="more"]'] },
       goTab('レポート'), { wait: ['[data-ui="tab"][aria-selected="true"]', '総合'] }, goTab('その他'), { reload: true }],
-    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input[type="password"]'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
+    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
   { id: 'mobile-more-confirm', viewport: M, full: true, start: 'report', ops: [goTab('その他'), { click: ['[data-ui="more"] button', '試合データを取得し直す'] }],
     required: [['[data-ui="more"] button[aria-expanded="true"]', '試合データを取得し直す'], ['[data-ui="refetch-confirm"] button', '取得し直す'], ['[data-ui="refetch-confirm"] button', 'やめる']], tap: TAP },
   { id: 'mobile-more-auto-refresh', viewport: M, full: true, start: 'report',

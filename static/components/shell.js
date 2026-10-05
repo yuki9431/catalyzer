@@ -134,12 +134,13 @@ function AutoRefreshSettings({ autoRefresh }) {
   var d = describeStatus(st, autoRefresh.lastImportedAt());
   var row = [{ key: 'auto-refresh-status', main: '自動更新', sub: d.sub, aside: d.aside }];
   var on = st.available && st.enabled;
+  // 合言葉欄は type=password だと IME が無効で日本語を打てない。spellcheck・autocorrect は文字列だと真になるので真偽値で渡す
   var off = st.available && !st.enabled;
   return html`<div class="auto-refresh" data-ui="auto-refresh">
     <${RowList} rows=${row} />
     ${off && html`<form class="auto-form" onSubmit=${function (e) { e.preventDefault(); submit(true); }}>
       ${st.passphrase_required && html`<label for="autoRefreshPassphrase">合言葉</label>
-      <input id="autoRefreshPassphrase" type="password" autocomplete="off" required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
+      <input id="autoRefreshPassphrase" type="text" autocomplete="off" autocapitalize="off" autocorrect=${false} spellcheck=${false} required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
       <button type="submit" class="more-btn" disabled=${busy || (st.passphrase_required && !passphrase)}>有効にする</button>
     </form>`}
     ${on && html`<button type="button" class="more-btn-sub" disabled=${busy} onClick=${function () { submit(false); }}>無効にする</button>`}
