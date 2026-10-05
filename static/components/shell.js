@@ -139,7 +139,7 @@ function AutoRefreshSettings({ autoRefresh }) {
     <${RowList} rows=${row} />
     ${off && html`<form class="auto-form" onSubmit=${function (e) { e.preventDefault(); submit(true); }}>
       ${st.passphrase_required && html`<label for="autoRefreshPassphrase">合言葉</label>
-      <input id="autoRefreshPassphrase" type="password" autocomplete="off" required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
+      <input id="autoRefreshPassphrase" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
       <button type="submit" class="more-btn" disabled=${busy || (st.passphrase_required && !passphrase)}>有効にする</button>
     </form>`}
     ${on && html`<button type="button" class="more-btn-sub" disabled=${busy} onClick=${function () { submit(false); }}>無効にする</button>`}

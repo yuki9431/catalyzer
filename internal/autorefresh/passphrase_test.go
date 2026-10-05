@@ -68,3 +68,23 @@ func TestGate(t *testing.T) {
 		t.Error("開放では照合しない")
 	}
 }
+
+// 日本語の合言葉は表記の揺れ(結合文字・全角英数・前後の空白)を揃えてから照合する
+func TestVerifyPassphrase_Normalizes(t *testing.T) {
+	phc, err := HashPassphrase("がんだむ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []string{"がんだむ", "がんだむ", " がんだむ　"} {
+		if ok, err := verifyPassphrase(phc, in); err != nil || !ok {
+			t.Errorf("%q は一致するはず: ok=%v err=%v", in, ok, err)
+		}
+	}
+	ascii, _ := HashPassphrase("ABC1")
+	if ok, _ := verifyPassphrase(ascii, "ＡＢＣ１"); !ok {
+		t.Error("全角英数は半角と一致するはず")
+	}
+	if ok, _ := verifyPassphrase(phc, "がんたむ"); ok {
+		t.Error("違う合言葉は一致しない")
+	}
+}
