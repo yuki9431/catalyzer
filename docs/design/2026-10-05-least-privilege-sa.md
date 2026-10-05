@@ -1,6 +1,6 @@
 # 設計: サービスアカウントの最小権限化(Cloud Run 実行 SA・ビルド・GitHub Actions SA)
 
-- ステータス: draft
+- ステータス: 実装中(Step 1・2 完了、Step 3 を実装。Step 4 は prod で数日安定してから、Step 5 はその後)
 - 日付: 2026-10-05
 - 関連 issue: #460(#288 の PR-1 と同じ shared の手動 apply にまとめる。#288 設計書 §7・§10 U3)
 
