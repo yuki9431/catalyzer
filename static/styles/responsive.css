@@ -7,8 +7,6 @@
   .popover-backdrop { display: block; position: fixed; inset: 0; background: var(--scrim); z-index: 99; }
 }
 @media (max-width: 600px) {
-  .topbar { margin: calc(var(--gutter) * -1) calc(var(--gutter) * -1) 16px; padding: calc(12px + env(safe-area-inset-top)) var(--gutter) 6px; }
-  .topbar .brand { top: calc(env(safe-area-inset-top) + 14px); }
   .lens-btn { padding: 7px 10px; }
   h1 { font-size: 1.375rem; margin: 20px 0 8px; }
   .login-form { padding: 20px; }

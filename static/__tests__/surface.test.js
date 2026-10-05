@@ -23,9 +23,17 @@ describe('surface', () => {
     assert.deepStrictEqual(bad, []);
   });
 
-  it('report.js にスクロール連動の隠し処理（scroll リスナと maxHeight 操作）が無い', () => {
+  it('report.js はスクロール連動処理を持たない(shell.js に一元化)', () => {
     const src = read('components/report/report.js');
     assert.ok(!src.includes("addEventListener('scroll'"));
     assert.ok(!src.includes('.style.maxHeight'));
+  });
+
+  it('scroll リスナは shell.js の1か所だけ、.style.maxHeight はどこにも無い', () => {
+    const files = readdirSync(new URL('./', root), { recursive: true }).filter((f) => f.endsWith('.js') && !f.startsWith('__tests__') && f !== 'htm-preact-standalone.js' && f !== 'chart.umd.min.js');
+    const withScroll = files.filter((f) => read(f).includes("addEventListener('scroll'"));
+    assert.deepStrictEqual(withScroll, ['components/shell.js']);
+    assert.strictEqual((read('components/shell.js').match(/addEventListener\('scroll'/g) || []).length, 1);
+    assert.deepStrictEqual(files.filter((f) => read(f).includes('.style.maxHeight')), []);
   });
 });
