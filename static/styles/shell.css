@@ -12,8 +12,14 @@ body:has(.view-root:not(.view-more)) .disclaimer { display: none; }
 .more-confirm { padding: 12px; background: var(--panel-2); border-top: 1px solid var(--line); }
 .more-confirm p { margin-bottom: 12px; font-size: 0.9375rem; }
 .more-confirm-actions { display: flex; gap: 8px; }
-.more-confirm-ok, .more-confirm-cancel { flex: 1; width: auto; min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 0.9375rem; font-weight: bold; cursor: pointer; transition: none; }
-.more-confirm-ok { border: none; background: var(--accent); color: var(--on-accent); }
-.more-confirm-ok:hover { background: var(--accent-2); }
-.more-confirm-cancel { border: 1px solid var(--line); background: none; color: var(--text); font-weight: normal; }
-.more-confirm-cancel:hover { background: none; border-color: var(--accent); }
+.more-confirm-ok, .more-confirm-cancel, .more-btn, .more-btn-sub { flex: 1; width: auto; min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 0.9375rem; font-weight: bold; cursor: pointer; transition: none; }
+.more-confirm-ok, .more-btn { border: none; background: var(--accent); color: var(--on-accent); }
+.more-confirm-ok:hover, .more-btn:hover { background: var(--accent-2); }
+.more-confirm-cancel, .more-btn-sub { border: 1px solid var(--line); background: none; color: var(--text); font-weight: normal; }
+.more-confirm-cancel:hover, .more-btn-sub:hover { background: none; border-color: var(--accent); }
+
+/* 設定(自動更新) */
+.auto-refresh .ui-notice { margin-top: 8px; }
+.auto-form { margin-top: 12px; }
+.auto-form input { min-height: 44px; font-size: 1rem; }
+.auto-form .more-btn, .auto-refresh > .more-btn, .auto-refresh > .more-btn-sub { width: 100%; margin-top: 8px; }

@@ -3,6 +3,7 @@ import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild
 import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
+import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
 
 // --- Constants ---
 var STATUS_MESSAGES = {
@@ -22,6 +23,10 @@ var REBUILD_BACKOFF_KEY = 'catalyzer_rebuild_backoff_until';
 
 // 実行中の分析ジョブID。ログアウト時にこのジョブのスクレイピングを中断し、ポーリングを停止するために使う
 var activeJobId = null;
+
+// 自動更新(サーバーが定期取得した試合)の取り込み。起動時と画面が前面に戻ったときに差分だけ取り、直近の取り込みから20秒は飛ばす
+var lastPullAt = 0;
+var pulling = false;
 
 function reAnalyze() {
   // セッション保持中はパスワード不要で再分析
@@ -194,7 +199,28 @@ async function logout() {
 }
 
 // report/ は app.js を import できない(循環)ため、操作は props で渡す
-var REPORT_ACTIONS = { onReanalyze: reAnalyze, onLogout: logout, onRebuildCache: rebuildCache };
+// 自動更新の設定 API。通信失敗は status 0。合言葉は本文だけで送り、URL・ログ・storage に載せない
+async function autoRefreshCall(method, body) {
+  try {
+    var res = await fetch('/auto-refresh', {
+      method: method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) {}
+    return { status: res.status, body: data, lastPullAt: lastPullAt };
+  } catch (e) {
+    return { status: 0, body: null, lastPullAt: lastPullAt };
+  }
+}
+
+var AUTO_REFRESH_ACTIONS = {
+  load: function () { return autoRefreshCall('GET'); },
+  set: function (enabled, passphrase) { return autoRefreshCall('POST', enabled ? { enabled: true, passphrase: passphrase } : { enabled: false }); },
+};
+
+var REPORT_ACTIONS = { onReanalyze: reAnalyze, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
 
 function showSkeleton() {
   var reportEl = document.getElementById('report');
@@ -586,6 +612,8 @@ if (rememberInfoBtn && rememberModal) {
   // （ログインが必要な場合は再分析ボタン経由で reAnalyze が再表示する）。
   if (renderedFromCache && loginForm) loginForm.style.display = 'none';
 
+  if (hasSession && renderedFromCache) pullAutoRefresh();
+
   if (hasSession) {
     if (loginForm) loginForm.style.display = 'none';
     var hasLocalData = renderedFromCache;
@@ -608,6 +636,47 @@ if (rememberInfoBtn && rememberModal) {
     });
   }
 })();
+
+function currentUserKey() {
+  try { return localStorage.getItem('catalyzer_user_key'); } catch (e) { return null; }
+}
+
+// ログアウトや再ログインで本人が替わった・手動分析が始まった場合は反映しない
+function pullStale(userKey) {
+  return activeJobId !== null || currentUserKey() !== userKey;
+}
+
+async function pullAutoRefresh() {
+  var userKey = currentUserKey();
+  var hasSession = false;
+  try { hasSession = !!localStorage.getItem('catalyzer_has_session'); } catch (e) {}
+  if (!userKey || !hasSession) return;
+  if (!shouldPull({ now: Date.now(), lastPullAt: lastPullAt, activeJobId: activeJobId, pulling: pulling })) return;
+  pulling = true;
+  lastPullAt = Date.now();
+  try {
+    // touch でサーバー側の自動更新の継続時間を延ばす。401 はセッションが無いので差分取得もしない
+    var touch = await fetch('/auto-refresh/touch', { method: 'POST' });
+    if (touch.status === 401) return;
+    var after = diffAfterParam(await loadMatchesFromDB(userKey));
+    if (!after) return;
+    var res = await fetch('/matches?after=' + encodeURIComponent(after));
+    if (!res.ok) return;
+    var data = await res.json();
+    if (data.user_key !== userKey || !data.matches || !data.matches.length) return;
+    if (pullStale(userKey)) return;
+    await saveMatchesToDB(userKey, data.matches, data.schema_version);
+    if (pullStale(userKey)) return;
+    renderReport({ matches: await loadMatchesFromDB(userKey) }, userKey);
+  } catch (e) {
+  } finally {
+    pulling = false;
+  }
+}
+
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') pullAutoRefresh();
+});
 
 // preview.html用: windowにrenderReportを公開
 window.renderReport = renderReport;

@@ -1,6 +1,7 @@
-import { html, useState } from '../htm-preact-standalone.js';
+import { html, useState, useEffect } from '../htm-preact-standalone.js';
 import { Panel } from './ui.js';
-import { RowList } from './parts.js';
+import { RowList, Notice } from './parts.js';
+import { describeStatus, errorMessage } from '../lib/autorefresh.js';
 import { buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK } from '../lib/format.js';
 
 // --- 画面切替(下部タブバー) ---
@@ -93,9 +94,59 @@ function ShareArea({ shareData }) {
   </div>`;
 }
 
+// --- 設定: 自動更新 ---
+// autoRefresh = { load(), set(enabled, passphrase) }(app.js から props で注入)。どちらも { status, body, lastPullAt } を返し、通信失敗は status 0
+function AutoRefreshSettings({ autoRefresh }) {
+  var stRef = useState(null), st = stRef[0], setSt = stRef[1];
+  var lastRef = useState(0), lastPullAt = lastRef[0], setLast = lastRef[1];
+  var errRef = useState(''), error = errRef[0], setError = errRef[1];
+  var passRef = useState(''), passphrase = passRef[0], setPassphrase = passRef[1];
+  var busyRef = useState(false), busy = busyRef[0], setBusy = busyRef[1];
+
+  function apply(res) {
+    setLast(res.lastPullAt || 0);
+    if (res.status === 200 && res.body) { setSt(res.body); setError(''); return true; }
+    setError(errorMessage(res.status));
+    return false;
+  }
+  useEffect(function () {
+    var alive = true;
+    autoRefresh.load().then(function (res) { if (alive) apply(res); });
+    return function () { alive = false; };
+  }, []);
+
+  function submit(enabled) {
+    // 合言葉は送信前に state から消す(失敗しても入力欄に残さない)
+    var p = passphrase;
+    setPassphrase('');
+    setBusy(true);
+    autoRefresh.set(enabled, p).then(function (res) { apply(res); }).then(function () { setBusy(false); });
+  }
+
+  if (!st) {
+    return html`<div class="auto-refresh" data-ui="auto-refresh">
+      ${error ? html`<${Notice} tone="error">${error}</${Notice}>` : html`<p class="more-lead">自動更新の状態を確認しています。</p>`}
+    </div>`;
+  }
+  var d = describeStatus(st, lastPullAt);
+  var row = [{ key: 'auto-refresh-status', main: '自動更新', sub: d.sub, aside: d.aside }];
+  var on = st.available && st.enabled;
+  var off = st.available && !st.enabled;
+  return html`<div class="auto-refresh" data-ui="auto-refresh">
+    <${RowList} rows=${row} />
+    ${off && html`<form class="auto-form" onSubmit=${function (e) { e.preventDefault(); submit(true); }}>
+      ${st.passphrase_required && html`<label for="autoRefreshPassphrase">合言葉</label>
+      <input id="autoRefreshPassphrase" type="password" autocomplete="off" value=${passphrase} onInput=${function (e) { setPassphrase(e.target.value); }} />`}
+      <button type="submit" class="more-btn" disabled=${busy || (st.passphrase_required && !passphrase)}>有効にする</button>
+    </form>`}
+    ${on && html`<button type="button" class="more-btn-sub" disabled=${busy} onClick=${function () { submit(false); }}>無効にする</button>`}
+    ${error && html`<${Notice} tone="error">${error}</${Notice}>`}
+  </div>`;
+}
+
 // --- その他画面 ---
 
-export function MoreView({ shareData, onLogout, onRebuildCache }) {
+export function MoreView({ shareData, onLogout, onRebuildCache, autoRefresh }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
   var hasShare = !!(shareData && shareData.length);
@@ -116,6 +167,9 @@ export function MoreView({ shareData, onLogout, onRebuildCache }) {
       <p class="more-lead">最多使用の機体と敵機との相性を文章にして共有します。</p>
       <${ShareArea} shareData=${shareData} />
     </${Panel}>`}
+    <${Panel} title="設定">
+      <${AutoRefreshSettings} autoRefresh=${autoRefresh} />
+    </${Panel}>
     <${Panel} title="データ">
       <${RowList} rows=${dataRows} onSelect=${function (k) { if (k === 'refetch') setConfirming(!confirming); }} />
     </${Panel}>
