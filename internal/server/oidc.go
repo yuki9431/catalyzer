@@ -14,9 +14,8 @@ type tokenValidator func(ctx context.Context, token, audience string) (*idtoken.
 // googleIssuers は Google が OIDC トークンを発行するときの iss。
 var googleIssuers = map[string]bool{"https://accounts.google.com": true, "accounts.google.com": true}
 
-// requireSchedulerOIDC は Cloud Scheduler の OIDC トークン(audience と発行 SA が一致)を持つリクエストだけ通す。
-// 公開サービスでは Cloud Run の IAM が認証にならないため、ここが唯一の認証になる。
-// audience か invoker が未設定なら機能が無効なので 404 を返す(idtoken.Validate は空の audience で検証を飛ばすため呼ばない)。
+// requireSchedulerOIDC は Cloud Scheduler の OIDC トークンを持つリクエストだけ通す(公開サービスでは唯一の認証)。
+// audience か invoker が未設定なら機能が無効として 404(空の audience では idtoken.Validate が検証を飛ばす)。
 func requireSchedulerOIDC(next http.Handler, audience, invoker string, validate tokenValidator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if audience == "" || invoker == "" {

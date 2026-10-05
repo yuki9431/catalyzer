@@ -22,8 +22,8 @@ import (
 const (
 	// ActiveWindow は最終アクセスからの自動更新の継続時間
 	ActiveWindow = 30 * time.Minute
-	// ManualLeaseTTL は手動分析が取る lease の期限
-	ManualLeaseTTL = 15 * time.Minute
+	// ManualLeaseTTL は手動分析が取る lease の期限。完了時に解放するので、初回の全件取得より長くとる
+	ManualLeaseTTL = 60 * time.Minute
 
 	// MaxFailures は error が連続したときに自動更新を止める回数
 	MaxFailures = 3
@@ -89,6 +89,9 @@ func nextUpdate(prev model.AutoRefreshState, o Outcome) model.RefreshUpdate {
 		upd.ClearSessionToken = true
 		upd.StopActive = true
 	case OutcomeAccessDenied:
+		upd.StopActive = true
+	case OutcomeSkipped:
+		// 保存済みの試合が無いと何も取れないので、起動し続けない
 		upd.StopActive = true
 	case OutcomeError:
 		upd.ConsecutiveFailures++

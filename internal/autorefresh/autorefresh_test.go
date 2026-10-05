@@ -49,7 +49,7 @@ func TestNextUpdate(t *testing.T) {
 		want model.RefreshUpdate
 	}{
 		{"ok は失敗回数を戻す", prev, OutcomeOK, model.RefreshUpdate{LastResult: "ok"}},
-		{"skipped は失敗回数を保つ", prev, OutcomeSkipped, model.RefreshUpdate{LastResult: "skipped", ConsecutiveFailures: 1}},
+		{"skipped は失敗回数を保ち自動更新を止める", prev, OutcomeSkipped, model.RefreshUpdate{LastResult: "skipped", ConsecutiveFailures: 1, StopActive: true}},
 		{"no_session は token を空にして止める", prev, OutcomeNoSession, model.RefreshUpdate{LastResult: "no_session", ClearSessionToken: true, StopActive: true}},
 		{"session_expired は token を空にして止める", prev, OutcomeSessionExpired, model.RefreshUpdate{LastResult: "session_expired", ClearSessionToken: true, StopActive: true}},
 		{"access_denied は止めるが token は残す", prev, OutcomeAccessDenied, model.RefreshUpdate{LastResult: "access_denied", ConsecutiveFailures: 1, StopActive: true}},
@@ -331,8 +331,8 @@ func TestRefreshUser_NoLatestSkips(t *testing.T) {
 	if len(sc.calls) != 0 {
 		t.Error("最新試合が無ければ scrape しない(全件取得を防ぐ)")
 	}
-	if upd := st.finished["a"]; upd.LastResult != "skipped" || upd.StopActive {
-		t.Errorf("skipped の記録が違う: %+v", upd)
+	if upd := st.finished["a"]; upd.LastResult != "skipped" || !upd.StopActive {
+		t.Errorf("skipped を記録して自動更新を止めるはず: %+v", upd)
 	}
 }
 

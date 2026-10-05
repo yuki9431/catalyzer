@@ -106,7 +106,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/autorefresh/` — 自動更新（最終アクセスから30分、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
 - `static/styles/` — CSS（ダーク既定・OS 設定に合わせたライト配色、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `prefers-color-scheme: light` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・`window.renderReport` のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）

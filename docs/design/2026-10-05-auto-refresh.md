@@ -226,7 +226,7 @@ package autorefresh
 const (
     ActiveWindow   = 30 * time.Minute
     jobLeaseTTL    = 5 * time.Minute
-    ManualLeaseTTL = 15 * time.Minute
+    ManualLeaseTTL = 60 * time.Minute // 完了時に解放する。初回の全件取得より長くとる(PR #467 レビュー)
     perUserTimeout = 200 * time.Second
     maxFailures    = 3
 )
