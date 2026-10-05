@@ -1,0 +1,8 @@
+# build.yml から専用のビルド SA で実行する。ユーザー指定の SA は LEGACY ログを使えないため CLOUD_LOGGING_ONLY にする(#460)
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "."]
+images:
+  - "${_IMAGE}"
+options:
+  logging: CLOUD_LOGGING_ONLY
