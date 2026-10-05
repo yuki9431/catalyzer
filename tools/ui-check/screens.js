@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { reload: true }。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { reload: true }。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };

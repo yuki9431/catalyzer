@@ -40,6 +40,12 @@ function inviewExpr(sel, text) {
     'return !!top&&(top===e||e.contains(top))})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
 }
 
+// 上部バーの下端+下部タブバーの高さ(fixed)と、タブ行の上に残る帯の高さ(band)を返す式。対象が無ければ fixed=-1
+var FIXED_EXPR = '(function(){var bar=document.querySelector(\'[data-ui="topbar"]\'),tab=document.querySelector(\'[data-ui="tabbar"]\');' +
+  'if(!bar||!tab)return{fixed:-1,band:0};var H=innerHeight,cl=function(v){return Math.min(Math.max(v,0),H)};' +
+  'var br=bar.getBoundingClientRect(),tr=tab.getBoundingClientRect(),tl=bar.querySelector(\'[role="tablist"]\');' +
+  'return{fixed:Math.round(cl(br.bottom)+cl(H-tr.top)),band:tl?Math.round(tl.getBoundingClientRect().top-Math.max(0,br.top)):0}})()';
+
 // 画面の左右端をまたぐ要素（横スクロールする祖先の中と、全体が画面外のものは除く）の最初の1件を返す式
 var OVERFLOW_EXPR = '(function(){var W=innerWidth,all=document.body.querySelectorAll("*");' +
   'for(var i=0;i<all.length;i++){var e=all[i],r=e.getBoundingClientRect();if(r.width<1||r.height<1)continue;' +
@@ -120,6 +126,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     await send('Page.addScriptToEvaluateOnNewDocument', { source: determinismSource });
     var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
     await metrics(screen.viewport.height);
+    if (screen.ops.some(function (o) { return o.pull; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });
@@ -142,7 +149,21 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!['click', 'type', 'scroll', 'wait', 'reload'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if ((kind === 'scrollBy' || kind === 'pull') && typeof a[0] !== 'number') throw new InfraError(kind + ' の第1引数は数値');
+      if (kind === 'scrollBy') {
+        await evalJs('window.scrollBy(0,' + a[0] + ');new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        continue;
+      }
+      if (kind === 'pull') {
+        var tx = Math.round(screen.viewport.width / 2);
+        var touch = function (type, y) { return send('Input.dispatchTouchEvent', { type: type, touchPoints: type === 'touchEnd' ? [] : [{ x: tx, y: y }] }); };
+        await touch('touchStart', 300);
+        for (var pi = 1; pi <= 10; pi++) await touch('touchMove', 300 + Math.round(a[0] * pi / 10));
+        if (a[1] === 'release') await touch('touchEnd', 0);
+        await evalJs('new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        continue;
+      }
       if (kind === 'reload') {
         var reloaded = new Promise(function (resolve, reject) {
           loadWaiters.push(resolve);
@@ -172,6 +193,20 @@ async function runScreen(conn, origin, screen, theme, update) {
     var inview = screen.inview || [];
     for (var vi = 0; vi < inview.length; vi++) {
       if (!(await evalJs(inviewExpr(inview[vi][0], inview[vi][1])))) return fail('画面内に見えない ' + inview[vi][0] + (inview[vi][1] ? ' (' + inview[vi][1] + ')' : ''));
+    }
+
+    var outview = screen.outview || [];
+    for (var oi = 0; oi < outview.length; oi++) {
+      if (!(await evalJs(countExpr(outview[oi][0], outview[oi][1])))) return fail('outview の対象なし ' + outview[oi][0]);
+      if (await evalJs(inviewExpr(outview[oi][0], outview[oi][1]))) return fail('画面内に見える ' + outview[oi][0] + (outview[oi][1] ? ' (' + outview[oi][1] + ')' : ''));
+    }
+    var note = '';
+    if (screen.fixedMax != null) {
+      var fx = await evalJs(FIXED_EXPR);
+      if (fx.fixed < 0) return fail('固定高さの対象なし');
+      if (fx.band > 0) return fail('上部バーの帯 ' + fx.band + 'px(タブ行の上)');
+      if (fx.fixed > screen.fixedMax) return fail('固定高さ ' + fx.fixed + 'px が上限 ' + screen.fixedMax + 'px を超える');
+      note = '固定 ' + fx.fixed + 'px 帯 0px';
     }
 
     await evalJs('Promise.race([new Promise(function(r){setTimeout(r,5000)}),Promise.all([document.fonts.ready].concat(Array.from(document.images).map(function(i){i.loading="eager";return i.complete?1:new Promise(function(r){i.onload=i.onerror=r})})))]).then(function(){window.scrollTo(0,0);return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
@@ -230,7 +265,7 @@ async function runScreen(conn, origin, screen, theme, update) {
         if (!c.equal) return fail('基準画像と不一致 (' + c.diffCount + ' px, bbox ' + c.bbox.x + ',' + c.bbox.y + ' ' + c.bbox.w + 'x' + c.bbox.h + ')');
       }
     }
-    return { id: screen.id, ok: true };
+    return { id: screen.id, ok: true, note: note };
   } finally {
     off();
     await conn.send('Target.disposeBrowserContext', { browserContextId: ctxId }).catch(function () {});
@@ -280,7 +315,7 @@ async function main() {
           if (e instanceof InfraError) throw e;
           r = { ok: false, reason: e.message };
         }
-        console.log(r.ok ? 'OK ' + label : 'FAIL ' + label + ': ' + r.reason);
+        console.log(r.ok ? 'OK ' + label + (r.note ? ' ' + r.note : '') : 'FAIL ' + label + ': ' + r.reason);
         if (r.ok) okCount++;
       }
     }
