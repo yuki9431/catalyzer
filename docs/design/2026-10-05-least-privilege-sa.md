@@ -1,6 +1,6 @@
 # 設計: サービスアカウントの最小権限化(Cloud Run 実行 SA・ビルド・GitHub Actions SA)
 
-- ステータス: draft
+- ステータス: 実装中(Step 1・2 完了、Step 3 を実装。Step 4 は prod で数日安定してから、Step 5 はその後)
 - 日付: 2026-10-05
 - 関連 issue: #460(#288 の PR-1 と同じ shared の手動 apply にまとめる。#288 設計書 §7・§10 U3)
 
@@ -28,7 +28,7 @@
 
 ### 1.2 Cloud Run 実行時(サービス)
 - GCP クライアントは `cloud.google.com/go/firestore` と metadata(IAM 不要)だけ(`go.mod`、`internal/firestore/client.go`)。
-- Firestore 操作: `users`・`users/{k}/matches`・`users/{k}/tag_partners`・`sessions/{token}` の Get / Set / Delete / BulkWriter。Update・Transaction は無い。TTL 削除は Firestore 側の処理で SA 権限に無関係。
+- Firestore 操作: `users`・`users/{k}/matches`・`users/{k}/tag_partners`・`sessions/{token}` の Get / Set / Update / Delete / BulkWriter / Transaction(#288 で追加)。いずれも datastore.user の範囲。TTL 削除は Firestore 側の処理で SA 権限に無関係。
 - シークレット(`SESSION_ENCRYPTION_KEY`)は Pulumi の config secret を env で渡す方式。Secret Manager は使わない。
 - 必要: `roles/datastore.user`(read/write/delete)。Firestore に DB 単位の predefined ロールは無い(project 単位。DB での絞りは IAM Condition で任意。§7 U4)。
 - #288 の Job 起動: サービスが Run API で Job を overrides なしで起動する → `run.jobs.run` のみ。`roles/run.invoker`(`run.jobs.run` を含み `runWithOverrides` は含まない。実測)で足りる。
@@ -120,7 +120,7 @@ build.yml(`gcloud builds submit --tag "$IMAGE_KEY"`)が使う経路:
 ### Step 3: サービスを実行 SA へ切替(app スタック)
 - `infra/app/index.ts` の Service に `serviceAccount` = shared の出力(実行 SA)を指定。Pulumi.*.yaml の変更は不要。
 - 順序: **stg → 確認 → prod**。`infra/app/index.ts` だけの変更では deploy.yml が起動しない(push トリガーは `Pulumi.*.yaml` のみ、content key 不変なら build.yml もデプロイを呼ばない)ので、マージ後に `gh workflow run deploy.yml --ref develop -f environment=stg`、prod は `--ref main -f environment=prod` を手動実行する(#288 PR-2 と同梱すれば Go 変更で自動デプロイに乗る)。stg と prod は Firestore DB を共有するので、stg の Firestore 動作確認が prod の権限確認にもなる。
-- 確認: C3(`serviceAccountName`)、新リビジョンのログに権限エラーが無いこと(C4)、画面から分析・セッション復元の実操作(Firestore の read/write/delete を通す)。#288 の Job 起動は #288 側の stg/prod 検証で確認し、**Job SA への actAs が要るかも #288 の検証で確定する**(`run.jobs.run` は Job の実行 SA を変えないので不要と見ているが公式で明記を確認できていない)。要る場合は実行 SA に Job SA 単位の serviceAccountUser を shared に加算する。
+- 確認: C3(`serviceAccountName`)、新リビジョンのログに権限エラーが無いこと(C4)、画面から分析・セッション復元の実操作(Firestore の read/write/delete を通す)。Job の起動に Job SA への actAs は不要(公式 Execute jobs の Required roles は `run.invoker` のみ。2026-10-06 確認)。stg は自動更新が無効なので、**prod 切替後に tick 1周(5分)待ち、新リビジョン以降の Job 実行が成功していること**(`gcloud run jobs executions list`)と、サービスログに Job 起動の 403 が無いことを確認する。
 - ロールバック: 旧リビジョンへトラフィックを戻す(`gcloud run services update-traffic <svc> --to-revisions=<旧リビジョン>=100`)。恒久は PR の revert と deploy.yml の手動 dispatch。compute SA はこの時点でまだ editor を持つので戻せる。
 
 ### Step 4: compute SA の権限削除
