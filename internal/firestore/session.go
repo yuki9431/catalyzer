@@ -107,3 +107,20 @@ func DeleteSession(token string) error {
 	log.Printf("[INFO] Firestore: deleted session (token: %s...)", token[:8])
 	return nil
 }
+
+// UpdateSessionJar は jar と updated_at だけを更新する。expire_at は延ばさず、
+// ドキュメントが無ければ NotFound で失敗する(ログアウト済みのセッションを復活させない)。
+func UpdateSessionJar(ctx context.Context, token string, encryptedJar []byte) error {
+	c := getClient()
+	if c == nil {
+		return fmt.Errorf("firestore client not initialized")
+	}
+	_, err := c.Collection("sessions").Doc(token).Update(ctx, []firestore.Update{
+		{Path: "jar", Value: base64.StdEncoding.EncodeToString(encryptedJar)},
+		{Path: "updated_at", Value: firestore.ServerTimestamp},
+	})
+	if err != nil {
+		return fmt.Errorf("update session jar: %w", err)
+	}
+	return nil
+}
