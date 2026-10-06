@@ -372,7 +372,7 @@ function DetailThumb({ name, msImages }) {
   var nm = (name || '').trim();
   var url = nm && msImages ? msImages[nm] : '';
   if (url) {
-    return html`<img class="search-detail-thumb" src=${url} alt=${nm} title=${nm} loading="lazy" />`;
+    return html`<img class="search-detail-thumb" src=${url} alt=${nm} title=${nm} />`;
   }
   return html`<span class="search-detail-thumb search-detail-thumb-text" title=${nm}>${nm || '?'}</span>`;
 }
