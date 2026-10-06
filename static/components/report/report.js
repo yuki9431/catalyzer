@@ -57,7 +57,7 @@ export function Report({ data, userKey, actions }) {
   var tagPartners = tagPartnersRef[0], setTagPartners = tagPartnersRef[1];
   var msImagesRef = useState(null);
   var msImages = msImagesRef[0], setMsImages = msImagesRef[1];
-  // Report は再描画で使い回されるため、どの userKey の値かを持ち、別ユーザーの値を表示しない
+  // key=userKey で再マウントされるが、念のため userKey ごとに値を持ち別ユーザーの値を表示しない
   var classRecordRef = useState(function () { return { key: userKey, record: loadClassRecord(userKey) }; });
   var classRecordState = classRecordRef[0], setClassRecordState = classRecordRef[1];
   var classRecord = classRecordState.key === userKey ? classRecordState.record : null;
