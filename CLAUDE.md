@@ -13,7 +13,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
-- **画面確認（UI oracle）**: `make ui-check`（29画面をダーク・ライトの2テーマで計58枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成(両テーマ分)。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（31画面をダーク・ライトの2テーマで計62枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成(両テーマ分)。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
@@ -103,7 +103,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
-- `internal/autorefresh/` — 自動更新（最終アクセスから30分、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
+- `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
@@ -123,16 +123,17 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）
 - `static/components/search.js` — 試合検索ビュー（SearchView）。フィルタフォーム＋結果一覧（ソート・ページネーション）＋試合詳細モーダル（4人分のスコア一覧・試合経過）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（WinRateRowList/EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
-- `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得）
+- `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得・ログアウト時の全消去 `clearAllMatches`）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
 - `static/lib/autorefresh.js` — 自動更新の純粋ロジック（`diffAfterParam`・`shouldPull`・状態表示の文言 `describeStatus`・`errorMessage`）。通信と描画は持たない
 - `static/lib/theme.js` — canvas/Chart.js 用に CSS 定義を読む `themeReader`（1描画1回 getComputedStyle を呼び読み取り関数を返す）
 - `static/lib/topbar.js` — 上部バーの純粋ロジック（引っ張り再分析 `pullStep`・絞り込み行の隠す/出す `nextBar`）。import を持たない
 - `static/lib/runlock.js` — 分析の多重起動ロック `createRunLock`（release で実行中でも切り離せる）
 - `static/lib/launch.js` — 起動経路の判定（`navigationType`・`isStandalone`・再読み込みでの再分析の抑止 `shouldReanalyzeOnReload`）。DOM・storage を持たない
+- `static/lib/userkey.js` — サーバーの `model.UserKey` と同じユーザーキーの導出（`userKeyOf`。ログイン時に前ユーザーのキャッシュを出さない判定に使う）
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定）。import を持たず analysis 層からも使う
-- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信、`/__preview/` でサンプル投入）/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（29画面×ダーク/ライトの58枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）。画面の `standalone` でホーム画面アプリとして開く。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の58枚。Chrome・マシン依存）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecord/theme/topbar/runlock/launchの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
+- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信、`/__preview/` でサンプル投入）/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（31画面×ダーク/ライトの62枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）。画面の `standalone` でホーム画面アプリとして開く。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の62枚。Chrome・マシン依存）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/format/search/classrecord/theme/topbar/runlock/launch/userkeyの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）

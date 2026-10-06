@@ -167,7 +167,7 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
     { key: 'refetch', main: '試合データを取得し直す', sub: 'サーバーから全件を再取得します', expand: confirmPanel || null },
     { key: 'vsmobile', main: 'ガンダムモバイルを開く', sub: '外部サイト', href: 'https://web.vsmobile.jp/exvs2ib/' },
   ];
-  var accountRows = [{ key: 'logout', main: 'ログアウト', sub: '保存したログイン情報も削除します', tone: 'danger' }];
+  var accountRows = [{ key: 'logout', main: 'ログアウト', sub: '保存したログイン情報と端末内の試合データを削除します', tone: 'danger' }];
   return html`<div data-ui="more">
     <div class="more-brand" data-ui="more-brand"><img src="logo.svg" alt="catalyzer" /></div>
     ${hasShare && html`<${Panel} title="結果を共有">

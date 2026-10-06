@@ -186,12 +186,12 @@ export const cnameRecord = new gcp.dns.RecordSet("cname", {
   rrdatas: ["ghs.googlehosted.com."],
 });
 
-// 5分おきに tick を叩く Scheduler(OIDC で認証)
+// 10:00〜翌1:00(JST)に5分おきに tick を叩く Scheduler(OIDC で認証)。時間帯は static/lib/autorefresh.js の表示と揃える
 export const autoRefreshTick = autoRefreshEnabled
   ? new gcp.cloudscheduler.Job(`${serviceName}-auto-refresh-tick`, {
       name: `${serviceName}-auto-refresh-tick`,
       region: gcp.config.region!,
-      schedule: "*/5 * * * *",
+      schedule: "*/5 0,10-23 * * *",
       timeZone: "Asia/Tokyo",
       attemptDeadline: "30s",
       paused: autoRefreshPaused,

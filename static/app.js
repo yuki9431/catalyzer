@@ -1,11 +1,12 @@
 import { html, render } from './htm-preact-standalone.js';
-import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild } from './lib/db.js';
+import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, clearAllMatches, needsRebuild } from './lib/db.js';
 import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
 import { createRunLock } from './lib/runlock.js';
 import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
+import { userKeyOf } from './lib/userkey.js';
 
 // ホーム画面アプリのときだけ自前の引っ張り再分析を使う(ブラウザのタブは標準の再読み込みが再分析の経路)
 var STANDALONE = isStandalone({ standalone: navigator.standalone, matchMedia: window.matchMedia ? function (q) { return window.matchMedia(q); } : null });
@@ -216,11 +217,13 @@ async function logout() {
   if (jid) {
     try { fetch('/cancel/' + jid, { method: 'POST' }).catch(function () {}); } catch (e) {}
   }
+  // await より先に消し、並行する取り込み・再構築の書き戻しを rebuildStale で止める
+  localStorage.removeItem('catalyzer_user_key');
+  localStorage.removeItem('catalyzer_has_session');
   try {
     await fetch('/session', { method: 'DELETE' });
   } catch (e) {}
-  localStorage.removeItem('catalyzer_user_key');
-  localStorage.removeItem('catalyzer_has_session');
+  try { await clearAllMatches(); } catch (e) {}
   localStorage.removeItem(ANALYSIS_STARTED_KEY);
   localStorage.removeItem(ANALYSIS_FINISHED_KEY);
   localStorage.removeItem(CLASS_RECORD_KEY);
@@ -275,7 +278,8 @@ function renderReport(data, userKey) {
   reportEl.style.display = 'block';
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = 'none';
-  render(html`<${Report} data=${data} userKey=${userKey} actions=${REPORT_ACTIONS} />`, reportEl);
+  // userKey が変わったら再マウントし、前ユーザーの allMatches 等の state を持ち越さない(#402)
+  render(html`<${Report} key=${userKey} data=${data} userKey=${userKey} actions=${REPORT_ACTIONS} />`, reportEl);
 
   try {
     if (userKey) localStorage.setItem('catalyzer_user_key', userKey);
@@ -335,6 +339,8 @@ async function rebuildCacheFromServer(userKey) {
     // ログイン状態を保持していない(セッションが無い)と本人の全件は取れない
     if (res.status === 401) {
       setRebuildBackoff(true);
+      // セッションを保持していた人の 401 は失効なので、前ユーザーのレポートを残さない
+      if (localStorage.getItem('catalyzer_has_session')) returnToLogin();
       return 'unauthorized';
     }
     var data = await res.json();
@@ -423,8 +429,6 @@ async function analyze() {
     return;
   }
 
-  try { sessionStorage.setItem('catalyzer_cred', JSON.stringify({ u: username, p: password })); } catch (e) {}
-
   btn.disabled = true;
   status.style.display = 'block';
   statusText.textContent = STATUS_MESSAGES.pending;
@@ -444,7 +448,8 @@ async function analyze() {
 
   var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
-  if (cachedKey) {
+  // 別ユーザーがログインしたときに前ユーザーのキャッシュを出さない(#402)
+  if (cachedKey && cachedKey === await userKeyOf(username)) {
     try {
       var cachedMatches = await loadMatchesFromDB(cachedKey);
       if (cachedMatches && cachedMatches.length > 0) {
@@ -586,13 +591,8 @@ if (loginForm) {
     e.preventDefault();
     analysis.run(analyze);
   });
-  try {
-    var cred = JSON.parse(sessionStorage.getItem('catalyzer_cred'));
-    if (cred) {
-      document.getElementById('username').value = cred.u;
-      document.getElementById('password').value = cred.p;
-    }
-  } catch (e) {}
+  // 資格情報はブラウザに保存しない(入力の補完はパスワードマネージャーに任せる)。以前のバージョンが残した平文を消す(#490)
+  try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 }
 
 // セッション保持の説明モーダル
@@ -669,14 +669,8 @@ if (rememberInfoBtn && rememberModal) {
 
     fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
       if (!data.valid) {
-        // セッション失効時は、キャッシュから描画済みのレポートを隠さないと
-        // ログイン画面の下に古いレポートが残る（reanalyzeWithSession の401経路と同じ後始末）。
-        localStorage.removeItem('catalyzer_has_session');
-        var rep = document.getElementById('report');
-        if (rep) { render(null, rep); rep.style.display = 'none'; }
-        if (loginForm) loginForm.style.display = 'block';
-        var t = document.getElementById('pageTitle');
-        if (t) t.style.display = '';
+        // キャッシュ描画済みのレポートを隠し、キーも消して次に開いた人に前ユーザーのレポートを出さない
+        returnToLogin();
       } else if (!hasLocalData || reloadRun) {
         analysis.run(function () { return reanalyzeWithSession(true); });
       }
@@ -701,7 +695,8 @@ async function pullAutoRefresh() {
   try {
     // touch でサーバー側の自動更新の継続時間を延ばす。401 はセッションが無いので差分取得もしない
     var touch = await fetch('/auto-refresh/touch', { method: 'POST' });
-    if (touch.status === 401) return;
+    // ここに来るのはセッションを保持していた人だけなので、401 は失効
+    if (touch.status === 401) { returnToLogin(); return; }
     var after = diffAfterParam(await loadMatchesFromDB(userKey));
     if (!after) return;
     var res = await fetch('/matches?after=' + encodeURIComponent(after));
@@ -712,7 +707,9 @@ async function pullAutoRefresh() {
     await saveMatchesToDB(userKey, data.matches, data.schema_version);
     lastImportedAt = Date.now();
     if (rebuildStale(userKey)) return;
-    renderReport({ matches: await loadMatchesFromDB(userKey) }, userKey);
+    var merged = await loadMatchesFromDB(userKey);
+    if (rebuildStale(userKey)) return;
+    renderReport({ matches: merged }, userKey);
   } catch (e) {
     // 自動実行なので失敗は見送る(次の起動・前面復帰で再試行)
   } finally {
