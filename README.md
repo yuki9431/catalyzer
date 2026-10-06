@@ -115,7 +115,6 @@
 │   │   ├── runlock.test.js        # runlock.js テスト
 │   │   ├── launch.test.js         # launch.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
-│   │   ├── report-key.test.js     # Report の key=userKey の検査
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
