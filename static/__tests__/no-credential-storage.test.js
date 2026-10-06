@@ -23,8 +23,9 @@ describe('資格情報の保存', function () {
     });
     assert.deepEqual(bad, []);
   });
-  it('sessionStorage には何も書かない', function () {
-    var src = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /sessionStorage\.setItem/);
+  it('static/ の JS は sessionStorage に何も書かない', function () {
+    var root = new URL('..', import.meta.url).pathname;
+    var bad = jsFiles(root).filter(function (f) { return /sessionStorage\.setItem/.test(fs.readFileSync(f, 'utf8')); });
+    assert.deepEqual(bad, []);
   });
 });

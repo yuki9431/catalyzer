@@ -425,7 +425,6 @@ async function analyze() {
     return;
   }
 
-
   btn.disabled = true;
   status.style.display = 'block';
   statusText.textContent = STATUS_MESSAGES.pending;
