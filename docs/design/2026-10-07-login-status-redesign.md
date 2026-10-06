@@ -1,6 +1,6 @@
 # 設計: デザイン刷新 段階B(4/4) ログイン・分析中・通知・空の状態
 
-- ステータス: draft(実装着手可)
+- ステータス: 実装済み
 - 日付: 2026-10-07
 - 関連 issue: #415(親 #410)。基線: 748968f(develop)。並行: #414(search.js/search.css/report.js の検索ビュー外枠)
 - 見た目の正: `docs/design/issue-410-redesign-mock.html`(login / progress / states と NOTES)
