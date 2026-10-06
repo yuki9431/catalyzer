@@ -62,8 +62,16 @@ function Layer({ ui, label, head, foot, footUi, onClose, children }) {
     var y = window.scrollY, back = document.activeElement;
     var b = document.body.style.overflow, h = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden'; document.documentElement.style.overflow = 'hidden';
+    // 背面（祖先ごとの兄弟）を inert にして Tab・クリックを層の外に出さない。
+    var dimmed = [];
+    for (var n = ref.current; n && n.parentNode && n !== document.documentElement; n = n.parentNode) {
+      Array.prototype.forEach.call(n.parentNode.children, function (sib) {
+        if (sib !== n && !sib.inert && sib.tagName !== 'SCRIPT') { sib.inert = true; dimmed.push(sib); }
+      });
+    }
     if (ref.current) ref.current.focus({ preventScroll: true });
     return function () {
+      dimmed.forEach(function (d) { d.inert = false; });
       document.body.style.overflow = b; document.documentElement.style.overflow = h;
       if (window.scrollY !== y) window.scrollTo(0, y);
       if (back && back.focus) back.focus({ preventScroll: true });
@@ -253,9 +261,9 @@ function ResultList({ items, sortKey, onOpen }) {
   return html`<div class="search-list">
     ${items.map(function (m) {
       var day = (m.date || '').slice(0, 10);
-      var sep = day !== prev ? html`<p class="search-day" data-ui="search-day">${day}</p>` : null;
+      var sep = day !== prev ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
       prev = day;
-      return html`${sep}<${ResultRow} match=${m} sortKey=${sortKey} onOpen=${onOpen} />`;
+      return html`${sep}<${ResultRow} key=${m.match_id || m.date} match=${m} sortKey=${sortKey} onOpen=${onOpen} />`;
     })}
   </div>`;
 }
@@ -406,7 +414,7 @@ function MatchDetail({ match, msImages, onClose }) {
     { label: 'EXダメージ', vals: [match.ex_dmg, match.partner_ex_dmg, match.opponent1_ex_dmg, match.opponent2_ex_dmg], color: colorExDmg },
   ];
 
-  var head = html`<button type="button" class="search-back" data-ui="match-detail-back" onClick=${onClose}>
+  var head = html`<button type="button" class="search-back" data-ui="match-detail-back" aria-label="試合検索に戻る" onClick=${onClose}>
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
     <span class="search-layer-date">${match.date}</span>`;
   return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
@@ -527,11 +535,14 @@ export function SearchView({ matches, msImages }) {
   function onPageSize(n) { setPageSize(n); setPage(1); }
 
   var labels = appliedFilterLabels(filters);
+  // 全画面の層は同時に1枚だけ開く。
+  function openSheet() { setDetail(null); setSheetOpen(true); }
+  function openDetail(m) { setSheetOpen(false); setDetail(m); }
 
   return html`<div class="search-view">
     <div class="search-toolbar" data-ui="search-filter">
       <div class="search-toolbar-row">
-        <${Chip} ui="search-filter-toggle" expanded=${sheetOpen} active=${labels.length > 0} onClick=${function () { setSheetOpen(true); }}>${labels.length ? '絞り込み（' + labels.length + '件適用中）' : '絞り込み'}</${Chip}>
+        <${Chip} ui="search-filter-toggle" expanded=${sheetOpen} active=${labels.length > 0} onClick=${openSheet}>${labels.length ? '絞り込み（' + labels.length + '件適用中）' : '絞り込み'}</${Chip}>
         ${hasActiveFilters(filters) && html`<button type="button" class="search-link" data-ui="search-clear" onClick=${onReset}>条件をクリア</button>`}
       </div>
       ${labels.length > 0 && html`<div class="search-applied-list">
@@ -550,7 +561,7 @@ export function SearchView({ matches, msImages }) {
 
       ${total === 0
         ? html`<p class="search-empty">条件に一致する試合がありません。</p>`
-        : html`<${ResultList} items=${pageItems} sortKey=${sortKey} onOpen=${setDetail} />`}
+        : html`<${ResultList} items=${pageItems} sortKey=${sortKey} onOpen=${openDetail} />`}
 
       ${totalPages > 1 && html`<div class="search-pager" data-ui="search-pager">
         <button class="search-page-btn" disabled=${curPage <= 1}

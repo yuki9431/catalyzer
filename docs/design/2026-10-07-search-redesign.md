@@ -33,7 +33,7 @@
 - フォーム文言変更: 詳細設定→詳細な条件、期間（カスタム指定）→期間（日付を指定）、勝敗「全て」→「すべて」、期間「30日」→「直近30日」。
 
 ## 2. 変更ファイル
-変更: `static/analysis/search.js`(import `PERIOD_DAYS` from ./stats.js 1行+末尾に関数3つ。既存行は消さない)/`static/components/search.js`(FilterForm→FilterFields+FilterSheet、ResultItem→ResultRow+ResultList、SortControl→SortSheet、DetailModal→MatchDetail、Layer 新設。MsThumb 等旧部品削除、METRIC_LABELS は残す)/`static/styles/search.css`/`filters.css`(.lens-* 削除)/`responsive.css`(関連行削除)/`static/__tests__/search.test.js`(追加のみ)/`contrast.test.js`(pairs の great/terrible/timeup の a15 の基準面に 'bg' 追加)/`tools/ui-check/screens.js`・`screens.test.js`・基準画像/`CLAUDE.md`(:16 :135 を36画面72枚、:120 :124 更新)。
+変更: `static/analysis/search.js`(import `PERIOD_DAYS` from ./stats.js 1行+末尾に関数3つ。既存行は消さない)/`static/components/search.js`(FilterForm→FilterFields+FilterSheet、ResultItem→ResultRow+ResultList、SortControl→SortSheet、DetailModal→MatchDetail、Layer 新設。MsThumb 等旧部品削除、METRIC_LABELS は残す)/`static/styles/search.css`/`filters.css`(.lens-* 削除)/`responsive.css`(関連行削除)/`static/__tests__/search.test.js`(追加のみ)/`contrast.test.js`(pairs の great/terrible/timeup の a15 の基準面に 'bg' 追加)/`tools/ui-check/screens.js`・`screens.test.js`・基準画像/`CLAUDE.md`(:16 :135 を38画面76枚、:120 :124 更新)。
 新規: 基準画像 dropdown-search-sort・mobile-search-filter・mobile-search-applied・mobile-search-sort・mobile-match-detail・mobile-search-back(各 -dark/-light)。
 触らない: app.js・index.html・shell.js・popover.js・parts.js・ui.js・Go。
 CSS 削除規則: js/index.html/ui-check preview で1回も使われないクラスのみ。`.modal-backdrop`(#rememberModal)・`.badge-timeup`・`.search-chevron`・`.search-detail-thumb*`・`.search-radar-*`・`.search-form`系・`.search-ac*` は残す。
@@ -105,7 +105,7 @@ CSS 要点(トークンのみ・0.875rem以上・8の倍数): `.search-layer{pos
 | C1 | 検索挙動が現行と同じ | `node --test static/__tests__/search.test.js` | exit 0、fail 0、pass 44以上 |
 | C2 | 既存コード・テストを消していない | `git diff 3d69aab -- static/analysis/search.js static/__tests__/search.test.js \| grep -c '^-[^-]'` | 0 |
 | C3 | JS 全緑 | `make test-js` | exit 0、fail 0、pass 334以上(現321) |
-| C4 | ui-check 2回連続全OK | `make ui-check` x2 | 両方 exit 0、最終行 `ui-check: 72/72 OK` |
+| C4 | ui-check 2回連続全OK | `make ui-check` x2 | 両方 exit 0、最終行 `ui-check: 76/76 OK` |
 | C5 | console エラー0 | `make ui-check 2>&1 \| grep -c "console エラー"` | 0 |
 | C6 | 戻っても位置と条件が残る | `node tools/ui-check/check.js mobile-search-back \| grep -c "^OK"` | 2 |
 | C7 | C6 の検出力 | `UI_CHECK_INJECT='mobile-search-back:window.scrollTo(0,0)' node tools/ui-check/check.js mobile-search-back` | exit 1、`画面内に見える` を含む行が2 |
@@ -121,14 +121,14 @@ CSS 要点(トークンのみ・0.875rem以上・8の倍数): `.search-layer{pos
 | C17 | ロックは1か所 | `grep -c "documentElement.style.overflow = 'hidden'" static/components/search.js` | 1 |
 | C18 | 二重エスケープ撤去 | `grep -c "esc(" static/components/search.js` | 0 |
 | C19 | Go 不変 | `git diff --name-only 3d69aab -- '*.go' go.mod go.sum \| wc -l` | 0 |
-| C20 | CLAUDE.md 追従 | `grep -c "36画面" CLAUDE.md` / `grep -c "72枚" CLAUDE.md` / `grep -cE "29画面\|58枚\|試合詳細モーダル" CLAUDE.md` | 2 / 2 / 0 |
+| C20 | CLAUDE.md 追従 | `grep -c "38画面" CLAUDE.md` / `grep -c "76枚" CLAUDE.md` / `grep -cE "29画面\|58枚\|試合詳細モーダル" CLAUDE.md` | 2 / 2 / 0 |
 
 基準更新手順(ユニットごと): (1) `make ui-check 2>&1 | grep FAIL` で失敗理由が「基準画像と不一致/なし」のみで、失敗 id がそのユニットの想定リストに含まれると確認(出力を報告) (2) `node tools/ui-check/check.js --update <ids>`(zsh は `${=IDS}`) (3) `make ui-baseline` は使わない。
 レビュー観点(完了条件外): モックとの見た目一致、タグ文言、項目選択で並べ替えシートが閉じない是非、行の人名文言、切替ボタンの名前追加、広い画面の720px列、塗り面が要約以外に出ていないか、フォーカス戻り先。
 
 ## 6. エスカレーション
 不要。上書き可能な既定値4つ: 並べ替えシートは項目選択で閉じない/ガント凡例は7項目/行の人名は「相方 X・相手 A / B」/history を使わない。
-実装メモ: 72枚で全体タイムアウトなら check.js `TOTAL_TIMEOUT` 既定を420000へ。コメントは1行。Esc でシート内ドロップダウンと絞り込みシートが同時に閉じるのは既知(#446 と同種)で対応しない。commit 末尾は Co-Authored-By 1行のみ(Claude-Session 行は付けない=公開repo)。PR 前に origin/develop へ rebase し基準画像を撮り直す。screens.js・CLAUDE.md の画面数は並行ブランチと衝突しやすい。
+実装メモ: 76枚で全体タイムアウトなら check.js `TOTAL_TIMEOUT` 既定を420000へ。コメントは1行。Esc でシート内ドロップダウンと絞り込みシートが同時に閉じるのは既知(#446 と同種)で対応しない。commit 末尾は Co-Authored-By 1行のみ(Claude-Session 行は付けない=公開repo)。PR 前に origin/develop へ rebase し基準画像を撮り直す。screens.js・CLAUDE.md の画面数は並行ブランチと衝突しやすい。
 
 ## 7. 実装順(各ユニット: test-js 全緑 → ui-check)
 | U | 内容 | 想定変更画面 | コミット案 |
