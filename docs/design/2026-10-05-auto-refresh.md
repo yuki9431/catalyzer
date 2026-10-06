@@ -501,3 +501,4 @@ U3:
 - デプロイ順(§7)の stg 手順は prod に読み替える(合言葉は prod にのみ設定)。§9.2 の app preview は `STACK=prod`(stg は無効なので Service の `~` のみ)
 - §9.2 の「新しいモジュールを足していない」許可リストに `google.golang.org/grpc`(indirect→direct の昇格のみ)を足す
 - 継続時間(`ActiveWindow`)を 30 分から 10 分に短縮(2026-10-07 ユーザー判断)。touch のたびに延びるので遊んでいる間は止まらず、最後のアクセス後の空振りが 6 回から 2 回に減る
+- tick を 10:00〜翌1:00(JST)だけに絞る(`*/5 0,10-23 * * *`。2026-10-07 ユーザー判断)。深夜は自動更新しない。時間帯は設定画面の文言(`static/lib/autorefresh.js` の `ACTIVE_HOURS`)にも出す
