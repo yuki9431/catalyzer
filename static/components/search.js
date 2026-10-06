@@ -484,7 +484,7 @@ export function SearchView({ matches, msImages }) {
   var sortRef = useState('date');
   var sortKey = sortRef[0], setSortKey = sortRef[1];
   var descRef = useState(true);
-  var desc = descRef[0], setDesc = descRef[1];
+  var desc = descRef[0], setDir = descRef[1];
   var pageRef = useState(1);
   var page = pageRef[0], setPage = pageRef[1];
   var pageSizeRef = useState(PAGE_SIZE);
@@ -515,7 +515,7 @@ export function SearchView({ matches, msImages }) {
   }
   function onReset() { setFilters(emptyFilters()); setPage(1); }
   function onSortKey(key) { setSortKey(key); setPage(1); }
-  function onDir(d) { if (d !== desc) { setDesc(d); setPage(1); } }
+  function onDir(d) { if (d !== desc) { setDir(d); setPage(1); } }
 
   var total = filtered.length;
   var wins = filtered.reduce(function (n, m) { return n + (m.win ? 1 : 0); }, 0);
