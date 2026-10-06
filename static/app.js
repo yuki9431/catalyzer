@@ -275,7 +275,8 @@ function renderReport(data, userKey) {
   reportEl.style.display = 'block';
   var pageTitle = document.getElementById('pageTitle');
   if (pageTitle) pageTitle.style.display = 'none';
-  render(html`<${Report} data=${data} userKey=${userKey} actions=${REPORT_ACTIONS} />`, reportEl);
+  // userKey が変わったら再マウントし、前ユーザーの allMatches 等の state を持ち越さない(#402)
+  render(html`<${Report} key=${userKey} data=${data} userKey=${userKey} actions=${REPORT_ACTIONS} />`, reportEl);
 
   try {
     if (userKey) localStorage.setItem('catalyzer_user_key', userKey);
