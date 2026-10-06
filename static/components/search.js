@@ -5,11 +5,11 @@ import {
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
 } from '../analysis/search.js';
 import {
-  esc, num, cellDisplay, isTimeUp,
+  num, cellDisplay, isTimeUp,
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
-import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
+import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
 import { useDismiss, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
@@ -367,35 +367,18 @@ function radarPlayers(match) {
   return players;
 }
 
-// 詳細モーダルの列見出し用の機体サムネイル（固定サイズ）。画像が無ければ機体名テキスト。
+// 機体サムネイル（固定サイズ）。画像が無ければ機体名テキスト。
 function DetailThumb({ name, msImages }) {
   var nm = (name || '').trim();
   var url = nm && msImages ? msImages[nm] : '';
   if (url) {
     return html`<img class="search-detail-thumb" src=${url} alt=${nm} title=${nm} loading="lazy" />`;
   }
-  return html`<span class="search-detail-thumb search-detail-thumb-text" title=${nm}>${esc(nm || '?')}</span>`;
+  return html`<span class="search-detail-thumb search-detail-thumb-text" title=${nm}>${nm || '?'}</span>`;
 }
 
-// 試合詳細モーダル。
-function DetailModal({ match, msImages, onClose }) {
-  useDismiss(true, null, onClose);
-  useEffect(function () {
-    // モーダル表示中は背景（body/html）のスクロールを止める。
-    var prevBody = document.body.style.overflow;
-    var prevHtml = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    return function () {
-      document.body.style.overflow = prevBody;
-      document.documentElement.style.overflow = prevHtml;
-    };
-  }, []);
-
-  // 試合経過は既定で畳む（スマホで閉じる×のスペースに余裕を持たせる）。
-  var tlOpenRef = useState(false);
-  var tlOpen = tlOpenRef[0], setTlOpen = tlOpenRef[1];
-
+// 試合詳細の全画面。試合経過は常に出す。
+function MatchDetail({ match, msImages, onClose }) {
   // レーダー: 4人分の系列とトグルによる表示切替（既定は自分＋相方＝自陣）。
   var players = useMemo(function () { return radarPlayers(match); }, [match]);
   var checkedRef = useState([true, true, false, false]);
@@ -409,8 +392,9 @@ function DetailModal({ match, msImages, onClose }) {
     setChecked(function (prev) { var next = prev.slice(); next[i] = !next[i]; return next; });
   }
 
-  // 4人分の機体（自分・相方・敵1・敵2）。列見出しの画像に使う。自陣/敵陣は列位置(index 2)の区切り線で示す。
+  // 4人分の機体とプレイヤー名（自分・相方・敵1・敵2）。自陣/敵陣は列位置(index 2)の区切り線で示す。
   var cols = [match.ms, match.partner_ms, match.opponent1_ms, match.opponent2_ms];
+  var names = [match.name, match.partner_name, match.opponent1_name, match.opponent2_name].map(playerName);
   // 公式「スコア」画面と同じ項目（覚醒回数は試合経過側で表示するため含めない）。
   // color は分析画面と同じ色分け関数。スコアは基準が無いため色分けしない。
   var rows = [
@@ -422,35 +406,32 @@ function DetailModal({ match, msImages, onClose }) {
     { label: 'EXダメージ', vals: [match.ex_dmg, match.partner_ex_dmg, match.opponent1_ex_dmg, match.opponent2_ex_dmg], color: colorExDmg },
   ];
 
-  return html`<div class="modal-backdrop" data-ui="match-detail" onClick=${function (e) { if (e.target === e.currentTarget) onClose(); }}>
-    <div class="search-detail">
-      <div class="search-detail-head">
-        <div>
-          <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
-          ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
-          <span class="search-detail-date">${esc(match.date)}</span>
-        </div>
-        <button class="search-detail-close" onClick=${onClose} aria-label="閉じる">✕</button>
-      </div>
+  var head = html`<button type="button" class="search-back" data-ui="match-detail-back" onClick=${onClose}>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
+    <span class="search-layer-date">${match.date}</span>`;
+  return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
+    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
 
+    <${Panel} title="4人の比較">
       <div class="search-radar-toggles">
         ${players.map(function (p, i) {
-          return html`<button type="button" class=${'search-radar-toggle' + (checked[i] ? '' : ' off')}
+          return html`<button type="button" class=${'search-radar-toggle' + (checked[i] ? '' : ' off')} data-ui="radar-toggle"
             onClick=${function () { toggle(i); }} aria-pressed=${checked[i]}>
             <span class="search-radar-swatch" style=${'background:' + p.color}></span>
             <${DetailThumb} name=${cols[i]} msImages=${msImages} />
+            <span class="search-radar-name">${names[i]}</span>
           </button>`;
         })}
       </div>
       <${CompareRadar} labels=${RADAR_LABELS} series=${series} showLegend=${false} />
+    </${Panel}>
 
+    <${Panel} title="スコア">
       <div class="table-wrap"><table class="search-detail-table" data-ui="match-score-table">
         <thead><tr>
           <th></th>
-          ${cols.map(function (ms, i) {
-            return html`<th class=${'num search-detail-col' + (i === 2 ? ' team-sep' : '')}>
-              <${DetailThumb} name=${ms} msImages=${msImages} />
-            </th>`;
+          ${names.map(function (n, i) {
+            return html`<th class=${'num search-detail-col' + (i === 2 ? ' team-sep' : '')}><span class="search-detail-name" title=${n}>${n}</span></th>`;
           })}
         </tr></thead>
         <tbody>
@@ -463,15 +444,12 @@ function DetailModal({ match, msImages, onClose }) {
           })}
         </tbody>
       </table></div>
+    </${Panel}>
 
-      <button type="button" data-ui="match-timeline-toggle" class=${'search-detail-tl-toggle' + (tlOpen ? ' open' : '')}
-        onClick=${function () { setTlOpen(!tlOpen); }} aria-expanded=${tlOpen}>
-        <span class="search-detail-tl-title">試合経過</span>
-        <span class="search-chevron" aria-hidden="true"></span>
-      </button>
-      ${tlOpen && html`<${Timeline} match=${match} msImages=${msImages} />`}
-    </div>
-  </div>`;
+    <${Panel} title="試合経過">
+      <${Timeline} match=${match} msImages=${msImages} />
+    </${Panel}>
+  </${Layer}>`;
 }
 
 var PAGE_SIZES = [10, 20, 50, 100, 200];
@@ -583,6 +561,6 @@ export function SearchView({ matches, msImages }) {
       </div>`}
     </section>
 
-    ${detail && html`<${DetailModal} match=${detail} msImages=${msImages || {}} onClose=${function () { setDetail(null); }} />`}
+    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} onClose=${function () { setDetail(null); }} />`}
   </div>`;
 }

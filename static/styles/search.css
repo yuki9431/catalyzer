@@ -9,7 +9,7 @@
 .search-chevron { width: 9px; height: 9px; flex-shrink: 0; margin-right: 4px; margin-top: -3px;
   border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
   transform: rotate(45deg); transition: transform 0.2s ease; }
-.search-adv-toggle.open .search-chevron, .search-detail-tl-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
+.search-adv-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
 /* 全画面の層。TabBar(40)・上部バー(50)より上 */
 .search-layer { position: fixed; inset: 0; z-index: 300; display: flex; flex-direction: column; background: var(--bg); }
 .search-layer-head { flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; min-height: 52px; padding: env(safe-area-inset-top) max(16px, calc((100% - 720px) / 2)) 0; border-bottom: 1px solid var(--line); }
@@ -85,15 +85,13 @@
 .search-page-btn:disabled { color: var(--pager-disabled); cursor: default; opacity: 0.5; }
 .search-page-info { color: var(--muted); font-size: 0.875rem; }
 
-.search-detail {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px;
-  max-width: 520px; width: 100%; margin: 16px; max-height: calc(100vh - 32px); overflow-y: auto;
-  overscroll-behavior: contain; box-shadow: var(--shadow-modal);
-}
-.search-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
-.search-detail-date { margin-left: 8px; color: var(--muted); font-size: 0.875rem; }
-.search-detail-close { width: auto; background: none; border: none; color: var(--muted); font-size: 1.125rem; cursor: pointer; padding: 4px 8px; line-height: 1; }
-.search-detail-close:hover { color: var(--text); }
+.search-layer-date { grid-column: 3; justify-self: end; color: var(--muted); font-size: 0.875rem; }
+.search-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 0 8px 0 0; }
+.search-layer-body .panel { margin-bottom: 24px; }
+.search-detail-result { display: flex; align-items: center; gap: 8px; margin: 0 0 24px; }
+.search-detail-result strong { font-size: 2rem; }
+.search-detail-result strong.win { color: var(--great); }
+.search-detail-result strong.lose { color: var(--terrible); }
 .search-detail-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .search-detail-table th, .search-detail-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .search-detail-table thead th { color: var(--accent); font-weight: 600; vertical-align: bottom; }
@@ -102,6 +100,7 @@
 .search-detail-table td.num, .search-detail-table th.num { text-align: center; }
 /* 列見出し: 機体画像を中央配置（役割文字・名前は出さない） */
 .search-detail-col { text-align: center; vertical-align: bottom; }
+.search-detail-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 96px; margin: 0 auto; overflow: hidden; overflow-wrap: anywhere; white-space: normal; }
 .search-detail-thumb { display: block; width: 48px; height: 48px; margin: 0 auto; border-radius: 7px; border: 1px solid var(--line); object-fit: cover; background: var(--bg); }
 .search-detail-thumb-text { display: flex; align-items: center; justify-content: center; text-align: center; padding: 2px; font-size: 0.875rem; line-height: 1.1; color: var(--muted); overflow: hidden; }
 /* 自陣と敵陣の間(敵1列の左)に区切り線。値の色は分析と同じ基準で色分け */
@@ -109,18 +108,14 @@
 /* レーダーの表示切替チェックボックス（機体画像＋系列色スウォッチ。役割文字なし） */
 .search-radar-toggles { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 4px 0 2px; }
 /* トグルボタン: 活性=通常表示、非活性(off)=淡色化で状態を示す（チェックボックスは廃止） */
-.search-radar-toggle { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 6px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; background: var(--panel-2); color: inherit; font-size: inherit; font-weight: 400; transition: opacity 0.15s; }
+.search-radar-toggle { width: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 12px 4px 8px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; background: var(--panel-2); color: inherit; font-size: inherit; font-weight: 400; transition: opacity 0.15s; }
 /* 状態は活性/非活性(不透明度)だけで示す。hover/focusでグローバルbuttonの青背景が出ないよう固定 */
 .search-radar-toggle:hover, .search-radar-toggle:focus { background: var(--panel-2); }
 .search-radar-toggle.off { opacity: 0.4; background: transparent; }
 .search-radar-toggle.off:hover, .search-radar-toggle.off:focus { background: transparent; }
 .search-radar-toggle.off .search-radar-swatch { filter: grayscale(1); }
+.search-radar-name { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
 .search-radar-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
 .search-radar-toggle .search-detail-thumb { width: 26px; height: 26px; margin: 0; border-radius: 5px; }
 .search-radar-toggle .search-detail-thumb-text { font-size: 0.875rem; }
-/* 試合経過の折りたたみトグル（既定は畳む） */
-.search-detail-tl-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: none; border: none; border-top: 1px solid var(--line); margin-top: 14px; padding: 12px 2px 4px; cursor: pointer; color: inherit; font-size: inherit; }
-.search-detail-tl-toggle:hover, .search-detail-tl-toggle:focus { background: none; }
-.search-detail-tl-toggle:hover .search-detail-tl-title { color: var(--accent); }
-.search-detail-tl-title { font-size: 0.9375rem; color: var(--accent-2); margin: 0; }
 .search-detail-empty { color: var(--muted); font-size: 0.875rem; }
