@@ -157,7 +157,7 @@ export function RangeCalendar({ startDate, endDate, onSelectStart, onSelectEnd }
       ${DOW_LABELS.map(function (d) { return html`<span class="cal-dow">${d}</span>`; })}
       ${cells.map(function (day) {
         if (!day) return html`<span class="cal-empty" />`;
-        return html`<button class=${dayClass(day)}
+        return html`<button class=${dayClass(day)} data-ui="cal-day"
           onClick=${function () { handleClick(day); }}>${day}</button>`;
       })}
     </div>

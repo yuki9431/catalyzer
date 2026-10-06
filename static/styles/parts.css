@@ -69,3 +69,10 @@ a.ui-row-btn, a.ui-row-btn:hover { color: var(--text); text-decoration: none; }
 .ui-notice-warn { border-left-color: var(--warn-border); background: var(--warn-bg); color: var(--warn-text); }
 .ui-notice-error { border-left-color: var(--error-border); background: var(--error-bg); color: var(--error-text); }
 .ui-notice + .ui-notice { margin-top: 8px; }
+.ui-notice > b { display: block; color: var(--text); }
+.ui-notice-warn > b { color: var(--warn-text); }
+.ui-notice-error > b { color: var(--error-text); }
+.ui-notice p { margin: 2px 0 0; }
+.ui-action { width: auto; min-height: 44px; padding: 0 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 0.9375rem; font-weight: bold; cursor: pointer; transition: none; }
+.ui-action:hover { background: var(--accent-a10); }
+.ui-notice .ui-action { display: block; margin-top: 8px; }

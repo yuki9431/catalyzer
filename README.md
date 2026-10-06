@@ -88,7 +88,7 @@
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
 │   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）とその他画面（再分析・自動更新の設定を含む）
-│   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice）
+│   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice。Notice は操作ボタン付き）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
@@ -97,6 +97,7 @@
 │   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
 │   │   ├── runlock.js             # 分析の多重起動ロック
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
+│   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
@@ -114,6 +115,7 @@
 │   │   ├── topbar.test.js         # topbar.js テスト
 │   │   ├── runlock.test.js        # runlock.js テスト
 │   │   ├── launch.test.js         # launch.js テスト
+│   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査

@@ -29,7 +29,7 @@ function TimeSelector({ hour, minute, onChangeHour, onChangeMinute, isEnd }) {
 
 // --- Period selector (GCP/AWS style dropdown) ---
 
-export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport }) {
+export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport, openSignal }) {
   var keys = PERIOD_KEYS.filter(function (k) { return periods[k]; });
   var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
@@ -62,6 +62,11 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
       customElRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [showCustom]);
+
+  // 親が openSignal を増やすたびにシートを開く(空の状態の「期間を変更」)
+  useEffect(function () {
+    if (openSignal) pop.open();
+  }, [openSignal]);
 
   // hooks の後ろで判定する（#446）
   if (keys.length <= 1 && !userKey) return null;
@@ -127,7 +132,7 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
         </div>`}
         <button class="period-time-toggle" onClick=${function () { setShowTime(!showTime); }}>
           ${showTime ? '時刻指定を解除' : '時刻を指定'}</button>
-        <button class="period-custom-apply" onClick=${handleCustomApply}>適用</button>
+        <button class="period-custom-apply" data-ui="period-apply" onClick=${handleCustomApply}>適用</button>
         ${customError && html`<p class="period-custom-error">${customError}</p>`}
       </div>`}
     </${Popover}>

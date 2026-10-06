@@ -30,6 +30,16 @@ function serveFile(res, root, rel) {
 var AUTO_REFRESH_PASSPHRASE = 'preview-pass';
 var AUTO_REFRESH_OFF = { available: true, passphrase_required: true, enabled: false, status: 'off' };
 
+// 分析のモック。username でジョブ id を選び、id で status/result を返す(状態を持たない)
+var JOB_BY_USER = { 'prelim@example.com': 'preview-prelim', 'partial@example.com': 'preview-partial', 'error@example.com': 'preview-error' };
+var JOB_STATUS = {
+  'preview-job': { status: 'scraping', progress: 37, progress_total: 120 },
+  'preview-prelim': { status: 'scraping', progress: 37, progress_total: 120, logged_in: true, has_preliminary_report: true, preliminary_version: 1 },
+  'preview-partial': { status: 'done' },
+  'preview-error': { status: 'error', error: 'データの取得に失敗しました。時間をおいて再度お試しいただき、解決しない場合は開発者までお問い合わせください。' },
+};
+var RESULT_FLAG = { 'preview-prelim': 'preliminary', 'preview-partial': 'partial' };
+
 function readJson(req, cb) {
   var chunks = [];
   req.on('data', function (c) { chunks.push(c); });
@@ -71,13 +81,21 @@ export function createServer() {
     }
     if (p === '/auto-refresh/touch' && req.method === 'POST') return json(res, 200, { enabled: false, status: 'off' });
     if (get && p === '/tag-partners') return json(res, 200, { user_key: fx.USER_KEY, tag_partners: fx.tagPartners() });
-    if (get && p === '/session') return json(res, 200, { valid: false });
+    if (get && p === '/session') return json(res, 200, { valid: /(?:^|;\s*)preview_session=valid(?:;|$)/.test(req.headers.cookie || '') });
     if (p === '/session' && req.method === 'DELETE') return json(res, 200, {});
-    if (p === '/analyze' && req.method === 'POST') return json(res, 202, { id: 'preview-job' });
-    if (get && p.startsWith('/status/')) return json(res, 200, { status: 'scraping', progress: 37, progress_total: 120 });
+    if (p === '/analyze' && req.method === 'POST') {
+      return readJson(req, function (b) { json(res, 202, { id: JOB_BY_USER[b.username] || 'preview-job' }); });
+    }
+    if (get && p.startsWith('/status/')) return json(res, 200, JOB_STATUS[p.slice('/status/'.length)] || JOB_STATUS['preview-job']);
     if (p.startsWith('/cancel/') && req.method === 'POST') return json(res, 200, {});
-    if (get && p.startsWith('/result/')) return json(res, 404, { error: 'not found' });
-    if (p === '/reanalyze' && req.method === 'POST') return json(res, 401, { error: 'unauthorized' });
+    if (get && p.startsWith('/result/')) {
+      var flag = RESULT_FLAG[p.slice('/result/'.length)];
+      if (!flag) return json(res, 404, { error: 'not found' });
+      var result = { user_key: fx.USER_KEY, matches: matches, schema_version: fx.SCHEMA_VERSION };
+      result[flag] = true;
+      return json(res, 200, result);
+    }
+    if (p === '/reanalyze' && req.method === 'POST') return json(res, 401, { error: 'セッションが見つかりません。再度ログインしてください。' });
     if (get && p === '/favicon.ico') return send(res, 204, 'image/x-icon', '');
     if (get && p === '/health') return send(res, 200, 'text/plain', 'ok');
     if (!get) return send(res, 405, 'text/plain', 'method not allowed');

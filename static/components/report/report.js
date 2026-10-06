@@ -49,6 +49,8 @@ export function Report({ data, userKey, actions }) {
   var selectedMs = msRef[0], setSelectedMs = msRef[1];
   var lensRef = useState('all');
   var lens = lensRef[0], setLens = lensRef[1];
+  var periodOpenRef = useState(0);
+  var periodOpen = periodOpenRef[0], setPeriodOpen = periodOpenRef[1];
   var nav = useView();
   var view = nav.view;
   var matchesRef = useState(data.matches || null);
@@ -149,7 +151,7 @@ export function Report({ data, userKey, actions }) {
         return m.date >= customRange.start && m.date <= customRange.end;
       });
     }
-    if (!periodFiltered.length) return null;
+    if (!periodFiltered.length) return { empty: true };
     var msSummary = computeMsSummary(periodFiltered);
     var shareItems = computeShareData(periodFiltered);
     var filtered = periodFiltered;
@@ -235,7 +237,9 @@ export function Report({ data, userKey, actions }) {
   }
 
   var pane;
-  if (activeTab === 'playstyle') {
+  if (frontendData.empty) {
+    pane = html`<${EmptyPeriod} scope=${scopeText(selectedPeriod, periods, null, 'all')} onChangePeriod=${function () { setPeriodOpen(periodOpen + 1); }} />`;
+  } else if (activeTab === 'playstyle') {
     pane = html`<${PlaystylePane} frontendData=${frontendData} />`;
   } else if (activeTab === 'burst') {
     pane = html`<${BurstPane} frontendData=${frontendData} />`;
@@ -250,7 +254,7 @@ export function Report({ data, userKey, actions }) {
 
   var filters = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
-          userKey=${userKey} onCustomReport=${handleCustomReport} />
+          userKey=${userKey} onCustomReport=${handleCustomReport} openSignal=${periodOpen} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
         ${reanalyzeButton(actions)}
@@ -261,10 +265,19 @@ export function Report({ data, userKey, actions }) {
       })}</div>`;
 
   return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${pullAction(actions)} canPull=${actions.canReanalyze} nav=${nav}>
-    <${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />
+    ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />`}
 
     ${pane}
   </${AppShell}>`;
+}
+
+// 日付指定で期間内の試合が0件のとき、本文の代わりに出す(絞り込み行は本物のまま残し、期間を変えて戻れる)
+function EmptyPeriod({ scope, onChangePeriod }) {
+  return html`<div class="report-empty" data-ui="empty-state" role="status">
+    <b>この期間の試合はありません</b>
+    <p>${scope} に試合がありません。期間を広げると表示されます。</p>
+    <button type="button" class="ui-action" onClick=${onChangePeriod}>期間を変更</button>
+  </div>`;
 }
 
 // ログイン成功後、データ到着までのダッシュボード骨組み表示
