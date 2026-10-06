@@ -63,9 +63,12 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
     }
   }, [showCustom]);
 
-  // 親が openSignal を増やすたびにシートを開く(空の状態の「期間を変更」)
+  // 親が openSignal を増やすたびにシートを開く(空の状態の「期間を変更」)。再マウント時は消費済みとして開かない
+  var seenSignal = useRef(openSignal);
   useEffect(function () {
-    if (openSignal) pop.open();
+    if (openSignal === seenSignal.current) return;
+    seenSignal.current = openSignal;
+    pop.open();
   }, [openSignal]);
 
   // hooks の後ろで判定する（#446）

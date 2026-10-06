@@ -276,7 +276,7 @@ function EmptyPeriod({ scope, onChangePeriod }) {
   return html`<div class="report-empty" data-ui="empty-state" role="status">
     <b>この期間の試合はありません</b>
     <p>${scope} に試合がありません。期間を広げると表示されます。</p>
-    <button type="button" class="ui-action" onClick=${onChangePeriod}>期間を変更</button>
+    <button type="button" class="ui-action" data-ui="empty-action" onClick=${onChangePeriod}>期間を変更</button>
   </div>`;
 }
 

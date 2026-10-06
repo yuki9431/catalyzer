@@ -64,6 +64,7 @@ function showNotice(tone, message, action, source) {
 function hideNotice() {
   var el = document.getElementById('error');
   if (!el) return;
+  render(null, el);
   el.style.display = 'none';
   delete el.dataset.source;
 }
