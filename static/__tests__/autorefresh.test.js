@@ -54,6 +54,12 @@ describe('describeStatus', () => {
     var t = new Date(2026, 5, 1, 9, 7).getTime();
     assert.match(describeStatus({ available: true, enabled: true, status: 'active' }, t).sub, /最終取り込み 09:07/);
   });
+  it('無効・有効・休止のどれでも動く時間帯を出す', () => {
+    var t = new Date(2026, 5, 1, 9, 7).getTime();
+    [['off', false, 0], ['active', true, 0], ['active', true, t], ['idle', true, t]].forEach(function (c) {
+      assert.match(describeStatus({ available: true, enabled: c[1], status: c[0] }, c[2]).sub, /10:00〜翌1:00/);
+    });
+  });
 });
 
 describe('errorMessage', () => {
