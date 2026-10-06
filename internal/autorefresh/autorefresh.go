@@ -21,7 +21,7 @@ import (
 
 const (
 	// ActiveWindow は最終アクセスからの自動更新の継続時間
-	ActiveWindow = 30 * time.Minute
+	ActiveWindow = 10 * time.Minute
 	// ManualLeaseTTL は手動分析が取る lease の期限。完了時に解放するので、初回の全件取得より長くとる
 	ManualLeaseTTL = 60 * time.Minute
 

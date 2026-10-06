@@ -1,4 +1,4 @@
-# 設計: 自動更新(最終アクセスから30分間、5分おきに新しい試合を取り込む)
+# 設計: 自動更新(最終アクセスから10分間、5分おきに新しい試合を取り込む)
 
 - ステータス: draft
 - 日付: 2026-10-05
@@ -78,7 +78,7 @@
 | session_token | string | 最後に touch した端末の sessions doc ID。空なら停止中 | enable / touch / Job(失効時に空にする) |
 | passphrase_fp | string | 有効化時点の合言葉ハッシュの指紋(§3.4)。開放モードでは `open` | enable |
 | last_access | timestamp | 最終アクセス | enable / touch |
-| active_until | timestamp | last_access + 30 分。**tick の対象判定に使う唯一のクエリ列**。停止時はゼロ値 | enable / touch / Job |
+| active_until | timestamp | last_access + 10 分(当初 30 分。§11)。**tick の対象判定に使う唯一のクエリ列**。停止時はゼロ値 | enable / touch / Job |
 | lease_until | timestamp | 排他の期限。ゼロ値なら空き | Job / 手動分析 |
 | lease_owner | string | `job:<CLOUD_RUN_EXECUTION>` または `manual:<jobID>` | 同上 |
 | last_run_at | timestamp | 最後に Job が処理した時刻 | Job |
@@ -147,7 +147,7 @@
 | 案 | 動作 | 利点 | 欠点 |
 |---|---|---|---|
 | A 維持 | 照合は有効化の時点だけ | 最も単純 | 一度渡した合言葉を取り消せない |
-| **B 一斉無効化(推奨)** | GET /auto-refresh と touch で `passphrase_fp` が現在の指紋と違えば `enabled=false` に戻す | 合言葉の変更が取り消し手段になる。比較 1 回で済む | 全員が合言葉を入れ直す。無効化が効くのは次のアクセス時なので、最大 30 分は動き続ける |
+| **B 一斉無効化(推奨)** | GET /auto-refresh と touch で `passphrase_fp` が現在の指紋と違えば `enabled=false` に戻す | 合言葉の変更が取り消し手段になる。比較 1 回で済む | 全員が合言葉を入れ直す。無効化が効くのは次のアクセス時なので、最大 10 分は動き続ける |
 | C 個別に手動 | Firestore を手で編集する | 実装が要らない | 運用が重く、誤操作の危険がある |
 
 推奨は B。オーナーの運用判断なので §10 の U1 に入れた。
@@ -225,7 +225,7 @@
 package autorefresh
 
 const (
-    ActiveWindow   = 30 * time.Minute
+    ActiveWindow   = 10 * time.Minute
     jobLeaseTTL    = 5 * time.Minute
     ManualLeaseTTL = 60 * time.Minute // 完了時に解放する。初回の全件取得より長くとる(PR #467 レビュー)
     perUserTimeout = 200 * time.Second
@@ -470,7 +470,7 @@ U3:
 - S2: 外部から叩く `curl -s -o /dev/null -w '%{http_code}' -X POST https://<stg-domain>/internal/auto-refresh/tick` → 401。`gcloud auth print-identity-token` で得たユーザーのトークンを付けても 401 か 403(audience か email が違う)
 - S3: 誰も有効にしていない状態で 30 分待つ → tick のログが `targets=0 launched=false`、その時間帯の `gcloud run jobs executions list` が 0 件(受け入れ条件「誰も有効でない時間は Job が起動しない」)
 - S4: オーナーが合言葉で有効にして実機で 1 試合する → 次の tick の Job で Firestore に入り、アプリを前面に戻すと表示される。同じ時刻に手動の再分析を押すと 409 か正常(重複して取得しない)。Job のログに lease 取得のスキップが出る
-- S5: §6.2 の手順で T_exec の中央値を記録し、§6.1 の式で月額を出し直す(30 分間で 6 回以上)
+- S5: §6.2 の手順で T_exec の中央値を記録し、§6.1 の式で月額を出し直す(複数回の遊びにまたがって 6 回以上)
 - S6: セッション失効の再現(オーナーが公式サイトでログアウトするなど)→ last_result=session_expired、次にアクセスするとログイン画面になる
 
 ### 9.4 reviewer の観点(主観なので完了条件には入れない)
@@ -500,3 +500,5 @@ U3:
 - app の Job・Scheduler は config `autoRefreshEnabled`(prod のみ true)で作る。Job の `APP_ENV` は不要になり入れていない
 - デプロイ順(§7)の stg 手順は prod に読み替える(合言葉は prod にのみ設定)。§9.2 の app preview は `STACK=prod`(stg は無効なので Service の `~` のみ)
 - §9.2 の「新しいモジュールを足していない」許可リストに `google.golang.org/grpc`(indirect→direct の昇格のみ)を足す
+- 継続時間(`ActiveWindow`)を 30 分から 10 分に短縮(2026-10-07 ユーザー判断)。touch のたびに延びるので遊んでいる間は止まらず、最後のアクセス後の空振りが 6 回から 2 回に減る
+- tick を 10:00〜翌1:00(JST)だけに絞る(`*/5 0,10-23 * * *`。2026-10-07 ユーザー判断)。深夜は自動更新しない。時間帯は設定画面の文言(`static/lib/autorefresh.js` の `ACTIVE_HOURS`)にも出す

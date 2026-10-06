@@ -42,6 +42,13 @@ describe('Skeleton', () => {
     return { found: found, bad: bad };
   }
 
+  // userKey が変わったら再マウントし前ユーザーの state を捨てる(#402)
+  it('全ての <${Report} 呼び出しに key が付く', () => {
+    var r = missingAttr('Report', 'key');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
   it('全ての <${AppShell} 呼び出しに nav が付く', () => {
     var r = missingAttr('AppShell', 'nav');
     assert.ok(r.found >= 6);
