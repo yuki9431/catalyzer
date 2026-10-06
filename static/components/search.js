@@ -2,7 +2,7 @@ import { html, useState, useMemo, useEffect, useRef } from '../htm-preact-standa
 import { themeReader } from '../lib/theme.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
-  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels,
+  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
 } from '../analysis/search.js';
 import {
   esc, num, cellDisplay, isTimeUp,
@@ -10,7 +10,7 @@ import {
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
-import { useDismiss } from './popover.js';
+import { useDismiss, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 
@@ -229,57 +229,35 @@ function FilterSheet({ filters, options, total, onField, onReset, onClose }) {
 // 並べ替え中の指標を一覧カードにも小さく出すためのラベル。SORT_OPTIONSと二重管理しないよう流用する。
 var METRIC_LABELS = SORT_OPTIONS.reduce(function (m, o) { m[o.key] = o.label; return m; }, {});
 
-// 機体サムネイル。画像URLが引ければ画像、無ければ機体名テキストにフォールバック。
-// フレックスアイテムはラッパー(.search-ms-slot)側にし、画像/テキストは width:100% で内側に収める。
-// img自体をフレックスアイテム＋aspect-ratioにすると iOS18 Safari が min-width:0 を無視して
-// 本来サイズで min-content を算出し、カードから溢れるため（iOS26では解消）。
-function MsThumb({ name, msImages }) {
-  var nm = (name || '').trim();
-  var url = nm && msImages ? msImages[nm] : '';
-  var inner = url
-    ? html`<img class="search-ms-thumb" src=${url} alt=${nm} title=${nm} loading="lazy" />`
-    : html`<span class="search-ms-thumb search-ms-thumb-text" title=${nm}>${esc(nm || '?')}</span>`;
-  return html`<span class="search-ms-slot">${inner}</span>`;
-}
-
-// プレイヤー名を整形（空は「—」）。名前は最大12文字。
+// プレイヤー名を整形（空は「—」）。
 function playerName(n) {
   return (n || '').trim() || '—';
 }
 
-// 1試合分のサマリーカード（公式戦績風）。機体は画像で並べ、詳細な数値は詳細モーダルへ寄せる。
-// クリックで詳細を開く。
-function ResultItem({ match, msImages, sortKey, onOpen }) {
-  var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
-  return html`<button class="search-item" data-ui="search-result" onClick=${function () { onOpen(match); }}>
-    <div class="search-item-top">
-      <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
-      ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
-      <span class="search-item-date">${esc(match.date)}</span>
-      ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
-    </div>
-    <div class="search-item-battle">
-      <div class="search-ms-imgs self">
-        <${MsThumb} name=${match.ms} msImages=${msImages} />
-        <${MsThumb} name=${match.partner_ms} msImages=${msImages} />
-      </div>
-      <span class="search-item-vs" role="img" aria-label="VS"></span>
-      <div class="search-ms-imgs enemy">
-        <${MsThumb} name=${match.opponent1_ms} msImages=${msImages} />
-        <${MsThumb} name=${match.opponent2_ms} msImages=${msImages} />
-      </div>
-    </div>
-    <div class="search-item-namesrow">
-      <div class="search-item-names self">
-        <div class="search-name-line" title=${playerName(match.name)}>${esc(playerName(match.name))}</div>
-        <div class="search-name-line" title=${playerName(match.partner_name)}>${esc(playerName(match.partner_name))}</div>
-      </div>
-      <div class="search-item-names enemy">
-        <div class="search-name-line" title=${playerName(match.opponent1_name)}>${esc(playerName(match.opponent1_name))}</div>
-        <div class="search-name-line" title=${playerName(match.opponent2_name)}>${esc(playerName(match.opponent2_name))}</div>
-      </div>
-    </div>
+// 1試合1行。右端は日付順なら与ダメージ、他は並べ替え指標。クリックで詳細を開く。
+function ResultRow({ match, sortKey, onOpen }) {
+  var key = sortKey && sortKey !== 'date' ? sortKey : 'dmg_given';
+  var enemies = (match.opponent1_ms || '?') + ' / ' + (match.opponent2_ms || '?');
+  return html`<button type="button" class="search-row" data-ui="search-result" onClick=${function () { onOpen(match); }}>
+    <span class=${'search-row-res ' + (match.win ? 'win' : 'lose')}>${match.win ? '勝' : '敗'}</span>
+    <span class="search-row-name">${match.ms}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</span>
+    <span class="search-row-meta"><b>${num(match[key])}</b>${METRIC_LABELS[key]}<br />${(match.date || '').slice(11, 16)}</span>
+    <span class="search-row-line">vs ${enemies}</span>
+    <span class="search-row-line">相方 ${playerName(match.partner_name)}・相手 ${playerName(match.opponent1_name)} / ${playerName(match.opponent2_name)}</span>
   </button>`;
+}
+
+// 結果一覧。日付が変わる行の前に日付区切りを入れる。
+function ResultList({ items, sortKey, onOpen }) {
+  var prev = '';
+  return html`<div class="search-list">
+    ${items.map(function (m) {
+      var day = (m.date || '').slice(0, 10);
+      var sep = day !== prev ? html`<p class="search-day" data-ui="search-day">${day}</p>` : null;
+      prev = day;
+      return html`${sep}<${ResultRow} match=${m} sortKey=${sortKey} onOpen=${onOpen} />`;
+    })}
+  </div>`;
 }
 
 // 公式「試合経過」風のガント式タイムライン（4人分・横棒）。
@@ -496,35 +474,28 @@ function DetailModal({ match, msImages, onClose }) {
   </div>`;
 }
 
-// 並べ替えコントロール。ソートアイコン付きのカスタムドロップダウン（項目選択）＋昇順/降順アイコン。
-// native selectの浮いた見た目を避け、外側クリックで閉じる。
-function SortControl({ sortKey, desc, onSortKey, onToggleDir }) {
-  var openRef = useState(false);
-  var open = openRef[0], setOpen = openRef[1];
-  var ref = useRef(null);
-  useDismiss(open, ref, function () { setOpen(false); });
-  var current = SORT_OPTIONS.find(function (o) { return o.key === sortKey; }) || SORT_OPTIONS[0];
+var PAGE_SIZES = [10, 20, 50, 100, 200];
 
-  return html`<div class="search-sort" ref=${ref}>
-    <div class="search-sort-dd">
-      <button type="button" class=${'search-sort-trigger' + (open ? ' open' : '')}
-        onClick=${function () { setOpen(!open); }} aria-expanded=${open}
-        aria-label=${'並べ替え: ' + current.label} title=${'並べ替え: ' + current.label}>
-        <svg class="search-sort-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3V6zm0 5h12v2H3v-2zm0 5h6v2H3v-2z"/></svg>
-      </button>
-      ${open && html`<div class="search-sort-menu">
-        ${SORT_OPTIONS.map(function (o) {
-          return html`<button type="button" class=${'search-sort-opt' + (o.key === sortKey ? ' active' : '')}
-            onClick=${function () { onSortKey(o.key); setOpen(false); }}>${o.label}</button>`;
-        })}
-      </div>`}
-    </div>
-    <button type="button" class="search-dir" onClick=${onToggleDir}
-      aria-label=${desc ? '降順（クリックで昇順）' : '昇順（クリックで降順）'} title=${desc ? '降順' : '昇順'}>
-      <svg class="search-dir-ico" viewBox="0 0 24 24" aria-hidden="true">
-        <path d=${desc ? 'M12 16l-6-6h12z' : 'M12 8l6 6H6z'} />
-      </svg>
-    </button>
+// 並べ替えシート。項目・並び順・1ページの件数を1枚にまとめ、項目を選んでも閉じない。
+function SortSheet({ sortKey, desc, pageSize, onSortKey, onDir, onPageSize }) {
+  // lockScroll 部品はマウント時に body.overflow を書くので、件数に関係なく常時マウントする
+  var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
+  var dirOptions = [{ value: 'desc', label: sortDirLabel(sortKey, true) }, { value: 'asc', label: sortDirLabel(sortKey, false) }];
+  return html`<div class="search-sort" ref=${pop.rootRef}>
+    <${Chip} ui="search-sort-trigger" expanded=${pop.isOpen} onClick=${pop.toggle}><span class="search-sort-k">並べ替え</span>${sortLabel(sortKey, desc)}</${Chip}>
+    <${Popover} pop=${pop} panelClass="search-sort-panel" ui="search-sort-panel" title="並べ替え">
+      ${SORT_OPTIONS.map(function (o) {
+        return html`<button type="button" class="search-sort-opt" data-ui="search-sort-item" aria-pressed=${o.key === sortKey}
+          onClick=${function () { onSortKey(o.key); }}>${o.label}</button>`;
+      })}
+      <div class="search-sort-group">
+        <${ToggleGroup} ui="search-sort-dir" label="並び順" options=${dirOptions} value=${desc ? 'desc' : 'asc'}
+          onChange=${function (v) { onDir(v === 'desc'); }} />
+        <h3 class="search-sort-label">1ページの件数</h3>
+        <${ToggleGroup} ui="search-pagesize" label="1ページの件数" value=${pageSize} onChange=${onPageSize}
+          options=${PAGE_SIZES.map(function (n) { return { value: n, label: String(n) }; })} />
+      </div>
+    </${Popover}>
   </div>`;
 }
 
@@ -566,7 +537,7 @@ export function SearchView({ matches, msImages }) {
   }
   function onReset() { setFilters(emptyFilters()); setPage(1); }
   function onSortKey(key) { setSortKey(key); setPage(1); }
-  function onToggleDir() { setDesc(!desc); setPage(1); }
+  function onDir(d) { if (d !== desc) { setDesc(d); setPage(1); } }
 
   var total = filtered.length;
   var wins = filtered.reduce(function (n, m) { return n + (m.win ? 1 : 0); }, 0);
@@ -592,35 +563,25 @@ export function SearchView({ matches, msImages }) {
     ${sheetOpen && html`<${FilterSheet} filters=${filters} options=${options} total=${total}
       onField=${onField} onReset=${onReset} onClose=${function () { setSheetOpen(false); }} />`}
 
-    <div class="panel">
-      <div class="search-result-head">
-        <h2><span class="dot" /><span class="search-result-label">検索結果 </span><span class="search-result-count">${total}戦（${winRate.toFixed(1)}%）</span></h2>
-        <div class="search-result-tools">
-          <div class="search-pagesize">
-            <${Dropdown} value=${String(pageSize)} noClear=${true}
-              options=${[10, 20, 50, 100, 200].map(function (n) { return { value: String(n), label: n + '件' }; })}
-              onChange=${function (v) { onPageSize(Number(v)); }} />
-          </div>
-          <${SortControl} sortKey=${sortKey} desc=${desc} onSortKey=${onSortKey} onToggleDir=${onToggleDir} />
-        </div>
+    <section class="search-results">
+      <div class="search-results-head">
+        <h2 class="search-total" data-ui="search-total">${total}試合${total > 0 && html`<small>勝率 ${winRate.toFixed(1)}%</small>`}</h2>
+        <${SortSheet} sortKey=${sortKey} desc=${desc} pageSize=${pageSize}
+          onSortKey=${onSortKey} onDir=${onDir} onPageSize=${onPageSize} />
       </div>
 
       ${total === 0
         ? html`<p class="search-empty">条件に一致する試合がありません。</p>`
-        : html`<div class="search-list">
-            ${pageItems.map(function (m) {
-              return html`<${ResultItem} match=${m} msImages=${msImages || {}} sortKey=${sortKey} onOpen=${setDetail} />`;
-            })}
-          </div>`}
+        : html`<${ResultList} items=${pageItems} sortKey=${sortKey} onOpen=${setDetail} />`}
 
-      ${totalPages > 1 && html`<div class="search-pager">
+      ${totalPages > 1 && html`<div class="search-pager" data-ui="search-pager">
         <button class="search-page-btn" disabled=${curPage <= 1}
           onClick=${function () { setPage(curPage - 1); }}>← 前へ</button>
         <span class="search-page-info">${start + 1}〜${Math.min(start + pageSize, total)} / ${total}件（${curPage}/${totalPages}）</span>
         <button class="search-page-btn" disabled=${curPage >= totalPages}
           onClick=${function () { setPage(curPage + 1); }}>次へ →</button>
       </div>`}
-    </div>
+    </section>
 
     ${detail && html`<${DetailModal} match=${detail} msImages=${msImages || {}} onClose=${function () { setDetail(null); }} />`}
   </div>`;

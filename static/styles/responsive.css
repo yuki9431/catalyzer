@@ -21,7 +21,4 @@
   .period-custom-range { flex-direction: column; }
   .period-custom { min-width: 0; }
   .search-form { grid-template-columns: 1fr; }
-  /* 狭幅では1行維持のため「検索結果」ラベルを省きカウントのみ表示 */
-  .search-result-label { display: none; }
-  .search-pagesize .panel-select-trigger { padding: 6px 8px; }
 }
