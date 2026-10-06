@@ -425,7 +425,6 @@ async function analyze() {
     return;
   }
 
-  try { sessionStorage.setItem('catalyzer_cred', JSON.stringify({ u: username, p: password })); } catch (e) {}
 
   btn.disabled = true;
   status.style.display = 'block';
@@ -589,13 +588,8 @@ if (loginForm) {
     e.preventDefault();
     analysis.run(analyze);
   });
-  try {
-    var cred = JSON.parse(sessionStorage.getItem('catalyzer_cred'));
-    if (cred) {
-      document.getElementById('username').value = cred.u;
-      document.getElementById('password').value = cred.p;
-    }
-  } catch (e) {}
+  // 資格情報はブラウザに保存しない(入力の補完はパスワードマネージャーに任せる)。以前のバージョンが残した平文を消す(#490)
+  try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 }
 
 // セッション保持の説明モーダル
