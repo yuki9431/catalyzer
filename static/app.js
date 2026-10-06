@@ -119,6 +119,13 @@ function clearProgress() {
   render(null, document.getElementById('prelimNotice'));
 }
 
+// 失敗で終わっても取得済みの速報は捨てずに表示する(「速報を見る」を押す前でも)
+function keepPrelim(st) {
+  if (st.rendered || !st.last) return;
+  renderReport({ matches: st.last.matches }, st.last.user_key);
+  st.rendered = true;
+}
+
 // 速報レポートの取り込み。レポート未表示(スケルトン中)は自動描画せず「速報を見る」を出し、押された後は自動で差し替える。ログアウト等で中断されたら false
 async function takePrelim(jobId, s, st) {
   if (!(s.logged_in && s.has_preliminary_report && s.preliminary_version > st.version)) return true;
@@ -129,6 +136,7 @@ async function takePrelim(jobId, s, st) {
   if (!(data.matches && data.preliminary)) return true;
   if (data.user_key) saveMatchesToDB(data.user_key, data.matches, data.schema_version);
   st.version = s.preliminary_version;
+  st.last = data;
   var slot = document.getElementById('prelimNotice');
   var show = function () {
     renderReport({ matches: data.matches }, data.user_key);
@@ -258,6 +266,7 @@ async function reanalyzeWithSession(auto) {
       }
     }
   } catch (e) {
+    if (!expired) keepPrelim(st);
     showNotice(e.tone || 'error', e.message, expired ? LOGIN_ACTION : null);
   } finally {
     if (posted && (jobId === undefined || activeJobId === jobId)) {
@@ -292,6 +301,8 @@ async function logout() {
   localStorage.removeItem(VIEW_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
+  clearProgress();
+  document.getElementById('status').style.display = 'none';
   var rep = document.getElementById('report');
   if (rep) { render(null, rep); rep.style.display = 'none'; }
   var lf = document.getElementById('loginForm');
@@ -580,6 +591,7 @@ async function analyze() {
       }
     }
   } catch (e) {
+    keepPrelim(st);
     showNotice(e.tone || 'error', e.message);
     if (!st.rendered) {
       render(null, reportEl);
@@ -588,12 +600,14 @@ async function analyze() {
     }
     document.getElementById('loginForm').style.display = 'block';
   } finally {
-    if (activeJobId === jobId) {
+    // ログアウト後の旧ループが、次の分析の進捗表示を消さない
+    var mine = activeJobId === jobId;
+    if (mine) {
       activeJobId = null;
       markAnalysis(ANALYSIS_FINISHED_KEY);
     }
     btn.disabled = false;
-    clearProgress();
+    if (mine) clearProgress();
     status.style.display = 'none';
   }
 }

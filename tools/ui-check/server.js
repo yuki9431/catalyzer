@@ -30,15 +30,15 @@ function serveFile(res, root, rel) {
 var AUTO_REFRESH_PASSPHRASE = 'preview-pass';
 var AUTO_REFRESH_OFF = { available: true, passphrase_required: true, enabled: false, status: 'off' };
 
-// 分析のモック。username でジョブ id を選び、id で status/result を返す(状態を持たない)
-var JOB_BY_USER = { 'prelim@example.com': 'preview-prelim', 'partial@example.com': 'preview-partial', 'error@example.com': 'preview-error' };
+// 分析のモック。username でジョブ id を選び、id で status/result を返す(preview-prelim-error だけ status の回数で速報→失敗に進む)
+var JOB_BY_USER = { 'prelim@example.com': 'preview-prelim', 'partial@example.com': 'preview-partial', 'error@example.com': 'preview-error', 'prelim-error@example.com': 'preview-prelim-error' };
 var JOB_STATUS = {
   'preview-job': { status: 'scraping', progress: 37, progress_total: 120 },
   'preview-prelim': { status: 'scraping', progress: 37, progress_total: 120, logged_in: true, has_preliminary_report: true, preliminary_version: 1 },
   'preview-partial': { status: 'done' },
   'preview-error': { status: 'error', error: 'データの取得に失敗しました。時間をおいて再度お試しいただき、解決しない場合は開発者までお問い合わせください。' },
 };
-var RESULT_FLAG = { 'preview-prelim': 'preliminary', 'preview-partial': 'partial' };
+var RESULT_FLAG = { 'preview-prelim': 'preliminary', 'preview-partial': 'partial', 'preview-prelim-error': 'preliminary' };
 
 function readJson(req, cb) {
   var chunks = [];
@@ -52,6 +52,7 @@ function readJson(req, cb) {
 
 export function createServer() {
   var matches = fx.generateMatches();
+  var prelimErrorPolls = 0;
   return http.createServer(function (req, res) {
     var url = new URL(req.url, 'http://localhost');
     var p;
@@ -84,8 +85,9 @@ export function createServer() {
     if (get && p === '/session') return json(res, 200, { valid: /(?:^|;\s*)preview_session=valid(?:;|$)/.test(req.headers.cookie || '') });
     if (p === '/session' && req.method === 'DELETE') return json(res, 200, {});
     if (p === '/analyze' && req.method === 'POST') {
-      return readJson(req, function (b) { json(res, 202, { id: JOB_BY_USER[b.username] || 'preview-job' }); });
+      return readJson(req, function (b) { prelimErrorPolls = 0; json(res, 202, { id: JOB_BY_USER[b.username] || 'preview-job' }); });
     }
+    if (get && p === '/status/preview-prelim-error') return json(res, 200, prelimErrorPolls++ === 0 ? JOB_STATUS['preview-prelim'] : JOB_STATUS['preview-error']);
     if (get && p.startsWith('/status/')) return json(res, 200, JOB_STATUS[p.slice('/status/'.length)] || JOB_STATUS['preview-job']);
     if (p.startsWith('/cancel/') && req.method === 'POST') return json(res, 200, {});
     if (get && p.startsWith('/result/')) {

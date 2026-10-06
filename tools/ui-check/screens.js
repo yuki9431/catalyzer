@@ -46,6 +46,8 @@ export var SCREENS = [
     required: [['[data-ui="report-scope"]', '全期間・60試合'], ['#status']], absent: [['#prelimNotice [data-ui="notice"]'], ['[data-ui="skeleton"]']] },
   { id: 'analyze-partial', viewport: M, full: false, start: 'login', ops: analyzeOps('partial@example.com'),
     required: [['#error [data-ui="notice"][role="status"]', 'アクセスが制限'], ['#error [data-ui="notice-action"]', '再分析'], ['[data-ui="report-scope"]']], tap: ['#error [data-ui="notice-action"]'] },
+  { id: 'analyze-prelim-error', viewport: M, full: false, start: 'login', ops: analyzeOps('prelim-error@example.com').concat([{ wait: ['#error [data-ui="notice"]'] }]),
+    required: [['#error [data-ui="notice"][role="alert"]', 'データの取得に失敗しました'], ['[data-ui="report-scope"]', '全期間・60試合']], absent: [['[data-ui="skeleton"]']] },
   { id: 'analyze-error', viewport: M, full: true, start: 'login', ops: analyzeOps('error@example.com'),
     required: [['#error [data-ui="notice"][role="alert"]', 'データの取得に失敗しました'], ['#loginForm']], absent: [['#error [data-ui="notice-action"]']] },
   { id: 'notice-session-expired', viewport: D, full: true, start: 'report-session-valid', ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: REANALYZE_BTN }], expectConsole: ['status of 401'],
