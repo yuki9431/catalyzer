@@ -241,7 +241,7 @@ function ResultRow({ match, sortKey, onOpen }) {
   return html`<button type="button" class="search-row" data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <span class=${'search-row-res ' + (match.win ? 'win' : 'lose')}>${match.win ? '勝' : '敗'}</span>
     <span class="search-row-name">${match.ms}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</span>
-    <span class="search-row-meta"><b>${num(match[key])}</b>${METRIC_LABELS[key]}<br />${(match.date || '').slice(11, 16)}</span>
+    <span class="search-row-meta"><b>${match[key] != null ? Number(match[key]).toLocaleString('ja-JP') : '-'}</b>${METRIC_LABELS[key]}<br />${(match.date || '').slice(11, 16)}</span>
     <span class="search-row-line">vs ${enemies}</span>
     <span class="search-row-line">相方 ${playerName(match.partner_name)}・相手 ${playerName(match.opponent1_name)} / ${playerName(match.opponent2_name)}</span>
   </button>`;
