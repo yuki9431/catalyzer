@@ -6,6 +6,7 @@ import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
 import { createRunLock } from './lib/runlock.js';
 import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
+import { userKeyOf } from './lib/userkey.js';
 
 // ホーム画面アプリのときだけ自前の引っ張り再分析を使う(ブラウザのタブは標準の再読み込みが再分析の経路)
 var STANDALONE = isStandalone({ standalone: navigator.standalone, matchMedia: window.matchMedia ? function (q) { return window.matchMedia(q); } : null });
@@ -445,7 +446,8 @@ async function analyze() {
 
   var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
-  if (cachedKey) {
+  // 別ユーザーがログインしたときに前ユーザーのキャッシュを出さない(#402)
+  if (cachedKey && cachedKey === await userKeyOf(username)) {
     try {
       var cachedMatches = await loadMatchesFromDB(cachedKey);
       if (cachedMatches && cachedMatches.length > 0) {

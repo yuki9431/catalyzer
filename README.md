@@ -97,6 +97,7 @@
 │   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
 │   │   ├── runlock.js             # 分析の多重起動ロック
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
+│   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
@@ -113,6 +114,8 @@
 │   │   ├── topbar.test.js         # topbar.js テスト
 │   │   ├── runlock.test.js        # runlock.js テスト
 │   │   ├── launch.test.js         # launch.js テスト
+│   │   ├── userkey.test.js        # userkey.js テスト
+│   │   ├── report-key.test.js     # Report の key=userKey の検査
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
