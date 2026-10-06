@@ -217,12 +217,13 @@ async function logout() {
   if (jid) {
     try { fetch('/cancel/' + jid, { method: 'POST' }).catch(function () {}); } catch (e) {}
   }
+  // await より先に消し、並行する取り込み・再構築の書き戻しを rebuildStale で止める
+  localStorage.removeItem('catalyzer_user_key');
+  localStorage.removeItem('catalyzer_has_session');
   try {
     await fetch('/session', { method: 'DELETE' });
   } catch (e) {}
   try { await clearAllMatches(); } catch (e) {}
-  localStorage.removeItem('catalyzer_user_key');
-  localStorage.removeItem('catalyzer_has_session');
   localStorage.removeItem(ANALYSIS_STARTED_KEY);
   localStorage.removeItem(ANALYSIS_FINISHED_KEY);
   localStorage.removeItem(CLASS_RECORD_KEY);
@@ -338,6 +339,8 @@ async function rebuildCacheFromServer(userKey) {
     // ログイン状態を保持していない(セッションが無い)と本人の全件は取れない
     if (res.status === 401) {
       setRebuildBackoff(true);
+      // セッションを保持していた人の 401 は失効なので、前ユーザーのレポートを残さない
+      if (localStorage.getItem('catalyzer_has_session')) returnToLogin();
       return 'unauthorized';
     }
     var data = await res.json();
@@ -699,7 +702,8 @@ async function pullAutoRefresh() {
   try {
     // touch でサーバー側の自動更新の継続時間を延ばす。401 はセッションが無いので差分取得もしない
     var touch = await fetch('/auto-refresh/touch', { method: 'POST' });
-    if (touch.status === 401) return;
+    // ここに来るのはセッションを保持していた人だけなので、401 は失効
+    if (touch.status === 401) { returnToLogin(); return; }
     var after = diffAfterParam(await loadMatchesFromDB(userKey));
     if (!after) return;
     var res = await fetch('/matches?after=' + encodeURIComponent(after));
@@ -710,7 +714,9 @@ async function pullAutoRefresh() {
     await saveMatchesToDB(userKey, data.matches, data.schema_version);
     lastImportedAt = Date.now();
     if (rebuildStale(userKey)) return;
-    renderReport({ matches: await loadMatchesFromDB(userKey) }, userKey);
+    var merged = await loadMatchesFromDB(userKey);
+    if (rebuildStale(userKey)) return;
+    renderReport({ matches: merged }, userKey);
   } catch (e) {
     // 自動実行なので失敗は見送る(次の起動・前面復帰で再試行)
   } finally {
