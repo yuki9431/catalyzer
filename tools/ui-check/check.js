@@ -16,7 +16,7 @@ var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
-var START_URL = { login: '/', report: '/__preview/', parts: '/__preview/parts.html' };
+var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');
@@ -139,7 +139,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     });
     await send('Page.navigate', { url: origin + START_URL[screen.start] });
     await loaded;
-    if (screen.start === 'report') {
+    if (screen.start.startsWith('report')) {
       var navEnd = Date.now() + NAV_MS;
       for (;;) {
         try { if (await evalJs('location.pathname==="/"&&document.readyState==="complete"')) break; } catch (e) { if (e instanceof InfraError) throw e; }

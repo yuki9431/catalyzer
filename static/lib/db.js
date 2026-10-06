@@ -82,6 +82,18 @@ export function replaceMatchesForUser(userKey, matches, schemaVersion) {
   });
 }
 
+// clearAllMatches は全ユーザーの試合キャッシュを消す（ログアウト時。共有端末に前ユーザーの試合を残さない）。
+export function clearAllMatches() {
+  return openMatchDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(MATCH_STORE, 'readwrite');
+      tx.objectStore(MATCH_STORE).clear();
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function (e) { reject(e.target.error); };
+    });
+  });
+}
+
 // needsRebuild はキャッシュ全件を見て、1件でもサーバー版と異なれば再構築が必要と判定する純粋関数。
 // 速報バッチ(初回5件・以降20件)の部分保存が中断すると新旧バージョンが混在し、かつ
 // loadMatchesFromDB の並びはid辞書順なので、先頭1件のサンプリングでは検知漏れする。

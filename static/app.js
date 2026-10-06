@@ -1,5 +1,5 @@
 import { html, render } from './htm-preact-standalone.js';
-import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, needsRebuild } from './lib/db.js';
+import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, clearAllMatches, needsRebuild } from './lib/db.js';
 import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
@@ -219,6 +219,7 @@ async function logout() {
   try {
     await fetch('/session', { method: 'DELETE' });
   } catch (e) {}
+  try { await clearAllMatches(); } catch (e) {}
   localStorage.removeItem('catalyzer_user_key');
   localStorage.removeItem('catalyzer_has_session');
   localStorage.removeItem(ANALYSIS_STARTED_KEY);
@@ -669,14 +670,8 @@ if (rememberInfoBtn && rememberModal) {
 
     fetch('/session').then(function (r) { return r.json(); }).then(function (data) {
       if (!data.valid) {
-        // セッション失効時は、キャッシュから描画済みのレポートを隠さないと
-        // ログイン画面の下に古いレポートが残る（reanalyzeWithSession の401経路と同じ後始末）。
-        localStorage.removeItem('catalyzer_has_session');
-        var rep = document.getElementById('report');
-        if (rep) { render(null, rep); rep.style.display = 'none'; }
-        if (loginForm) loginForm.style.display = 'block';
-        var t = document.getElementById('pageTitle');
-        if (t) t.style.display = '';
+        // キャッシュ描画済みのレポートを隠し、キーも消して次に開いた人に前ユーザーのレポートを出さない
+        returnToLogin();
       } else if (!hasLocalData || reloadRun) {
         analysis.run(function () { return reanalyzeWithSession(true); });
       }

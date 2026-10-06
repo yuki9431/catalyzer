@@ -27,6 +27,8 @@ function report(id, tab, h2s, extra, moreOps) {
 export var SCREENS = [
   { id: 'login', viewport: D, full: true, start: 'login', ops: [],
     required: [['#loginForm'], ['#username'], ['#password'], ['#analyzeBtn']] },
+  { id: 'session-expired', viewport: D, full: false, start: 'report-session', ops: [{ wait: ['#loginForm'] }, { reload: true }],
+    required: [['#loginForm'], ['#analyzeBtn']], absent: [['[data-ui="tab"]'], ['[data-ui="report-scope"]']] },
   { id: 'analyzing', viewport: D, full: true, start: 'login',
     ops: [{ type: ['#username', 'preview@example.com'] }, { type: ['#password', 'preview-pass'] }, { click: ['#analyzeBtn'] }],
     required: [[CURRENT, 'レポート'], ['#status'], ['#progressCount', '37/120件'], ['[data-ui="skeleton"]']] },
