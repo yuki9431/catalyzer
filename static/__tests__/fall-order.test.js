@@ -7,6 +7,7 @@ function stat(count, v) { return { count: count, rate: 0, win_rate: v, avg_dmg_g
 // vnode ツリーから rows を持つ Table を探す
 function findRows(v) {
   if (!v || typeof v !== 'object') return null;
+  if (Array.isArray(v)) return v.reduce(function (a, c) { return a || findRows(c); }, null);
   if (v.props && Array.isArray(v.props.rows)) return v.props.rows;
   var kids = v.props && v.props.children;
   if (kids == null) return null;
