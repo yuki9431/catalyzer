@@ -2,7 +2,7 @@ import { html, useState, useMemo, useEffect, useRef } from '../htm-preact-standa
 import { themeReader } from '../lib/theme.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
-  filterMatches, sortMatches, SORT_OPTIONS,
+  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels,
 } from '../analysis/search.js';
 import {
   esc, num, cellDisplay, isTimeUp,
@@ -11,6 +11,7 @@ import {
 import { CompareRadar } from './charts.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete } from './ui.js';
 import { useDismiss } from './popover.js';
+import { Chip, ToggleGroup } from './parts.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 
 var PAGE_SIZE = 20;
@@ -53,12 +54,33 @@ function RangeInput({ label, minVal, maxVal, onMin, onMax }) {
   </div>`;
 }
 
-// フィルタフォーム。filters と個々のフィールド更新関数、リセットを受け取る。
-// 詳細設定（カスタム期間・マニアックな数値レンジ）に含めるフィルタ項目。
+// 全画面の層。一覧はマウントしたまま背面に残し、背面スクロールは body・html の overflow で止める。
+function Layer({ ui, label, head, foot, footUi, onClose, children }) {
+  var ref = useRef(null);
+  useDismiss(true, null, onClose);
+  useEffect(function () {
+    var y = window.scrollY, back = document.activeElement;
+    var b = document.body.style.overflow, h = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden'; document.documentElement.style.overflow = 'hidden';
+    if (ref.current) ref.current.focus({ preventScroll: true });
+    return function () {
+      document.body.style.overflow = b; document.documentElement.style.overflow = h;
+      if (window.scrollY !== y) window.scrollTo(0, y);
+      if (back && back.focus) back.focus({ preventScroll: true });
+    };
+  }, []);
+  return html`<div class="search-layer" data-ui=${ui} role="dialog" aria-modal="true" aria-label=${label} tabindex="-1" ref=${ref}>
+    <div class="search-layer-head">${head}</div>
+    <div class="search-layer-body">${children}</div>
+    ${foot && html`<div class="search-layer-foot" data-ui=${footUi}>${foot}</div>`}
+  </div>`;
+}
+
+// 詳細な条件（日付指定・タッグ・コスト・数値レンジ）に含めるフィルタ項目。
 var ADV_FIELDS = ['dateFrom', 'dateTo', 'enemyTagName',
   'dmgGivenMin', 'dmgGivenMax', 'dmgTakenMin', 'dmgTakenMax', 'killsMin', 'killsMax', 'deathsMin', 'deathsMax',
   'scoreMin', 'scoreMax', 'exDmgMin', 'exDmgMax', 'burstsMin', 'burstsMax'];
-// 詳細設定内の複数選択（配列）フィルタ。
+// 詳細な条件内の複数選択（配列）フィルタ。
 var ADV_LIST_FIELDS = ['myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
 
 // 自機コストの選択肢（固定4種）。
@@ -67,11 +89,13 @@ var COST_OPTIONS = [
   { value: '2000', label: '2000' }, { value: '1500', label: '1500' },
 ];
 
-function FilterForm({ filters, options, onField, onReset, resultCount }) {
-  var openRef = useState(false);
-  var open = openRef[0], setOpen = openRef[1];
-  var active = hasActiveFilters(filters);
-  // 詳細設定に条件が入っていれば初期表示は開く。
+var ENEMY_MODE_OPTIONS = [{ value: 'and', label: 'すべて含む' }, { value: 'or', label: 'どれかを含む' }];
+var NAME_SCOPE_OPTIONS = [{ value: 'both', label: '両方' }, { value: 'ally', label: '相方' }, { value: 'enemy', label: '相手' }];
+var RESULT_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'win', label: '勝利' }, { value: 'loss', label: '敗北' }];
+
+// 絞り込みの入力欄。条件はその場で filters に反映する。
+function FilterFields({ filters, options, onField }) {
+  // 詳細な条件に条件が入っていれば初期表示は開く。
   var advActive = ADV_FIELDS.some(function (k) { return filters[k] !== '' && filters[k] != null; })
     || ADV_LIST_FIELDS.some(function (k) { return filters[k] && filters[k].length; });
   var advOpenRef = useState(advActive);
@@ -80,17 +104,11 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
   var dateOpenRef = useState(false);
   var dateOpen = dateOpenRef[0], setDateOpen = dateOpenRef[1];
 
-  return html`<div class="panel search-filter-panel" data-ui="search-filter">
-    <button data-ui="search-filter-toggle" class=${'search-filter-head' + (open ? ' open' : '')}
-      onClick=${function () { setOpen(!open); }} aria-expanded=${open}>
-      <span class="search-filter-title"><span class="dot" />絞り込み条件${!open && active && html`<span class="search-filter-badge">適用中</span>`}</span>
-      <span class="search-chevron" aria-hidden="true"></span>
-    </button>
-    ${open && html`<div class="search-form">
+  return html`<div class="search-form">
       <div class="search-field search-field-wide">
         <label class="search-label">期間</label>
         <${Dropdown} value=${filters.playDays} placeholder="全データ"
-          options=${Object.keys(PERIOD_DAYS).map(function (k) { return { value: k, label: PERIOD_DAYS[k] + '日' }; })}
+          options=${Object.keys(PERIOD_DAYS).map(function (k) { return { value: k, label: '直近' + PERIOD_DAYS[k] + '日' }; })}
           onChange=${function (v) { onField('playDays', v); }} />
       </div>
 
@@ -104,58 +122,46 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
         <${MsMulti} values=${filters.partnerMsList} options=${options.partners}
           onChange=${function (vs) { onField('partnerMsList', vs); }} />
       </div>
-      <div class="search-field">
+      <div class="search-field search-field-wide">
         <div class="search-label search-label-row">
           <span>敵機（複数選択可）</span>
-          <span class="search-andor">
-            ${['and', 'or'].map(function (mode) {
-              return html`<button type="button" class=${'search-andor-btn' + (filters.enemyMsMode === mode ? ' active' : '')}
-                onClick=${function () { onField('enemyMsMode', mode); }}>${mode.toUpperCase()}</button>`;
-            })}
-          </span>
+          <${ToggleGroup} ui="search-enemy-mode" label="敵機の絞り方" options=${ENEMY_MODE_OPTIONS} value=${filters.enemyMsMode}
+            onChange=${function (v) { onField('enemyMsMode', v); }} />
         </div>
         <${MsMulti} values=${filters.enemyMsList} options=${options.enemies}
           onChange=${function (vs) { onField('enemyMsList', vs); }} />
       </div>
 
-      <div class="search-field">
+      <div class="search-field search-field-wide">
         <div class="search-label search-label-row">
           <span>プレイヤー名（部分一致）</span>
-          <span class="search-andor">
-            ${[['both', '両方'], ['ally', '相方'], ['enemy', '相手']].map(function (o) {
-              return html`<button type="button" class=${'search-andor-btn' + (filters.playerNameScope === o[0] ? ' active' : '')}
-                onClick=${function () { onField('playerNameScope', o[0]); }}>${o[1]}</button>`;
-            })}
-          </span>
+          <${ToggleGroup} ui="search-name-scope" label="プレイヤー名の範囲" options=${NAME_SCOPE_OPTIONS} value=${filters.playerNameScope}
+            onChange=${function (v) { onField('playerNameScope', v); }} />
         </div>
         <${Autocomplete} value=${filters.playerName} placeholder="名前の一部を入力"
           options=${options.playerNames.map(function (o) { return o.name; })}
           onChange=${function (v) { onField('playerName', v); }} />
       </div>
 
-      <div class="search-field">
+      <div class="search-field search-field-wide">
         <label class="search-label">勝敗</label>
-        <div class="lens-toggle">
-          ${[['all', '全て'], ['win', '勝利'], ['loss', '敗北']].map(function (o) {
-            return html`<button class=${'lens-btn' + (filters.result === o[0] ? ' active' : '')}
-              onClick=${function () { onField('result', o[0]); }}>${o[1]}</button>`;
-          })}
-        </div>
+        <${ToggleGroup} ui="search-winloss" label="勝敗" options=${RESULT_OPTIONS} value=${filters.result}
+          onChange=${function (v) { onField('result', v); }} />
       </div>
 
       <div class="search-adv">
         <button type="button" class=${'search-adv-toggle' + (advOpen ? ' open' : '')}
           onClick=${function () { setAdvOpen(!advOpen); }} aria-expanded=${advOpen}>
-          <span>詳細設定${!advOpen && advActive && html`<span class="search-filter-badge">適用中</span>`}</span>
+          <span>詳細な条件${!advOpen && advActive && html` <${Chip} active ui="search-adv-applied">適用中</${Chip}>`}</span>
           <span class="search-chevron" aria-hidden="true"></span>
         </button>
         ${advOpen && html`<div class="search-adv-grid">
           <div class="search-field search-field-wide">
-            <label class="search-label">期間（カスタム指定）</label>
+            <label class="search-label">期間（日付を指定）</label>
             <button type="button" data-ui="date-trigger" class=${'panel-select-trigger search-date-trigger' + (dateOpen ? ' open' : '')}
               onClick=${function () { setDateOpen(!dateOpen); }} aria-expanded=${dateOpen}>
               <span class="panel-select-label">${filters.dateFrom
-                ? esc(filters.dateFrom + ' 〜 ' + (filters.dateTo || '…'))
+                ? filters.dateFrom + ' 〜 ' + (filters.dateTo || '…')
                 : '-'}</span>
               <span class="period-arrow">${dateOpen ? '▲' : '▼'}</span>
             </button>
@@ -205,13 +211,19 @@ function FilterForm({ filters, options, onField, onReset, resultCount }) {
             onMin=${function (v) { onField('burstsMin', v); }} onMax=${function (v) { onField('burstsMax', v); }} />
         </div>`}
       </div>
+    </div>`;
+}
 
-      <div class="search-form-actions">
-        <span class="search-count">${resultCount}件ヒット</span>
-        ${active && html`<button class="search-reset" onClick=${onReset}>条件をクリア</button>`}
-      </div>
-    </div>`}
-  </div>`;
+// 絞り込みの全画面シート。条件はその場で一覧に反映し、「結果を見る」で閉じる。
+function FilterSheet({ filters, options, total, onField, onReset, onClose }) {
+  var head = html`<button type="button" class="search-link" data-ui="search-filter-clear" onClick=${onReset}>クリア</button>
+    <h2>絞り込み</h2>
+    <button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${onClose}>閉じる</button>`;
+  var foot = html`<span class="search-foot-count">${total}試合が該当</span>
+    <button type="button" class="search-apply" data-ui="search-filter-apply" onClick=${onClose}>結果を見る</button>`;
+  return html`<${Layer} ui="search-filter-sheet" footUi="search-filter-foot" label="絞り込み" head=${head} foot=${foot} onClose=${onClose}>
+    <${FilterFields} filters=${filters} options=${options} onField=${onField} />
+  </${Layer}>`;
 }
 
 // 並べ替え中の指標を一覧カードにも小さく出すためのラベル。SORT_OPTIONSと二重管理しないよう流用する。
@@ -530,6 +542,8 @@ export function SearchView({ matches, msImages }) {
   var pageSize = pageSizeRef[0], setPageSize = pageSizeRef[1];
   var detailRef = useState(null);
   var detail = detailRef[0], setDetail = detailRef[1];
+  var sheetRef = useState(false);
+  var sheetOpen = sheetRef[0], setSheetOpen = sheetRef[1];
 
   var options = useMemo(function () { return collectMsOptions(matches); }, [matches]);
 
@@ -563,9 +577,20 @@ export function SearchView({ matches, msImages }) {
   var pageItems = filtered.slice(start, start + pageSize);
   function onPageSize(n) { setPageSize(n); setPage(1); }
 
+  var labels = appliedFilterLabels(filters);
+
   return html`<div class="search-view">
-    <${FilterForm} filters=${filters} options=${options}
-      onField=${onField} onReset=${onReset} resultCount=${total} />
+    <div class="search-toolbar" data-ui="search-filter">
+      <div class="search-toolbar-row">
+        <${Chip} ui="search-filter-toggle" expanded=${sheetOpen} active=${labels.length > 0} onClick=${function () { setSheetOpen(true); }}>${labels.length ? '絞り込み（' + labels.length + '件適用中）' : '絞り込み'}</${Chip}>
+        ${hasActiveFilters(filters) && html`<button type="button" class="search-link" data-ui="search-clear" onClick=${onReset}>条件をクリア</button>`}
+      </div>
+      ${labels.length > 0 && html`<div class="search-applied-list">
+        ${labels.map(function (l) { return html`<${Chip} ui="search-applied">${l}</${Chip}>`; })}
+      </div>`}
+    </div>
+    ${sheetOpen && html`<${FilterSheet} filters=${filters} options=${options} total=${total}
+      onField=${onField} onReset=${onReset} onClose=${function () { setSheetOpen(false); }} />`}
 
     <div class="panel">
       <div class="search-result-head">

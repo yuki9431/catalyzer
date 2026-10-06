@@ -9,6 +9,9 @@ var TABBAR_ITEM = '[data-ui="tabbar-item"]';
 var CURRENT = TABBAR_ITEM + '[aria-current="page"]';
 function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
 var OPEN_SEARCH = [goTab('試合検索')];
+var TABBAR = '[data-ui="tabbar"]';
+var SHEET = '[data-ui="search-filter-sheet"]';
+var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
 var COLLAPSED = ['[data-ui="topbar"][data-collapsed="true"]'];
 var EXPANDED = ['[data-ui="topbar"][data-collapsed="false"]'];
 var FILTERS = [['[data-ui="period-trigger"]'], ['[data-ui="ms-trigger"]'], ['[data-ui="lens-toggle"] button', '全体']];
@@ -43,12 +46,20 @@ export var SCREENS = [
   { id: 'dropdown-ms', viewport: D, full: false, start: 'report', ops: [{ click: ['[data-ui="ms-trigger"]'] }],
     required: [['[data-ui="ms-panel"]'], ['[data-ui="ms-item"]', null, 2]] },
   { id: 'search', viewport: D, full: true, start: 'report', ops: OPEN_SEARCH,
-    required: [[CURRENT, '試合検索'], REANALYZE_BTN, ['[data-ui="search-filter"]'], ['[data-ui="search-result"]', null, 2]] },
+    required: [[CURRENT, '試合検索'], REANALYZE_BTN, ['[data-ui="search-filter-toggle"]', '絞り込み'], ['[data-ui="search-result"]', null, 2]] },
   { id: 'dropdown-search-filter', viewport: D, full: false, start: 'report',
-    ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-filter"] [data-ui="select-trigger"]'] }]),
+    ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: [SHEET + ' [data-ui="select-trigger"]'] }]),
     required: [['[data-ui="select-panel"]']] },
   { id: 'match-detail', viewport: D, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }, { click: ['[data-ui="match-timeline-toggle"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
     required: [['[data-ui="match-detail"] [data-ui="match-score-table"]'], ['[data-ui="gantt-bar"]']] },
+  { id: 'mobile-search-filter', viewport: M, full: false, start: 'report', ops: OPEN_FILTER,
+    required: [[SHEET + ' h2', '絞り込み'], ['[data-ui="search-filter-foot"]', '27試合が該当'], ['[data-ui="search-filter-apply"]', '結果を見る'],
+      ['[data-ui="search-enemy-mode"] button', 'すべて含む'], ['[data-ui="search-enemy-mode"] button[aria-pressed="true"]', 'どれかを含む'], ['[data-ui="search-winloss"] button[aria-pressed="true"]', '勝利']],
+    inview: [['[data-ui="search-filter-apply"]'], ['[data-ui="search-filter-clear"]'], ['[data-ui="sheet-close"]']], outview: [[TABBAR]],
+    tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button'] },
+  { id: 'mobile-search-applied', viewport: M, full: false, start: 'report', ops: OPEN_FILTER.concat([{ click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }]),
+    required: [['[data-ui="search-applied"]', '勝敗: 勝利'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）'], ['[data-ui="search-clear"]', '条件をクリア']],
+    absent: [[SHEET]], tap: ['[data-ui="search-filter-toggle"]', '[data-ui="search-clear"]'] },
   { id: 'classrecord', viewport: D, full: true, start: 'report',
     ops: [goTab('総合戦歴')],
     required: [[CURRENT, '総合戦歴'], REANALYZE_BTN, ['[data-ui="summary-hero"]', '通算勝率'], ['h2', 'クラスマッチG戦績'], ['h2', '通算記録']] },
