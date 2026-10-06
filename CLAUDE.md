@@ -103,7 +103,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
-- `internal/autorefresh/` — 自動更新（最終アクセスから30分、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
+- `internal/autorefresh/` — 自動更新（最終アクセスから10分、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
 - `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）

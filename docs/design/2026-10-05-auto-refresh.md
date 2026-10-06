@@ -1,4 +1,4 @@
-# 設計: 自動更新(最終アクセスから30分間、5分おきに新しい試合を取り込む)
+# 設計: 自動更新(最終アクセスから10分間、5分おきに新しい試合を取り込む)
 
 - ステータス: draft
 - 日付: 2026-10-05
@@ -78,7 +78,7 @@
 | session_token | string | 最後に touch した端末の sessions doc ID。空なら停止中 | enable / touch / Job(失効時に空にする) |
 | passphrase_fp | string | 有効化時点の合言葉ハッシュの指紋(§3.4)。開放モードでは `open` | enable |
 | last_access | timestamp | 最終アクセス | enable / touch |
-| active_until | timestamp | last_access + 30 分。**tick の対象判定に使う唯一のクエリ列**。停止時はゼロ値 | enable / touch / Job |
+| active_until | timestamp | last_access + 10 分(当初 30 分。§11)。**tick の対象判定に使う唯一のクエリ列**。停止時はゼロ値 | enable / touch / Job |
 | lease_until | timestamp | 排他の期限。ゼロ値なら空き | Job / 手動分析 |
 | lease_owner | string | `job:<CLOUD_RUN_EXECUTION>` または `manual:<jobID>` | 同上 |
 | last_run_at | timestamp | 最後に Job が処理した時刻 | Job |
@@ -225,7 +225,7 @@
 package autorefresh
 
 const (
-    ActiveWindow   = 30 * time.Minute
+    ActiveWindow   = 10 * time.Minute
     jobLeaseTTL    = 5 * time.Minute
     ManualLeaseTTL = 60 * time.Minute // 完了時に解放する。初回の全件取得より長くとる(PR #467 レビュー)
     perUserTimeout = 200 * time.Second
@@ -500,3 +500,4 @@ U3:
 - app の Job・Scheduler は config `autoRefreshEnabled`(prod のみ true)で作る。Job の `APP_ENV` は不要になり入れていない
 - デプロイ順(§7)の stg 手順は prod に読み替える(合言葉は prod にのみ設定)。§9.2 の app preview は `STACK=prod`(stg は無効なので Service の `~` のみ)
 - §9.2 の「新しいモジュールを足していない」許可リストに `google.golang.org/grpc`(indirect→direct の昇格のみ)を足す
+- 継続時間(`ActiveWindow`)を 30 分から 10 分に短縮(2026-10-07 ユーザー判断)。touch のたびに延びるので遊んでいる間は止まらず、最後のアクセス後の空振りが 6 回から 2 回に減る
