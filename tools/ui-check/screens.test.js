@@ -130,7 +130,7 @@ describe('screens', () => {
   });
 
   it('試合詳細の画面は試合経過の終了ラベルを要求する', () => {
-    ['match-detail', 'mobile-match-detail'].forEach(function (id) {
+    ['match-detail', 'mobile-match-detail', 'mobile-match-gantt'].forEach(function (id) {
       assert.ok(get(id).required.some(function (r) { return r[0] === '[data-ui="gantt-end"]' && r[1] === '終了'; }), id);
     });
   });
