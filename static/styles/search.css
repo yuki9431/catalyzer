@@ -75,8 +75,8 @@
 .search-item:hover { border-color: var(--accent); }
 .search-item:active { transform: scale(0.995); }
 .search-item-top { display: flex; align-items: center; gap: 10px; }
-.search-item-date { color: var(--muted); font-size: 0.875rem; }
-.search-item-metric { margin-left: auto; color: var(--accent-2); font-size: 0.875rem; font-weight: 600; }
+.search-item-date { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
+.search-item-metric { color: var(--accent-2); font-size: 0.875rem; font-weight: 600; }
 .search-item-battle { display: flex; align-items: center; gap: 10px; }
 .search-ms-imgs { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: center; }
 .search-ms-imgs.enemy { justify-content: flex-end; }
