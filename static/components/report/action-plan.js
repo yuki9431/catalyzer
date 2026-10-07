@@ -50,7 +50,7 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
   var last = marks[marks.length - 1];
   var slots = [];
   for (var j = 0; j < FOCUS_SLOTS; j++) slots.push(marks[j] || null);
-  return html`<div class=${'focus-card' + (complete || (last && last.ok) ? ' done' : '')}>
+  return html`<div class=${'focus-card' + (complete || (last && last.ok) ? ' done' : '')} data-ui="focus-card">
     <div class=${'focus-label' + (complete ? ' complete' : '')}>${complete ? '🎉 ミッション完了' : '挑戦中のミッション'}</div>
     <div class="focus-title">${focus.title}</div>
     <${WinRateGain} from=${focus.win_rate_from} to=${focus.win_rate_to} />
@@ -61,6 +61,10 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
         : html`<span><strong>${achieved}戦達成</strong>（${FOCUS_SLOTS}戦中${marks.length}戦終了）</span>`}
       ${!complete && streak > 0 && html`<span class="focus-streak">${streak}戦連続達成中</span>`}
     </div>
+    ${marks.length > 0 && html`<div class="focus-winrate" data-ui="focus-winrate">
+      <span>達成時の勝率 <strong>${pct(ev.achieved_win_rate)}</strong>（${achieved}戦）</span>
+      <span>未達成時の勝率 <strong>${pct(ev.missed_win_rate)}</strong>（${marks.length - achieved}戦）</span>
+    </div>`}
     <div class="focus-marks">${slots.map(function (x, k) {
       if (!x) return html`<span class="focus-mark empty">${k + 1}</span>`;
       return html`<span class=${'focus-mark' + (x.ok ? ' ok' : '')} title=${x.date}>${x.ok ? '✓' : '✗'}</span>`;

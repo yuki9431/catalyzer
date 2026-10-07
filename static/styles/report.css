@@ -37,6 +37,8 @@
 .focus-progress { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.875rem; }
 .focus-progress strong { color: var(--accent); }
 .focus-streak { color: var(--good); font-weight: 700; }
+.focus-winrate { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.875rem; color: var(--muted); margin-top: 4px; }
+.focus-winrate strong { color: var(--text); }
 .focus-condition { font-size: 0.875rem; color: var(--muted); margin-top: 4px; }
 .focus-caption { font-size: 0.875rem; color: var(--muted); margin-top: 10px; }
 .focus-marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }

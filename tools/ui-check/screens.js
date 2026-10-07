@@ -55,6 +55,8 @@ export var SCREENS = [
     required: [['#loginForm'], ['#error [data-ui="notice"][role="alert"]', 'セッションが見つかりません'], ['#error [data-ui="notice-action"]', 'ログイン']] },
   { id: 'report-overview', viewport: D, full: true, start: 'report', ops: [],
     required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体'], REANALYZE_BTN].concat(SUMMARY('overview')) },
+  { id: 'mobile-report-mission', viewport: M, full: false, start: 'report-mission', ops: [{ scroll: ['[data-ui="focus-card"]'] }],
+    required: [['[data-ui="focus-card"]', '挑戦中のミッション'], ['[data-ui="focus-winrate"]', '達成時の勝率'], ['[data-ui="focus-winrate"]', '未達成時の勝率']], inview: [['[data-ui="focus-winrate"]']] },
   report('report-playstyle', 'playstyle', ['被撃墜と勝率', 'ダメージ貢献率']),
   report('report-burst', 'burst', ['覚醒回数と勝率', '覚醒タイミング']),
   report('report-matchup', 'matchup', ['敵機との相性', '僚機との相性'], [['details[open] table'], ['[data-ui="panel"] [data-ui="row-list"]', null, 3]], [{ click: ['summary', '表で見る'] }]),

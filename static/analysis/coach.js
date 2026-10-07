@@ -382,19 +382,27 @@ export function isValidGoal(goal) {
   return true;
 }
 
-// 選択したミッション（goal）の達成状況を古い順に最大 limit 件で返す: { total, achieved, streak（末尾からの連続達成）, marks: [{date, ok}] }
+// 選択したミッション（goal）の達成状況を古い順に最大 limit 件で返す: { total, achieved, streak（末尾からの連続達成）, marks: [{date, ok, win}], 達成時/未達成時の勝率（試合が無ければ null） }
 export function evaluateGoal(goal, matches, limit) {
   var judge = isValidGoal(goal) && GOAL_JUDGES[goal.key];
   var marks = [];
   if (judge) {
     sortByDate(matches || []).forEach(function (m) {
       var ok = judge(goal, m);
-      if (ok !== null) marks.push({ date: m.date, ok: ok });
+      if (ok !== null) marks.push({ date: m.date, ok: ok, win: !!m.win });
     });
   }
   if (limit) marks = marks.slice(0, limit);
   var achieved = marks.filter(function (x) { return x.ok; }).length;
   var streak = 0;
   for (var i = marks.length - 1; i >= 0 && marks[i].ok; i--) streak++;
-  return { total: marks.length, achieved: achieved, streak: streak, marks: marks };
+  return {
+    total: marks.length, achieved: achieved, streak: streak, marks: marks,
+    achieved_win_rate: markWinRate(marks, true), missed_win_rate: markWinRate(marks, false),
+  };
+}
+
+function markWinRate(marks, ok) {
+  var xs = marks.filter(function (x) { return x.ok === ok; });
+  return xs.length ? round1(winRate(xs)) : null;
 }

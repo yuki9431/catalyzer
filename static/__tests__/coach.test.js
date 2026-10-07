@@ -268,10 +268,21 @@ describe('evaluateGoal', function () {
     assert.deepEqual(evaluateGoal({ key: 'deaths' }, ms), {
       total: 4, achieved: 3, streak: 2,
       marks: [
-        { date: dateAt(0), ok: true }, { date: dateAt(1), ok: false },
-        { date: dateAt(2), ok: true }, { date: dateAt(3), ok: true },
+        { date: dateAt(0), ok: true, win: true }, { date: dateAt(1), ok: false, win: true },
+        { date: dateAt(2), ok: true, win: true }, { date: dateAt(3), ok: true, win: true },
       ],
+      achieved_win_rate: 100, missed_win_rate: 100,
     });
+  });
+
+  it('splits the win rate by achieved and missed matches', function () {
+    var rows = [[1, true], [1, false], [1, true], [2, false], [2, false]];
+    var ms = rows.map(function (r, i) { return makeMatch({ date: dateAt(i), deaths: r[0], win: r[1] }); });
+    var ev = evaluateGoal({ key: 'deaths' }, ms);
+    assert.deepEqual([ev.achieved_win_rate, ev.missed_win_rate], [66.7, 0]);
+    // 片側に試合が無ければ null（0% と区別する）
+    ev = evaluateGoal({ key: 'deaths' }, ms.slice(0, 3));
+    assert.deepEqual([ev.achieved_win_rate, ev.missed_win_rate], [66.7, null]);
   });
 
   it('judges consecutive falls and deaths during burst per match', function () {
@@ -305,7 +316,7 @@ describe('evaluateGoal', function () {
   });
 
   it('returns an empty result for a missing goal and caps marks with limit', function () {
-    assert.deepEqual(evaluateGoal(undefined, [makeMatch()]), { total: 0, achieved: 0, streak: 0, marks: [] });
+    assert.deepEqual(evaluateGoal(undefined, [makeMatch()]), { total: 0, achieved: 0, streak: 0, marks: [], achieved_win_rate: null, missed_win_rate: null });
     var ms = [1, 1, 2, 1].map(function (d, i) { return makeMatch({ date: dateAt(i), deaths: d }); });
     var ev = evaluateGoal({ key: 'deaths' }, ms, 3);
     assert.deepEqual([ev.total, ev.achieved, ev.streak], [3, 2, 0]);
