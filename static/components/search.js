@@ -308,7 +308,7 @@ function Timeline({ match, msImages }) {
   function bar(a) {
     var m = GANTT_BAR[a.action];
     var left = pct(a.action_start_sec);
-    var w = Math.max(0.6, pct(a.action_end_sec) - left); // 極小でも視認できる最小幅
+    var w = Math.min(Math.max(0.6, pct(a.action_end_sec) - left), 100 - left); // 極小でも視認でき、右端は越えない
     var barEl = html`<span data-ui="gantt-bar" class=${'gantt-bar gantt-' + m.cls} style=${'left:' + left + '%;width:' + w + '%'}></span>`;
     // 発動系は「発動の瞬間＝菱形」＋「その後の発動中＝色付きバー」の両方を描く。
     if (m.kind === 'diamond') {
@@ -319,7 +319,7 @@ function Timeline({ match, msImages }) {
   // 30秒ごとに点線、1分ごとに秒数ラベル。終了ラベルに近い目盛りは出さない。
   var grid = [];
   for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
-  var labels = grid.filter(function (g) { return g.major && raw - g.sec >= 45; });
+  var labels = grid.filter(function (g) { return g.major && (raw - g.sec) / raw >= 0.3; }); // 終了ラベルと重ならない割合
 
   return html`<div class="gantt" data-ui="gantt">
     <div class="gantt-rows">
@@ -328,7 +328,7 @@ function Timeline({ match, msImages }) {
           return html`<span class=${'gantt-gridline' + (g.major ? ' gantt-gridline-major' : '')} style=${'left:' + pct(g.sec) + '%'}></span>`;
         })}
         <span class="gantt-gridline gantt-bound" style="left:0%"></span>
-        <span class="gantt-gridline gantt-bound" style="left:100%"></span>
+        <span class="gantt-gridline gantt-bound" style="left:calc(100% - 1px)"></span>
       </div>
       ${rows.map(function (r, i) {
         var acts = r.actions || [];
@@ -359,7 +359,7 @@ function Timeline({ match, msImages }) {
       ${labels.map(function (g) {
         return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${g.sec}</span>`;
       })}
-      <span class="gantt-tick gantt-tick-end" data-ui="gantt-end" style="left:100%"><small>終了</small> ${raw}秒</span>
+      <span class="gantt-tick gantt-tick-end" data-ui="gantt-end" style="left:100%">${match.game_end_sec > 0 && html`<small>終了</small> `}${Math.round(raw)}秒</span>
     </div>
     <div class="gantt-legend">
       ${GANTT_LEGEND.map(function (l) {

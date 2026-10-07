@@ -7,7 +7,7 @@
 .gantt-gridline-major { border-left-color: var(--gantt-grid-major); }
 .gantt-gridline.gantt-bound { border-left: 1px solid var(--gantt-grid-major); }
 .gantt-row { display: flex; align-items: center; gap: 8px; padding: 8px 6px; border-bottom: 1px solid var(--line); }
-.gantt-row:first-child { border-top: 1px solid var(--line); }
+.gantt-grid + .gantt-row { border-top: 1px solid var(--line); }
 .gantt-row.gantt-teamsep { border-bottom: 2px solid var(--muted); }
 .gantt-ally { background: var(--gantt-team-ally); }
 .gantt-enemy { background: var(--gantt-team-enemy); }
