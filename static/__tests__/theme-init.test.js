@@ -92,6 +92,13 @@ describe('theme-init', () => {
     assert.strictEqual(META.light, bg(':root[data-theme="light"] {'));
   });
 
+  it('shell.js の THEME_OPTIONS の value 列は CHOICES と一致する', () => {
+    const m = read('../components/shell.js').match(/THEME_OPTIONS = \[(.*?)\];/);
+    assert.ok(m);
+    const values = [...m[1].matchAll(/value: '([a-z]+)'/g)].map((x) => x[1]);
+    assert.deepStrictEqual(values, Array.from(load().api.CHOICES));
+  });
+
   it('index.html と parts.html は theme-init.js を最初の stylesheet より前に同期で読み、theme-color は1本', () => {
     ['../index.html', '../../tools/ui-check/preview/parts.html'].forEach((f) => {
       const html = read(f);

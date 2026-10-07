@@ -21,6 +21,7 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
 var TAP_FORM = TAP.concat(['[data-ui="more"] input']);
 var AUTO_INPUT = '[data-ui="auto-refresh"] input#autoRefreshPassphrase';
+var THEME_BTN = '[data-ui="theme-toggle"] button';
 var SCOPE = ['[data-ui="report-scope"]', '全期間・60試合'];
 var AUTO_SUBMIT = '[data-ui="auto-refresh"] button';
 
@@ -131,7 +132,7 @@ export var SCREENS = [
   { id: 'mobile-more', viewport: M, full: true, start: 'report',
     ops: [goTab('試合検索'), { wait: ['[data-ui="search-filter"]'] }, goTab('総合戦歴'), { wait: ['h2', '通算記録'] }, goTab('その他'), { wait: ['[data-ui="more"]'] },
       goTab('レポート'), { wait: ['[data-ui="tab"][aria-selected="true"]', '総合'] }, goTab('その他'), { reload: true }],
-    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
+    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], [THEME_BTN + '[aria-pressed="true"]', '端末に合わせる'], [THEME_BTN, null, 3], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
   { id: 'mobile-more-confirm', viewport: M, full: true, start: 'report', ops: [goTab('その他'), { click: ['[data-ui="more"] button', '試合データを取得し直す'] }],
     required: [['[data-ui="more"] button[aria-expanded="true"]', '試合データを取得し直す'], ['[data-ui="refetch-confirm"] button', '取得し直す'], ['[data-ui="refetch-confirm"] button', 'やめる']], tap: TAP },
   { id: 'mobile-more-auto-refresh', viewport: M, full: true, start: 'report',
@@ -140,6 +141,12 @@ export var SCREENS = [
   { id: 'mobile-more-auto-refresh-error', viewport: M, full: true, start: 'report',
     ops: [goTab('その他'), { type: [AUTO_INPUT, 'wrong'] }, { click: [AUTO_SUBMIT, '有効にする'] }, { wait: ['[data-ui="notice"]', '合言葉が違います'] }], expectConsole: ['status of 403'],
     required: [[CURRENT, 'その他'], ['[data-ui="auto-refresh"] [data-ui="notice"][role="alert"]', '合言葉が違います'], ['[data-ui="auto-refresh"] button', '有効にする']], tap: TAP_FORM },
+  { id: 'mobile-theme-light', viewport: M, full: true, start: 'report',
+    ops: [{ wait: SCOPE }, goTab('その他'), { wait: ['[data-ui="more"]'] }, { click: [THEME_BTN, 'ライト'] }, { wait: [THEME_BTN + '[aria-pressed="true"]', 'ライト'] }, goTab('レポート'), { wait: SCOPE }],
+    required: [['html[data-theme="light"]'], ACTIVE_TAB, SCOPE] },
+  { id: 'mobile-theme-dark-reload', viewport: M, full: true, start: 'report',
+    ops: [{ wait: SCOPE }, goTab('その他'), { wait: ['[data-ui="more"]'] }, { click: [THEME_BTN, 'ダーク'] }, { reload: true }, { wait: [THEME_BTN + '[aria-pressed="true"]', 'ダーク'] }, goTab('レポート'), { wait: SCOPE }],
+    required: [['html[data-theme="dark"]'], ACTIVE_TAB, SCOPE] },
   { id: 'mobile-theme-os-switch', viewport: M, full: true, start: 'report', ops: [{ wait: SCOPE }, { click: ['[data-ui="tab"]', TABS.time] }, { wait: ['[data-ui="tab"][aria-selected="true"]', TABS.time] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [-3200] }, { colorScheme: ['light'] }, { wait: ['html[data-theme="light"]'] }],
     required: [['html[data-theme="light"]'], ['[data-ui="tab"][aria-selected="true"]', TABS.time], SCOPE] },
   { id: 'report-empty-period', viewport: M, full: false, start: 'report', clock: '2026-06-20T12:00:00+09:00', ops: EMPTY_OPS,
