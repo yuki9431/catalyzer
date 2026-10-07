@@ -22,6 +22,10 @@ describe('ganttTicks', () => {
     assert.strictEqual(labelOf(205, 120), 'all');
   });
 
+  it('閾値は 320px 幅と 720px 超の軸幅から決めた値', () => {
+    assert.deepStrictEqual(TICK_GAP, { narrow: 0.4, wide: 0.16 });
+  });
+
   it('境界: 残り割合が narrow/wide の下限ちょうどで切り替わる', () => {
     var rawN = 120 / (1 - TICK_GAP.narrow), rawW = 120 / (1 - TICK_GAP.wide);
     assert.strictEqual(labelOf(rawN + 0.01, 120), 'all');

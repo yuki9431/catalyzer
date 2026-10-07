@@ -1,7 +1,7 @@
 // 試合経過ガントの目盛りの純粋ロジック。import を持たない。
 
-// 終了ラベルと重ならない、終了までの残り割合の下限(narrow は 360px 幅、wide は 720px 超を想定)
-export var TICK_GAP = { narrow: 0.34, wide: 0.16 };
+// 終了ラベルと重ならない、終了までの残り割合の下限(narrow は 320px 幅、wide は 720px 超を想定)
+export var TICK_GAP = { narrow: 0.4, wide: 0.16 };
 
 // 30秒ごとの目盛りと表示用の終了秒。label: 'all'=常に表示 / 'wide'=広い画面だけ / null=出さない
 export function ganttTicks(raw) {
