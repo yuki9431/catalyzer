@@ -129,11 +129,10 @@ describe('screens', () => {
     });
   });
 
-  it('mobile-search-applied は適用中タグ・日付区切り・結果20件を要求し、絞り込みシートが無い', () => {
+  it('mobile-search-applied は適用中タグ・結果20件を要求し、絞り込みシートが無い', () => {
     var s = get('mobile-search-applied');
     var min = function (sel) { return (s.required.find(function (r) { return r[0] === sel; }) || [])[2]; };
     assert.strictEqual(min('[data-ui="search-result"]'), 20);
-    assert.ok(min('[data-ui="search-day"]') >= 6);
     assert.ok(s.absent.some(function (r) { return r[0].includes('search-filter-sheet'); }));
   });
 

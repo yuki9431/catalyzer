@@ -242,30 +242,48 @@ function playerName(n) {
   return (n || '').trim() || '—';
 }
 
-// 1試合1行。右端は日付順なら与ダメージ、他は並べ替え指標。クリックで詳細を開く。
-function ResultRow({ match, sortKey, onOpen }) {
-  var key = sortKey && sortKey !== 'date' ? sortKey : 'dmg_given';
-  var enemies = (match.opponent1_ms || '?') + ' / ' + (match.opponent2_ms || '?');
-  return html`<button type="button" class="search-row" data-ui="search-result" onClick=${function () { onOpen(match); }}>
-    <span class=${'search-row-res ' + (match.win ? 'win' : 'lose')}>${match.win ? '勝' : '敗'}</span>
-    <span class="search-row-name">${match.ms}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</span>
-    <span class="search-row-meta"><b>${match[key] != null ? Number(match[key]).toLocaleString('ja-JP') : '-'}</b>${METRIC_LABELS[key]}<br />${(match.date || '').slice(11, 16)}</span>
-    <span class="search-row-line">vs ${enemies}</span>
-    <span class="search-row-line">相方 ${playerName(match.partner_name)}・相手 ${playerName(match.opponent1_name)} / ${playerName(match.opponent2_name)}</span>
-  </button>`;
+// 機体サムネイル(画像が無ければ機体名)。遅延読み込みは ui-check が揺れるので使わない。
+function MsThumb({ name, msImages }) {
+  var nm = (name || '').trim();
+  var url = nm && msImages ? msImages[nm] : '';
+  var inner = url
+    ? html`<img class="search-ms-thumb" src=${url} alt=${nm} title=${nm} />`
+    : html`<span class="search-ms-thumb search-ms-thumb-text" title=${nm}>${nm || '?'}</span>`;
+  return html`<span class="search-ms-slot">${inner}</span>`;
 }
 
-// 結果一覧。日付が変わる行の前に日付区切りを入れる。
-function ResultList({ items, sortKey, onOpen }) {
-  var prev = '';
-  return html`<div class="search-list">
-    ${items.map(function (m) {
-      var day = (m.date || '').slice(0, 10);
-      var sep = day !== prev ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
-      prev = day;
-      return html`${sep}<${ResultRow} key=${m.match_id || m.date} match=${m} sortKey=${sortKey} onOpen=${onOpen} />`;
-    })}
-  </div>`;
+// 1試合分のサマリーカード。機体は画像で並べ、クリックで詳細を開く。
+function ResultItem({ match, msImages, sortKey, onOpen }) {
+  var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
+  return html`<button type="button" class="search-item" data-ui="search-result" onClick=${function () { onOpen(match); }}>
+    <div class="search-item-top">
+      <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
+      ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
+      <span class="search-item-date">${match.date}</span>
+      ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
+    </div>
+    <div class="search-item-battle">
+      <div class="search-ms-imgs self">
+        <${MsThumb} name=${match.ms} msImages=${msImages} />
+        <${MsThumb} name=${match.partner_ms} msImages=${msImages} />
+      </div>
+      <span class="search-item-vs" role="img" aria-label="VS"></span>
+      <div class="search-ms-imgs enemy">
+        <${MsThumb} name=${match.opponent1_ms} msImages=${msImages} />
+        <${MsThumb} name=${match.opponent2_ms} msImages=${msImages} />
+      </div>
+    </div>
+    <div class="search-item-namesrow">
+      <div class="search-item-names self">
+        <div class="search-name-line" title=${playerName(match.name)}>${playerName(match.name)}</div>
+        <div class="search-name-line" title=${playerName(match.partner_name)}>${playerName(match.partner_name)}</div>
+      </div>
+      <div class="search-item-names enemy">
+        <div class="search-name-line" title=${playerName(match.opponent1_name)}>${playerName(match.opponent1_name)}</div>
+        <div class="search-name-line" title=${playerName(match.opponent2_name)}>${playerName(match.opponent2_name)}</div>
+      </div>
+    </div>
+  </button>`;
 }
 
 // 公式「試合経過」風のガント式タイムライン（4人分・横棒）。
@@ -561,7 +579,11 @@ export function SearchView({ matches, msImages }) {
 
       ${total === 0
         ? html`<p class="search-empty">条件に一致する試合がありません。</p>`
-        : html`<${ResultList} items=${pageItems} sortKey=${sortKey} onOpen=${openDetail} />`}
+        : html`<div class="search-list">
+            ${pageItems.map(function (m) {
+              return html`<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} onOpen=${openDetail} />`;
+            })}
+          </div>`}
 
       ${totalPages > 1 && html`<div class="search-pager" data-ui="search-pager">
         <button class="search-page-btn" disabled=${curPage <= 1}
