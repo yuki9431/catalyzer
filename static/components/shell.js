@@ -1,6 +1,6 @@
 import { html, useState, useEffect, useLayoutEffect, useRef } from '../htm-preact-standalone.js';
 import { Panel } from './ui.js';
-import { RowList, Notice } from './parts.js';
+import { RowList, Notice, ToggleGroup } from './parts.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
 import { PULL_IDLE, pullStep, pullReady, BAR_SHOWN, nextBar } from '../lib/topbar.js';
 import { buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK } from '../lib/format.js';
@@ -95,6 +95,20 @@ function ShareArea({ shareData }) {
   </div>`;
 }
 
+// --- 設定: テーマ ---
+export var THEME_OPTIONS = [{ value: 'system', label: '端末に合わせる' }, { value: 'dark', label: 'ダーク' }, { value: 'light', label: 'ライト' }];
+
+// 保存と適用は theme-init.js(window.catalyzerTheme)が持つ。読み込めていなければ出さない
+function ThemeSettings() {
+  var api = window.catalyzerTheme;
+  var choiceRef = useState(api ? api.choice() : 'system'), choice = choiceRef[0], setChoice = choiceRef[1];
+  if (!api) return null;
+  return html`<div class="more-theme" data-ui="theme-setting">
+    <span class="more-theme-label">テーマ</span>
+    <${ToggleGroup} options=${THEME_OPTIONS} value=${choice} label="テーマ" ui="theme-toggle" onChange=${function (v) { api.set(v); setChoice(api.choice()); }} />
+  </div>`;
+}
+
 // --- 設定: 自動更新 ---
 // autoRefresh = { load(), set(enabled, passphrase), lastImportedAt() }(app.js から props で注入)。load/set は { status, body } を返し、通信失敗は status 0
 function AutoRefreshSettings({ autoRefresh }) {
@@ -175,6 +189,7 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
       <${ShareArea} shareData=${shareData} />
     </${Panel}>`}
     <${Panel} title="設定">
+      <${ThemeSettings} />
       <${AutoRefreshSettings} autoRefresh=${autoRefresh} />
     </${Panel}>
     <${Panel} title="データ">

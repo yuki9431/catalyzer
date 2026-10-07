@@ -8,6 +8,8 @@ body:has(.tabbar) .container { padding-bottom: calc(57px + env(safe-area-inset-b
 /* 免責は index.html の footer が唯一の置き場所。ログイン画面とその他画面だけに出す */
 body:has(.view-root:not(.view-more)) .disclaimer { display: none; }
 
+.more-theme { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.more-theme-label { font-size: 0.9375rem; font-weight: bold; }
 .more-lead { margin-bottom: 10px; color: var(--muted); font-size: 0.875rem; }
 .more-confirm { padding: 12px; background: var(--panel-2); border-top: 1px solid var(--line); }
 .more-confirm p { margin-bottom: 12px; font-size: 0.9375rem; }

@@ -4,6 +4,7 @@ import { clampMetric } from '../../analysis/stats.js';
 import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, esc, signed } from '../../lib/format.js';
 import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
+import { useThemeName } from '../chart-canvas.js';
 import { CompareRadar, SeasonChart, WinRateRowList } from '../charts.js';
 import { ActionPlanPanel } from './action-plan.js';
 
@@ -11,6 +12,7 @@ import { ActionPlanPanel } from './action-plan.js';
 // 全体・勝利時・敗北時を下のボタンで単一選択し、レーダーとテーブルを連動して切り替える
 // 軸はK/D比(頂点)→被ダメ(右)→EXダメ(下)→与ダメ(左)。勝率は分割で無意味なため含めない
 function BasicLensSection({ basic, pattern, lens }) {
+  useThemeName();
   if (!basic) return null;
   var cssVar = themeReader();
   if (!lens) lens = 'all';
@@ -91,6 +93,7 @@ function PartnerDropdown({ items, idx, onSelect }) {
 function FixedPartnerPanel({ fp, fpItems, lens }) {
   var idxRef = useState(0);
   var idx = idxRef[0], setIdx = idxRef[1];
+  useThemeName();
   var p = fpItems[idx];
   if (!p) return null;
   if (!lens) lens = 'all';
