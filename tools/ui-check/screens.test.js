@@ -110,6 +110,33 @@ describe('screens', () => {
     assert.ok(get('mobile-report-overview').absent.some(function (r) { return r[0] === '[data-ui="reanalyze-button"]'; }));
   });
 
+  it('mobile-search-back は「scrollBy 正→結果クリック→戻る」の順で、戻った後に結果先頭とページ送りが画面外', () => {
+    var s = get('mobile-search-back');
+    var idx = function (f) { return s.ops.findIndex(f); };
+    var sb = idx(function (o) { return o.scrollBy && o.scrollBy[0] > 0; });
+    var open = idx(function (o) { return o.click && o.click[0] === '[data-ui="search-result"]'; });
+    var back = idx(function (o) { return o.click && o.click[0] === '[data-ui="match-detail-back"]'; });
+    assert.ok(sb >= 0 && sb < open && open < back);
+    ['[data-ui="search-result"]', '[data-ui="search-pager"]'].forEach(function (sel) { assert.ok(s.outview.some(function (r) { return r[0] === sel; }), sel); });
+  });
+
+  it('試合詳細・絞り込みの全画面は下部タブバーを覆い、試合経過は常時表示', () => {
+    ['match-detail', 'mobile-match-detail', 'mobile-search-filter'].forEach(function (id) {
+      assert.ok(get(id).outview.some(function (r) { return r[0] === '[data-ui="tabbar"]'; }), id);
+    });
+    ['match-detail', 'mobile-match-detail'].forEach(function (id) {
+      assert.ok(get(id).absent.some(function (r) { return r[0] === '[data-ui="match-timeline-toggle"]'; }), id);
+    });
+  });
+
+  it('mobile-search-applied は適用中タグ・日付区切り・結果20件を要求し、絞り込みシートが無い', () => {
+    var s = get('mobile-search-applied');
+    var min = function (sel) { return (s.required.find(function (r) { return r[0] === sel; }) || [])[2]; };
+    assert.strictEqual(min('[data-ui="search-result"]'), 20);
+    assert.ok(min('[data-ui="search-day"]') >= 6);
+    assert.ok(s.absent.some(function (r) { return r[0].includes('search-filter-sheet'); }));
+  });
+
   it('analyze-partial は warn(role=status)・analyze-error と notice-session-expired は error(role=alert)の #error 通知を必須にする', () => {
     var has = function (id, role) { return get(id).required.some(function (r) { return r[0] === '#error [data-ui="notice"][role="' + role + '"]'; }); };
     assert.ok(has('analyze-partial', 'status'));

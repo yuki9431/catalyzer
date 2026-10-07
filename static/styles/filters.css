@@ -6,12 +6,6 @@
 .ms-topbar-item:hover { background: var(--panel-2); }
 .ms-topbar-item.active { color: var(--accent); background: var(--bg); font-weight: bold; }
 
-/* ===== Lens toggle ===== */
-.lens-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-.lens-btn { padding: 9px 16px; border: none; background: none; color: var(--muted); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.15s; width: auto; white-space: nowrap; }
-.lens-btn:hover { color: var(--text); }
-.lens-btn.active { background: var(--accent); color: var(--on-accent); }
-
 /* ===== Panel-inline dropdown (固定相方等) ===== */
 .panel-select-wrap { position: relative; margin-bottom: 14px; }
 .panel-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text); font-size: 0.9375rem; cursor: pointer; transition: all 0.2s; text-align: left; }

@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
+  appliedFilterLabels, sortDirLabel, sortLabel,
 } from '../analysis/search.js';
 
 function makeMatch(overrides) {
@@ -339,5 +340,81 @@ describe('SORT_OPTIONS', function () {
     SORT_OPTIONS.forEach(function (o) {
       assert.ok(o.key && o.label);
     });
+  });
+});
+
+describe('appliedFilterLabels', function () {
+  it('returns [] for empty filters', function () {
+    assert.deepEqual(appliedFilterLabels(emptyFilters()), []);
+    assert.deepEqual(appliedFilterLabels(null), []);
+  });
+  it('lists basic six items in order with wording', function () {
+    var f = emptyFilters();
+    f.result = 'win'; f.playDays = '30d'; f.myMsList = ['A', 'B', 'C']; f.partnerMsList = ['P'];
+    f.playerName = ' abc '; f.dateFrom = '2025-06-01';
+    assert.deepEqual(appliedFilterLabels(f), [
+      '期間: 直近30日', '自機: A ほか2', '僚機: P', 'プレイヤー名: abc', '勝敗: 勝利', '日付: 2025-06-01以降',
+    ]);
+  });
+  it('shows enemy mode only for 2+ enemies', function () {
+    var f = emptyFilters();
+    f.enemyMsList = ['X'];
+    assert.deepEqual(appliedFilterLabels(f), ['敵機: X']);
+    f.enemyMsList = ['X', 'Y']; f.enemyMsMode = 'and';
+    assert.deepEqual(appliedFilterLabels(f), ['敵機（すべて含む）: X ほか1']);
+    f.enemyMsMode = 'or';
+    assert.deepEqual(appliedFilterLabels(f), ['敵機（どれかを含む）: X ほか1']);
+  });
+  it('handles name scope and loss', function () {
+    var f = emptyFilters();
+    f.playerName = 'n'; f.playerNameScope = 'ally'; f.result = 'loss';
+    assert.deepEqual(appliedFilterLabels(f), ['プレイヤー名（相方）: n', '勝敗: 敗北']);
+    f.playerNameScope = 'enemy';
+    assert.equal(appliedFilterLabels(f)[0], 'プレイヤー名（相手）: n');
+    f.playerNameScope = 'both';
+    assert.equal(appliedFilterLabels(f)[0], 'プレイヤー名: n');
+  });
+  it('orders detail conditions', function () {
+    var f = emptyFilters();
+    f.enemyCostPairList = ['3000 + 3000', '3000 + 2500']; f.partnerCostList = [2000]; f.myCostList = [3000];
+    f.enemyTagName = ' タグ '; f.myTagList = ['T1'];
+    assert.deepEqual(appliedFilterLabels(f), [
+      '味方タッグ: T1', '相手タッグ: タグ', '自機コスト: 3000', '僚機コスト: 2000', '相手コスト編成: 3000 + 3000 ほか1',
+    ]);
+  });
+  it('formats date until', function () {
+    var f = emptyFilters(); f.dateTo = '2025-06-30';
+    assert.deepEqual(appliedFilterLabels(f), ['日付: 2025-06-30以前']);
+    f.dateFrom = '2025-06-01';
+    assert.deepEqual(appliedFilterLabels(f), ['日付: 2025-06-01〜2025-06-30']);
+  });
+  it('formats ranges incl. zero and fixed order', function () {
+    var f = emptyFilters();
+    f.burstsMin = '1'; f.exDmgMax = '0'; f.scoreMin = 100; f.scoreMax = 200;
+    f.deathsMax = 3; f.killsMin = '2'; f.dmgTakenMin = 500; f.dmgTakenMax = 800; f.dmgGivenMin = 0;
+    assert.deepEqual(appliedFilterLabels(f), [
+      '与ダメージ: 0以上', '被ダメージ: 500〜800', '撃墜数: 2以上', '被撃墜数: 3以下',
+      'スコア: 100〜200', 'EXダメージ: 0以下', '覚醒回数: 1以上',
+    ]);
+  });
+  it('ignores blank name, non-numeric range and unknown period', function () {
+    var f = emptyFilters();
+    f.playerName = '   '; f.dmgGivenMin = 'abc'; f.playDays = 'valueOf';
+    assert.deepEqual(appliedFilterLabels(f), []);
+    assert.equal(hasActiveFilters(f), true);
+  });
+});
+
+describe('sortDirLabel / sortLabel', function () {
+  it('switches wording by key', function () {
+    assert.equal(sortDirLabel('date', true), '新しい順');
+    assert.equal(sortDirLabel('date', false), '古い順');
+    assert.equal(sortDirLabel('kills', true), '大きい順');
+    assert.equal(sortDirLabel('kills', false), '小さい順');
+  });
+  it('builds trigger label and falls back to date', function () {
+    assert.equal(sortLabel('dmg_given', true), '与ダメージが大きい順');
+    assert.equal(sortLabel('date', false), '日付が古い順');
+    assert.equal(sortLabel('nope', true), '日付が新しい順');
   });
 });
