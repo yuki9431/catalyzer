@@ -3,22 +3,30 @@
 
 /* ===== Remember checkbox ===== */
 .remember-group { margin-bottom: 16px; }
-.remember-label { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 0.875rem; cursor: pointer; user-select: none; }
+.remember-label { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 0; color: var(--text); font-size: 0.875rem; cursor: pointer; user-select: none; }
 .remember-label input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
 .remember-check { width: 20px; height: 20px; border: 2px solid var(--line); border-radius: 5px; background: var(--bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
 .remember-label:hover .remember-check { border-color: var(--accent); }
 .remember-label input:checked + .remember-check { background: var(--accent); border-color: var(--accent); }
 .remember-label input:checked + .remember-check::after { content: ''; display: block; width: 5px; height: 10px; border: solid var(--on-accent); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) translateY(-1px); }
 .remember-label input:focus-visible + .remember-check { box-shadow: 0 0 0 2px var(--accent-2); }
-.info-icon { background: none; border: none; color: var(--accent); font-size: 1.125rem; cursor: pointer; padding: 0 4px; line-height: 1; width: auto; }
-.info-icon:hover { color: var(--accent-2); }
+
+/* ===== Remember info (折りたたみ) ===== */
+.remember-info { border-top: 1px solid var(--line); margin-top: 8px; }
+.remember-info > summary { display: flex; justify-content: space-between; align-items: center; min-height: 44px; cursor: pointer; color: var(--accent); font-size: 0.875rem; list-style: none; }
+.remember-info > summary::-webkit-details-marker { display: none; }
+.remember-info > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.remember-info[open] > summary::after { transform: rotate(-135deg); }
+.remember-info ul { margin: 0 0 8px; padding-left: 20px; color: var(--text-dim); font-size: 0.875rem; line-height: 1.7; }
+.remember-info li + li { margin-top: 4px; }
 
 /* ===== Modal ===== */
 .modal-backdrop { position: fixed; inset: 0; background: var(--scrim-strong); z-index: 300; display: flex; align-items: center; justify-content: center; overscroll-behavior: contain; }
 .modal-content { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; max-width: 400px; margin: 16px; box-shadow: var(--shadow-modal); }
 .modal-content p { color: var(--text); font-size: 0.875rem; line-height: 1.7; margin-bottom: 10px; }
-.modal-close { margin-top: 12px; padding: 10px 24px; border: none; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 0.9375rem; font-weight: bold; cursor: pointer; }
-.modal-close:hover { background: var(--accent-2); }
+
+/* ===== 通知の置き場(#error) ===== */
+.notice-slot { margin: 16px 0; }
 
 /* ===== Session expired banner ===== */
 .session-expired-banner { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 12px; margin-bottom: 16px; color: var(--warn-text); font-size: 0.875rem; text-align: center; }
