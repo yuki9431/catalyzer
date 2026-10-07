@@ -5,7 +5,7 @@ import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.j
 import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
 import { Notice } from './components/parts.js';
-import { progressView, prelimMessage } from './lib/progress.js';
+import { progressView } from './lib/progress.js';
 import { createRunLock } from './lib/runlock.js';
 import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
 import { userKeyOf } from './lib/userkey.js';
@@ -116,17 +116,16 @@ function showProgress(s) {
 function clearProgress() {
   document.getElementById('progressWrap').style.display = 'none';
   render(null, document.getElementById('statusSteps'));
-  render(null, document.getElementById('prelimNotice'));
 }
 
-// 失敗で終わっても取得済みの速報は捨てずに表示する(「速報を見る」を押す前でも)
+// 失敗で終わっても取得済みの速報は捨てずに表示する
 function keepPrelim(st) {
   if (st.rendered || !st.last) return;
   renderReport({ matches: st.last.matches }, st.last.user_key);
   st.rendered = true;
 }
 
-// 速報レポートの取り込み。レポート未表示(スケルトン中)は自動描画せず「速報を見る」を出し、押された後は自動で差し替える。ログアウト等で中断されたら false
+// 速報レポートの取り込み。ログアウト等で中断されたら false
 async function takePrelim(jobId, s, st) {
   if (!(s.logged_in && s.has_preliminary_report && s.preliminary_version > st.version)) return true;
   var res = await fetch('/result/' + jobId);
@@ -137,15 +136,8 @@ async function takePrelim(jobId, s, st) {
   if (data.user_key) saveMatchesToDB(data.user_key, data.matches, data.schema_version);
   st.version = s.preliminary_version;
   st.last = data;
-  var slot = document.getElementById('prelimNotice');
-  var show = function () {
-    renderReport({ matches: data.matches }, data.user_key);
-    st.shown = st.rendered = true;
-    render(null, slot);
-  };
-  if (st.shown) { show(); return true; }
-  var open = { label: '速報を見る', onClick: function () { if (activeJobId === jobId) show(); } };
-  render(html`<${Notice} tone="info" action=${open}><b>速報レポートを見られます</b><p>${prelimMessage(data.matches.length)}</p></${Notice}>`, slot);
+  renderReport({ matches: data.matches }, data.user_key);
+  st.rendered = true;
   return true;
 }
 
@@ -195,7 +187,7 @@ async function reanalyzeWithSession(auto) {
   hideNotice();
   clearProgress();
 
-  var st = { version: 0, shown: usedCache, rendered: false }; // 速報の状態(takePrelim が更新する)
+  var st = { version: 0, rendered: false }; // 速報の状態(takePrelim が更新する)
   var expired = false; // セッション失効でログインへ戻したとき、通知に「ログイン」ボタンを付ける
   var posted = false; // POST を投げたら失敗しても終了を記録する(再読み込みごとの再分析を防ぐ)
   var busyNotice = false;
@@ -504,7 +496,7 @@ async function analyze() {
   if (pageTitle) pageTitle.style.display = '';
 
   document.getElementById('loginForm').style.display = 'none';
-  var st = { version: 0, shown: false, rendered: false }; // 速報の状態(takePrelim が更新する)
+  var st = { version: 0, rendered: false }; // 速報の状態(takePrelim が更新する)
 
   var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
@@ -516,7 +508,6 @@ async function analyze() {
         renderReport({ matches: cachedMatches }, cachedKey);
         statusText.textContent = STATUS_MESSAGES.refreshing;
         usedCache = true;
-        st.shown = true;
       }
     } catch (e) {}
   }
