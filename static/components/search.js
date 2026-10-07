@@ -253,13 +253,13 @@ function MsThumb({ name, msImages }) {
 }
 
 // 1試合分のサマリーカード。機体は画像で並べ、クリックで詳細を開く。
-function ResultItem({ match, msImages, sortKey, onOpen }) {
+function ResultItem({ match, msImages, sortKey, timeOnly, onOpen }) {
   var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
-  return html`<button type="button" class="search-item" data-ui="search-result" onClick=${function () { onOpen(match); }}>
+  return html`<button type="button" class=${'search-item ' + (match.win ? 'win' : 'lose')} data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
-      <span class="search-item-date">${match.date}</span>
+      <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
     <div class="search-item-battle">
@@ -550,6 +550,7 @@ export function SearchView({ matches, msImages }) {
   var curPage = Math.min(page, totalPages);
   var start = (curPage - 1) * pageSize;
   var pageItems = filtered.slice(start, start + pageSize);
+  var byDate = sortKey === 'date';
   function onPageSize(n) { setPageSize(n); setPage(1); }
 
   var labels = appliedFilterLabels(filters);
@@ -580,8 +581,11 @@ export function SearchView({ matches, msImages }) {
       ${total === 0
         ? html`<p class="search-empty">条件に一致する試合がありません。</p>`
         : html`<div class="search-list">
-            ${pageItems.map(function (m) {
-              return html`<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} onOpen=${openDetail} />`;
+            ${pageItems.map(function (m, i) {
+              var day = (m.date || '').slice(0, 10);
+              var sep = byDate && (i === 0 || day !== (pageItems[i - 1].date || '').slice(0, 10))
+                ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
+              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} onOpen=${openDetail} />`;
             })}
           </div>`}
 

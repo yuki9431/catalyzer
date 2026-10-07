@@ -129,6 +129,11 @@ describe('screens', () => {
     });
   });
 
+  it('日付区切りは日付順の search で必須、指標順の mobile-search-sort では出ない', () => {
+    assert.ok(get('search').required.some(function (r) { return r[0] === '[data-ui="search-day"]'; }));
+    assert.ok(get('mobile-search-sort').absent.some(function (r) { return r[0] === '[data-ui="search-day"]'; }));
+  });
+
   it('mobile-search-applied は適用中タグ・結果20件を要求し、絞り込みシートが無い', () => {
     var s = get('mobile-search-applied');
     var min = function (sel) { return (s.required.find(function (r) { return r[0] === sel; }) || [])[2]; };
