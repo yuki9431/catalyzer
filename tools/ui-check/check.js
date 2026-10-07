@@ -154,10 +154,17 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'release', 'absentNow'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'release', 'absentNow', 'colorScheme'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
       if ((kind === 'scrollBy' || kind === 'pull') && typeof a[0] !== 'number') throw new InfraError(kind + ' の第1引数は数値');
       if (kind === 'absentNow') {
         if (await evalJs(countExpr(a[0], null))) return fail('在ってはいけない要素 ' + a[0]);
+        continue;
+      }
+      if (kind === 'colorScheme') {
+        if (!THEMES.includes(a[0])) throw new InfraError('不正な colorScheme: ' + a[0]);
+        await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: a[0] }] });
+        // 配色切替だけだと上部バーの backdrop-filter 層が古いまま残り角が1階調ずれるので、再レイアウトで描き直させる
+        await evalJs('document.documentElement.style.display="none";document.body.offsetHeight;document.documentElement.style.display="";new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
         continue;
       }
       if (kind === 'release') {

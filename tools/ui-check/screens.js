@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true }。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -21,6 +21,7 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
 var TAP_FORM = TAP.concat(['[data-ui="more"] input']);
 var AUTO_INPUT = '[data-ui="auto-refresh"] input#autoRefreshPassphrase';
+var SCOPE = ['[data-ui="report-scope"]', '全期間・60試合'];
 var AUTO_SUBMIT = '[data-ui="auto-refresh"] button';
 
 // 日付指定(2026-06-03 だけの1日)で期間内を0件にする。この日は fixture に試合が無い
@@ -139,6 +140,8 @@ export var SCREENS = [
   { id: 'mobile-more-auto-refresh-error', viewport: M, full: true, start: 'report',
     ops: [goTab('その他'), { type: [AUTO_INPUT, 'wrong'] }, { click: [AUTO_SUBMIT, '有効にする'] }, { wait: ['[data-ui="notice"]', '合言葉が違います'] }], expectConsole: ['status of 403'],
     required: [[CURRENT, 'その他'], ['[data-ui="auto-refresh"] [data-ui="notice"][role="alert"]', '合言葉が違います'], ['[data-ui="auto-refresh"] button', '有効にする']], tap: TAP_FORM },
+  { id: 'mobile-theme-os-switch', viewport: M, full: true, start: 'report', ops: [{ wait: SCOPE }, { click: ['[data-ui="tab"]', TABS.time] }, { wait: ['[data-ui="tab"][aria-selected="true"]', TABS.time] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [-3200] }, { colorScheme: ['light'] }, { wait: ['html[data-theme="light"]'] }],
+    required: [['html[data-theme="light"]'], ['[data-ui="tab"][aria-selected="true"]', TABS.time], SCOPE] },
   { id: 'report-empty-period', viewport: M, full: false, start: 'report', clock: '2026-06-20T12:00:00+09:00', ops: EMPTY_OPS,
     required: [['[data-ui="empty-state"]', 'この期間の試合はありません'], ['[data-ui="empty-action"]', '期間を変更'], ['[data-ui="period-trigger"]', '06-03 ~ 06-03']],
     absent: [['[data-ui="skeleton"]']], tap: ['[data-ui="empty-action"]'] },

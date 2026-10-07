@@ -21,6 +21,20 @@ function useInView(ref) {
   return inView;
 }
 
+// <html data-theme> の値を返し、切替で再描画させるフック。色を themeReader で解決する描画はこれを呼ぶ
+export function useThemeName() {
+  var read = function () { return document.documentElement.getAttribute('data-theme') || ''; };
+  var state = useState(read);
+  var setTheme = state[1];
+  useEffect(function () {
+    setTheme(read());
+    var observer = new MutationObserver(function () { setTheme(read()); });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return function () { observer.disconnect(); };
+  }, []);
+  return state[0];
+}
+
 // canvas の ctx.font 用。Chart.js 側と同じ --font-sans を使う
 export function canvasFont(cssVar, px, weight) {
   return (weight ? weight + ' ' : '') + px + 'px ' + cssVar('--font-sans');
@@ -56,6 +70,7 @@ export function ChartCanvas({ build, deps, className, style }) {
   var canvasRef = useRef(null);
   var chartRef = useRef(null);
   var inView = useInView(containerRef);
+  var theme = useThemeName();
 
   useEffect(function () {
     if (!inView || !canvasRef.current) return;
@@ -65,7 +80,7 @@ export function ChartCanvas({ build, deps, className, style }) {
     if (!config) return;
     chartRef.current = new Chart(canvasRef.current, config);
     return function () { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, deps.concat([inView]));
+  }, deps.concat([inView, theme]));
 
   return html`<div class=${className || 'chart-container'} style=${style} ref=${containerRef}><canvas ref=${canvasRef} /></div>`;
 }

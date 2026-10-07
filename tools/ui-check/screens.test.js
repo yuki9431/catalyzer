@@ -154,6 +154,12 @@ describe('screens', () => {
     assert.ok(has('notice-session-expired', 'alert'));
   });
 
+  it('テーマ画面は選択中のテーマを html[data-theme] で必須にする。os-switch は colorScheme で light へ切り替える', () => {
+    var os = get('mobile-theme-os-switch');
+    assert.ok(os.required.some(function (r) { return r[0] === 'html[data-theme="light"]'; }));
+    assert.deepStrictEqual(os.ops.find(function (o) { return o.colorScheme; }), { colorScheme: ['light'] });
+  });
+
   it('report-empty-period(-back) は clock で日付を固定し、日付指定の日を選んで空の状態を検査する', () => {
     ['report-empty-period', 'report-empty-period-back'].forEach(function (id) {
       var s = get(id);
