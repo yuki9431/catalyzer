@@ -71,7 +71,7 @@ export var SCREENS = [
     ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: [SHEET + ' [data-ui="select-trigger"]'] }]),
     required: [['[data-ui="select-panel"]']] },
   { id: 'match-detail', viewport: D, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
-    required: [['[data-ui="match-detail"] [data-ui="match-score-table"]'], ['[data-ui="gantt-bar"]'], ['[data-ui="match-detail-back"]', '試合検索']],
+    required: [['[data-ui="match-detail"] [data-ui="match-score-table"]'], ['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了'], ['[data-ui="match-detail-back"]', '試合検索']],
     absent: [['[data-ui="match-timeline-toggle"]']], outview: [[TABBAR]] },
   { id: 'mobile-search-filter', viewport: M, full: false, start: 'report', ops: OPEN_FILTER,
     required: [[SHEET + ' h2', '絞り込み'], ['[data-ui="search-filter-foot"]', '27試合が該当'], ['[data-ui="search-filter-apply"]', '結果を見る'],
@@ -88,7 +88,7 @@ export var SCREENS = [
     absent: [['[data-ui="search-day"]']],
     tap: ['[data-ui="search-sort-item"]', '[data-ui="search-sort-dir"] button', '[data-ui="search-pagesize"] button', '[data-ui="search-sort-panel"] [data-ui="sheet-close"]'] },
   { id: 'mobile-match-detail', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]),
-    required: [['[data-ui="match-detail-back"][aria-label="試合検索に戻る"]'], ['[data-ui="search-filter"][inert]'], ['[inert] [data-ui="search-result"]'], [TABBAR + '[inert], [inert] ' + TABBAR], ['[data-ui="match-detail"]'], ['[data-ui="match-detail-back"]', '試合検索'], ['[data-ui="match-result"]', '敗北'], ['[data-ui="match-score-table"] thead th', 'テスト僚機1'], ['[data-ui="match-score-table"] thead th', 'テスト対戦者15'], ['[data-ui="gantt-bar"]']],
+    required: [['[data-ui="match-detail-back"][aria-label="試合検索に戻る"]'], ['[data-ui="search-filter"][inert]'], ['[inert] [data-ui="search-result"]'], [TABBAR + '[inert], [inert] ' + TABBAR], ['[data-ui="match-detail"]'], ['[data-ui="match-detail-back"]', '試合検索'], ['[data-ui="match-result"]', '敗北'], ['[data-ui="match-score-table"] thead th', 'テスト僚機1'], ['[data-ui="match-score-table"] thead th', 'テスト対戦者15'], ['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了']],
     inview: [['[data-ui="match-detail-back"]']], absent: [['[data-ui="match-timeline-toggle"]']], outview: [[TABBAR]],
     tap: ['[data-ui="match-detail-back"]', '[data-ui="radar-toggle"]'] },
   // 詳細を開いたまま絞り込みを開こうとしても層は1枚（絞り込みが残り詳細は閉じる）。
