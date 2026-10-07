@@ -2,7 +2,7 @@
 import { jsWinRate as winRate, jsAvg as avg, jsDmgEfficiency as dmgEfficiency } from './stats.js';
 
 // 深夜の試合を前日の続きとして扱うため、日付の切り替えを朝5時にする
-export var DAY_START_HOUR = 5;
+var DAY_START_HOUR = 5;
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }

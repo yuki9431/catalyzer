@@ -20,13 +20,13 @@ describe('shell', () => {
     });
   });
 
-  it('readView は未保存・未知・プロトタイプ名・例外で report', () => {
+  it('readView は未保存・未知・プロトタイプ名・例外で home(ログアウト後の再ログインもホームで開く)', () => {
     [null, 'foo', 'valueOf'].forEach((v) => {
       stubStorage({ getItem: () => v });
-      assert.strictEqual(readView(), 'report');
+      assert.strictEqual(readView(), 'home');
     });
     stubStorage({ getItem: () => { throw new Error('denied'); } });
-    assert.strictEqual(readView(), 'report');
+    assert.strictEqual(readView(), 'home');
   });
 });
 

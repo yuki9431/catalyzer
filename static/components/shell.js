@@ -26,13 +26,13 @@ var TAB_ICONS = {
   more: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></svg>`; },
 };
 
-// 保存値が TAB_ITEMS の key ならそれ、他(未保存・未知・例外)は report
+// 保存値が TAB_ITEMS の key ならそれ、他(未保存・未知・例外)は起動時と同じ home
 export function readView() {
   try {
     var v = localStorage.getItem(VIEW_KEY);
-    return TAB_ITEMS.some(function (t) { return t.key === v; }) ? v : 'report';
+    return TAB_ITEMS.some(function (t) { return t.key === v; }) ? v : 'home';
   } catch (e) {
-    return 'report';
+    return 'home';
   }
 }
 
