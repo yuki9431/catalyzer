@@ -65,6 +65,9 @@
   --pager-disabled: var(--muted);
   --gantt-grid: rgba(233,238,243,.09);
   --gantt-grid-major: rgba(233,238,243,.2);
+  --gantt-team-ally: rgba(94,198,242,.07);
+  --gantt-team-enemy: rgba(255,141,128,.07);
+  --gantt-deathline: rgba(255,141,128,.45);
   --gantt-ex: #5f6a75;
   --gantt-f: #ff9e7a;
   --gantt-s: #5ec6f2;
@@ -145,6 +148,9 @@
     --vs-shadow: rgba(0,0,0,.2);
     --gantt-grid: rgba(23,32,42,.09);
     --gantt-grid-major: rgba(23,32,42,.2);
+    --gantt-team-ally: rgba(10,108,153,.08);
+    --gantt-team-enemy: rgba(166,42,26,.07);
+    --gantt-deathline: rgba(166,42,26,.4);
     --gantt-ex: #99a2aa;
     --gantt-f: #c2541f;
     --gantt-s: #0a6c99;

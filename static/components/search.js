@@ -286,14 +286,13 @@ function ResultItem({ match, msImages, sortKey, timeOnly, onOpen }) {
   </button>`;
 }
 
-// 公式「試合経過」風のガント式タイムライン（4人分・横棒）。
-// 各行に機体画像＋2レーン（バースト行/オーバーリミット行）＋被撃墜×、下に時間軸。
+// 試合経過のガント図（4人分）。行ごとに名前・2レーン・被撃墜×、下に時間軸と終了ラベル。
 function Timeline({ match, msImages }) {
   var rows = [
-    { ms: match.ms, actions: match.actions },
-    { ms: match.partner_ms, actions: match.partner_actions },
-    { ms: match.opponent1_ms, actions: match.opponent1_actions },
-    { ms: match.opponent2_ms, actions: match.opponent2_actions },
+    { ms: match.ms, name: match.name, actions: match.actions, me: true },
+    { ms: match.partner_ms, name: match.partner_name, actions: match.partner_actions },
+    { ms: match.opponent1_ms, name: match.opponent1_name, actions: match.opponent1_actions },
+    { ms: match.opponent2_ms, name: match.opponent2_name, actions: match.opponent2_actions },
   ];
   // 実時間 = GameEndSec（無ければ全アクションの最大終了秒）。
   var raw = match.game_end_sec || 0;
@@ -305,9 +304,7 @@ function Timeline({ match, msImages }) {
   if (raw <= 0) {
     return html`<p class="search-detail-empty">試合経過データがありません。</p>`;
   }
-  // 終盤が詰まって見えるため末尾に余白（7%）を足して描画スケールを広げる。目盛りは実終了まで。
-  var total = raw * 1.07;
-  function pct(sec) { return Math.max(0, Math.min(100, (sec || 0) / total * 100)); }
+  function pct(sec) { return Math.max(0, Math.min(100, (sec || 0) / raw * 100)); }
   function bar(a) {
     var m = GANTT_BAR[a.action];
     var left = pct(a.action_start_sec);
@@ -319,11 +316,10 @@ function Timeline({ match, msImages }) {
     }
     return barEl;
   }
-  // 補助線＋目盛り。30秒ごとに点線の補助線、1分ごと(major)に秒数ラベル(60/120/180)を付ける。
-  // 以前は10秒刻みでラベルを出しており、隣同士が重なって判読できなかった。
+  // 30秒ごとに点線、1分ごとに秒数ラベル。終了ラベルに近い目盛りは出さない。
   var grid = [];
   for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
-  var labels = grid.filter(function (g) { return g.major; });
+  var labels = grid.filter(function (g) { return g.major && raw - g.sec >= 45; });
 
   return html`<div class="gantt" data-ui="gantt">
     <div class="gantt-rows">
@@ -331,22 +327,30 @@ function Timeline({ match, msImages }) {
         ${grid.map(function (g) {
           return html`<span class=${'gantt-gridline' + (g.major ? ' gantt-gridline-major' : '')} style=${'left:' + pct(g.sec) + '%'}></span>`;
         })}
+        <span class="gantt-gridline gantt-bound" style="left:0%"></span>
+        <span class="gantt-gridline gantt-bound" style="left:100%"></span>
       </div>
-      ${rows.map(function (r) {
+      ${rows.map(function (r, i) {
         var acts = r.actions || [];
         var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
         var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
         var deaths = acts.filter(function (a) { return a.action === 'death'; });
-        return html`<div class="gantt-row">
+        return html`<div class=${'gantt-row ' + (i < 2 ? 'gantt-ally' : 'gantt-enemy') + (i === 1 ? ' gantt-teamsep' : '')}>
           <${DetailThumb} name=${r.ms} msImages=${msImages} />
           <div class="gantt-track">
-            <div class="gantt-lane">
-              ${lane0.map(bar)}
+            <div class=${'gantt-name' + (r.me ? ' gantt-me' : '')}>${playerName(r.name)}</div>
+            <div class="gantt-lanes">
               ${deaths.map(function (a) {
-                return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
+                return html`<span class="gantt-deathline" style=${'left:' + pct(a.action_start_sec) + '%'}></span>`;
               })}
+              <div class="gantt-lane">
+                ${lane0.map(bar)}
+                ${deaths.map(function (a) {
+                  return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
+                })}
+              </div>
+              <div class="gantt-lane">${lane1.map(bar)}</div>
             </div>
-            <div class="gantt-lane">${lane1.map(bar)}</div>
           </div>
         </div>`;
       })}
@@ -355,6 +359,7 @@ function Timeline({ match, msImages }) {
       ${labels.map(function (g) {
         return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${g.sec}</span>`;
       })}
+      <span class="gantt-tick gantt-tick-end" data-ui="gantt-end" style="left:100%"><small>終了</small> ${raw}秒</span>
     </div>
     <div class="gantt-legend">
       ${GANTT_LEGEND.map(function (l) {

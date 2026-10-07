@@ -129,6 +129,12 @@ describe('screens', () => {
     });
   });
 
+  it('試合詳細の画面は試合経過の終了ラベルを要求する', () => {
+    ['match-detail', 'mobile-match-detail'].forEach(function (id) {
+      assert.ok(get(id).required.some(function (r) { return r[0] === '[data-ui="gantt-end"]' && r[1] === '終了'; }), id);
+    });
+  });
+
   it('日付区切りは日付順の search で必須、指標順の mobile-search-sort では出ない', () => {
     assert.ok(get('search').required.some(function (r) { return r[0] === '[data-ui="search-day"]'; }));
     assert.ok(get('mobile-search-sort').absent.some(function (r) { return r[0] === '[data-ui="search-day"]'; }));
