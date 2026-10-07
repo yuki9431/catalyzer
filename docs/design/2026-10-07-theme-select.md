@@ -68,7 +68,7 @@ function ThemeSettings()  // api = window.catalyzerTheme。useState(api ? api.ch
 ThemeSettings の DOM: `div.more-theme[data-ui=theme-setting]` > `span.more-theme-label`「テーマ」+ `ToggleGroup options=THEME_OPTIONS value label="テーマ" ui="theme-toggle" onChange=v→api.set(v); setChoice(api.choice())`。ボタンは既存 `.ui-toggle-btn`(min-height 44px)。
 
 ## 4. テスト計画
-- **theme-init.test.js(10件)**: readFileSync + `vm.runInNewContext(src,{window:fakeWin})`。fakeWin に document(documentElement の setAttribute/getAttribute、querySelector が返す meta)・localStorage・matchMedia(matches と発火できる listener)
+- **theme-init.test.js(12件)**: readFileSync + `vm.runInNewContext(src,{window:fakeWin})`。fakeWin に document(documentElement の setAttribute/getAttribute、querySelector が返す meta)・localStorage・matchMedia(matches と発火できる listener)
   1. 保存値 dark/light/system がそのまま choice() 2. 未保存・'foo'・'valueOf'・getItem 例外・localStorage getter 例外で 'system'、例外を投げない 3. resolve 6通り 4. 初期適用: 保存light×OSダーク→light・#f4f6f8 / 保存dark×OSライト→dark・#0e141b / system×OSライト→light 5. matchMedia 無し→dark 6. set: 保存して即適用、setItem 例外でも適用、未知値は system 7. system 中は change で切替、dark 選択中は不変 8. META が tokens.css の --bg(ダーク `:root {`、ライト `:root[data-theme="light"] {`)と一致 9. index.html と parts.html で theme-init.js script が最初の `rel="stylesheet"` より前、defer/async/type=module なし。index.html の `name="theme-color"` は1本 10. shell.js THEME_OPTIONS の value 列が CHOICES と一致
 - **contrast.test.js(5→6件)**: `lightMedia` を `css.slice(css.indexOf(':root[data-theme="light"] {'))`、変数名 `lightBlock`。追加1件: マーカー位置がダークブロックの `}` より後、parse(lightBlock) が70トークン以上、tokens.css に `prefers-color-scheme` が無い
 - **chart-canvas.test.js(5→7件)**: ChartCanvas ソースに `deps.concat([inView, theme])`。components/ 配下で chart-canvas.js 以外の各ファイルの `useThemeName()` 呼び出し数 >= `themeReader()` 呼び出し数
@@ -86,7 +86,7 @@ ThemeSettings の DOM: `div.more-theme[data-ui=theme-setting]` > `span.more-them
 | # | 条件 | コマンド | 期待値 |
 |---|---|---|---|
 | C1 | JS 全緑 | `make test-js` | exit 0、fail 0、pass 372 以上 |
-| C2 | テーマ判定・初期適用・FOUC 構造 | `node --test static/__tests__/theme-init.test.js` | fail 0、pass 10 |
+| C2 | テーマ判定・初期適用・FOUC 構造 | `node --test static/__tests__/theme-init.test.js` | fail 0、pass 12 |
 | C3 | コントラスト | `node --test static/__tests__/contrast.test.js` | fail 0、pass 6 |
 | C4 | CSS から OS 判定撤去 | `grep -r "prefers-color-scheme" static/styles \| wc -l` | 0 |
 | C5 | ライトブロック1つ | `grep -c ':root\[data-theme="light"\]' static/styles/tokens.css` | 1 |
