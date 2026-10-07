@@ -76,6 +76,7 @@
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
 │   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── theme-init.js              # テーマの初期適用と切替（<head> で同期実行）
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
@@ -119,6 +120,7 @@
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
+│   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
@@ -234,7 +236,7 @@ http://localhost:8080 にアクセスしてログインすると分析レポー�
 - **ストレージ**: Cloud Storage (GCP)
 - **CI/CD**: GitHub Actions（ラベルでCI/CDを制御）
 - **コンテナ**: Docker（マルチステージビルド）
-- **フロントエンド**: htm/Preact（ダークテーマ、レスポンシブ対応）
+- **フロントエンド**: htm/Preact（ダーク/ライト(端末に合わせる・選択可)、レスポンシブ対応）
 
 ## Author
 
