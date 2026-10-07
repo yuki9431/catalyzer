@@ -2,6 +2,8 @@
 // IndexedDBキャッシュから読み込んだ試合データ配列を、条件で絞り込み・並べ替える純粋関数群。
 // UI（components/search.js）から切り離すことで単体テスト可能にしている。
 
+import { PERIOD_DAYS } from './stats.js';
+
 // 並べ替えの選択肢。key はソート対象のフィールド。並び順（昇順/降順）はUI側のトグルで制御する。
 export var SORT_OPTIONS = [
   { key: 'date', label: '日付' },
@@ -226,4 +228,64 @@ export function sortMatches(matches, key, desc) {
     return da < db ? 1 : da > db ? -1 : 0;
   });
   return arr;
+}
+
+// 複数選択の表示。先頭 + ' ほか' + 残り件数。
+function listLabel(list) {
+  return list[0] + (list.length > 1 ? ' ほか' + (list.length - 1) : '');
+}
+
+var RANGE_LABELS = [
+  ['dmgGiven', '与ダメージ'], ['dmgTaken', '被ダメージ'], ['kills', '撃墜数'], ['deaths', '被撃墜数'],
+  ['score', 'スコア'], ['exDmg', 'EXダメージ'], ['bursts', '覚醒回数'],
+];
+
+// 適用中の条件を表示用の文字列配列にする。既定値・空・数値にならない範囲は出さない。
+export function appliedFilterLabels(filters) {
+  var f = filters || {};
+  var out = [];
+  var list = function (k) { return Array.isArray(f[k]) ? f[k] : []; };
+  if (f.playDays && Object.prototype.hasOwnProperty.call(PERIOD_DAYS, f.playDays)) out.push('期間: 直近' + PERIOD_DAYS[f.playDays] + '日');
+  if (list('myMsList').length) out.push('自機: ' + listLabel(list('myMsList')));
+  if (list('partnerMsList').length) out.push('僚機: ' + listLabel(list('partnerMsList')));
+  if (list('enemyMsList').length) {
+    var multi = list('enemyMsList').length > 1;
+    var mode = multi ? (f.enemyMsMode === 'and' ? '（すべて含む）' : '（どれかを含む）') : '';
+    out.push('敵機' + mode + ': ' + listLabel(list('enemyMsList')));
+  }
+  var name = String(f.playerName || '').trim();
+  if (name) {
+    var scope = f.playerNameScope === 'ally' ? '（相方）' : f.playerNameScope === 'enemy' ? '（相手）' : '';
+    out.push('プレイヤー名' + scope + ': ' + name);
+  }
+  if (f.result === 'win') out.push('勝敗: 勝利');
+  else if (f.result === 'loss') out.push('勝敗: 敗北');
+  if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
+  else if (f.dateFrom) out.push('日付: ' + f.dateFrom + '以降');
+  else if (f.dateTo) out.push('日付: ' + f.dateTo + '以前');
+  if (list('myTagList').length) out.push('味方タッグ: ' + listLabel(list('myTagList')));
+  var enemyTag = String(f.enemyTagName || '').trim();
+  if (enemyTag) out.push('相手タッグ: ' + enemyTag);
+  if (list('myCostList').length) out.push('自機コスト: ' + listLabel(list('myCostList')));
+  if (list('partnerCostList').length) out.push('僚機コスト: ' + listLabel(list('partnerCostList')));
+  if (list('enemyCostPairList').length) out.push('相手コスト編成: ' + listLabel(list('enemyCostPairList')));
+  RANGE_LABELS.forEach(function (r) {
+    var min = toNum(f[r[0] + 'Min']), max = toNum(f[r[0] + 'Max']);
+    if (min != null && max != null) out.push(r[1] + ': ' + min + '〜' + max);
+    else if (min != null) out.push(r[1] + ': ' + min + '以上');
+    else if (max != null) out.push(r[1] + ': ' + max + '以下');
+  });
+  return out;
+}
+
+// 並び順の文言。日付は新しい順/古い順、他は大きい順/小さい順。
+export function sortDirLabel(key, desc) {
+  if (key === 'date') return desc ? '新しい順' : '古い順';
+  return desc ? '大きい順' : '小さい順';
+}
+
+// 並べ替えトリガー用の文言（例: 与ダメージが大きい順）。未知 key は先頭（日付）。
+export function sortLabel(key, desc) {
+  var opt = SORT_OPTIONS.filter(function (o) { return o.key === key; })[0] || SORT_OPTIONS[0];
+  return opt.label + 'が' + sortDirLabel(opt.key, desc);
 }

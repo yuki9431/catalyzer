@@ -40,4 +40,43 @@ describe('preview server', function () {
     assert.equal(await status('/%00'), 404);
     assert.equal(await status('/'), 200);
   });
+  it('/analyze は username でジョブ id を選び、status と result がその筋書きを返す', async function () {
+    var analyze = async function (username) {
+      var r = await fetch(base + '/analyze', { method: 'POST', body: JSON.stringify({ username: username }) });
+      return (await r.json()).id;
+    };
+    var get = async function (path) { return fetch(base + path); };
+    var prelim = await analyze('prelim@example.com');
+    assert.equal(prelim, 'preview-prelim');
+    var st = await (await get('/status/' + prelim)).json();
+    assert.deepEqual([st.status, st.logged_in, st.has_preliminary_report, st.preliminary_version], ['scraping', true, true, 1]);
+    var rs = await (await get('/result/' + prelim)).json();
+    assert.equal(rs.preliminary, true);
+    assert.equal(rs.matches.length, MATCH_COUNT);
+
+    var partial = await analyze('partial@example.com');
+    assert.equal(partial, 'preview-partial');
+    assert.equal((await (await get('/status/' + partial)).json()).status, 'done');
+    assert.equal((await (await get('/result/' + partial)).json()).partial, true);
+
+    var err = await analyze('error@example.com');
+    var es = await (await get('/status/' + err)).json();
+    assert.equal(es.status, 'error');
+    assert.ok(es.error.length > 0);
+    assert.equal((await get('/result/' + err)).status, 404);
+
+    assert.equal(await analyze('other@example.com'), 'preview-job');
+  });
+  it('/session は Cookie preview_session=valid があるときだけ valid', async function () {
+    var q = async function (cookie) { return (await (await fetch(base + '/session', { headers: cookie ? { Cookie: cookie } : {} })).json()).valid; };
+    assert.equal(await q(null), false);
+    assert.equal(await q('preview_session=valid'), true);
+    assert.equal(await q('a=1; preview_session=valid'), true);
+    assert.equal(await q('preview_session=other'), false);
+  });
+  it('/reanalyze は 401 でセッション失効の実文言を返す', async function () {
+    var r = await fetch(base + '/reanalyze', { method: 'POST' });
+    assert.equal(r.status, 401);
+    assert.ok((await r.json()).error.includes('セッション'));
+  });
 });

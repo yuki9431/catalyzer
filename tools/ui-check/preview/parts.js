@@ -22,6 +22,7 @@ function Gallery() {
     </${Panel}>
     <${Panel} title="Notice">
       <${Notice}>情報です</${Notice}> <${Notice} tone="warn">注意です</${Notice}> <${Notice} tone="error">エラーです</${Notice}>
+      <${Notice} tone="warn" action=${{ label: '再分析', onClick: function () {} }}>操作つきの注意です</${Notice}>
     </${Panel}>
     <div data-ui="sheet-demo"><${Panel} title="Dropdown (sheet-bottom)">
       <${Dropdown} mode="sheet-bottom" value=${sel} options=${SHEET_OPTIONS} onChange=${setSel} noClear=${true} />

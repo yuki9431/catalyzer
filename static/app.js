@@ -4,6 +4,8 @@ import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
+import { Notice } from './components/parts.js';
+import { progressView } from './lib/progress.js';
 import { createRunLock } from './lib/runlock.js';
 import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
 import { userKeyOf } from './lib/userkey.js';
@@ -50,6 +52,87 @@ var lastPullAt = 0; // 取り込みを試みた時刻(間隔制御用)
 var lastImportedAt = 0; // 差分を保存できた時刻(画面表示用)
 var pulling = false;
 
+// 通知は #error に Notice を描く。tone: info(409 案内)/ warn(途中保存)/ error(失敗)。source は再取得由来の表示だけを消すための目印
+function showNotice(tone, message, action, source) {
+  var el = document.getElementById('error');
+  if (!el) return;
+  render(html`<${Notice} tone=${tone} action=${action}>${message}</${Notice}>`, el);
+  el.style.display = 'block';
+  if (source) el.dataset.source = source; else delete el.dataset.source;
+}
+
+function hideNotice() {
+  var el = document.getElementById('error');
+  if (!el) return;
+  render(null, el);
+  el.style.display = 'none';
+  delete el.dataset.source;
+}
+
+// POST の応答エラー。409(自動更新で取得中)は失敗ではなく案内として info で出す
+function apiError(res, data) {
+  var e = new Error(data.error);
+  e.tone = res.status === 409 ? 'info' : 'error';
+  return e;
+}
+
+// セッション失効の通知から入力欄へ誘導する
+var LOGIN_ACTION = { label: 'ログイン', onClick: function () {
+  var u = document.getElementById('username');
+  if (!u) return;
+  u.scrollIntoView({ block: 'center' });
+  u.focus();
+} };
+
+// 分析の進み具合(バー・件数・段階リスト)を #status に描く
+function showProgress(s) {
+  var v = progressView(s);
+  if (!v) return clearProgress();
+  var wrap = document.getElementById('progressWrap');
+  var fill = document.getElementById('progressFill');
+  var pct = document.getElementById('progressPct');
+  var bar = document.getElementById('progressBar');
+  if (v.pct !== null) {
+    fill.classList.remove('indeterminate');
+    fill.style.width = v.pct + '%';
+    pct.textContent = v.pct + '%';
+    bar.setAttribute('aria-valuenow', String(v.pct));
+    wrap.style.display = 'block';
+  } else if (v.searching) {
+    fill.classList.add('indeterminate');
+    pct.textContent = '戦歴を検索中…';
+    bar.removeAttribute('aria-valuenow');
+    wrap.style.display = 'block';
+  } else {
+    fill.classList.remove('indeterminate');
+    wrap.style.display = 'none';
+  }
+  document.getElementById('progressCount').textContent = v.count;
+  render(html`<ol class="status-steps" data-ui="status-steps">${v.steps.map(function (step) {
+    return html`<li key=${step.key} data-state=${step.state} aria-current=${step.state === 'now' ? 'step' : null}><span class="status-step-mark" aria-hidden="true"></span>${step.label}</li>`;
+  })}</ol>`, document.getElementById('statusSteps'));
+}
+
+function clearProgress() {
+  document.getElementById('progressWrap').style.display = 'none';
+  render(null, document.getElementById('statusSteps'));
+}
+
+// 速報レポートの取り込み。ログアウト等で中断されたら false
+async function takePrelim(jobId, s, st) {
+  if (!(s.logged_in && s.has_preliminary_report && s.preliminary_version > st.version)) return true;
+  var res = await fetch('/result/' + jobId);
+  var data = await res.json();
+  // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
+  if (activeJobId !== jobId) return false;
+  if (!(data.matches && data.preliminary)) return true;
+  if (data.user_key) saveMatchesToDB(data.user_key, data.matches, data.schema_version);
+  st.version = s.preliminary_version;
+  renderReport({ matches: data.matches }, data.user_key);
+  st.rendered = true;
+  return true;
+}
+
 function reAnalyze() {
   if (analysisBusy()) return;
   // セッション保持中はパスワード不要で再分析
@@ -77,7 +160,6 @@ function reAnalyze() {
 async function reanalyzeWithSession(auto) {
   var status = document.getElementById('status');
   var statusText = document.getElementById('statusText');
-  var error = document.getElementById('error');
 
   var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
@@ -94,9 +176,11 @@ async function reanalyzeWithSession(auto) {
 
   status.style.display = 'block';
   statusText.textContent = usedCache ? STATUS_MESSAGES.refreshing : STATUS_MESSAGES.pending;
-  error.style.display = 'none';
+  hideNotice();
+  clearProgress();
 
-  var lastPreliminaryVersion = 0;
+  var st = { version: 0, rendered: false }; // 速報の状態(takePrelim が更新する)
+  var expired = false; // セッション失効でログインへ戻したとき、通知に「ログイン」ボタンを付ける
   var posted = false; // POST を投げたら失敗しても終了を記録する(再読み込みごとの再分析を防ぐ)
   var busyNotice = false;
 
@@ -115,12 +199,11 @@ async function reanalyzeWithSession(auto) {
       }
       if (res.status === 401) {
         returnToLogin();
-        error.style.display = 'block';
-        error.textContent = data.error;
+        showNotice('error', data.error, LOGIN_ACTION);
         status.style.display = 'none';
         return;
       }
-      throw new Error(data.error);
+      throw apiError(res, data);
     }
 
     var jobId = data.id;
@@ -141,44 +224,14 @@ async function reanalyzeWithSession(auto) {
 
       statusText.textContent = statusData.message || STATUS_MESSAGES[statusData.status] || statusData.status;
 
-      var progressWrap = document.getElementById('progressWrap');
-      var progressFill = document.getElementById('progressFill');
-      if (statusData.progress_total > 0) {
-        var p = Math.round(100 * statusData.progress / statusData.progress_total);
-        progressFill.classList.remove('indeterminate');
-        progressFill.style.width = p + '%';
-        document.getElementById('progressPct').textContent = p + '%';
-        document.getElementById('progressCount').textContent = statusData.progress + '/' + statusData.progress_total + '件';
-        progressWrap.style.display = 'block';
-      } else if (statusData.status === 'scraping') {
-        progressFill.classList.add('indeterminate');
-        document.getElementById('progressPct').textContent = '戦歴を検索中…';
-        document.getElementById('progressCount').textContent = statusData.progress ? statusData.progress + '件' : '';
-        progressWrap.style.display = 'block';
-      } else {
-        progressFill.classList.remove('indeterminate');
-        progressWrap.style.display = 'none';
-      }
+      showProgress(statusData);
 
-      if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
-        var prelimRes = await fetch('/result/' + jobId);
-        var prelimData = await prelimRes.json();
-        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
-        if (activeJobId !== jobId) return;
-        if (prelimData.matches && prelimData.preliminary) {
-          if (prelimData.user_key) {
-            saveMatchesToDB(prelimData.user_key, prelimData.matches, prelimData.schema_version);
-          }
-          renderReport({ matches: prelimData.matches }, prelimData.user_key);
-          statusText.textContent = STATUS_MESSAGES.refreshing;
-          lastPreliminaryVersion = statusData.preliminary_version;
-        }
-      }
+      if (!(await takePrelim(jobId, statusData, st))) return;
 
       if (statusData.status === 'cancelled') return;
 
       if (statusData.status === 'error') {
-        if (statusData.error && statusData.error.indexOf('セッション') >= 0) returnToLogin();
+        if (statusData.error && statusData.error.indexOf('セッション') >= 0) { returnToLogin(); expired = true; }
         throw new Error(statusData.error || '分析に失敗しました');
       }
 
@@ -197,13 +250,13 @@ async function reanalyzeWithSession(auto) {
       }
     }
   } catch (e) {
-    error.style.display = 'block';
-    error.textContent = e.message;
+    showNotice(e.tone || 'error', e.message, expired ? LOGIN_ACTION : null);
   } finally {
     if (posted && (jobId === undefined || activeJobId === jobId)) {
       activeJobId = null;
       markAnalysis(ANALYSIS_FINISHED_KEY);
     }
+    clearProgress();
     if (!busyNotice) status.style.display = 'none';
   }
 }
@@ -231,6 +284,8 @@ async function logout() {
   localStorage.removeItem(VIEW_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
+  clearProgress();
+  document.getElementById('status').style.display = 'none';
   var rep = document.getElementById('report');
   if (rep) { render(null, rep); rep.style.display = 'none'; }
   var lf = document.getElementById('loginForm');
@@ -378,11 +433,11 @@ async function rebuildCache() {
   var error = document.getElementById('error');
   // ユーザーキーが無い(初回分析中・セッション失効)。既に出ている失効メッセージは上書きしない
   if (!userKey) {
-    if (!error || error.style.display !== 'block') showRebuildError(error, '分析が終わってから実行してください。');
+    if (!error || error.style.display !== 'block') showRebuildError('分析が終わってから実行してください。');
     return;
   }
 
-  if (error) error.style.display = 'none';
+  hideNotice();
   var rebuilt = false;
   rebuildingCache = true;
   try {
@@ -392,26 +447,19 @@ async function rebuildCache() {
     rebuildingCache = false;
   }
   // 見送りの理由がログアウト(キー消失)なら案内しない
-  if (rebuilt === null) { if (localStorage.getItem('catalyzer_user_key')) showRebuildError(error, '分析が終わってから実行してください。'); }
-  else if (rebuilt === 'unauthorized') showRebuildError(error, 'ログイン状態を保持していないため取得し直せません。再分析してください。');
-  else if (!rebuilt) showRebuildError(error, '試合データの再取得に失敗しました。時間をおいて再度お試しください。');
+  if (rebuilt === null) { if (localStorage.getItem('catalyzer_user_key')) showRebuildError('分析が終わってから実行してください。'); }
+  else if (rebuilt === 'unauthorized') showRebuildError('ログイン状態を保持していないため取得し直せません。再分析してください。');
+  else if (!rebuilt) showRebuildError('試合データの再取得に失敗しました。時間をおいて再度お試しください。');
 }
 
-function showRebuildError(error, message) {
-  if (!error) return;
-  error.dataset.source = 'rebuild';
-  // #error は partial 警告(黄色)と共有のため、赤系エラー表示前にインラインスタイルを戻す。
-  error.style.backgroundColor = '';
-  error.style.borderColor = '';
-  error.style.color = '';
-  error.textContent = message;
-  error.style.display = 'block';
+function showRebuildError(message) {
+  showNotice('error', message, null, 'rebuild');
 }
 
 // 分析完了時、再取得由来の表示だけを消す(partial 警告などは各経路が上書きする)
 function clearRebuildError() {
   var error = document.getElementById('error');
-  if (error && error.dataset.source === 'rebuild') { error.style.display = 'none'; delete error.dataset.source; }
+  if (error && error.dataset.source === 'rebuild') hideNotice();
 }
 
 async function analyze() {
@@ -420,22 +468,18 @@ async function analyze() {
   var btn = document.getElementById('analyzeBtn');
   var status = document.getElementById('status');
   var statusText = document.getElementById('statusText');
-  var error = document.getElementById('error');
   var reportEl = document.getElementById('report');
 
   if (!username || !password) {
-    error.style.display = 'block';
-    error.textContent = 'メールアドレスとパスワードを入力してください。';
+    showNotice('error', 'メールアドレスとパスワードを入力してください。');
     return;
   }
 
   btn.disabled = true;
   status.style.display = 'block';
   statusText.textContent = STATUS_MESSAGES.pending;
-  error.style.display = 'none';
-  error.style.backgroundColor = '';
-  error.style.borderColor = '';
-  error.style.color = '';
+  hideNotice();
+  clearProgress();
   reportEl.style.display = 'none';
   render(null, reportEl);
 
@@ -443,8 +487,7 @@ async function analyze() {
   if (pageTitle) pageTitle.style.display = '';
 
   document.getElementById('loginForm').style.display = 'none';
-  var lastPreliminaryVersion = 0;
-  var renderedReal = false;
+  var st = { version: 0, rendered: false }; // 速報の状態(takePrelim が更新する)
 
   var cachedKey = localStorage.getItem('catalyzer_user_key');
   var usedCache = false;
@@ -473,7 +516,7 @@ async function analyze() {
 
     var data = await res.json();
     if (data.error) {
-      throw new Error(data.error);
+      throw apiError(res, data);
     }
 
     var jobId = data.id;
@@ -494,41 +537,9 @@ async function analyze() {
 
       statusText.textContent = statusData.message || STATUS_MESSAGES[statusData.status] || statusData.status;
 
-      var progressWrap = document.getElementById('progressWrap');
-      var progressFill = document.getElementById('progressFill');
-      var isScraping = statusData.status === 'scraping';
-      if (statusData.progress_total > 0) {
-        var p = Math.round(100 * statusData.progress / statusData.progress_total);
-        progressFill.classList.remove('indeterminate');
-        progressFill.style.width = p + '%';
-        document.getElementById('progressPct').textContent = p + '%';
-        document.getElementById('progressCount').textContent = statusData.progress + '/' + statusData.progress_total + '件';
-        progressWrap.style.display = 'block';
-      } else if (isScraping) {
-        progressFill.classList.add('indeterminate');
-        document.getElementById('progressPct').textContent = '戦歴を検索中…';
-        document.getElementById('progressCount').textContent = statusData.progress ? statusData.progress + '件' : '';
-        progressWrap.style.display = 'block';
-      } else {
-        progressFill.classList.remove('indeterminate');
-        progressWrap.style.display = 'none';
-      }
+      showProgress(statusData);
 
-      if (statusData.logged_in && statusData.has_preliminary_report && statusData.preliminary_version > lastPreliminaryVersion) {
-        var prelimRes = await fetch('/result/' + jobId);
-        var prelimData = await prelimRes.json();
-        // fetch中にログアウトした場合、古いレポート描画やIndexedDB再作成を防ぐ
-        if (activeJobId !== jobId) return;
-        if (prelimData.matches && prelimData.preliminary) {
-          if (prelimData.user_key) {
-            saveMatchesToDB(prelimData.user_key, prelimData.matches, prelimData.schema_version);
-          }
-          renderReport({ matches: prelimData.matches }, prelimData.user_key);
-          renderedReal = true;
-          statusText.textContent = STATUS_MESSAGES.refreshing;
-          lastPreliminaryVersion = statusData.preliminary_version;
-        }
-      }
+      if (!(await takePrelim(jobId, statusData, st))) return;
 
       if (statusData.status === 'cancelled') return;
 
@@ -551,36 +562,33 @@ async function analyze() {
         }
         clearRebuildError();
         renderReport({ matches: resultData.matches, class_record: resultData.class_record, tag_partners: resultData.tag_partners }, resultData.user_key);
-        renderedReal = true;
+        st.rendered = true;
         if (resultData.session_saved) {
           try { localStorage.setItem('catalyzer_has_session', '1'); } catch (e) {}
         }
         if (resultData.partial) {
-          var warning = document.getElementById('error');
-          warning.style.display = 'block';
-          warning.style.backgroundColor = 'var(--warn-bg)';
-          warning.style.borderColor = 'var(--warn-border)';
-          warning.style.color = 'var(--warn-text)';
-          warning.textContent = 'ガンダムモバイルからアクセスが制限されたため、一部のデータのみで分析しています。時間をおいて再度実行すると続きから取得します。';
+          showNotice('warn', 'ガンダムモバイルからアクセスが制限されたため、一部のデータのみで分析しています。時間をおいて再度実行すると続きから取得します。', { label: '再分析', onClick: reAnalyze });
         }
         break;
       }
     }
   } catch (e) {
-    error.style.display = 'block';
-    error.textContent = e.message;
-    if (!renderedReal) {
+    showNotice(e.tone || 'error', e.message);
+    if (!st.rendered) {
       render(null, reportEl);
       reportEl.style.display = 'none';
       if (pageTitle) pageTitle.style.display = '';
     }
     document.getElementById('loginForm').style.display = 'block';
   } finally {
-    if (activeJobId === jobId) {
+    // ログアウト後の旧ループが、次の分析の進捗表示を消さない
+    var mine = activeJobId === jobId;
+    if (mine) {
       activeJobId = null;
       markAnalysis(ANALYSIS_FINISHED_KEY);
     }
     btn.disabled = false;
+    if (mine) clearProgress();
     status.style.display = 'none';
   }
 }
@@ -593,25 +601,6 @@ if (loginForm) {
   });
   // 資格情報はブラウザに保存しない(入力の補完はパスワードマネージャーに任せる)。以前のバージョンが残した平文を消す(#490)
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
-}
-
-// セッション保持の説明モーダル
-var rememberInfoBtn = document.getElementById('rememberInfoBtn');
-var rememberModal = document.getElementById('rememberModal');
-var rememberModalClose = document.getElementById('rememberModalClose');
-if (rememberInfoBtn && rememberModal) {
-  rememberInfoBtn.addEventListener('click', function (e) {
-    e.preventDefault();
-    rememberModal.style.display = 'flex';
-  });
-  rememberModal.addEventListener('click', function (e) {
-    if (e.target === rememberModal) rememberModal.style.display = 'none';
-  });
-  if (rememberModalClose) {
-    rememberModalClose.addEventListener('click', function () {
-      rememberModal.style.display = 'none';
-    });
-  }
 }
 
 // ページロード時: IndexedDBにmatchesがあれば即時表示

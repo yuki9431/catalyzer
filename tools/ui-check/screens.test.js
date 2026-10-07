@@ -109,4 +109,59 @@ describe('screens', () => {
     assert.ok(get('report-overview').required.some(function (r) { return r[0] === '[data-ui="reanalyze-button"]'; }));
     assert.ok(get('mobile-report-overview').absent.some(function (r) { return r[0] === '[data-ui="reanalyze-button"]'; }));
   });
+
+  it('mobile-search-back は「scrollBy 正→結果クリック→戻る」の順で、戻った後に結果先頭とページ送りが画面外', () => {
+    var s = get('mobile-search-back');
+    var idx = function (f) { return s.ops.findIndex(f); };
+    var sb = idx(function (o) { return o.scrollBy && o.scrollBy[0] > 0; });
+    var open = idx(function (o) { return o.click && o.click[0] === '[data-ui="search-result"]'; });
+    var back = idx(function (o) { return o.click && o.click[0] === '[data-ui="match-detail-back"]'; });
+    assert.ok(sb >= 0 && sb < open && open < back);
+    ['[data-ui="search-result"]', '[data-ui="search-pager"]'].forEach(function (sel) { assert.ok(s.outview.some(function (r) { return r[0] === sel; }), sel); });
+  });
+
+  it('試合詳細・絞り込みの全画面は下部タブバーを覆い、試合経過は常時表示', () => {
+    ['match-detail', 'mobile-match-detail', 'mobile-search-filter'].forEach(function (id) {
+      assert.ok(get(id).outview.some(function (r) { return r[0] === '[data-ui="tabbar"]'; }), id);
+    });
+    ['match-detail', 'mobile-match-detail'].forEach(function (id) {
+      assert.ok(get(id).absent.some(function (r) { return r[0] === '[data-ui="match-timeline-toggle"]'; }), id);
+    });
+  });
+
+  it('試合詳細の画面は試合経過の終了ラベルを要求する', () => {
+    ['match-detail', 'mobile-match-detail', 'mobile-match-gantt'].forEach(function (id) {
+      assert.ok(get(id).required.some(function (r) { return r[0] === '[data-ui="gantt-end"]' && r[1] === '終了'; }), id);
+    });
+  });
+
+  it('日付区切りは日付順の search で必須、指標順の mobile-search-sort では出ない', () => {
+    assert.ok(get('search').required.some(function (r) { return r[0] === '[data-ui="search-day"]'; }));
+    assert.ok(get('mobile-search-sort').absent.some(function (r) { return r[0] === '[data-ui="search-day"]'; }));
+  });
+
+  it('mobile-search-applied は適用中タグ・結果20件を要求し、絞り込みシートが無い', () => {
+    var s = get('mobile-search-applied');
+    var min = function (sel) { return (s.required.find(function (r) { return r[0] === sel; }) || [])[2]; };
+    assert.strictEqual(min('[data-ui="search-result"]'), 20);
+    assert.ok(s.absent.some(function (r) { return r[0].includes('search-filter-sheet'); }));
+  });
+
+  it('analyze-partial は warn(role=status)・analyze-error と notice-session-expired は error(role=alert)の #error 通知を必須にする', () => {
+    var has = function (id, role) { return get(id).required.some(function (r) { return r[0] === '#error [data-ui="notice"][role="' + role + '"]'; }); };
+    assert.ok(has('analyze-partial', 'status'));
+    assert.ok(has('analyze-error', 'alert'));
+    assert.ok(has('notice-session-expired', 'alert'));
+  });
+
+  it('report-empty-period(-back) は clock で日付を固定し、日付指定の日を選んで空の状態を検査する', () => {
+    ['report-empty-period', 'report-empty-period-back'].forEach(function (id) {
+      var s = get(id);
+      assert.ok(!Number.isNaN(Date.parse(s.clock)), id);
+      assert.ok(s.ops.some(function (o) { return o.click && o.click[0] === '[data-ui="cal-day"]'; }), id);
+      assert.ok(s.absent.some(function (r) { return r[0] === '[data-ui="skeleton"]'; }), id);
+    });
+    assert.ok(get('report-empty-period').required.some(function (r) { return r[0] === '[data-ui="empty-state"]'; }));
+    assert.ok(get('report-empty-period-back').absent.some(function (r) { return r[0] === '[data-ui="empty-state"]'; }));
+  });
 });

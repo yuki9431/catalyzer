@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { launchChrome, InfraError } from './cdp.js';
 import { listen } from './server.js';
 import { SCREENS, THEMES } from './screens.js';
-import { determinismSource } from './page-determinism.js';
+import { determinismSource, clockSource } from './page-determinism.js';
 import { comparePng } from './png.js';
 
 var HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +16,7 @@ var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
-var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', parts: '/__preview/parts.html' };
+var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');
@@ -128,6 +128,10 @@ async function runScreen(conn, origin, screen, theme, update) {
     await metrics(screen.viewport.height);
     if (screen.ops.some(function (o) { return o.pull; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
     if (screen.standalone) await send('Page.addScriptToEvaluateOnNewDocument', { source: "Object.defineProperty(Navigator.prototype,'standalone',{configurable:true,get:function(){return true}})" });
+    if (screen.clock) {
+      if (Number.isNaN(Date.parse(screen.clock))) throw new InfraError('不正な clock: ' + screen.clock);
+      await send('Page.addScriptToEvaluateOnNewDocument', { source: clockSource(screen.clock) });
+    }
     await send('Emulation.setTimezoneOverride', { timezoneId: 'Asia/Tokyo' });
     await send('Emulation.setLocaleOverride', { locale: 'ja-JP' });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] });

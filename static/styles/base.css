@@ -26,5 +26,5 @@ button {
 }
 button:hover { background: var(--accent-2); }
 button:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; }
-.security-note { margin: 16px 0; padding: 12px; font-size: 0.875rem; color: var(--text-dim); line-height: 1.6; background: var(--surface-sub); border-radius: 8px; border-left: 3px solid var(--accent); }
+.form-group .note { margin-top: 8px; }
 .note { margin-top: 16px; font-size: 0.875rem; color: var(--text-subtle); line-height: 1.6; }

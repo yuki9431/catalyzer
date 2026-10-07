@@ -52,7 +52,7 @@ function pairs() {
   out.push(['accent', 'accent-a10', 'bg']);
   ['text', 'muted', 'bad'].forEach((f) => out.push([f, 'accent-a10', 'bg']));
   out.push(['bad', 'accent-a10', 'panel']);
-  [['great', 'great-a15'], ['terrible', 'terrible-a15'], ['timeup', 'timeup-a15']].forEach(([f, b]) => ['panel', 'panel-2'].forEach((base) => out.push([f, b, base])));
+  [['great', 'great-a15'], ['terrible', 'terrible-a15'], ['timeup', 'timeup-a15']].forEach(([f, b]) => ['panel', 'panel-2', 'bg'].forEach((base) => out.push([f, b, base])));
   out.push(['accent-2', 'accent-a18', 'panel']);
   ['text', 'muted', 'good', 'accent'].forEach((f) => out.push([f, 'good-a08', 'panel']));
   [['heat-text', 'win-a85'], ['heat-text', 'terrible-a85'], ['heat-text', 'heat-mid'], ['text-faint', 'heat-empty']].forEach(([f, b]) => out.push([f, b, 'panel']));
