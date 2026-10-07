@@ -6,9 +6,9 @@ const css = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8
 const TOKEN_RE = /^\s*(--[a-z0-9-]+):\s*(.+?);\s*$/gm;
 const parse = (block) => Object.fromEntries([...block.matchAll(TOKEN_RE)].map((m) => [m[1], m[2]]));
 const darkBlock = css.slice(css.indexOf(':root {'), css.indexOf('}'));
-const lightMedia = css.slice(css.indexOf('@media (prefers-color-scheme: light)'));
+const lightBlock = css.slice(css.indexOf(':root[data-theme="light"] {'));
 const dark = parse(darkBlock);
-const light = { ...dark, ...parse(lightMedia) };
+const light = { ...dark, ...parse(lightBlock) };
 
 // var() を再帰的に解決して [r,g,b,a] にする。#rgb/#rrggbb/rgba(R,G,B,A)/R,G,B に対応
 function color(tokens, name) {
@@ -84,10 +84,16 @@ describe('contrast', () => {
   });
 
   it('ライトのブロックは定義済みの名前だけを上書きし color-scheme: light を持つ', () => {
-    const names = Object.keys(parse(lightMedia));
+    const names = Object.keys(parse(lightBlock));
     assert.deepStrictEqual(names.filter((n) => !(n in dark)), []);
-    assert.ok(/color-scheme: light;/.test(lightMedia));
+    assert.ok(/color-scheme: light;/.test(lightBlock));
     assert.ok(/color-scheme: dark;/.test(darkBlock));
+  });
+
+  it('ライトはダークの後ろの1ブロックで、OS 判定の @media を持たない', () => {
+    assert.ok(css.indexOf(':root[data-theme="light"] {') > css.indexOf('}'));
+    assert.ok(Object.keys(parse(lightBlock)).length >= 70);
+    assert.ok(!css.includes('prefers-color-scheme'));
   });
 
   it('alpha トークンは元の色の RGB と NN/100 の不透明度に一致する', () => {
