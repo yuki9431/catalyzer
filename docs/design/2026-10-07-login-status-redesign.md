@@ -1,6 +1,6 @@
 # 設計: デザイン刷新 段階B(4/4) ログイン・分析中・通知・空の状態
 
-- ステータス: 実装済み
+- ステータス: 実装済み(「速報を見る」は利用者の判断で廃止し、速報は常に自動表示に戻した)
 - 日付: 2026-10-07
 - 関連 issue: #415(親 #410)。基線: 748968f(develop)。並行: #414(search.js/search.css/report.js の検索ビュー外枠)
 - 見た目の正: `docs/design/issue-410-redesign-mock.html`(login / progress / states と NOTES)
@@ -133,7 +133,7 @@ CSS の要点(トークンのみ・色リテラル禁止・余白8px単位・文
 | C4 | console エラー0 | `make ui-check 2>&1 \| grep -c "console エラー"` | 0 |
 | C5 | 空表示(スケルトン無し)と期間変更で戻れる | `node tools/ui-check/check.js report-empty-period report-empty-period-back \| grep -c '^OK'` | 4 |
 | C6 | 警告とエラーが別の見た目 | `node tools/ui-check/check.js analyze-partial analyze-error notice-session-expired \| grep -c '^OK'` | 6 |
-| C7 | 段階表示と速報を見る | `node tools/ui-check/check.js analyzing analyzing-prelim analyzing-prelim-open \| grep -c '^OK'` | 6 |
+| C7 | 段階表示と速報の自動表示(#497 で「速報を見る」を廃止) | `node tools/ui-check/check.js analyzing analyzing-prelim \| grep -c '^OK'` | 4 |
 | C8 | ログイン(折りたたみ・免責・タップ領域) | `node tools/ui-check/check.js login more mobile-more \| grep -c '^OK'` | 6 |
 | C9 | 色の上書き撤去 | `grep -cE "style\.(backgroundColor\|borderColor\|color) *=" static/app.js` | 0 |
 | C10 | #error への直書き撤去 | `grep -cE "(error\|warning)\.textContent" static/app.js` | 0 |

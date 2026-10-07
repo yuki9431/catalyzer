@@ -25,7 +25,3 @@ export function progressView(s) {
     }),
   };
 }
-
-export function prelimMessage(count) {
-  return '取得済みの ' + count + ' 試合で集計しています。取得が進むと自動で更新されます。';
-}

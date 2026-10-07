@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { progressView, prelimMessage } from '../lib/progress.js';
+import { progressView } from '../lib/progress.js';
 
 var states = function (v) { return v.steps.map(function (s) { return s.state; }); };
 
@@ -46,11 +46,5 @@ describe('progressView', () => {
   it('段階ラベル', () => {
     var v = progressView({ status: 'pending' });
     assert.deepStrictEqual(v.steps.map(function (s) { return s.label; }), ['保存済みのデータを読み込み', '新しい試合を取得', '集計してレポートを作成']);
-  });
-});
-
-describe('prelimMessage', () => {
-  it('件数を入れた文言', () => {
-    assert.strictEqual(prelimMessage(412), '取得済みの 412 試合で集計しています。取得が進むと自動で更新されます。');
   });
 });
