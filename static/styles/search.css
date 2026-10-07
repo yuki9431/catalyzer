@@ -23,6 +23,7 @@
 .search-apply { width: auto; min-height: 48px; padding: 0 24px; border: none; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 0.875rem; font-weight: 700; cursor: pointer; }
 .search-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .search-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.search-field > .ui-toggle { align-self: flex-start; }
 .search-field-wide { grid-column: 1 / -1; }
 /* 詳細設定（マニアックな数値レンジ）を折りたたむ */
 .search-adv { grid-column: 1 / -1; border-top: 1px solid var(--line); margin-top: 2px; }
