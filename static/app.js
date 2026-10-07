@@ -118,13 +118,6 @@ function clearProgress() {
   render(null, document.getElementById('statusSteps'));
 }
 
-// 失敗で終わっても取得済みの速報は捨てずに表示する
-function keepPrelim(st) {
-  if (st.rendered || !st.last) return;
-  renderReport({ matches: st.last.matches }, st.last.user_key);
-  st.rendered = true;
-}
-
 // 速報レポートの取り込み。ログアウト等で中断されたら false
 async function takePrelim(jobId, s, st) {
   if (!(s.logged_in && s.has_preliminary_report && s.preliminary_version > st.version)) return true;
@@ -135,7 +128,6 @@ async function takePrelim(jobId, s, st) {
   if (!(data.matches && data.preliminary)) return true;
   if (data.user_key) saveMatchesToDB(data.user_key, data.matches, data.schema_version);
   st.version = s.preliminary_version;
-  st.last = data;
   renderReport({ matches: data.matches }, data.user_key);
   st.rendered = true;
   return true;
@@ -258,7 +250,6 @@ async function reanalyzeWithSession(auto) {
       }
     }
   } catch (e) {
-    if (!expired) keepPrelim(st);
     showNotice(e.tone || 'error', e.message, expired ? LOGIN_ACTION : null);
   } finally {
     if (posted && (jobId === undefined || activeJobId === jobId)) {
@@ -582,7 +573,6 @@ async function analyze() {
       }
     }
   } catch (e) {
-    keepPrelim(st);
     showNotice(e.tone || 'error', e.message);
     if (!st.rendered) {
       render(null, reportEl);

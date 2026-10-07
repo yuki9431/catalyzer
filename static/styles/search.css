@@ -77,7 +77,7 @@
 .search-item.win::before { background: var(--great); }
 .search-item.lose::before { background: var(--terrible); }
 .search-item:hover { background: var(--accent-a10); }
-.search-item-top { display: flex; align-items: center; gap: 10px; }
+.search-item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .search-item-date { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
 .search-item-metric { color: var(--accent-2); font-size: 0.875rem; font-weight: 600; }
 .search-item-battle { display: flex; align-items: center; gap: 10px; }
