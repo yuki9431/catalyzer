@@ -136,4 +136,22 @@ describe('screens', () => {
     assert.ok(min('[data-ui="search-day"]') >= 6);
     assert.ok(s.absent.some(function (r) { return r[0].includes('search-filter-sheet'); }));
   });
+
+  it('analyze-partial は warn(role=status)・analyze-error と notice-session-expired は error(role=alert)の #error 通知を必須にする', () => {
+    var has = function (id, role) { return get(id).required.some(function (r) { return r[0] === '#error [data-ui="notice"][role="' + role + '"]'; }); };
+    assert.ok(has('analyze-partial', 'status'));
+    assert.ok(has('analyze-error', 'alert'));
+    assert.ok(has('notice-session-expired', 'alert'));
+  });
+
+  it('report-empty-period(-back) は clock で日付を固定し、日付指定の日を選んで空の状態を検査する', () => {
+    ['report-empty-period', 'report-empty-period-back'].forEach(function (id) {
+      var s = get(id);
+      assert.ok(!Number.isNaN(Date.parse(s.clock)), id);
+      assert.ok(s.ops.some(function (o) { return o.click && o.click[0] === '[data-ui="cal-day"]'; }), id);
+      assert.ok(s.absent.some(function (r) { return r[0] === '[data-ui="skeleton"]'; }), id);
+    });
+    assert.ok(get('report-empty-period').required.some(function (r) { return r[0] === '[data-ui="empty-state"]'; }));
+    assert.ok(get('report-empty-period-back').absent.some(function (r) { return r[0] === '[data-ui="empty-state"]'; }));
+  });
 });

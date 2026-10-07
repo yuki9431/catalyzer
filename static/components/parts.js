@@ -57,6 +57,6 @@ export function RowList({ rows, onSelect }) {
   </ul>`;
 }
 
-export function Notice({ tone = 'info', children }) {
-  return html`<div class=${'ui-notice ui-notice-' + tone} role=${tone === 'error' ? 'alert' : 'status'} data-ui="notice">${children}</div>`;
+export function Notice({ tone = 'info', action, children }) {
+  return html`<div class=${'ui-notice ui-notice-' + tone} role=${tone === 'error' ? 'alert' : 'status'} data-ui="notice">${children}${action && html`<button type="button" class="ui-action" data-ui="notice-action" onClick=${action.onClick}>${action.label}</button>`}</div>`;
 }

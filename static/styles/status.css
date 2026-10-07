@@ -10,6 +10,19 @@
 @keyframes prog-indeterminate { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
 .progress-label { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.875rem; color: var(--text-dim); }
 
+/* ===== 段階リスト・速報の案内 ===== */
+.status:has(.status-steps) .spinner { display: none; }
+.status-steps { list-style: none; margin: 16px auto 0; padding: 0; max-width: 480px; text-align: left; }
+.status-steps li { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line); color: var(--text); font-size: 0.9375rem; }
+.status-steps li:last-child { border-bottom: 0; }
+.status-steps li[data-state="wait"] { color: var(--muted); }
+.status-step-mark { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border: 2px solid var(--line); border-radius: 50%; }
+.status-steps li[data-state="done"] .status-step-mark { background: var(--accent); border-color: var(--accent); }
+.status-steps li[data-state="done"] .status-step-mark::after { content: ""; width: 5px; height: 9px; border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.status-steps li[data-state="now"] .status-step-mark { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .status-steps li[data-state="now"] .status-step-mark { animation: none; } }
+.status .ui-notice { max-width: 480px; margin: 16px auto 0; text-align: left; }
+
 /* ===== Report container (dashboard) ===== */
 .report { line-height: 1.7; padding-bottom: 40px; }
 

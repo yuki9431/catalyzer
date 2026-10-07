@@ -21,3 +21,15 @@ function install() {
 }
 
 export var determinismSource = '(' + install.toString() + ')();';
+
+// Date を「iso + 実経過時間」の時計にする(引数ありの new Date は実物)。画面の clock から注入する
+function installClock(iso) {
+  var Real = Date, base = Real.parse(iso), t0 = Real.now();
+  var now = function () { return base + (Real.now() - t0); };
+  window.Date = class FakeDate extends Real {
+    constructor(...a) { if (a.length) super(...a); else super(now()); }
+    static now() { return now(); }
+  };
+}
+
+export function clockSource(iso) { return '(' + installClock.toString() + ')(' + JSON.stringify(iso) + ');'; }

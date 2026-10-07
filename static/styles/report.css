@@ -70,3 +70,7 @@
 /* タイムアップ（制限時間切れ）試合を示す補助バッジ。勝敗バッジの隣に添える。 */
 .badge-timeup { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; background: var(--timeup-a15); color: var(--timeup); }
 
+/* ===== 期間0件の空の状態 ===== */
+.report-empty { text-align: center; padding: 32px 8px; }
+.report-empty b { display: block; color: var(--text); font-size: 1.0625rem; }
+.report-empty p { margin: 4px 0 16px; color: var(--muted); font-size: 0.9375rem; }
