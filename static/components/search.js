@@ -1,5 +1,6 @@
 import { html, useState, useMemo, useEffect, useRef } from '../htm-preact-standalone.js';
 import { themeReader } from '../lib/theme.js';
+import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
@@ -316,10 +317,9 @@ function Timeline({ match, msImages }) {
     }
     return barEl;
   }
-  // 30秒ごとに点線、1分ごとに秒数ラベル。終了ラベルに近い目盛りは出さない。
-  var grid = [];
-  for (var t = 30; t < raw; t += 30) grid.push({ sec: t, major: t % 60 === 0 });
-  var labels = grid.filter(function (g) { return g.major && (raw - g.sec) / raw >= 0.3; }); // 終了ラベルと重ならない割合
+  var tk = ganttTicks(raw);
+  var grid = tk.ticks;
+  var labels = grid.filter(function (g) { return g.label; });
 
   return html`<div class="gantt" data-ui="gantt">
     <div class="gantt-rows">
@@ -357,9 +357,9 @@ function Timeline({ match, msImages }) {
     </div>
     <div class="gantt-axis">
       ${labels.map(function (g) {
-        return html`<span class="gantt-tick" style=${'left:' + pct(g.sec) + '%'}>${g.sec}</span>`;
+        return html`<span class=${'gantt-tick' + (g.label === 'wide' ? ' gantt-tick-wide' : '')} style=${'left:' + pct(g.sec) + '%'}>${g.sec}</span>`;
       })}
-      <span class="gantt-tick gantt-tick-end" data-ui="gantt-end" style="left:100%">${match.game_end_sec > 0 && html`<small>終了</small> `}${Math.round(raw)}秒</span>
+      <span class="gantt-tick gantt-tick-end" data-ui="gantt-end" style="left:100%">${match.game_end_sec > 0 && html`<small>終了</small> `}${tk.end}秒</span>
     </div>
     <div class="gantt-legend">
       ${GANTT_LEGEND.map(function (l) {

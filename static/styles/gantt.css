@@ -43,4 +43,4 @@
 .gantt-legend-swatch.gantt-f, .gantt-legend-swatch.gantt-s, .gantt-legend-swatch.gantt-e, .gantt-legend-swatch.gantt-ov-on { width: 10px; height: 10px; transform: rotate(45deg); border-radius: 1px; }
 .gantt-legend-swatch.gantt-death { position: static; transform: none; width: 16px; height: 10px; background: none; border: none; display: inline-flex; align-items: center; justify-content: center; line-height: 1; color: var(--terrible); font-weight: 800; text-shadow: none; }
 .gantt-legend-swatch.gantt-death::before { content: '✕'; display: block; }
-
+@media (max-width: 720px) { .gantt-tick-wide { display: none; } }
