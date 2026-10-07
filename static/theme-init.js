@@ -10,11 +10,13 @@
     if (choice === 'system') return osLight ? 'light' : 'dark';
     return choice;
   }
-  function choice() {
+  function load() {
     var v = null;
     try { v = w.localStorage.getItem(KEY); } catch (e) { v = null; }
     return CHOICES.indexOf(v) >= 0 ? v : 'system';
   }
+  var current = load();
+  function choice() { return current; }
   function apply(c) {
     var t = resolve(c, !!(mq && mq.matches));
     w.document.documentElement.setAttribute('data-theme', t);
@@ -23,6 +25,7 @@
   }
   function set(v) {
     var c = CHOICES.indexOf(v) >= 0 ? v : 'system';
+    current = c;
     try { w.localStorage.setItem(KEY, c); } catch (e) { /* 保存できなくても適用する */ }
     apply(c);
   }

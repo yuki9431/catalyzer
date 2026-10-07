@@ -19,7 +19,9 @@ function load(opts) {
       querySelector(sel) { return sel === 'meta[name="theme-color"]' ? meta : null; },
     },
   };
-  const mq = { matches: !!opts.osLight, addEventListener(t, fn) { listeners.push(fn); } };
+  const mq = { matches: !!opts.osLight };
+  if (opts.legacyListener) mq.addListener = (fn) => { listeners.push(fn); };
+  else mq.addEventListener = (t, fn) => { listeners.push(fn); };
   if (!opts.noMatchMedia) win.matchMedia = (q) => (q === '(prefers-color-scheme: light)' ? mq : { matches: false, addEventListener() {} });
   if (opts.storageThrows) Object.defineProperty(win, 'localStorage', { get() { throw new Error('denied'); } });
   else win.localStorage = {
@@ -82,6 +84,25 @@ describe('theme-init', () => {
     r = load({ stored: 'dark' });
     r.fire(true);
     assert.strictEqual(r.attrs['data-theme'], 'dark');
+  });
+
+  it('保存に失敗しても選択はメモリに残り、OS の切替もその選択に従う', () => {
+    const r = load({ setItemThrows: true, osLight: false });
+    r.api.set('light');
+    assert.strictEqual(r.api.choice(), 'light');
+    r.api.set('system');
+    r.fire(true);
+    assert.deepStrictEqual([r.api.choice(), r.attrs['data-theme']], ['system', 'light']);
+    r.api.set('dark');
+    r.fire(false);
+    r.fire(true);
+    assert.strictEqual(r.attrs['data-theme'], 'dark');
+  });
+
+  it('addEventListener が無く addListener だけの matchMedia でも OS の切替を購読する', () => {
+    const r = load({ legacyListener: true, stored: 'system' });
+    r.fire(true);
+    assert.strictEqual(r.attrs['data-theme'], 'light');
   });
 
   it('META は tokens.css の --bg と一致する', () => {

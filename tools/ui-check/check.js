@@ -164,7 +164,7 @@ async function runScreen(conn, origin, screen, theme, update) {
         if (!THEMES.includes(a[0])) throw new InfraError('不正な colorScheme: ' + a[0]);
         await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: a[0] }] });
         // 配色切替だけだと上部バーの backdrop-filter 層が古いまま残り角が1階調ずれるので、再レイアウトで描き直させる
-        await evalJs('document.documentElement.style.display="none";document.body.offsetHeight;document.documentElement.style.display="";new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        await evalJs('var y=scrollY;document.documentElement.style.display="none";document.body.offsetHeight;document.documentElement.style.display="";scrollTo(0,y);new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
         continue;
       }
       if (kind === 'release') {
