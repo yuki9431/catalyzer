@@ -74,3 +74,21 @@
 .report-empty { text-align: center; padding: 32px 8px; }
 .report-empty b { display: block; color: var(--text); font-size: 1.0625rem; }
 .report-empty p { margin: 4px 0 16px; color: var(--muted); font-size: 0.9375rem; }
+
+/* ===== ホーム画面: 前回との比較 ===== */
+.today-label { font-size: 0.875rem; color: var(--muted); }
+.today-title { font-size: 1.25rem; font-weight: 800; margin: 2px 0 6px; }
+.today-wl { font-size: 1rem; font-weight: 700; margin-left: 6px; }
+.today-wl .w { color: var(--good); }
+.today-wl .l { color: var(--bad); }
+.today-ms { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.today-chip { font-size: 0.875rem; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+.today-chip.more { color: var(--muted); }
+.today-empty { font-size: 0.875rem; color: var(--muted); margin: 0; }
+.report .today-cmp th { color: var(--muted); font-weight: 400; padding: 6px 0; background: none; }
+.report .today-cmp td { text-align: right; padding: 6px 0 6px 8px; font-variant-numeric: tabular-nums; }
+.today-cmp .prev { color: var(--muted); }
+.today-cmp .now { font-weight: 800; }
+.today-cmp .up { color: var(--good); font-weight: 700; }
+.today-cmp .down { color: var(--bad); font-weight: 700; }
+.today-cmp .flat { color: var(--muted); }

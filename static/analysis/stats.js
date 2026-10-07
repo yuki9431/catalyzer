@@ -42,7 +42,7 @@ export function jsWinRate(matches) {
   return w / matches.length * 100;
 }
 
-function jsDmgEfficiency(matches) {
+export function jsDmgEfficiency(matches) {
   if (!matches.length) return 0;
   var g = 0, t = 0;
   for (var i = 0; i < matches.length; i++) { g += matches[i].dmg_given; t += matches[i].dmg_taken; }

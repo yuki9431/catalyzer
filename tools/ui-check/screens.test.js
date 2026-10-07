@@ -65,11 +65,14 @@ describe('screens', () => {
     assert.deepStrictEqual(have.sort(), want.sort());
   });
 
-  it('mobile-more は 4 項目を巡回して最後に再読み込みし、タップ領域を検査する', () => {
+  it('mobile-more は 4 項目を巡回して再読み込みでホームに戻ることを確かめ、その他を開いてタップ領域を検査する', () => {
     var s = SCREENS.find(function (x) { return x.id === 'mobile-more'; });
     var clicked = s.ops.filter(function (op) { return op.click; }).map(function (op) { return op.click[1]; });
     ['レポート', '試合検索', '総合戦歴', 'その他'].forEach(function (l) { assert.ok(clicked.includes(l), l); });
-    assert.deepStrictEqual(s.ops[s.ops.length - 1], { reload: true });
+    var r = s.ops.findIndex(function (op) { return op.reload; });
+    assert.ok(r > 0);
+    assert.deepStrictEqual(s.ops[r + 1].wait[1], 'ホーム');
+    assert.deepStrictEqual(s.ops[r + 2].click[1], 'その他');
     assert.ok(s.required.some(function (r) { return r[0].includes('aria-current') && r[1] === 'その他'; }));
     assert.ok(s.tap && s.tap.length > 0);
   });
