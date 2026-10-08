@@ -15,6 +15,15 @@ if (todayN > 0) {
     if (day) m.date = day + ' ' + (m.date.slice(11, 13) < '05' ? '20' : m.date.slice(11, 13)) + m.date.slice(13);
   });
 }
+// ?focus=N は後ろから N 戦を「挑戦中」の対象にする。与ダメ12500以上のミッションで、fixture では ✗ が3戦
+var focusN = Number(new URLSearchParams(location.search).get('focus'));
+if (focusN > 0) {
+  var sorted = matches.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  var goal = { key: 'dmg_given', line: 12500 };
+  localStorage.setItem('catalyzer_focus', JSON.stringify({ user_key: USER_KEY, by_ms: { '': {
+    goal: goal, title: '与ダメ12500以上を取る', condition: '与ダメ12500以上', since: sorted[sorted.length - focusN - 1].date, win_rate_from: 50, win_rate_to: 58,
+  } } }));
+}
 await saveMatchesToDB(USER_KEY, matches, SCHEMA_VERSION);
 localStorage.setItem('catalyzer_user_key', USER_KEY);
 localStorage.setItem('catalyzer_class_record', JSON.stringify({ user_key: USER_KEY, record: classRecord() }));

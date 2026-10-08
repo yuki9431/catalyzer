@@ -42,7 +42,12 @@ function primaryActions(actions) {
   return main.length ? main : actions.slice(0, 1);
 }
 
-function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
+// 一覧行ぜんたいを押せるリンク。件数は右寄せ
+function MatchesLink({ ui, label, count, onClick }) {
+  return html`<button type="button" class="action-link" data-ui=${ui} onClick=${onClick}><span>${label}</span><span class="action-link-count">${count}戦 ›</span></button>`;
+}
+
+function FocusCard({ focus, matches, selectedMs, onClear, onContinue, onShowMatches }) {
   var targets = (matches || []).filter(function (m) { return m.date > focus.since && (!selectedMs || m.ms === selectedMs); });
   var ev = evaluateGoal(focus.goal, targets, FOCUS_SLOTS);
   var marks = ev.marks, achieved = ev.achieved, streak = ev.streak;
@@ -50,6 +55,10 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
   var last = marks[marks.length - 1];
   var slots = [];
   for (var j = 0; j < FOCUS_SLOTS; j++) slots.push(marks[j] || null);
+  var missed = marks.filter(function (x) { return !x.ok; }).length;
+  function review() {
+    onShowMatches({ goal: focus.goal, focusRange: { after: focus.since, until: marks.length >= FOCUS_SLOTS ? marks[FOCUS_SLOTS - 1].date : '' } });
+  }
   return html`<div class=${'focus-card' + (complete || (last && last.ok) ? ' done' : '')}>
     <div class=${'focus-label' + (complete ? ' complete' : '')}>${complete ? '🎉 ミッション完了' : '挑戦中のミッション'}</div>
     <div class="focus-title">${focus.title}</div>
@@ -66,6 +75,7 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
       return html`<span class=${'focus-mark' + (x.ok ? ' ok' : '')} title=${x.date}>${x.ok ? '✓' : '✗'}</span>`;
     })}</div>
     <div class="focus-caption">${marks.length ? '✓ 達成 / ✗ 未達成。試合ごとに左から埋まります' : '次の試合から、試合ごとに左から埋まります'}</div>
+    ${missed > 0 && html`<${MatchesLink} ui="focus-review" label="✗ の試合を見返す" count=${missed} onClick=${review} />`}
     <div class="focus-actions">
       ${complete && html`<button class="focus-btn" onClick=${function () { onContinue(last.date); }}>もう${FOCUS_SLOTS}戦続ける</button>`}
       <button class="focus-btn ghost" onClick=${onClear}>ミッションを選び直す</button>
@@ -73,7 +83,7 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue }) {
   </div>`;
 }
 
-export function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
+export function ActionPlanPanel({ plan, selectedMs, matches, userKey, onShowMatches }) {
   var scope = userKey + '|' + (selectedMs || '');
   var focusRef = useState(function () { return { scope: scope, value: loadFocus(userKey, selectedMs) }; });
   var focusState = focusRef[0], setFocusState = focusRef[1];
@@ -99,7 +109,7 @@ export function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
   if (focus) {
     return html`<${Panel} title=${title}>
       <${FocusCard} focus=${focus} matches=${matches} selectedMs=${selectedMs} onClear=${function () { setFocus(null); }}
-        onContinue=${function (since) { setFocus(Object.assign({}, focus, { since: since })); }} />
+        onContinue=${function (since) { setFocus(Object.assign({}, focus, { since: since })); }} onShowMatches=${onShowMatches} />
     <//>`;
   }
   if (plan.insufficient) {
@@ -126,6 +136,7 @@ export function ActionPlanPanel({ plan, selectedMs, matches, userKey }) {
         <div class="action-title">${a.title}<span class=${'action-impact ' + a.level}>影響度 ${IMPACT_LABEL[a.level]}</span></div>
         <div class="action-detail">${a.detail}</div>
         <${WinRateGain} from=${a.win_rate_from} to=${a.win_rate_to} />
+        ${a.matched > 0 && html`<${MatchesLink} ui="mission-matches" label="当てはまった試合を見る" count=${a.matched} onClick=${function () { onShowMatches({ goal: a.goal }); }} />`}
         ${userKey && html`<button class="focus-btn" onClick=${function () { choose(a); }}>このミッションに挑戦</button>`}
       </li>`;
     })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。</p>`}

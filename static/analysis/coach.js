@@ -1,5 +1,6 @@
 // --- 勝率アップミッション: 負け筋の状態とそれ以外の勝率差から、取り組むと勝率が上がりそうな行動を示す ---
-import { COST_FATAL_DEATHS, jsWinRate as winRate, jsAvg as avg, jsGetDeathEvents, jsGetBurstEvents, consecutiveFallPairs } from './stats.js';
+import { COST_FATAL_DEATHS, jsWinRate as winRate, jsAvg as avg, jsGetDeathEvents } from './stats.js';
+import { hasTimeline, goalPattern, testPattern } from './patterns.js';
 
 var MIN_MATCHES = 10;     // これ未満は診断しない
 var MIN_SIDE = 4;         // 二分した各側の最低試合数
@@ -22,53 +23,14 @@ function median(arr) {
 }
 function roundTo(n, step) { return Math.round(n / step) * step; }
 function round1(n) { return Math.round(n * 10) / 10; }
-function byStart(arr) { return arr.slice().sort(function (a, b) { return a.action_start_sec - b.action_start_sec; }); }
-function deathsOf(actions) { return byStart(jsGetDeathEvents(actions)); }
-function burstsOf(actions) { return byStart(jsGetBurstEvents(actions)); }
-// 自機 actions が空でも 0落ち0覚醒の可能性があるため、4人分のどれかにイベントがあればタイムラインありとみなす
-function hasTimeline(m) {
-  return [m.actions, m.partner_actions, m.opponent1_actions, m.opponent2_actions].some(function (a) { return a && a.length > 0; });
-}
 function sortByDate(ms) {
   return ms.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
 }
 
-// 自分が相方より先に撃墜されたか。'first' / 'second' / 'none'（自分は撃墜なし）/ null（判定不能）
-function fallOrder(m) {
-  if (!hasTimeline(m)) return null;
-  var mine = deathsOf(m.actions);
-  if (!mine.length) return 'none';
-  var partner = deathsOf(m.partner_actions);
-  if (!partner.length || mine[0].action_start_sec < partner[0].action_start_sec) return 'first';
-  if (mine[0].action_start_sec > partner[0].action_start_sec) return 'second';
-  return null;
-}
-
-// 順落ちしたか（定義は stats.js の consecutiveFallPairs）。チーム0落ちは null
-function consecutiveFall(m) {
-  var pairs = consecutiveFallPairs(m);
-  return pairs === null ? null : pairs.length > 0;
-}
-
-// 覚醒中（撃墜で覚醒は終わるため終了時刻を含む）に撃墜されたか。覚醒なし・判定不能は null
-function deathDuringBurst(m) {
-  if (!hasTimeline(m)) return null;
-  var bursts = burstsOf(m.actions);
-  if (!bursts.length) return null;
-  var deaths = deathsOf(m.actions);
-  return bursts.some(function (b) {
-    return deaths.some(function (d) { return d.action_start_sec >= b.action_start_sec && d.action_start_sec <= b.action_end_sec; });
-  });
-}
-
-// 覚醒を1回目の被撃墜より前に使えたか（被撃墜なしは達成扱い）。判定不能は null
-function burstBeforeDeath(m) {
-  if (!hasTimeline(m)) return null;
-  var deaths = deathsOf(m.actions);
-  if (!deaths.length) return true;
-  var bursts = burstsOf(m.actions);
-  return bursts.length > 0 && bursts[0].action_start_sec < deaths[0].action_start_sec;
-}
+// 試合が展開 cond に当てはまる（true）／当てはまらない（false）かで二分する述語
+function isBad(key, line) { var cond = { key: key, line: line }; return function (m) { return testPattern(cond, m) === true; }; }
+function isGood(key, line) { var cond = { key: key, line: line }; return function (m) { return testPattern(cond, m) === false; }; }
+function notNull(key) { var cond = { key: key }; return function (m) { return testPattern(cond, m) !== null; }; }
 
 // bad/good の二分から候補を作る。total は「{total}戦中{n}戦」の分母、gain_wins は bad 側が good 並みに勝てた場合の増加勝利数
 function candidate(key, bad, good, total, build, weight) {
@@ -78,6 +40,7 @@ function candidate(key, bad, good, total, build, weight) {
   if (round1(gap) < MIN_GAP) return null;
   var c = build({ badWr: Math.round(badWr), goodWr: Math.round(goodWr), count: total + '戦中' + bad.length + '戦' });
   c.key = key;
+  c.matched = bad.length;
   if (!c.goal) c.goal = { key: key };
   c.gain_wins = bad.length * gap / 100 * (weight || 1);
   return c;
@@ -85,14 +48,13 @@ function candidate(key, bad, good, total, build, weight) {
 
 // 自分の被撃墜だけでコストオーバーになる回数。コスト混在時は回数を1つに決められないため出さない
 function deathCandidate(ms) {
-  var valid = ms.filter(function (m) { return COST_FATAL_DEATHS[m.ms_cost]; });
+  var valid = ms.filter(notNull('deaths'));
   var costs = {};
   valid.forEach(function (m) { costs[m.ms_cost] = true; });
   var costKeys = Object.keys(costs);
   if (costKeys.length !== 1) return null;
   var limit = COST_FATAL_DEATHS[costKeys[0]];
-  var fatal = function (m) { return m.deaths >= limit; };
-  return candidate('deaths', valid.filter(fatal), valid.filter(function (m) { return !fatal(m); }), valid.length, function (s) {
+  return candidate('deaths', valid.filter(isBad('deaths')), valid.filter(isGood('deaths')), valid.length, function (s) {
     return {
       title: '被撃墜を' + (limit - 1) + '回以内に抑える',
       condition: '被撃墜が' + (limit - 1) + '回以内',
@@ -103,12 +65,7 @@ function deathCandidate(ms) {
 
 // 相方より先に撃墜されたか／後に撃墜されたか：勝率の低い方を避ける
 function fallOrderCandidate(ms) {
-  var first = [], second = [];
-  ms.forEach(function (m) {
-    var o = fallOrder(m);
-    if (o === 'first') first.push(m);
-    else if (o === 'second') second.push(m);
-  });
+  var first = ms.filter(isBad('fall_first')), second = ms.filter(isBad('fall_second'));
   var total = first.length + second.length;
   if (!total) return null;
   var firstWorse = winRate(first) < winRate(second);
@@ -130,10 +87,8 @@ function fallOrderCandidate(ms) {
 
 // 覚醒を1回目の被撃墜より前に使えているか
 function burstCandidate(ms) {
-  var valid = ms.filter(function (m) { return deathsOf(m.actions).length > 0; });
-  var early = [], late = [];
-  valid.forEach(function (m) { (burstBeforeDeath(m) ? early : late).push(m); });
-  return candidate('burst', late, early, valid.length, function (s) {
+  var valid = ms.filter(function (m) { return jsGetDeathEvents(m.actions).length > 0; });
+  return candidate('burst', valid.filter(isBad('burst')), valid.filter(isGood('burst')), valid.length, function (s) {
     return {
       title: '1機目で覚醒する',
       condition: '1回目の被撃墜より前に覚醒（撃墜されなかった試合も達成）',
@@ -144,8 +99,8 @@ function burstCandidate(ms) {
 
 // 順落ち：自分と相方が続けて撃墜された試合
 function consecutiveFallCandidate(ms) {
-  var valid = ms.filter(function (m) { return consecutiveFall(m) !== null; });
-  return candidate('consecutive_fall', valid.filter(consecutiveFall), valid.filter(function (m) { return !consecutiveFall(m); }), valid.length, function (s) {
+  var valid = ms.filter(notNull('consecutive_fall'));
+  return candidate('consecutive_fall', valid.filter(isBad('consecutive_fall')), valid.filter(isGood('consecutive_fall')), valid.length, function (s) {
     return {
       title: '順落ちしない',
       condition: '自分と相方が15秒以内に続けて撃墜されない（どちらも撃墜されなかった試合は対象外）',
@@ -156,8 +111,8 @@ function consecutiveFallCandidate(ms) {
 
 // 覚醒中に撃墜された試合
 function burstDeathCandidate(ms) {
-  var valid = ms.filter(function (m) { return deathDuringBurst(m) !== null; });
-  return candidate('burst_death', valid.filter(deathDuringBurst), valid.filter(function (m) { return !deathDuringBurst(m); }), valid.length, function (s) {
+  var valid = ms.filter(notNull('burst_death'));
+  return candidate('burst_death', valid.filter(isBad('burst_death')), valid.filter(isGood('burst_death')), valid.length, function (s) {
     return {
       title: '覚醒中に撃墜されない',
       condition: '覚醒中に撃墜されない（覚醒しなかった試合は対象外）',
@@ -173,8 +128,8 @@ function burstCountCandidate(ms) {
   if (wins.length < MIN_SIDE) return null;
   var line = Math.round(median(wins.map(function (m) { return m.bursts; })));
   if (line < 1) return null;
-  return candidate('burst_count', valid.filter(function (m) { return m.bursts < line; }),
-    valid.filter(function (m) { return m.bursts >= line; }), valid.length, function (s) {
+  return candidate('burst_count', valid.filter(isBad('burst_count', line)),
+    valid.filter(isGood('burst_count', line)), valid.length, function (s) {
       return {
         title: '覚醒を' + line + '回以上使う',
         condition: '覚醒' + line + '回以上',
@@ -191,8 +146,8 @@ function exDmgCandidate(ms) {
   if (wins.length < MIN_SIDE) return null;
   var line = roundTo(median(wins.map(function (m) { return m.ex_dmg; })), 50);
   if (line <= 0) return null;
-  return candidate('ex_dmg', valid.filter(function (m) { return m.ex_dmg < line; }),
-    valid.filter(function (m) { return m.ex_dmg >= line; }), valid.length, function (s) {
+  return candidate('ex_dmg', valid.filter(isBad('ex_dmg', line)),
+    valid.filter(isGood('ex_dmg', line)), valid.length, function (s) {
       return {
         title: 'EXダメ' + line + '以上を取る',
         condition: 'EXダメ' + line + '以上（覚醒しなかった試合は対象外）',
@@ -207,8 +162,8 @@ function dmgTakenCandidate(ms) {
   var wins = ms.filter(function (m) { return m.win; });
   if (wins.length < MIN_SIDE) return null;
   var line = roundTo(median(wins.map(function (m) { return m.dmg_taken; })), 50);
-  return candidate('dmg_taken', ms.filter(function (m) { return m.dmg_taken > line; }),
-    ms.filter(function (m) { return m.dmg_taken <= line; }), ms.length, function (s) {
+  return candidate('dmg_taken', ms.filter(isBad('dmg_taken', line)),
+    ms.filter(isGood('dmg_taken', line)), ms.length, function (s) {
       return {
         title: '被ダメを' + line + '以下に抑える',
         condition: '被ダメ' + line + '以下',
@@ -223,8 +178,8 @@ function dmgGivenCandidate(ms) {
   var wins = ms.filter(function (m) { return m.win; });
   if (wins.length < MIN_SIDE) return null;
   var line = roundTo(median(wins.map(function (m) { return m.dmg_given; })), 50);
-  return candidate('dmg_given', ms.filter(function (m) { return m.dmg_given < line; }),
-    ms.filter(function (m) { return m.dmg_given >= line; }), ms.length, function (s) {
+  return candidate('dmg_given', ms.filter(isBad('dmg_given', line)),
+    ms.filter(isGood('dmg_given', line)), ms.length, function (s) {
       return {
         title: '与ダメ' + line + '以上を取る',
         condition: '与ダメ' + line + '以上',
@@ -354,42 +309,19 @@ export function computeActionPlan(matches) {
   };
 }
 
-// 1試合ごとの達成判定。対象外の試合は null
-var GOAL_JUDGES = {
-  deaths: function (g, m) { return COST_FATAL_DEATHS[m.ms_cost] ? m.deaths < COST_FATAL_DEATHS[m.ms_cost] : null; },
-  fall_order: function (g, m) {
-    var o = fallOrder(m);
-    if (o === null) return null;
-    if (g.avoid === 'first') return o !== 'first';
-    return o === 'none' ? null : o === 'first';
-  },
-  burst: function (g, m) { return burstBeforeDeath(m); },
-  dmg_taken: function (g, m) { return m.dmg_taken <= g.line; },
-  dmg_given: function (g, m) { return m.dmg_given >= g.line; },
-  consecutive_fall: function (g, m) { var c = consecutiveFall(m); return c === null ? null : !c; },
-  burst_death: function (g, m) { var c = deathDuringBurst(m); return c === null ? null : !c; },
-  burst_count: function (g, m) { return hasTimeline(m) ? m.bursts >= g.line : null; },
-  ex_dmg: function (g, m) { return m.bursts > 0 ? m.ex_dmg >= g.line : null; },
-};
-
 // 保存値などから復元した goal が判定に必要な項目を備えているか
-var GOAL_LINE_KEYS = { dmg_taken: true, dmg_given: true, burst_count: true, ex_dmg: true };
-function hasOwn(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
 export function isValidGoal(goal) {
-  if (!goal || !hasOwn(GOAL_JUDGES, goal.key)) return false;
-  if (hasOwn(GOAL_LINE_KEYS, goal.key)) return Number.isFinite(goal.line);
-  if (goal.key === 'fall_order') return goal.avoid === 'first' || goal.avoid === 'second';
-  return true;
+  return goalPattern(goal) !== null;
 }
 
 // 選択したミッション（goal）の達成状況を古い順に最大 limit 件で返す: { total, achieved, streak（末尾からの連続達成）, marks: [{date, ok}] }
 export function evaluateGoal(goal, matches, limit) {
-  var judge = isValidGoal(goal) && GOAL_JUDGES[goal.key];
+  var cond = goalPattern(goal);
   var marks = [];
-  if (judge) {
+  if (cond) {
     sortByDate(matches || []).forEach(function (m) {
-      var ok = judge(goal, m);
-      if (ok !== null) marks.push({ date: m.date, ok: ok });
+      var t = testPattern(cond, m);
+      if (t !== null) marks.push({ date: m.date, ok: !t });
     });
   }
   if (limit) marks = marks.slice(0, limit);

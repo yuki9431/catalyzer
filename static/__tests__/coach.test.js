@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeActionPlan, evaluateGoal, isValidGoal } from '../analysis/coach.js';
+import { goalPattern, testPattern } from '../analysis/patterns.js';
 
 function makeMatch(overrides) {
   return Object.assign({
@@ -390,5 +391,51 @@ describe('isValidGoal', function () {
     assert.equal(isValidGoal({ key: 'fall_order', avoid: 'none' }), false);
     assert.equal(isValidGoal({ key: 'valueOf', line: 1 }), false);
     assert.equal(evaluateGoal({ key: 'valueOf', line: 1 }, [makeMatch()]).total, 0);
+  });
+});
+
+// 負け試合は「覚醒前に先落ち・順落ち・覚醒中に撃墜」、勝ち試合は覚醒を先に使って落ちない、という二極のデータ
+function polarMatches() {
+  var ms = [];
+  for (var i = 0; i < 40; i++) {
+    var win = i % 3 === 0;
+    var d = function (t) { return { action: 'death', action_start_sec: t, action_end_sec: 0 }; };
+    var b = function (s, e) { return { action: 'exbst-f', action_start_sec: s, action_end_sec: e }; };
+    ms.push(makeMatch(win ? {
+      date: dateAt(i), win: true, deaths: 1, dmg_given: 1500 + i, dmg_taken: 500 + i, ex_dmg: 400, bursts: 2,
+      actions: [b(10, 20), b(60, 70), d(90)], partner_actions: [d(50)],
+    } : {
+      date: dateAt(i), win: false, deaths: 3, dmg_given: 600 + i, dmg_taken: 1500 + i, ex_dmg: i % 2 ? 100 : 0, bursts: i % 2,
+      actions: i % 2 ? [b(40, 50), d(20), d(45), d(120)] : [d(20 + (i % 5)), d(100)], partner_actions: [d(30 + (i % 5))],
+    }));
+  }
+  return ms;
+}
+
+describe('computeActionPlan matched', function () {
+  it('matched equals the N in the detail text and the testPattern count for every mission', function () {
+    var ms = polarMatches();
+    var plan = computeActionPlan(ms);
+    assert.ok(plan.actions.length >= 5, 'keys: ' + keys(plan));
+    plan.actions.forEach(function (a) {
+      var n = Number(/戦中(\d+)戦/.exec(a.detail)[1]);
+      var cond = goalPattern(a.goal);
+      var count = ms.filter(function (m) { return testPattern(cond, m) === true; }).length;
+      assert.equal(a.matched, n, a.key);
+      assert.equal(a.matched, count, a.key);
+    });
+  });
+
+  it('keeps matched consistent for a single-MS subset', function () {
+    var ms = polarMatches().slice(0, 30);
+    computeActionPlan(ms).actions.forEach(function (a) {
+      var cond = goalPattern(a.goal);
+      assert.equal(a.matched, ms.filter(function (m) { return testPattern(cond, m) === true; }).length, a.key);
+    });
+  });
+
+  it('does not treat held_burst or fall_first goals as valid missions', function () {
+    assert.equal(isValidGoal({ key: 'fall_first' }), false);
+    assert.equal(isValidGoal({ key: 'held_burst' }), false);
   });
 });
