@@ -29,7 +29,8 @@ describe('ユーザーの画面状態の消去', function () {
   });
   it('clearUserState は画面状態のキーを消す', function () {
     var shared = body('clearUserState');
-    ['VIEW_KEY', 'TAB_SEEN_KEY', 'FOCUS_KEY', 'CLASS_RECORD_KEY', "'catalyzer_user_key'", "'catalyzer_has_session'"].forEach(function (k) {
+    ['VIEW_KEY', 'TAB_SEEN_KEY', 'FOCUS_KEY', 'CLASS_RECORD_KEY', 'ANALYSIS_STARTED_KEY', 'ANALYSIS_FINISHED_KEY',
+      "'catalyzer_user_key'", "'catalyzer_has_session'", "'catalyzer_cred'"].forEach(function (k) {
       assert.ok(shared.includes(k), k);
     });
   });
