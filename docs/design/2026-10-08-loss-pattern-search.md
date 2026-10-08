@@ -92,8 +92,8 @@ export function fmtSec(sec);            // '0:52'(秒は切り捨て、2桁ゼ�
 | fall_second | 後落ちした | ✓ | | `fallOrder(m) === 'second'` | null か 'none' | 最初の撃墜 | 相方より後に {t} で撃墜されています | hits |
 | dmg_behind | 与ダメが被ダメを下回った | ✓ | | `dmg_given < dmg_taken` | 数値でない | — | — | 与ダメ {g}・被ダメ {t} |
 | deaths | 被撃墜でコストオーバー | | ✓ | `deaths >= COST_FATAL_DEATHS[ms_cost]` | コスト不明 | limit 番目の撃墜 | {t} の撃墜でコストオーバーしています | hits、無ければ 被撃墜 {n}回 |
-| dmg_taken | 被ダメ{line}超 | | ✓ line | `dmg_taken > line` | — | — | — | 被ダメ {v} |
-| dmg_given | 与ダメ{line}未満 | | ✓ line | `dmg_given < line` | — | — | — | 与ダメ {v} |
+| dmg_taken | 被ダメ{line}超 | | ✓ line | `dmg_taken > line` | 数値でない | — | — | 被ダメ {v} |
+| dmg_given | 与ダメ{line}未満 | | ✓ line | `dmg_given < line` | 数値でない | — | — | 与ダメ {v} |
 | burst_count | 覚醒{line}回未満 | | ✓ line | `bursts < line` | タイムライン無し | — | — | 覚醒 {n}回 |
 | ex_dmg | EXダメ{line}未満 | | ✓ line | `ex_dmg < line` | `bursts === 0` | — | — | EXダメ {v} |
 
@@ -111,6 +111,7 @@ export function fmtSec(sec);            // '0:52'(秒は切り捨て、2桁ゼ�
 emptyFilters()                          // + pattern: '', goal: null, focusRange: null
 export function activeConditions(f);     // [goalPattern(f.goal), シートの pattern(def.sheet のみ)] の有効なもの
 export function removableFilterLabels(f); // [{field:'goal', label:'負け筋: ' + label}, {field:'focusRange', label:'挑戦中のミッションの試合'}] の有効なもの
+export function removeFilter(f, field);   // field を null に。goal を外すときは focusRange も null(1-2)
 appliedFilterLabels(f)                   // 先頭に '試合の展開: ' + label(シート選択時)。goal/focusRange は含めない
 hasActiveFilters(f)                      // activeConditions が1件以上 or focusRange 有効
 filterMatches(ms, f)                     // 全条件で testPattern === true。focusRange は date > after かつ (until === '' || date <= until)

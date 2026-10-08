@@ -26,8 +26,8 @@ var CASES = [
   { key: 'fall_second', t: { actions: [death(50)], partner_actions: [death(40)] }, f: { actions: [death(30)], partner_actions: [death(40)] }, n: { actions: [burst(1, 2)], partner_actions: [death(40)] } },
   { key: 'dmg_behind', t: { dmg_given: 100, dmg_taken: 200 }, f: { dmg_given: 300, dmg_taken: 200 }, n: { dmg_given: undefined } },
   { key: 'deaths', t: { deaths: 2 }, f: { deaths: 1 }, n: { ms_cost: 0 } },
-  { key: 'dmg_taken', line: 800, t: { dmg_taken: 900 }, f: { dmg_taken: 800 } },
-  { key: 'dmg_given', line: 1000, t: { dmg_given: 900 }, f: { dmg_given: 1000 } },
+  { key: 'dmg_taken', line: 800, t: { dmg_taken: 900 }, f: { dmg_taken: 800 }, n: { dmg_taken: undefined } },
+  { key: 'dmg_given', line: 1000, t: { dmg_given: 900 }, f: { dmg_given: 1000 }, n: { dmg_given: undefined } },
   { key: 'burst_count', line: 2, t: { bursts: 1, actions: [death(5)] }, f: { bursts: 2, actions: [death(5)] }, n: { bursts: 0 } },
   { key: 'ex_dmg', line: 200, t: { bursts: 1, ex_dmg: 100 }, f: { bursts: 1, ex_dmg: 200 }, n: { bursts: 0 } },
 ];

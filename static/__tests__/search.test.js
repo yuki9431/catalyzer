@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
-  appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels,
+  appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
 import { computeActionPlan, evaluateGoal } from '../analysis/coach.js';
 
@@ -487,6 +487,19 @@ describe('loss pattern filters', function () {
     assert.deepEqual(filterMatches(ms, f).map(function (m) { return m.date; }), [ms[3].date, ms[4].date, ms[5].date]);
     f.focusRange = { after: ms[7].date, until: '' };
     assert.equal(filterMatches(ms, f).length, 2);
+  });
+
+  it('removes focusRange together with goal, but keeps goal when only the range is removed', function () {
+    var f = emptyFilters();
+    f.goal = { key: 'burst' };
+    f.focusRange = { after: '2025-06-01 00:00', until: '' };
+    var g = removeFilter(f, 'goal');
+    assert.equal(g.goal, null);
+    assert.equal(g.focusRange, null);
+    var r = removeFilter(f, 'focusRange');
+    assert.deepEqual(r.goal, { key: 'burst' });
+    assert.equal(r.focusRange, null);
+    assert.deepEqual(f.focusRange, { after: '2025-06-01 00:00', until: '' });
   });
 
   it('builds labels', function () {

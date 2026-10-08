@@ -69,6 +69,14 @@ export function removableFilterLabels(filters) {
   return out;
 }
 
+// ×で条件を外す。負け筋を外したら挑戦中の範囲も外す（範囲だけ残ると ✗ 以外の試合まで出る）
+export function removeFilter(filters, field) {
+  var next = Object.assign({}, filters);
+  next[field] = null;
+  if (field === 'goal') next.focusRange = null;
+  return next;
+}
+
 // 何らかの絞り込みが指定されているか（デフォルト状態でないか）を判定する。
 export function hasActiveFilters(filters) {
   var f = filters || {};

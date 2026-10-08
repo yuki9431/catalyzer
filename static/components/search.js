@@ -4,7 +4,7 @@ import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
-  activeConditions, removableFilterLabels,
+  activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason } from '../analysis/patterns.js';
 import {
@@ -568,6 +568,7 @@ export function SearchView({ matches, msImages, initialFilters }) {
     });
     setPage(1);
   }
+  function onRemove(field) { setFilters(function (prev) { return removeFilter(prev, field); }); setPage(1); }
   function onReset() { setFilters(emptyFilters()); setPage(1); }
   function onSortKey(key) { setSortKey(key); setPage(1); }
   function onDir(d) { if (d !== desc) { setDir(d); setPage(1); } }
@@ -600,7 +601,7 @@ export function SearchView({ matches, msImages, initialFilters }) {
       ${shown > 0 && html`<div class="search-applied-list">
         ${removable.map(function (r) {
           var ui = r.field === 'goal' ? 'search-goal' : 'search-range';
-          return html`<${Chip} ui=${ui} onRemove=${function () { onField(r.field, null); if (r.field === 'goal') onField('focusRange', null); }} removeLabel=${r.label + ' を外す'}>${r.label}</${Chip}>`;
+          return html`<${Chip} ui=${ui} onRemove=${function () { onRemove(r.field); }} removeLabel=${r.label + ' を外す'}>${r.label}</${Chip}>`;
         })}
         ${labels.map(function (l) { return html`<${Chip} ui="search-applied">${l}</${Chip}>`; })}
       </div>`}
