@@ -59,7 +59,7 @@
 [Cloud Run Job  <serviceName>-auto-refresh  実行SA=auto-refresh-job  1vCPU/512Mi  timeout 240s  retry 0]
    ListActive → Eligible → ユーザーごとに並列:
      AcquireRefreshLease → LoadSession(token) → 復号/復元
-     → GetLatestDatetime + LoadMatchIDsAt → ScrapingWithOption(SavedJar, since=最新-1分, SkipMatchIDs)
+     → GetLatestDatetime → ScrapingWithOption(SavedJar, since=最新)
      → FillMsNames → SaveScores(新規があれば) → UpdateSessionJar(同期) → FinishRefresh(lease解放+結果)
         │
         ▼
@@ -247,7 +247,7 @@ func classify(err error) Outcome
 func nextUpdate(prev model.AutoRefreshState, o Outcome) model.RefreshUpdate
 func Eligible(states []model.AutoRefreshState, env string, now time.Time) []model.AutoRefreshState
 
-type Store interface { /* §4 の firestore 関数 + LoadSession/DeleteSession/GetLatestDatetime/LoadMatchIDsAt/SaveScores */ }
+type Store interface { /* §4 の firestore 関数 + LoadSession/DeleteSession/GetLatestDatetime/SaveScores */ }
 type ScrapeFunc func(since time.Time, opt scraper.ScrapingOption) (model.DatedScores, http.CookieJar, error)
 
 func RunJob(ctx context.Context, env, owner string, msMap map[string]string) error // 本番 Store/scrape を内部で組み立てる
@@ -282,18 +282,13 @@ func TouchAutoRefresh(ctx context.Context, userKey, env, token string, now time.
 func ListActiveAutoRefresh(ctx context.Context, now time.Time) ([]model.AutoRefreshState, error) // Where active_until > now
 func AcquireRefreshLease(...) / FinishRefresh(...) / ReleaseRefreshLease(...) // §4.3
 func UpdateSessionJar(ctx context.Context, token string, encryptedJar []byte) error // session.go に追加
-func LoadMatchIDsAt(ctx context.Context, userKey string, t time.Time) (ids []string, hasLegacy bool, err error) // scores.go。Where datetime == t
 ```
 
 - **refreshUser の流れ**: lease を取る → LoadSession → 復号/復元 → `latest := GetLatestDatetime`(既存。Limit(1) で 1 read)→ ゼロ値なら skipped
-  → `ids, legacy := LoadMatchIDsAt(latest)` → `since = latest - 1分`(`legacy` があれば `since = latest`)
-  → `ScrapingWithOption("", "", since, {SavedJar, Context: 200s のタイムアウト付き ctx, SkipMatchIDs: ids})`
+  → `ScrapingWithOption("", "", latest, {SavedJar, Context: 200s のタイムアウト付き ctx})`
   → 403 の途中データを含め、新規があれば `FillMsNames` / `CheckUnknownMS` / `SaveScores`(同期。`bw.End()` で完了を待つ)
   → 成功か 403 なら `SerializeJar` → `Encrypt` → `UpdateSessionJar` → classify → nextUpdate → FinishRefresh
-- **同じ分の試合の取りこぼし対策**: スクレイパーは `!t.After(since)` で打ち切るので、分精度で同じ分に後から出てきた試合を逃す
-  - `since` を 1 分戻し、既に保存済みの MatchID を `ScrapingOption.SkipMatchIDs map[string]bool` で詳細取得の前に捨てる
-  - MatchID は detailURL から `model.MatchIDFromURL` で求まる。フィルタは純粋関数 `skipKnownEntries` にする
-  - legacy の試合(match_id が空)が混ざると doc ID が変わって重複するので、その回は従来どおり `since = latest` にする
+- **最新の分は取り直さない**: 同じ分に試合は1つしかない。取り直すと詳細 URL の param が日を跨いで変わっていて、同じ試合が別 MatchID で重複保存される(当初は1分戻して MatchID で捨てていたが、この理由で廃止)
 - **省くもの**: 速報 JSON とジョブストア(閲覧はフロントの差分取得で行う)、ClassRecord(永続化しない付加情報)、TagPartners(変化が稀。手動分析で更新される)、grade チェック
 - **Job の終了**: `RunJob` はユーザーごとの goroutine を WaitGroup で全部待ち、`[INFO] auto-refresh done users=N elapsed=Xs` を出してから return する
   - jar の保存も FinishRefresh も各 goroutine の中で同期的に行うので、プロセスが先に終わることはない
@@ -309,9 +304,9 @@ func LoadMatchIDsAt(ctx context.Context, userKey string, t time.Time) (ids []str
 1 回の Job の execution: `C_exec = T × (v × 0.00283 + m × 0.000314)` 円(T = 秒、v = vCPU、m = GiB)。v=1、m=0.5 なら **T × 0.002987 円**。
 
 Firestore(1 ユーザー・1 回、新規なし):
-- read 5 件(lease の Tx、LoadSession、GetLatestDatetime、LoadMatchIDsAt、Finish の Tx)
+- read 4 件(lease の Tx、LoadSession、GetLatestDatetime、Finish の Tx)
 - write 3 件(lease、jar、Finish)。新規試合があると +2 件(users と match)
-- → 5 × 0.0000597 + 3 × 0.000181 = **0.00084 円/回**
+- → 4 × 0.0000597 + 3 × 0.000181 = **0.00078 円/回**
 
 | ケース | 1 回あたり | 1 時間あたり(12 回) |
 |---|---|---|

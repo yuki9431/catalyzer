@@ -145,7 +145,6 @@ type ScrapingOption struct {
 	OnLoginSuccess func()                         // ログイン成功直後に1度だけ呼ばれる
 	SavedJar       http.CookieJar                 // 保存済みCookieJar。非nilの場合はログインをスキップ
 	Context        context.Context                // 呼び出し元のContext。キャンセルでスクレイピングを中断する。nilならBackground
-	SkipMatchIDs   map[string]bool                // 詳細取得の前に捨てる保存済み試合の MatchID(同じ分の取りこぼし対策)
 }
 
 // Scraping はスクレイピング処理を実行し、DatedScoresとログイン済みCookieJarを返す
@@ -217,7 +216,7 @@ func ScrapingWithOption(username, password string, since time.Time, opt Scraping
 
 	go func() {
 		defer close(entryCh)
-		streamErr = streamMatchEntries(ctx, cancel, jar, dailyLinks, since, opt.SkipMatchIDs, entryCh)
+		streamErr = streamMatchEntries(ctx, cancel, jar, dailyLinks, since, entryCh)
 	}()
 
 	scores, detailErr := fetchDetailPagesStreaming(ctx, cancel, jar, entryCh, notify, opt.OnBatchReady, opt.BatchSize, opt.FirstBatchSize)
@@ -330,23 +329,9 @@ func IsSessionExpired(err error) bool {
 	return errors.Is(err, ErrLoginFailed) || errors.Is(err, ErrUnauthorized)
 }
 
-// skipKnownEntries は保存済みの MatchID の試合エントリを取り除く。
-func skipKnownEntries(entries []matchEntry, skip map[string]bool) []matchEntry {
-	if len(skip) == 0 {
-		return entries
-	}
-	out := make([]matchEntry, 0, len(entries))
-	for _, e := range entries {
-		if !skip[model.MatchIDFromURL(e.detailURL)] {
-			out = append(out, e)
-		}
-	}
-	return out
-}
-
 // streamMatchEntries は複数の日別ページから試合エントリを並列で収集し、links の順(古い日から)にチャネルへ流す
 // 途中の日が失敗したらそれより新しい日は流さない。403 なら流し済みの古い日の詳細取得は止めない(#456)
-func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, links []dailyLink, since time.Time, skip map[string]bool, out chan<- matchEntry) error {
+func streamMatchEntries(ctx context.Context, cancel context.CancelFunc, jar http.CookieJar, links []dailyLink, since time.Time, out chan<- matchEntry) error {
 	if len(links) == 0 {
 		return nil
 	}
@@ -400,7 +385,7 @@ emit:
 		if errs[i] != nil {
 			break
 		}
-		for _, e := range skipKnownEntries(results[i], skip) {
+		for _, e := range results[i] {
 			select {
 			case <-ctx.Done():
 				break emit

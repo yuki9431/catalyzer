@@ -244,27 +244,3 @@ func TestScraping_RankpageForbidden(t *testing.T) {
 		t.Fatalf("ErrAccessDenied(失効でない)を期待したが got: %v", err)
 	}
 }
-
-// SkipMatchIDs に入れた試合は詳細取得されない
-func TestScraping_SkipMatchIDs(t *testing.T) {
-	t.Setenv("SCRAPER_THROTTLE_DELAY_MS", "0")
-	orig := http.DefaultTransport
-	site := newSite([]string{"2026/10/03"}, 4, 4, 4)
-	http.DefaultTransport = site
-	t.Cleanup(func() { http.DefaultTransport = orig })
-	jar, _ := cookiejar.New(nil)
-
-	skip := map[string]bool{model.MatchIDFromURL(detailURL("d0", 0)): true}
-	got, _, err := ScrapingWithOption("", "", time.Time{}, ScrapingOption{SavedJar: jar, SkipMatchIDs: skip})
-	if err != nil {
-		t.Fatalf("予期しないエラー: %v", err)
-	}
-	if site.detailed != 3 {
-		t.Errorf("詳細取得は 3 件のはずが %d 件", site.detailed)
-	}
-	for _, sc := range got {
-		if skip[sc.MatchID] {
-			t.Errorf("スキップ対象 %s が返った", sc.MatchID)
-		}
-	}
-}
