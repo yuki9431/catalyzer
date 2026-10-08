@@ -185,7 +185,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
 - 自動更新(#288): prod のみ有効。サービスの env `AUTO_REFRESH_JOB`/`AUTO_REFRESH_AUDIENCE`/`AUTO_REFRESH_INVOKER`/`AUTO_REFRESH_PASSPHRASE_HASH`/`AUTO_REFRESH_OPEN` は infra/app が設定（未設定の環境は有効化 POST が503・tick が404・状態取得 GET が200で available:false・touch が200で status:"off"）。合言葉は `go run ./cmd/hash-passphrase` でハッシュを作り `STACK=prod make pulumi-app-shell` で `pulumi config set --secret autoRefreshPassphraseHash <hash>`。設計は `docs/design/2026-10-05-auto-refresh.md`
 - セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
-- 試合の一意キーは詳細ページURL由来の `MatchID`（`model.DatedScore.GroupKey()` に一元化）。MatchID未設定のlegacyデータは分精度日時にフォールバックする（同一分に複数試合があっても区別できるようにするための設計。#358）
+- 試合の一意キーは詳細ページURL由来の `MatchID`（`model.DatedScore.GroupKey()` に一元化）。MatchID未設定のlegacyデータは分精度日時にフォールバックする（#358。実データでは同じ分に試合は1つで、同一分の区別は保険）。詳細URLの param は日を跨ぐと変わるため、保存済みの試合を MatchID で照合しない（差分取得の since は保存済みの最新日時ちょうど。#522）
 
 ## Goコーディング規約
 

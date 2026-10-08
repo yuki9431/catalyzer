@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // TestScrapingWithOption_CanceledContext は、開始前にキャンセル済みのContextを渡すと
@@ -438,19 +437,5 @@ func TestIsSessionExpired(t *testing.T) {
 				t.Errorf("IsSessionExpired = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestSkipKnownEntries(t *testing.T) {
-	a := matchEntry{detailURL: "https://example.test/a"}
-	b := matchEntry{detailURL: "https://example.test/b"}
-	known := map[string]bool{model.MatchIDFromURL(a.detailURL): true}
-
-	got := skipKnownEntries([]matchEntry{a, b}, known)
-	if len(got) != 1 || got[0].detailURL != b.detailURL {
-		t.Errorf("保存済みだけが除かれるべき: got %v", got)
-	}
-	if got := skipKnownEntries([]matchEntry{a, b}, nil); len(got) != 2 {
-		t.Errorf("skip が空なら全件残る: got %d", len(got))
 	}
 }
