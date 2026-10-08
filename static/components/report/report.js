@@ -2,7 +2,7 @@ import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeMsPair, computeMsSummary, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
-import { AppShell, MoreView, useView } from '../shell.js';
+import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
@@ -13,6 +13,7 @@ import { OverviewPane } from './overview.js';
 import { PlaystylePane } from './playstyle.js';
 import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
+import { HomeView } from '../home.js';
 
 var TAB_DEFS = [
   ['overview', '総合'],
@@ -156,16 +157,13 @@ export function Report({ data, userKey, actions }) {
     var shareItems = computeShareData(periodFiltered);
     var filtered = periodFiltered;
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
-    // アクションプランは勝ち負け両方の比較が必要なので勝敗レンズ適用前の試合で計算する
-    var actionPlan = computeActionPlan(filtered);
     // 勝敗レンズ: 選択時はレポート全体を勝ち/負け試合のみに絞る（MS一覧・共有データは母集団のまま）
     if (lens === 'win') filtered = filtered.filter(function (m) { return m.win; });
     else if (lens === 'loss') filtered = filtered.filter(function (m) { return !m.win; });
-    if (!filtered.length) return { ms_summary: msSummary, share_data: shareItems, action_plan: actionPlan };
+    if (!filtered.length) return { ms_summary: msSummary, share_data: shareItems };
     return {
       ms_summary: msSummary,
       share_data: shareItems,
-      action_plan: actionPlan,
       time_of_day: computeTimeOfDay(filtered),
       day_of_week: computeDayOfWeek(filtered),
       daily_trend: computeDailyTrend(filtered),
@@ -194,11 +192,23 @@ export function Report({ data, userKey, actions }) {
     });
   }, [msStats]);
 
+  // ホームは期間で絞らないため、期間内に無い機体の解除はレポート表示中だけ行う
   useEffect(function () {
-    if (selectedMs && !msStats[selectedMs]) setSelectedMs(null);
-  }, [msStats]);
+    if (view === 'report' && selectedMs && !msStats[selectedMs]) setSelectedMs(null);
+  }, [msStats, view]);
 
   var shareData = (frontendData && frontendData.share_data) || [];
+  // ホームは期間で絞らないので、機体の候補も全期間から作る
+  var homeMsEntries = useMemo(function () {
+    var counts = {};
+    (allMatches || []).forEach(function (m) { if (m.ms) counts[m.ms] = (counts[m.ms] || 0) + 1; });
+    return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).map(function (name) { return { name: name, matches: counts[name] }; });
+  }, [allMatches]);
+  // ホーム画面のミッションは期間に依らず全期間で診断する
+  var homePlan = useMemo(function () {
+    var ms = allMatches || [];
+    return computeActionPlan(selectedMs ? ms.filter(function (m) { return m.ms === selectedMs; }) : ms);
+  }, [allMatches, selectedMs]);
 
   function handleCustomReport(range) {
     setCustomRange(range);
@@ -214,6 +224,17 @@ export function Report({ data, userKey, actions }) {
 
   // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
   // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
+  var count = allMatches ? allMatches.length : null;
+  nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
+  if (view === 'home') {
+    var msOnly = html`<div class="controls-row" data-ui="filter-bar">
+        <${MsSelector} entries=${homeMsEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
+        ${reanalyzeButton(actions)}
+      </div>`;
+    return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
+      <${HomeView} matches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} />
+    </${AppShell}>`;
+  }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
       <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
@@ -249,7 +270,7 @@ export function Report({ data, userKey, actions }) {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
-    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} allMatches=${allMatches} userKey=${userKey} />`;
+    pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} />`;
   }
 
   var filters = html`<div class="controls-row" data-ui="filter-bar">
@@ -297,6 +318,15 @@ export function Skeleton({ actions, nav }) {
           return html`<button data-ui="tab" role="tab" aria-selected=${t[0] === 'overview'} class=${'tab' + (t[0] === 'overview' ? ' active' : '')} disabled>${t[1]}</button>`;
         })}
       </div>`;
+  if (n.view === 'home') {
+    var msOnly = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
+        <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
+      </div>`;
+    return html`<${AppShell} filters=${msOnly} nav=${n}>
+      <div class="panel">${bar('40%', 16, 14)}${[0, 1, 2].map(function () { return bar('100%', 14, 10); })}</div>
+      <div class="panel">${bar('30%', 16, 14)}${bar('100%', 160)}</div>
+    </${AppShell}>`;
+  }
   if (n.view === 'more') {
     return html`<${AppShell} nav=${n}>
       <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { n.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />

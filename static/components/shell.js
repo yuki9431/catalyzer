@@ -3,12 +3,14 @@ import { Panel } from './ui.js';
 import { RowList, Notice, ToggleGroup } from './parts.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
 import { PULL_IDLE, pullStep, pullReady, BAR_SHOWN, nextBar } from '../lib/topbar.js';
+import { TAB_SEEN_KEY, markSeen, tabBadges } from '../lib/tabseen.js';
 import { buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK } from '../lib/format.js';
 
 // --- 画面切替(下部タブバー) ---
 
 export var VIEW_KEY = 'catalyzer_view';
 export var TAB_ITEMS = [
+  { key: 'home', label: 'ホーム' },
   { key: 'report', label: 'レポート' },
   { key: 'search', label: '試合検索' },
   { key: 'classrecord', label: '総合戦歴' },
@@ -17,19 +19,20 @@ export var TAB_ITEMS = [
 
 // アイコンは描画ごとに新しい vnode を返す(vnode の使い回しを避ける)
 var TAB_ICONS = {
+  home: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6" /></svg>`; },
   report: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>`; },
   search: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>`; },
   classrecord: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3" /></svg>`; },
   more: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></svg>`; },
 };
 
-// 保存値が TAB_ITEMS の key ならそれ、他(未保存・未知・例外)は report
+// 保存値が TAB_ITEMS の key ならそれ、他(未保存・未知・例外)は起動時と同じ home
 export function readView() {
   try {
     var v = localStorage.getItem(VIEW_KEY);
-    return TAB_ITEMS.some(function (t) { return t.key === v; }) ? v : 'report';
+    return TAB_ITEMS.some(function (t) { return t.key === v; }) ? v : 'home';
   } catch (e) {
-    return 'report';
+    return 'home';
   }
 }
 
@@ -48,11 +51,38 @@ export function useView() {
   return { view: view, onNavigate: onNavigate };
 }
 
-function TabBar({ view, onNavigate }) {
+function loadTabSeen(userKey) {
+  try {
+    var v = JSON.parse(localStorage.getItem(TAB_SEEN_KEY));
+    if (!v || v.user_key !== userKey || !v.seen || typeof v.seen !== 'object') return null;
+    var seen = {};
+    Object.keys(v.seen).forEach(function (k) { if (Number.isFinite(v.seen[k])) seen[k] = v.seen[k]; });
+    return seen;
+  } catch (e) { return null; }
+}
+
+// signals: タブごとの「更新」を表す値(試合数など)。表示中のタブは見たものとして記録する
+export function useTabBadges(userKey, signals, view) {
+  var ref = useState(function () { return { key: userKey, seen: loadTabSeen(userKey) }; });
+  var state = ref[0], setState = ref[1];
+  var seen = state.key === userKey ? state.seen : loadTabSeen(userKey);
+  var sig = JSON.stringify(signals);
+  useEffect(function () {
+    if (!userKey) return;
+    var next = markSeen(seen, signals, view);
+    if (next === seen && state.key === userKey) return;
+    try { localStorage.setItem(TAB_SEEN_KEY, JSON.stringify({ user_key: userKey, seen: next })); } catch (e) {}
+    setState({ key: userKey, seen: next });
+  }, [userKey, sig, view]);
+  return tabBadges(seen, signals, view);
+}
+
+function TabBar({ view, onNavigate, badges }) {
   return html`<nav class="tabbar" aria-label="画面切替" data-ui="tabbar">
     ${TAB_ITEMS.map(function (t) {
+      var dot = badges && badges[t.key];
       return html`<button type="button" class="tabbar-item" data-ui="tabbar-item" aria-current=${view === t.key ? 'page' : undefined}
-        onClick=${function () { onNavigate(t.key); }}>${TAB_ICONS[t.key]()}${t.label}</button>`;
+        onClick=${function () { onNavigate(t.key); }}><span class="tabbar-icon">${TAB_ICONS[t.key]()}${dot && html`<span class="tabbar-dot" data-ui="tabbar-dot"></span>`}</span>${t.label}${dot && html`<span class="visually-hidden">(更新あり)</span>`}</button>`;
     })}
   </nav>`;
 }
@@ -299,6 +329,6 @@ export function AppShell({ filters, tabs, trailing, onPull, canPull, nav, childr
       ${tabs && html`<div class="topbar-tabs" ref=${bar.tabsRef}>${tabs}</div>`}
     </div>
     ${children}
-    <${TabBar} view=${nav.view} onNavigate=${nav.onNavigate} />
+    <${TabBar} view=${nav.view} onNavigate=${nav.onNavigate} badges=${nav.badges} />
   </div>`;
 }

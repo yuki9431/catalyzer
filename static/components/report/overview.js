@@ -6,7 +6,6 @@ import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
 import { useThemeName } from '../chart-canvas.js';
 import { CompareRadar, SeasonChart, WinRateRowList } from '../charts.js';
-import { ActionPlanPanel } from './action-plan.js';
 
 // 2系列を重ねたレーダー（series: [{label, color, bg, data[]}]）
 // 全体・勝利時・敗北時を下のボタンで単一選択し、レーダーとテーブルを連動して切り替える
@@ -165,7 +164,7 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
 // 機体別の勝率比較に並べる最低試合数
 var msCompareMinMatches = 10;
 
-export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, allMatches, userKey }) {
+export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
   var seasons = (frontendData && frontendData.season) || [];
   var msSummary = (frontendData && frontendData.ms_summary) || {};
   var natl = msNational || {};
@@ -196,8 +195,6 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational, a
   var fpItems = Array.isArray(fpList) ? fpList : [];
 
   return html`<div class="tabpane">
-    <${ActionPlanPanel} plan=${frontendData && frontendData.action_plan} selectedMs=${selectedMs} matches=${allMatches} userKey=${userKey} />
-
     ${pd.basic_stats && html`<${Panel} title="基本データ">
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
     <//>`}
