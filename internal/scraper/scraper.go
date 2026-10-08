@@ -505,7 +505,7 @@ func contiguousPrefix(byIndex map[int]model.DatedScores, n int) model.DatedScore
 	if i == n || len(out) == 0 {
 		return out
 	}
-	// 途中で切れたら末尾の分を落とす。同じ分の未取得試合が次回 since で除外されるため
+	// 途中で切れたら末尾の分を落とす。since は分精度なので、切れた分は丸ごと次回に回す
 	last := out[len(out)-1].Datetime
 	for len(out) > 0 && out[len(out)-1].Datetime.Equal(last) {
 		out = out[:len(out)-1]

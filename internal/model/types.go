@@ -159,7 +159,7 @@ func UserKey(username string) string {
 // 複数試合が同一MatchIDへ衝突し、GroupKey()のグルーピングで本issue(#358)の
 // 「同一分の複数試合が丸ごと欠落する」症状を再発させてしまう。これを避けるため
 // URL全体（クエリ含む）をハッシュ対象とする。
-// 注意: 同じ試合でも日が変わると param が変わり MatchID も変わる（2026-10 本番データで確認）。保存済みの試合を取り直さないこと。
+// 注意: 同じ試合でも日が変わると param が変わり MatchID も変わる。保存済みの試合を取り直さないこと。
 func MatchIDFromURL(detailURL string) string {
 	hash := sha256.Sum256([]byte(detailURL))
 	return fmt.Sprintf("%x", hash[:8])

@@ -288,7 +288,7 @@ func UpdateSessionJar(ctx context.Context, token string, encryptedJar []byte) er
   → `ScrapingWithOption("", "", latest, {SavedJar, Context: 200s のタイムアウト付き ctx})`
   → 403 の途中データを含め、新規があれば `FillMsNames` / `CheckUnknownMS` / `SaveScores`(同期。`bw.End()` で完了を待つ)
   → 成功か 403 なら `SerializeJar` → `Encrypt` → `UpdateSessionJar` → classify → nextUpdate → FinishRefresh
-- **最新の分は取り直さない**: 同じ分に試合は1つしかない。取り直すと詳細 URL の param が日を跨いで変わっていて、同じ試合が別 MatchID で重複保存される(当初は1分戻して MatchID で捨てていたが、この理由で廃止)
+- **最新の分は取り直さない**: 同じ分に試合は1つしかない。取り直すと詳細 URL の param が日を跨いで変わっていて、同じ試合が別 MatchID で重複保存される(当初は1分戻して MatchID で捨てていたが、この理由で廃止。#358 の同一分の区別・#456 の末尾の分落としは保険として残す)
 - **省くもの**: 速報 JSON とジョブストア(閲覧はフロントの差分取得で行う)、ClassRecord(永続化しない付加情報)、TagPartners(変化が稀。手動分析で更新される)、grade チェック
 - **Job の終了**: `RunJob` はユーザーごとの goroutine を WaitGroup で全部待ち、`[INFO] auto-refresh done users=N elapsed=Xs` を出してから return する
   - jar の保存も FinishRefresh も各 goroutine の中で同期的に行うので、プロセスが先に終わることはない
@@ -421,9 +421,9 @@ Firestore(1 ユーザー・1 回、新規なし):
 - Firestore のトランザクションそのものの意味(実際の原子性)はユニットテストでは検証しない。stg の S4 で確かめる
 - 追加するトップレベルのテスト(19 本):
   - server: `TestRequireSchedulerOIDC`(トークン無し 401 / Bearer でない 401 / 検証エラー 401 / 別 SA 403 / email_verified=false 403 / issuer 不正 403 / 正常 200 / 未設定 404)、`TestCheckPassphrase`(空・誤り 403、正解 200、6 回目は正解でも 429、別ユーザーは影響を受けない、IP キーも効く、開放モードは照合しない)、`TestTickHandler`(対象 0 → launch 0 回で launched:false / 対象あり → 1 回 / launch 失敗 → 502)
-  - autorefresh: `TestHashVerifyPassphrase`、`TestGate`、`TestClassify`、`TestNextUpdate`、`TestEligible`、`TestRunJob_LeaseExclusion`(lease が他者に取られたユーザーは scrape 0 回、他のユーザーは処理される、jar の保存が Finish より先)、`TestRefreshUser_SessionExpired`(DeleteSession 1 回、ClearSessionToken)、`TestRefreshUser_TransientKeepsSession`(DeleteSession 0 回)、`TestRefreshUser_NoLatestSkips`、`TestRefreshUser_SinceAndSkipIDs`(since=latest−1 分 と skip 集合 / legacy なら since=latest)、`TestLaunchJob`(httptest で POST `/v2/<job>:run`、200 なら nil、403 ならエラー)
+  - autorefresh: `TestHashVerifyPassphrase`、`TestGate`、`TestClassify`、`TestNextUpdate`、`TestEligible`、`TestRunJob_LeaseExclusion`(lease が他者に取られたユーザーは scrape 0 回、他のユーザーは処理される、jar の保存が Finish より先)、`TestRefreshUser_SessionExpired`(DeleteSession 1 回、ClearSessionToken)、`TestRefreshUser_TransientKeepsSession`(DeleteSession 0 回)、`TestRefreshUser_NoLatestSkips`、`TestRefreshUser_SinceIsLatest`(since=latest)、`TestLaunchJob`(httptest で POST `/v2/<job>:run`、200 なら nil、403 ならエラー)
   - model: `TestAutoRefreshStateLeaseFree`
-  - scraper: `TestClassifyRankpageResponse`、`TestIsSessionExpired`、`TestSkipKnownEntries`
+  - scraper: `TestClassifyRankpageResponse`、`TestIsSessionExpired`、`TestScraping_SinceSkipsSaved`(保存済みの最新日時を since に渡すと詳細を取り直さない)
   - pipeline: `TestShouldDeleteSession`
 
 ### 9.2 完了条件

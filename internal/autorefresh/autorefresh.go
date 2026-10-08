@@ -277,11 +277,9 @@ func process(ctx context.Context, d deps, st model.AutoRefreshState, msMap map[s
 		return OutcomeSkipped, 0, nil
 	}
 	// 同じ分に試合は1つしかない。最新の分を取り直すと詳細URLが変わっていて別試合として重複保存される
-	since := latest
-
 	sctx, cancel := context.WithTimeout(ctx, perUserTimeout)
 	defer cancel()
-	scores, newJar, scrapeErr := d.scrape(since, scraper.ScrapingOption{SavedJar: jar, Context: sctx})
+	scores, newJar, scrapeErr := d.scrape(latest, scraper.ScrapingOption{SavedJar: jar, Context: sctx})
 	is403 := errors.Is(scrapeErr, scraper.ErrAccessDenied)
 
 	// 403 の途中データは古い側の連続分だけが返るので、そのまま保存してよい

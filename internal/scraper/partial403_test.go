@@ -167,6 +167,35 @@ func newSite(dates []string, n, perPage, minuteStep int) *fakeSite {
 	return site
 }
 
+// 保存済みの最新日時を since に渡すと、その分の試合の詳細を取り直さない(取り直すと別 MatchID で重複する。#522)
+func TestScraping_SinceSkipsSaved(t *testing.T) {
+	t.Setenv("SCRAPER_THROTTLE_DELAY_MS", "0")
+	orig := http.DefaultTransport
+	site := newSite([]string{"2026/10/03"}, 4, 4, 4)
+	http.DefaultTransport = site
+	t.Cleanup(func() { http.DefaultTransport = orig })
+	jar, _ := cookiejar.New(nil)
+
+	all, _, err := ScrapingWithOption("", "", time.Time{}, ScrapingOption{SavedJar: jar})
+	if err != nil || len(all) == 0 {
+		t.Fatalf("初回取得: %d 件 err=%v", len(all), err)
+	}
+	var latest time.Time
+	for _, sc := range all {
+		if sc.Datetime.After(latest) {
+			latest = sc.Datetime
+		}
+	}
+	site.detailed = 0
+	got, _, err := ScrapingWithOption("", "", latest, ScrapingOption{SavedJar: jar})
+	if err != nil {
+		t.Fatalf("予期しないエラー: %v", err)
+	}
+	if site.detailed != 0 || len(got) != 0 {
+		t.Errorf("保存済みを取り直した: 詳細取得 %d 回、返り値 %d 件", site.detailed, len(got))
+	}
+}
+
 // 詳細取得の途中で 403 になっても、再分析で全試合がそろう(#456)
 func TestScraping_403PartialThenResume(t *testing.T) {
 	t.Setenv("SCRAPER_THROTTLE_DELAY_MS", "0")
