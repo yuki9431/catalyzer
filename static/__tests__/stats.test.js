@@ -141,7 +141,7 @@ describe('computeDayOfWeek', function () {
     for (var i = 0; i < 10; i++) matches.push(makeMatch({ date: '2025-06-14 10:00', win: false })); // Sat losses
     var result = computeDayOfWeek(matches);
     assert.ok(result.tips.length > 0);
-    assert.ok(result.tips[0].includes('勝率は土日より') && result.tips[0].includes('ポイント'));
+    assert.ok(result.tips[0].includes('勝率は土日より') && result.tips[0].includes('%** 高い'));
     assert.ok(!result.tips[0].includes('→'));
   });
 
