@@ -426,7 +426,7 @@ describe('computeActionPlan matched', function () {
     });
   });
 
-  it('keeps matched consistent for a single-MS subset', function () {
+  it('keeps matched consistent for a subset of matches', function () {
     var ms = polarMatches().slice(0, 30);
     computeActionPlan(ms).actions.forEach(function (a) {
       var cond = goalPattern(a.goal);

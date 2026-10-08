@@ -29,6 +29,7 @@
 .action-gain strong { color: var(--good); font-size: 1.125rem; }
 .action-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; margin-top: 4px; padding: 0 4px; border: none; background: none; color: var(--accent); font-size: 0.875rem; font-weight: normal; text-align: left; cursor: pointer; transition: none; }
 .action-link-count { flex: none; }
+button.action-link:hover { background: var(--accent-a10); }
 .focus-btn { width: auto; margin-top: 8px; font-size: 0.875rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
 .focus-btn.ghost { border-color: var(--line); color: var(--muted); margin-top: 12px; }
 .focus-card { border: 1px solid var(--accent); border-radius: 10px; padding: 12px 14px; background: var(--accent-a06); }

@@ -504,8 +504,8 @@ describe('loss pattern filters', function () {
 
   it('matches the mission count for every mission, also within a single MS', function () {
     [null, 'ガンダム'].forEach(function (ms) {
-      var all = polar(40).filter(function (m) { return !ms || m.ms === ms; });
-      var plan = computeActionPlan(all);
+      var all = polar(40);
+      var plan = computeActionPlan(all.filter(function (m) { return !ms || m.ms === ms; }));
       assert.ok(plan.actions.length > 0);
       plan.actions.forEach(function (a) {
         var f = emptyFilters(); f.goal = a.goal; if (ms) f.myMsList = [ms];

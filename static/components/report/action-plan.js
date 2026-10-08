@@ -42,7 +42,7 @@ function primaryActions(actions) {
   return main.length ? main : actions.slice(0, 1);
 }
 
-// 一覧行ぜんたいを押せるリンク。件数は右寄せ
+// 行全体を押せるリンク。件数は右寄せ
 function MatchesLink({ ui, label, count, onClick }) {
   return html`<button type="button" class="action-link" data-ui=${ui} onClick=${onClick}><span>${label}</span><span class="action-link-count">${count}戦 ›</span></button>`;
 }

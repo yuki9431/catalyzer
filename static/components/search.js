@@ -600,7 +600,7 @@ export function SearchView({ matches, msImages, initialFilters }) {
       ${shown > 0 && html`<div class="search-applied-list">
         ${removable.map(function (r) {
           var ui = r.field === 'goal' ? 'search-goal' : 'search-range';
-          return html`<${Chip} ui=${ui} onRemove=${function () { onField(r.field, null); }} removeLabel=${r.label + ' を外す'}>${r.label}</${Chip}>`;
+          return html`<${Chip} ui=${ui} onRemove=${function () { onField(r.field, null); if (r.field === 'goal') onField('focusRange', null); }} removeLabel=${r.label + ' を外す'}>${r.label}</${Chip}>`;
         })}
         ${labels.map(function (l) { return html`<${Chip} ui="search-applied">${l}</${Chip}>`; })}
       </div>`}

@@ -122,12 +122,12 @@ export var PATTERNS = [
   },
   {
     key: 'dmg_taken', label: function (line) { return '被ダメ' + line + '超'; }, goal: true, line: true,
-    test: function (m, line) { return m.dmg_taken > line; },
+    test: function (m, line) { return Number.isFinite(m.dmg_taken) ? m.dmg_taken > line : null; },
     reason: function (m) { return '被ダメ ' + m.dmg_taken; },
   },
   {
     key: 'dmg_given', label: function (line) { return '与ダメ' + line + '未満'; }, goal: true, line: true,
-    test: function (m, line) { return m.dmg_given < line; },
+    test: function (m, line) { return Number.isFinite(m.dmg_given) ? m.dmg_given < line : null; },
     reason: function (m) { return '与ダメ ' + m.dmg_given; },
   },
   {

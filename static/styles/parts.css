@@ -14,6 +14,7 @@ button.ui-chip-opener:hover::before { background: var(--accent-a10); }
 .ui-chip-opener.ui-chip-active::before, button.ui-chip-opener.ui-chip-active:hover::before { border-color: var(--accent); background: var(--accent-a18); }
 .ui-chip-opener::after { content: ''; width: 6px; height: 6px; margin-left: 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg) translateY(-2px); }
 .ui-chip-remove { width: 44px; height: 44px; margin: -12px -10px -12px -8px; padding: 0; border: none; border-radius: 50%; background: none; color: inherit; font-size: 1rem; line-height: 1; cursor: pointer; transition: none; }
+button.ui-chip-remove:hover { background: var(--accent-a10); }
 .ui-chip-text { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ui-toggle { position: relative; isolation: isolate; display: inline-flex; padding: 0 2px; border: none; border-radius: 8px; background: none; }
