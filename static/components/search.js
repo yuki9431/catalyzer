@@ -563,7 +563,7 @@ export function SearchView({ matches, msImages }) {
   // ページを替えたら結果の先頭へ。見出しは一覧より上なので描き直しを待たずに位置が決まる(#513)
   function goPage(n) {
     setPage(n);
-    var h = headRef.current, bar = document.querySelector('[data-ui="topbar"]');
+    var h = headRef.current, bar = document.querySelector('.topbar');
     var barH = bar ? bar.getBoundingClientRect().bottom : 0;
     if (h && h.getBoundingClientRect().top < barH) window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - barH);
   }
