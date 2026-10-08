@@ -559,6 +559,14 @@ export function SearchView({ matches, msImages }) {
   var pageItems = filtered.slice(start, start + pageSize);
   var byDate = sortKey === 'date';
   function onPageSize(n) { setPageSize(n); setPage(1); }
+  var headRef = useRef(null);
+  // ページを替えたら結果の先頭へ。見出しは一覧より上なので描き直しを待たずに位置が決まる(#513)
+  function goPage(n) {
+    setPage(n);
+    var h = headRef.current, bar = document.querySelector('[data-ui="topbar"]');
+    var barH = bar ? bar.getBoundingClientRect().bottom : 0;
+    if (h && h.getBoundingClientRect().top < barH) window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - barH);
+  }
 
   var labels = appliedFilterLabels(filters);
   // 全画面の層は同時に1枚だけ開く。
@@ -579,7 +587,7 @@ export function SearchView({ matches, msImages }) {
       onField=${onField} onReset=${onReset} onClose=${function () { setSheetOpen(false); }} />`}
 
     <section class="search-results">
-      <div class="search-results-head">
+      <div class="search-results-head" ref=${headRef}>
         <h2 class="search-total" data-ui="search-total">${total}試合${total > 0 && html`<small>勝率 ${winRate.toFixed(1)}%</small>`}</h2>
         <${SortSheet} sortKey=${sortKey} desc=${desc} pageSize=${pageSize}
           onSortKey=${onSortKey} onDir=${onDir} onPageSize=${onPageSize} />
@@ -598,10 +606,10 @@ export function SearchView({ matches, msImages }) {
 
       ${totalPages > 1 && html`<div class="search-pager" data-ui="search-pager">
         <button class="search-page-btn" disabled=${curPage <= 1}
-          onClick=${function () { setPage(curPage - 1); }}>← 前へ</button>
+          onClick=${function () { goPage(curPage - 1); }}>← 前へ</button>
         <span class="search-page-info">${start + 1}〜${Math.min(start + pageSize, total)} / ${total}件（${curPage}/${totalPages}）</span>
         <button class="search-page-btn" disabled=${curPage >= totalPages}
-          onClick=${function () { setPage(curPage + 1); }}>次へ →</button>
+          onClick=${function () { goPage(curPage + 1); }}>次へ →</button>
       </div>`}
     </section>
 
