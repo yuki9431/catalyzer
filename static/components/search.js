@@ -582,11 +582,11 @@ export function SearchView({ matches, msImages, initialFilters }) {
   var pageItems = filtered.slice(start, start + pageSize);
   var byDate = sortKey === 'date';
   function onPageSize(n) { setPageSize(n); setPage(1); }
-  function reasonOf(m) { return conds.map(function (c) { return patternReason(c, m); }).filter(Boolean).join('・'); }
 
   var labels = appliedFilterLabels(filters);
   var removable = removableFilterLabels(filters);
   var conds = activeConditions(filters);
+  function reasonOf(m) { return conds.map(function (c) { return patternReason(c, m); }).filter(Boolean).join('・'); }
   var shown = labels.length + removable.length;
   // 全画面の層は同時に1枚だけ開く。
   function openSheet() { setDetail(null); setSheetOpen(true); }

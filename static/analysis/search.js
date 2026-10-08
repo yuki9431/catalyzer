@@ -48,14 +48,14 @@ export function emptyFilters() {
 
 function validRange(r) { return !!r && typeof r.after === 'string' && r.after !== '' && typeof r.until === 'string'; }
 
-// 当てはまりを調べる条件。ホームから来た goal と、シートで選んだ試合の展開（sheet 項目のみ）
+// 当てはまりを調べる条件。ホームから来た goal と、シートで選んだ試合の展開（sheet 項目のみ。goal と同じ key は重ねない）
 export function activeConditions(filters) {
   var f = filters || {};
   var out = [];
   var g = goalPattern(f.goal);
   if (g) out.push(g);
   var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
-  if (def && def.sheet === true) out.push({ key: def.key });
+  if (def && def.sheet === true && !(g && g.key === def.key)) out.push({ key: def.key });
   return out;
 }
 
@@ -303,7 +303,9 @@ export function appliedFilterLabels(filters) {
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
   var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
-  if (def && def.sheet === true) out.push('試合の展開: ' + patternLabel({ key: def.key }));
+  var g = goalPattern(f.goal);
+  // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
+  if (def && def.sheet === true && !(g && g.key === def.key)) out.push('試合の展開: ' + patternLabel({ key: def.key }));
   if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
   else if (f.dateFrom) out.push('日付: ' + f.dateFrom + '以降');
   else if (f.dateTo) out.push('日付: ' + f.dateTo + '以前');

@@ -49,7 +49,7 @@ describe('PATTERNS', function () {
     it(c.key + ': true / false / null', function () {
       assert.equal(testPattern(cond, makeMatch(c.t)), true);
       assert.equal(testPattern(cond, makeMatch(c.f)), false);
-      if (c.n) assert.equal(testPattern(cond, makeMatch(c.n)), null);
+      assert.equal(testPattern(cond, makeMatch(c.n)), null);
     });
   });
 
@@ -68,6 +68,9 @@ describe('held_burst boundary (start < t <= end)', function () {
   it('death inside is held', function () { assert.equal(held([ex(10, 50)], 30), true); });
   it('absorbs float noise at the end', function () { assert.equal(held([ex(41.75, 57.48)], 57.480000001), true); });
   it('no ex interval is not held', function () { assert.equal(held([], 30), false); });
+  // 実データ: 撃墜で溜まったゲージの区間は撃墜の直後に始まり、使わなければ試合終了まで続く
+  it('real data: interval opened by the death is not held', function () { assert.equal(held([ex(68.42, 92)], 68.4), false); });
+  it('real data: finishing death at game end while holding is held', function () { assert.equal(held([ex(68.42, 92)], 92), true); });
 });
 
 describe('goalPattern', function () {

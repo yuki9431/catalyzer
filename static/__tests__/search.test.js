@@ -473,12 +473,21 @@ describe('loss pattern filters', function () {
   });
 
   it('ANDs goal and pattern', function () {
-    var ms = polar(20);
+    var noFall = makeMatch({ date: '2025-07-02 10:00', dmg_given: 500, actions: [], partner_actions: [{ action: 'death', action_start_sec: 30, action_end_sec: 0 }] });
+    var ms = polar(20).concat([noFall]);
     var f = emptyFilters(); f.goal = { key: 'dmg_given', line: 1000 };
     var a = filterMatches(ms, f).length;
     f.pattern = 'fall_first';
     var b = filterMatches(ms, f).length;
-    assert.ok(a > 0 && b > 0 && b <= a);
+    assert.ok(b > 0);
+    assert.equal(b, a - 1);
+  });
+
+  it('does not repeat a condition chosen both from home and the sheet', function () {
+    var f = emptyFilters(); f.goal = { key: 'burst' }; f.pattern = 'burst';
+    assert.deepEqual(activeConditions(f), [{ key: 'burst' }]);
+    assert.equal(appliedFilterLabels(f).length, 0);
+    assert.equal(removableFilterLabels(f).length, 1);
   });
 
   it('applies focusRange as (after, until]', function () {
