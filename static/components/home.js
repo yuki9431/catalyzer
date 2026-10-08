@@ -29,7 +29,7 @@ function TodayCompare({ matches, selectedMs }) {
         <tr><th>試合数</th><td class="prev">${c.prev.matches}戦</td><td class="now">${c.today.matches}戦</td><td></td></tr>
         ${c.metrics.map(function (x) {
           return html`<tr><th>${x.label}</th><td class="prev">${fmt(x.prev, x.digits, x.unit)}</td><td class="now">${fmt(x.today, x.digits, x.unit)}</td>
-            <td class=${x.better === null ? 'flat' : x.better ? 'up' : 'down'}>${signed(x.diff, x.digits)}${x.unit ? 'pt' : ''}</td></tr>`;
+            <td class=${x.better === null ? 'flat' : x.better ? 'up' : 'down'}>${signed(x.diff, x.digits)}${x.unit}</td></tr>`;
         })}
       </tbody>
     </table>`}

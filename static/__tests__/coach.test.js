@@ -68,7 +68,7 @@ describe('computeActionPlan', function () {
     // 20戦12勝。2回撃墜の6戦がそれ以外(14戦12勝)並みに勝てれば約17.1勝
     assert.equal(death.win_rate_from, 60);
     assert.equal(death.win_rate_to, 85.7);
-    // 影響度は全体勝率の見込み上昇 pt で、見込み勝率の上がり幅と一致する
+    // 影響度は全体勝率の見込み上昇 % で、見込み勝率の上がり幅と一致する
     assert.equal(death.impact, 25.7);
     assert.equal(death.level, 'high');
     assert.equal(Math.round((death.win_rate_to - death.win_rate_from) * 10) / 10, death.impact);

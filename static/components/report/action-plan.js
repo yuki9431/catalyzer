@@ -10,7 +10,7 @@ var FOCUS_SLOTS = 10;
 
 function WinRateGain({ from, to }) {
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
-  return html`<div class="action-gain">見込み勝率 ${pct(from)} → <strong>${pct(to)}</strong>（+${(to - from).toFixed(1)}）</div>`;
+  return html`<div class="action-gain">見込み勝率 ${pct(from)} → <strong>${pct(to)}</strong>（+${(to - from).toFixed(1)}%）</div>`;
 }
 
 // 挑戦中のミッションは利用者・機体ごとに1件。選択時点の最新試合より後の試合で達成を判定する

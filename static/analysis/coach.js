@@ -3,14 +3,14 @@ import { COST_FATAL_DEATHS, jsWinRate as winRate, jsAvg as avg, jsGetDeathEvents
 
 var MIN_MATCHES = 10;     // これ未満は診断しない
 var MIN_SIDE = 4;         // 二分した各側の最低試合数
-var MIN_GAP = 8;          // 採用する最低勝率差（%pt）
+var MIN_GAP = 8;          // 採用する最低勝率差（%）
 var MIN_ENEMY = 5;        // 苦手機体として扱う最低対戦数
 var RECENT_N = 20;        // 直近比較の試合数（上限）
 var TILT_STREAK = 3;      // この回数連敗した直後の試合を「連敗直後」とみなす
 
 // 与ダメ・被ダメ・EXダメは勝敗の結果側でもあり勝率差が大きく出るため、影響度を割り引く
 var OUTCOME_WEIGHT = 0.5;
-// 影響度（全体勝率の見込み上昇 pt）のラベル分け閾値
+// 影響度（全体勝率の見込み上昇 %）のラベル分け閾値
 var IMPACT_HIGH = 10;
 var IMPACT_MID = 5;
 
@@ -320,7 +320,7 @@ function recentTrend(ms) {
   };
 }
 
-// 試合配列からミッションを影響度（全体勝率の見込み上昇 pt）の大きい順に返す。データ不足時は { matches, insufficient: true }
+// 試合配列からミッションを影響度（全体勝率の見込み上昇 %）の大きい順に返す。データ不足時は { matches, insufficient: true }
 export function computeActionPlan(matches) {
   var ms = matches || [];
   if (ms.length < MIN_MATCHES) return { matches: ms.length, insufficient: true, min_matches: MIN_MATCHES };
