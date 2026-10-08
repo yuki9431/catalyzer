@@ -1,7 +1,7 @@
 import { html, useState } from '../../htm-preact-standalone.js';
 import { themeReader } from '../../lib/theme.js';
 import { clampMetric } from '../../analysis/stats.js';
-import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, esc, signed } from '../../lib/format.js';
+import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, signed } from '../../lib/format.js';
 import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
 import { useThemeName } from '../chart-canvas.js';
@@ -77,13 +77,13 @@ function PartnerDropdown({ items, idx, onSelect }) {
   var label = current.partner_name + (current.team_name ? ' 【' + current.team_name + '】' : '');
   return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
     <button class="panel-select-trigger" data-ui="select-trigger" ref=${pop.triggerRef} onClick=${pop.toggle}>
-      ${esc(label)} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
+      ${label} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
     <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
       ${items.map(function (item, i) {
         var itemLabel = item.partner_name + (item.team_name ? ' 【' + item.team_name + '】' : '');
         return html`<button data-ui="select-item" class=${'panel-select-item' + (i === idx ? ' active' : '')}
-          onClick=${function () { onSelect(i); pop.close(); }}>${esc(itemLabel)}</button>`;
+          onClick=${function () { onSelect(i); pop.close(); }}>${itemLabel}</button>`;
       })}
     </${Popover}>
   </div>`;
@@ -143,12 +143,12 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
     ['勝率', lens === 'all' ? colorPct(p.win_rate) : '-', '-'],
   ];
 
-  var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [esc(m.ms), m.matches, colorPct(m.win_rate)]; });
+  var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [m.ms, m.matches, colorPct(m.win_rate)]; });
 
   return html`<${Panel} title="固定相方">
-    ${fp.notice && html`<p style="margin-bottom: 12px; color: var(--muted); font-size: 0.875rem;">${esc(fp.notice)}</p>`}
+    ${fp.notice && html`<p style="margin-bottom: 12px; color: var(--muted); font-size: 0.875rem;">${fp.notice}</p>`}
     ${fpItems.length > 1 ? html`<${PartnerDropdown} items=${fpItems} idx=${idx} onSelect=${setIdx} />` : html`<div class="ms-head">
-      <span class="name">${esc(p.partner_name)}${p.team_name ? html` <span class="meta">【${esc(p.team_name)}】</span>` : ''}</span>
+      <span class="name">${p.partner_name}${p.team_name ? html` <span class="meta">【${p.team_name}】</span>` : ''}</span>
       <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
     </div>`}
     <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[
@@ -187,7 +187,7 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational })
   var msTableRows = msEntries.map(function (name) {
     var s = msSummary[name];
     var nw = natl[name] && natl[name].win_rate > 0 ? colorPct(natl[name].win_rate) : '-';
-    return [esc(name), s.matches, s.basic_stats ? colorPct(s.basic_stats.win_rate) : '-', nw];
+    return [name, s.matches, s.basic_stats ? colorPct(s.basic_stats.win_rate) : '-', nw];
   });
 
   var fp = (frontendData && frontendData.fixed_partners) || {};
@@ -200,7 +200,7 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational })
     <//>`}
 
     ${selectedMs && selNatl && lens === 'all' && pd.basic_stats && html`<${Panel} title="全国平均との比較">
-      <${Table} headers=${['機体名', '勝率', '全国平均', '差']} rows=${[[esc(selectedMs), colorPct(pd.basic_stats.win_rate), colorPct(selNatl.win_rate), signed(pd.basic_stats.win_rate - selNatl.win_rate)]]} />
+      <${Table} headers=${['機体名', '勝率', '全国平均', '差']} rows=${[[selectedMs, colorPct(pd.basic_stats.win_rate), colorPct(selNatl.win_rate), signed(pd.basic_stats.win_rate - selNatl.win_rate)]]} />
     <//>`}
 
     ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
@@ -209,7 +209,7 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational })
         var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
         if (s.first_half) rows.push(['前半', s.first_half.matches, colorPct(s.first_half.win_rate), colorDE(s.first_half.dmg_efficiency, 3)]);
         if (s.second_half) rows.push(['後半', s.second_half.matches, colorPct(s.second_half.win_rate), colorDE(s.second_half.dmg_efficiency, 3)]);
-        return html`<${SubSection} title=${esc(s.name)}>
+        return html`<${SubSection} title=${s.name}>
           <${Table} headers=${['期間', '試合', '勝率', '与被ダメ比']} rows=${rows} />
           <${Tips} tips=${s.tips} />
         <//>`;
@@ -226,7 +226,7 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational })
     ${fpItems.length > 0 && html`<${FixedPartnerPanel} fp=${fp} fpItems=${fpItems} lens=${lens} />`}
 
     ${!fpItems.length && fp && fp.notice && html`<${Panel} title="固定相方">
-      <p>${esc(fp.notice)}</p>
+      <p>${fp.notice}</p>
     <//>`}
   </div>`;
 }

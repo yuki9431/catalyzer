@@ -1,5 +1,5 @@
 import { html } from '../htm-preact-standalone.js';
-import { esc, pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken, signed, wrBarTone, wrMark, wrTone } from '../lib/format.js';
+import { pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken, signed, wrBarTone, wrMark, wrTone } from '../lib/format.js';
 import { RowList } from './parts.js';
 import { Tips, SortableTable, SubSection, Table } from './ui.js';
 import { ChartCanvas, winRateComboConfig, xAxis, pctAxis } from './chart-canvas.js';
@@ -11,7 +11,7 @@ export function EnemyMatchupSection({ matchup }) {
   var headers = ['機体名', '試合', '勝率', '与被ダメ比', '与ダメ', '被ダメ'];
   function matchupRows(list) {
     return (list || []).map(function (e) {
-      return [esc(e.ms), e.matches, colorPct(e.win_rate), colorDE(e.dmg_efficiency, 3), colorDmgGiven(e.avg_dmg_given), colorDmgTaken(e.avg_dmg_taken)];
+      return [e.ms, e.matches, colorPct(e.win_rate), colorDE(e.dmg_efficiency, 3), colorDmgGiven(e.avg_dmg_given), colorDmgTaken(e.avg_dmg_taken)];
     });
   }
   return html`<div>
@@ -24,7 +24,7 @@ export function EnemyMatchupSection({ matchup }) {
 export function PartnerSection({ partners }) {
   if (!partners || !partners.length) return null;
   var rows = partners.map(function (p) {
-    return [esc(p.ms), p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
+    return [p.ms, p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
   });
   return html`<div>
     <${SortableTable} headers=${['機体名', '試合', '勝率', '与被ダメ比']} rows=${rows} defaultLimit=${10} />
@@ -37,7 +37,7 @@ export function MsPairSubSection({ msPair }) {
   var list = msPair.by_matches || [];
   if (!list.length) return null;
   var rows = list.map(function (p) {
-    return [esc(p.pair), p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
+    return [p.pair, p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
   });
   return html`<div>
     <${SortableTable} headers=${['編成', '試合数', '勝率', '与被ダメ比']} rows=${rows} defaultLimit=${10} />
@@ -47,7 +47,7 @@ export function MsPairSubSection({ msPair }) {
 export function CostPairSubSection({ costPair }) {
   if (!costPair || !costPair.length) return null;
   var rows = costPair.map(function (p) {
-    return [esc(p.pair), p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
+    return [p.pair, p.matches, colorPct(p.win_rate), colorDE(p.dmg_efficiency, 3)];
   });
   return html`<div>
     <${SortableTable} headers=${['コスト編成', '試合数', '勝率', '与被ダメ比']} rows=${rows} defaultLimit=${10} />
