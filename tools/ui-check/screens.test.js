@@ -65,11 +65,14 @@ describe('screens', () => {
     assert.deepStrictEqual(have.sort(), want.sort());
   });
 
-  it('mobile-more は 4 項目を巡回して最後に再読み込みし、タップ領域を検査する', () => {
+  it('mobile-more は 4 項目を巡回して再読み込みでホームに戻ることを確かめ、その他を開いてタップ領域を検査する', () => {
     var s = SCREENS.find(function (x) { return x.id === 'mobile-more'; });
     var clicked = s.ops.filter(function (op) { return op.click; }).map(function (op) { return op.click[1]; });
     ['レポート', '試合検索', '総合戦歴', 'その他'].forEach(function (l) { assert.ok(clicked.includes(l), l); });
-    assert.deepStrictEqual(s.ops[s.ops.length - 1], { reload: true });
+    var r = s.ops.findIndex(function (op) { return op.reload; });
+    assert.ok(r > 0);
+    assert.deepStrictEqual(s.ops[r + 1].wait[1], 'ホーム');
+    assert.deepStrictEqual(s.ops[r + 2].click[1], 'その他');
     assert.ok(s.required.some(function (r) { return r[0].includes('aria-current') && r[1] === 'その他'; }));
     assert.ok(s.tap && s.tap.length > 0);
   });
@@ -152,6 +155,14 @@ describe('screens', () => {
     assert.ok(has('analyze-partial', 'status'));
     assert.ok(has('analyze-error', 'alert'));
     assert.ok(has('notice-session-expired', 'alert'));
+  });
+
+  it('テーマ画面は選択中のテーマを html[data-theme] で必須にする。os-switch は colorScheme で light へ切り替える', () => {
+    [['mobile-theme-light', 'light'], ['mobile-theme-dark-reload', 'dark'], ['mobile-theme-os-switch', 'light']].forEach(function (x) {
+      assert.ok(get(x[0]).required.some(function (r) { return r[0] === 'html[data-theme="' + x[1] + '"]'; }), x[0]);
+    });
+    var os = get('mobile-theme-os-switch');
+    assert.deepStrictEqual(os.ops.find(function (o) { return o.colorScheme; }), { colorScheme: ['light'] });
   });
 
   it('report-empty-period(-back) は clock で日付を固定し、日付指定の日を選んで空の状態を検査する', () => {

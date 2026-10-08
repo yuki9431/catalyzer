@@ -3,12 +3,15 @@ import { loadMatchesFromDB, saveMatchesToDB, replaceMatchesForUser, clearAllMatc
 import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
+import { TAB_SEEN_KEY } from './lib/tabseen.js';
 import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
 import { Notice } from './components/parts.js';
 import { progressView } from './lib/progress.js';
 import { createRunLock } from './lib/runlock.js';
 import { navigationType, isStandalone, shouldReanalyzeOnReload } from './lib/launch.js';
 import { userKeyOf } from './lib/userkey.js';
+// 起動時は常にホーム。再分析での再マウントは保存した画面に戻す
+try { localStorage.setItem(VIEW_KEY, 'home'); } catch (e) {}
 
 // ホーム画面アプリのときだけ自前の引っ張り再分析を使う(ブラウザのタブは標準の再読み込みが再分析の経路)
 var STANDALONE = isStandalone({ standalone: navigator.standalone, matchMedia: window.matchMedia ? function (q) { return window.matchMedia(q); } : null });
@@ -282,6 +285,7 @@ async function logout() {
   localStorage.removeItem(CLASS_RECORD_KEY);
   localStorage.removeItem(FOCUS_KEY);
   localStorage.removeItem(VIEW_KEY);
+  localStorage.removeItem(TAB_SEEN_KEY);
   try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
 
   clearProgress();

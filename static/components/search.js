@@ -10,6 +10,7 @@ import {
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
+import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
 import { useDismiss, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
@@ -411,7 +412,8 @@ function DetailThumb({ name, msImages }) {
 // 試合詳細の全画面。試合経過は常に出す。
 function MatchDetail({ match, msImages, onClose }) {
   // レーダー: 4人分の系列とトグルによる表示切替（既定は自分＋相方＝自陣）。
-  var players = useMemo(function () { return radarPlayers(match); }, [match]);
+  var theme = useThemeName();
+  var players = useMemo(function () { return radarPlayers(match); }, [match, theme]);
   var checkedRef = useState([true, true, false, false]);
   var checked = checkedRef[0], setChecked = checkedRef[1];
   var series = useMemo(function () {

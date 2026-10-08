@@ -42,7 +42,7 @@ export function jsWinRate(matches) {
   return w / matches.length * 100;
 }
 
-function jsDmgEfficiency(matches) {
+export function jsDmgEfficiency(matches) {
   if (!matches.length) return 0;
   var g = 0, t = 0;
   for (var i = 0; i < matches.length; i++) { g += matches[i].dmg_given; t += matches[i].dmg_taken; }
@@ -140,7 +140,7 @@ export function computeDayOfWeek(matches) {
   if (weekdayData.length && weekendData.length && diff >= 10) {
     var better = wdWr > weWr ? '平日' : '土日';
     var worse = wdWr > weWr ? '土日' : '平日';
-    tips.push('**' + better + '**の勝率は' + worse + 'より **' + Math.round(diff) + 'ポイント** 高い');
+    tips.push('**' + better + '**の勝率は' + worse + 'より **' + Math.round(diff) + '%** 高い');
   }
   return {
     weekday: weekdayData.length ? { matches: weekdayData.length, win_rate: round1(wdWr), dmg_efficiency: round3(jsDmgEfficiency(weekdayData)) } : { matches: 0, win_rate: 0, dmg_efficiency: 0 },
@@ -581,9 +581,9 @@ export function computeSeason(matches) {
       var diff = sWr - fWr;
       if (Math.abs(diff) >= 5) {
         if (diff > 0) {
-          tips.push('後半の勝率は前半より **' + Math.round(diff) + 'ポイント** 高い');
+          tips.push('後半の勝率は前半より **' + Math.round(diff) + '%** 高い');
         } else {
-          tips.push('前半の勝率は後半より **' + Math.round(-diff) + 'ポイント** 高い');
+          tips.push('前半の勝率は後半より **' + Math.round(-diff) + '%** 高い');
         }
       }
     }
@@ -650,7 +650,7 @@ export function computeBurstCount(matches) {
       var wrOther = jsWinRate(others);
       var diff = wr2 - wrOther;
       if (Math.round(diff) > 0) {
-        tips.push('2回覚醒できた試合の勝率は、覚醒1回以下の試合より **' + Math.round(diff) + 'ポイント** 高い');
+        tips.push('2回覚醒できた試合の勝率は、覚醒1回以下の試合より **' + Math.round(diff) + '%** 高い');
       }
     }
   }
@@ -771,7 +771,7 @@ export function computeFallOrder(matches) {
     if (Math.abs(diff) >= 5) {
       var better = diff > 0 ? '後落ち' : '先落ち';
       var worse = diff > 0 ? '先落ち' : '後落ち';
-      tips.push('**' + better + '**の試合の勝率は' + worse + 'の試合より **' + Math.round(Math.abs(diff)) + 'ポイント** 高い');
+      tips.push('**' + better + '**の試合の勝率は' + worse + 'の試合より **' + Math.round(Math.abs(diff)) + '%** 高い');
     }
   }
   var fallTotal = firstFall.length + secondFall.length + sameTime.length;
@@ -781,7 +781,7 @@ export function computeFallOrder(matches) {
   }
   if (noFall.length && firstFall.length) {
     var d2 = noFallWr - firstWr;
-    if (d2 >= 10) tips.push('0落ちの試合の勝率は先落ちの試合より **' + Math.round(d2) + 'ポイント** 高い');
+    if (d2 >= 10) tips.push('0落ちの試合の勝率は先落ちの試合より **' + Math.round(d2) + '%** 高い');
   }
   return {
     total: total,
@@ -900,7 +900,7 @@ export function computeBurstTiming(matches) {
   if (pre && post && pre.length >= 3 && post.length >= 3) {
     var diff = jsWinRate(pre) - jsWinRate(post);
     if (diff >= 5) {
-      tips.push('1機目に覚醒できた試合の勝率は、2機目に覚醒した試合より **' + Math.round(diff) + 'ポイント** 高い');
+      tips.push('1機目に覚醒できた試合の勝率は、2機目に覚醒した試合より **' + Math.round(diff) + '%** 高い');
     }
   }
   return {

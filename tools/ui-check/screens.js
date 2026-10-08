@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true }。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -9,6 +9,8 @@ var TABBAR_ITEM = '[data-ui="tabbar-item"]';
 var CURRENT = TABBAR_ITEM + '[aria-current="page"]';
 function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
 var OPEN_SEARCH = [goTab('試合検索')];
+// 起動時はホームが開くため、レポートを撮る画面は先にレポートへ移る
+var REPORT_TAB = goTab('レポート');
 var TABBAR = '[data-ui="tabbar"]';
 var SORT_TRIGGER = '[data-ui="search-sort-trigger"]';
 var SHEET = '[data-ui="search-filter-sheet"]';
@@ -21,6 +23,8 @@ var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
 var TAP_FORM = TAP.concat(['[data-ui="more"] input']);
 var AUTO_INPUT = '[data-ui="auto-refresh"] input#autoRefreshPassphrase';
+var THEME_BTN = '[data-ui="theme-toggle"] button';
+var SCOPE = ['[data-ui="report-scope"]', '全期間・60試合'];
 var AUTO_SUBMIT = '[data-ui="auto-refresh"] button';
 
 // 日付指定(2026-06-03 だけの1日)で期間内を0件にする。この日は fixture に試合が無い
@@ -34,7 +38,7 @@ function report(id, tab, h2s, extra, moreOps) {
   return { id: id, viewport: D, full: true, start: 'report', ops: [{ click: ['[data-ui="tab"]', TABS[tab]] }].concat(moreOps || []), required: required };
 }
 
-export var SCREENS = [
+var SCREEN_DEFS = [
   { id: 'login', viewport: D, full: true, start: 'login', ops: [{ click: ['[data-ui="remember-info"] summary'] }],
     required: [['#loginForm'], ['#username'], ['#password'], ['#analyzeBtn'], ['[data-ui="remember-info"][open] li', null, 3], ['footer', '非公式のファンツール']],
     tap: ['[data-ui="remember-info"] summary', '[data-ui="remember-label"]', '#analyzeBtn'] },
@@ -42,12 +46,12 @@ export var SCREENS = [
     required: [['#loginForm'], ['#analyzeBtn']], absent: [['[data-ui="tab"]'], ['[data-ui="report-scope"]']] },
   { id: 'analyzing', viewport: D, full: true, start: 'login',
     ops: [{ type: ['#username', 'preview@example.com'] }, { type: ['#password', 'preview-pass'] }, { click: ['#analyzeBtn'] }],
-    required: [[CURRENT, 'レポート'], ['#status'], ['#progressCount', '37 / 120 件'], ['[data-ui="skeleton"]'], ['[data-ui="status-steps"] [aria-current="step"]', '新しい試合を取得（37 / 120 件）']] },
-  { id: 'analyzing-prelim', viewport: M, full: false, start: 'login', ops: analyzeOps('prelim@example.com').concat([{ wait: ['[data-ui="report-scope"]'] }]),
+    required: [[CURRENT, 'ホーム'], ['#status'], ['#progressCount', '37 / 120 件'], ['[data-ui="skeleton"]'], ['[data-ui="status-steps"] [aria-current="step"]', '新しい試合を取得（37 / 120 件）']] },
+  { id: 'analyzing-prelim', viewport: M, full: false, start: 'login', ops: analyzeOps('prelim@example.com').concat([REPORT_TAB, { wait: ['[data-ui="report-scope"]'] }]),
     required: [['[data-ui="report-scope"]', '全期間・60試合'], ['#status'], ['[data-ui="status-steps"] [aria-current="step"]', '新しい試合を取得']], absent: [['[data-ui="skeleton"]']] },
-  { id: 'analyze-partial', viewport: M, full: false, start: 'login', ops: analyzeOps('partial@example.com'),
+  { id: 'analyze-partial', viewport: M, full: false, start: 'login', ops: analyzeOps('partial@example.com').concat([REPORT_TAB]),
     required: [['#error [data-ui="notice"][role="status"]', 'アクセスが制限'], ['#error [data-ui="notice-action"]', '再分析'], ['[data-ui="report-scope"]']], tap: ['#error [data-ui="notice-action"]'] },
-  { id: 'analyze-prelim-error', viewport: M, full: false, start: 'login', ops: analyzeOps('prelim-error@example.com').concat([{ wait: ['#error [data-ui="notice"]'] }]),
+  { id: 'analyze-prelim-error', viewport: M, full: false, start: 'login', ops: analyzeOps('prelim-error@example.com').concat([REPORT_TAB, { wait: ['#error [data-ui="notice"]'] }]),
     required: [['#error [data-ui="notice"][role="alert"]', 'データの取得に失敗しました'], ['[data-ui="report-scope"]', '全期間・60試合']], absent: [['[data-ui="skeleton"]']] },
   { id: 'analyze-error', viewport: M, full: true, start: 'login', ops: analyzeOps('error@example.com'),
     required: [['#error [data-ui="notice"][role="alert"]', 'データの取得に失敗しました'], ['#loginForm']], absent: [['#error [data-ui="notice-action"]']] },
@@ -55,6 +59,19 @@ export var SCREENS = [
     required: [['#loginForm'], ['#error [data-ui="notice"][role="alert"]', 'セッションが見つかりません'], ['#error [data-ui="notice-action"]', 'ログイン']] },
   { id: 'report-overview', viewport: D, full: true, start: 'report', ops: [],
     required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体'], REANALYZE_BTN].concat(SUMMARY('overview')) },
+  { id: 'mobile-home-few', home: true, viewport: M, full: true, start: 'report-today-3', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-card"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="today-card"]', '今日 10/8'], ['[data-ui="today-compare"] tbody tr', null, 7]] },
+  { id: 'mobile-home', home: true, viewport: M, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], ['[data-ui="panel"] h2', '勝率アップミッション']], tap: [TABBAR_ITEM] },
+  { id: 'home', home: true, viewport: D, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], REANALYZE_BTN] },
+  { id: 'mobile-home-last-day', home: true, viewport: M, full: true, start: 'report', clock: '2026-10-08T22:00:00+09:00', ops: [{ wait: ['[data-ui="today-compare"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="today-card"]', '前回 6/15'], ['[data-ui="today-compare"]', 'その前 6/10']] },
+  { id: 'mobile-home-badges-cleared', home: true, viewport: M, full: false, start: 'report-seen', clock: '2026-10-08T22:00:00+09:00',
+    ops: [{ wait: ['[data-ui="tabbar-dot"]'] }, REPORT_TAB, { wait: ['[data-ui="report-scope"]'] }, goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="tabbar-dot"]', null, 2]], absent: [['[data-ui="tabbar-item"]:nth-child(2) [data-ui="tabbar-dot"]']] },
+  { id: 'mobile-home-badges', home: true, viewport: M, full: false, start: 'report-seen', clock: '2026-10-08T22:00:00+09:00', ops: [{ wait: ['[data-ui="tabbar-dot"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="tabbar-dot"]', null, 3]] },
   report('report-playstyle', 'playstyle', ['被撃墜と勝率', 'ダメージ貢献率']),
   report('report-burst', 'burst', ['覚醒回数と勝率', '覚醒タイミング']),
   report('report-matchup', 'matchup', ['敵機との相性', '僚機との相性'], [['details[open] table'], ['[data-ui="panel"] [data-ui="row-list"]', null, 3]], [{ click: ['summary', '表で見る'] }]),
@@ -129,8 +146,8 @@ export var SCREENS = [
     required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img']], tap: TAP_FORM },
   { id: 'mobile-more', viewport: M, full: true, start: 'report',
     ops: [goTab('試合検索'), { wait: ['[data-ui="search-filter"]'] }, goTab('総合戦歴'), { wait: ['h2', '通算記録'] }, goTab('その他'), { wait: ['[data-ui="more"]'] },
-      goTab('レポート'), { wait: ['[data-ui="tab"][aria-selected="true"]', '総合'] }, goTab('その他'), { reload: true }],
-    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
+      goTab('レポート'), { wait: ['[data-ui="tab"][aria-selected="true"]', '総合'] }, goTab('その他'), { reload: true }, { wait: [CURRENT, 'ホーム'] }, goTab('その他')],
+    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], [THEME_BTN + '[aria-pressed="true"]', '端末に合わせる'], [THEME_BTN, null, 3], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
   { id: 'mobile-more-confirm', viewport: M, full: true, start: 'report', ops: [goTab('その他'), { click: ['[data-ui="more"] button', '試合データを取得し直す'] }],
     required: [['[data-ui="more"] button[aria-expanded="true"]', '試合データを取得し直す'], ['[data-ui="refetch-confirm"] button', '取得し直す'], ['[data-ui="refetch-confirm"] button', 'やめる']], tap: TAP },
   { id: 'mobile-more-auto-refresh', viewport: M, full: true, start: 'report',
@@ -139,6 +156,14 @@ export var SCREENS = [
   { id: 'mobile-more-auto-refresh-error', viewport: M, full: true, start: 'report',
     ops: [goTab('その他'), { type: [AUTO_INPUT, 'wrong'] }, { click: [AUTO_SUBMIT, '有効にする'] }, { wait: ['[data-ui="notice"]', '合言葉が違います'] }], expectConsole: ['status of 403'],
     required: [[CURRENT, 'その他'], ['[data-ui="auto-refresh"] [data-ui="notice"][role="alert"]', '合言葉が違います'], ['[data-ui="auto-refresh"] button', '有効にする']], tap: TAP_FORM },
+  { id: 'mobile-theme-light', viewport: M, full: true, start: 'report',
+    ops: [{ wait: SCOPE }, goTab('その他'), { wait: ['[data-ui="more"]'] }, { click: [THEME_BTN, 'ライト'] }, { wait: [THEME_BTN + '[aria-pressed="true"]', 'ライト'] }, goTab('レポート'), { wait: SCOPE }],
+    required: [['html[data-theme="light"]'], ACTIVE_TAB, SCOPE] },
+  { id: 'mobile-theme-dark-reload', viewport: M, full: true, start: 'report',
+    ops: [{ wait: SCOPE }, goTab('その他'), { wait: ['[data-ui="more"]'] }, { click: [THEME_BTN, 'ダーク'] }, { reload: true }, goTab('その他'), { wait: [THEME_BTN + '[aria-pressed="true"]', 'ダーク'] }, goTab('レポート'), { wait: SCOPE }],
+    required: [['html[data-theme="dark"]'], ACTIVE_TAB, SCOPE] },
+  { id: 'mobile-theme-os-switch', viewport: M, full: true, start: 'report', ops: [{ wait: SCOPE }, { click: ['[data-ui="tab"]', TABS.time] }, { wait: ['[data-ui="tab"][aria-selected="true"]', TABS.time] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [-3200] }, { colorScheme: ['light'] }, { wait: ['html[data-theme="light"]'] }],
+    required: [['html[data-theme="light"]'], ['[data-ui="tab"][aria-selected="true"]', TABS.time], SCOPE] },
   { id: 'report-empty-period', viewport: M, full: false, start: 'report', clock: '2026-06-20T12:00:00+09:00', ops: EMPTY_OPS,
     required: [['[data-ui="empty-state"]', 'この期間の試合はありません'], ['[data-ui="empty-action"]', '期間を変更'], ['[data-ui="period-trigger"]', '06-03 ~ 06-03']],
     absent: [['[data-ui="skeleton"]']], tap: ['[data-ui="empty-action"]'] },
@@ -151,3 +176,10 @@ export var SCREENS = [
   { id: 'parts-sheet', viewport: M, full: false, start: 'parts',
     ops: [{ click: ['[data-ui="sheet-demo"] [data-ui="select-trigger"]'] }], required: [['[data-ui="select-panel"]']] },
 ];
+
+// ホーム画面とログイン画面に戻る画面以外は、起動直後にレポートへ移ってから操作する
+var STAY = { 'session-expired': true };
+export var SCREENS = SCREEN_DEFS.map(function (sc) {
+  if (!sc.start.startsWith('report') || sc.home || STAY[sc.id]) return sc;
+  return Object.assign({}, sc, { ops: [REPORT_TAB].concat(sc.ops) });
+});

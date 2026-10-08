@@ -32,6 +32,23 @@ describe('winRateComboConfig', () => {
   });
 });
 
+describe('テーマ切替の再描画', () => {
+  const dir = new URL('../components/', import.meta.url);
+  const files = readdirSync(dir, { recursive: true }).filter((f) => f.endsWith('.js')).map((f) => [f, readFileSync(new URL(f, dir), 'utf8')]);
+  const count = (src, re) => (src.match(re) || []).length;
+
+  it('ChartCanvas は theme を effect の deps に含める', () => {
+    const src = files.find(([f]) => f === 'chart-canvas.js')[1];
+    assert.ok(src.includes('deps.concat([inView, theme])'));
+  });
+
+  it('themeReader() で色を解決するコンポーネントのファイルは useThemeName() を同数以上呼ぶ', () => {
+    const bad = files.filter(([f]) => f !== 'chart-canvas.js')
+      .filter(([, s]) => count(s, /useThemeName\(\)/g) < count(s, /themeReader\(\)/g)).map(([f]) => f);
+    assert.deepEqual(bad, []);
+  });
+});
+
 describe('canvas のフォント', () => {
   const dir = new URL('../components/', import.meta.url);
   const sources = readdirSync(dir, { recursive: true }).filter((f) => f.endsWith('.js')).map((f) => readFileSync(new URL(f, dir), 'utf8')).join('\n');

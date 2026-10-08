@@ -107,8 +107,6 @@ type fakeStore struct {
 	busy     map[string]bool        // lease を他者に取られているユーザー
 	sessions map[string]fakeSession // token -> session
 	latest   map[string]time.Time   // userKey -> 最新日時
-	ids      map[string][]string    // userKey -> 最新日時の MatchID
-	legacy   map[string]bool        // userKey -> legacy あり
 	finished map[string]model.RefreshUpdate
 	deleted  []string
 	saved    map[string]int
@@ -123,7 +121,7 @@ type fakeSession struct {
 func newFakeStore() *fakeStore {
 	return &fakeStore{
 		busy: map[string]bool{}, sessions: map[string]fakeSession{}, latest: map[string]time.Time{},
-		ids: map[string][]string{}, legacy: map[string]bool{}, finished: map[string]model.RefreshUpdate{}, saved: map[string]int{},
+		finished: map[string]model.RefreshUpdate{}, saved: map[string]int{},
 	}
 }
 
@@ -184,12 +182,6 @@ func (f *fakeStore) LatestDatetime(userKey string) (time.Time, error) {
 	return f.latest[userKey], nil
 }
 
-func (f *fakeStore) MatchIDsAt(_ context.Context, userKey string, _ time.Time) ([]string, bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.ids[userKey], f.legacy[userKey], nil
-}
-
 func (f *fakeStore) SaveScores(userKey string, scores model.DatedScores) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -199,7 +191,6 @@ func (f *fakeStore) SaveScores(userKey string, scores model.DatedScores) {
 
 type scrapeCall struct {
 	since time.Time
-	skip  map[string]bool
 }
 
 type fakeScraper struct {
@@ -212,7 +203,7 @@ type fakeScraper struct {
 func (s *fakeScraper) scrape(since time.Time, opt scraper.ScrapingOption) (model.DatedScores, http.CookieJar, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.calls = append(s.calls, scrapeCall{since, opt.SkipMatchIDs})
+	s.calls = append(s.calls, scrapeCall{since})
 	jar, _ := cookiejar.New(nil)
 	return s.scores, jar, s.err
 }
@@ -360,34 +351,21 @@ func TestRefreshUser_NoSession(t *testing.T) {
 	}
 }
 
-func TestRefreshUser_SinceAndSkipIDs(t *testing.T) {
+// 最新の分は取り直さない。取り直すと詳細URLが変わっていて同じ試合が別IDで重複保存される
+func TestRefreshUser_SinceIsLatest(t *testing.T) {
 	latest := time.Date(2026, 10, 5, 11, 30, 0, 0, time.UTC)
 
 	st := newFakeStore()
 	withSession(st, "a", latest)
-	st.ids["a"] = []string{"m1", "m2"}
 	sc := &fakeScraper{}
 	refreshUser(context.Background(), testDeps(st, sc), activeState("a"), "job:x", nil)
 	if len(sc.calls) != 1 {
 		t.Fatalf("scrape 回数 %d", len(sc.calls))
 	}
-	if want := latest.Add(-time.Minute); !sc.calls[0].since.Equal(want) {
-		t.Errorf("since = %v, want %v", sc.calls[0].since, want)
-	}
-	if !sc.calls[0].skip["m1"] || !sc.calls[0].skip["m2"] || len(sc.calls[0].skip) != 2 {
-		t.Errorf("skip = %v", sc.calls[0].skip)
+	if !sc.calls[0].since.Equal(latest) {
+		t.Errorf("since = %v, want %v", sc.calls[0].since, latest)
 	}
 	if upd := st.finished["a"]; upd.LastResult != "ok" {
 		t.Errorf("成功の記録が違う: %+v", upd)
-	}
-
-	// legacy(match_id 無し)があれば since は最新日時のまま
-	st = newFakeStore()
-	withSession(st, "a", latest)
-	st.legacy["a"] = true
-	sc = &fakeScraper{}
-	refreshUser(context.Background(), testDeps(st, sc), activeState("a"), "job:x", nil)
-	if !sc.calls[0].since.Equal(latest) {
-		t.Errorf("legacy では since = latest のはずが %v", sc.calls[0].since)
 	}
 }

@@ -76,14 +76,17 @@
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
 │   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── theme-init.js              # テーマの初期適用と切替（<head> で同期実行）
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
 │   │   ├── coach.js               # 勝率アップミッションの診断
+│   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー
+│   │   ├── home.js                # ホーム画面（勝率アップミッション・前回との比較）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
@@ -96,6 +99,7 @@
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
 │   │   ├── runlock.js             # 分析の多重起動ロック
+│   │   ├── tabseen.js             # 下部タブの更新の点（最後に見たときの値との比較）
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
@@ -103,6 +107,8 @@
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
+│   │   ├── today.test.js          # today.js テスト
+│   │   ├── tabseen.test.js        # tabseen.js テスト
 │   │   ├── format.test.js         # format.js テスト
 │   │   ├── db.test.js             # db.js テスト
 │   │   ├── search.test.js         # search.js テスト
@@ -119,6 +125,7 @@
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
+│   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト
 │   │   └── theme.test.js          # theme.js・トークン参照テスト
 │   ├── logo.svg                   # ロゴ
 │   ├── favicon.svg                # ファビコン（SVG）
@@ -234,7 +241,7 @@ http://localhost:8080 にアクセスしてログインすると分析レポー�
 - **ストレージ**: Cloud Storage (GCP)
 - **CI/CD**: GitHub Actions（ラベルでCI/CDを制御）
 - **コンテナ**: Docker（マルチステージビルド）
-- **フロントエンド**: htm/Preact（ダークテーマ、レスポンシブ対応）
+- **フロントエンド**: htm/Preact（ダーク/ライト(端末に合わせる・選択可)、レスポンシブ対応）
 
 ## Author
 

@@ -16,7 +16,7 @@ var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
-var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', parts: '/__preview/parts.html' };
+var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-seen': '/__preview/?seen=50', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');
@@ -154,10 +154,17 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'release', 'absentNow'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'release', 'absentNow', 'colorScheme'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
       if ((kind === 'scrollBy' || kind === 'pull') && typeof a[0] !== 'number') throw new InfraError(kind + ' の第1引数は数値');
       if (kind === 'absentNow') {
         if (await evalJs(countExpr(a[0], null))) return fail('在ってはいけない要素 ' + a[0]);
+        continue;
+      }
+      if (kind === 'colorScheme') {
+        if (!THEMES.includes(a[0])) throw new InfraError('不正な colorScheme: ' + a[0]);
+        await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: a[0] }] });
+        // 配色切替だけだと上部バーの backdrop-filter 層が古いまま残り角が1階調ずれるので、再レイアウトで描き直させる
+        await evalJs('var y=scrollY;document.documentElement.style.display="none";document.body.offsetHeight;document.documentElement.style.display="";scrollTo(0,y);new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
         continue;
       }
       if (kind === 'release') {

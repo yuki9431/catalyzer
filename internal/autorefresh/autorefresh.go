@@ -120,7 +120,6 @@ type Store interface {
 	DeleteSession(token string) error
 	UpdateSessionJar(ctx context.Context, token string, encryptedJar []byte) error
 	LatestDatetime(userKey string) (time.Time, error)
-	MatchIDsAt(ctx context.Context, userKey string, t time.Time) (ids []string, hasLegacy bool, err error)
 	SaveScores(userKey string, scores model.DatedScores)
 }
 
@@ -158,10 +157,6 @@ func (fsStore) UpdateSessionJar(ctx context.Context, token string, enc []byte) e
 
 func (fsStore) LatestDatetime(userKey string) (time.Time, error) {
 	return fs.GetLatestDatetime(userKey)
-}
-
-func (fsStore) MatchIDsAt(ctx context.Context, userKey string, t time.Time) ([]string, bool, error) {
-	return fs.LoadMatchIDsAt(ctx, userKey, t)
 }
 
 func (fsStore) SaveScores(userKey string, scores model.DatedScores) { fs.SaveScores(userKey, scores) }
@@ -281,23 +276,10 @@ func process(ctx context.Context, d deps, st model.AutoRefreshState, msMap map[s
 		// 保存済みの試合が無いと全件取得になる。初回取り込みは手動分析に任せる
 		return OutcomeSkipped, 0, nil
 	}
-	ids, hasLegacy, err := d.store.MatchIDsAt(ctx, userKey, latest)
-	if err != nil {
-		return OutcomeError, 0, fmt.Errorf("同時刻の試合の取得: %w", err)
-	}
-	// 同じ分に後から出た試合を拾うため 1 分戻し、保存済みは MatchID で捨てる。legacy があると doc ID が変わって重複するので戻さない
-	since := latest.Add(-time.Minute)
-	if hasLegacy {
-		since = latest
-	}
-	skip := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		skip[id] = true
-	}
-
+	// 同じ分に試合は1つしかない。最新の分を取り直すと詳細URLが変わっていて別試合として重複保存される
 	sctx, cancel := context.WithTimeout(ctx, perUserTimeout)
 	defer cancel()
-	scores, newJar, scrapeErr := d.scrape(since, scraper.ScrapingOption{SavedJar: jar, Context: sctx, SkipMatchIDs: skip})
+	scores, newJar, scrapeErr := d.scrape(latest, scraper.ScrapingOption{SavedJar: jar, Context: sctx})
 	is403 := errors.Is(scrapeErr, scraper.ErrAccessDenied)
 
 	// 403 の途中データは古い側の連続分だけが返るので、そのまま保存してよい

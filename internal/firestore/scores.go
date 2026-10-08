@@ -234,28 +234,6 @@ func GetLatestDatetime(userKey string) (time.Time, error) {
 	return md.Datetime, nil
 }
 
-// LoadMatchIDsAt は datetime が t ちょうどの試合の MatchID を返す。match_id が空の legacy があれば hasLegacy が true。
-func LoadMatchIDsAt(ctx context.Context, userKey string, t time.Time) (ids []string, hasLegacy bool, err error) {
-	c := getClient()
-	if c == nil {
-		return nil, false, fmt.Errorf("firestore client not initialized")
-	}
-	docs, err := c.Collection("users").Doc(userKey).Collection("matches").
-		Where("datetime", "==", t).Select("match_id").Documents(ctx).GetAll()
-	if err != nil {
-		return nil, false, fmt.Errorf("query matches at %s: %w", t.Format(time.RFC3339), err)
-	}
-	for _, doc := range docs {
-		id, _ := doc.Data()["match_id"].(string)
-		if id == "" {
-			hasLegacy = true
-			continue
-		}
-		ids = append(ids, id)
-	}
-	return ids, hasLegacy, nil
-}
-
 // groupByMatch はDatedScoresをGroupKey()（MatchIDがあればそれ、無ければ分精度）でグルーピングする。
 // #358: 分精度単独でグルーピングすると同一分の複数試合が1グループ8件に混ざり、
 // len(entries)!=4判定で両試合とも欠落してしまう。
