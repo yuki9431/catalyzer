@@ -32,9 +32,9 @@ function actions(r, deaths, bursts, end) {
 }
 
 // OL は乱数を消費せず試合番号で決める(既存の乱数列を変えない)。k: 0=なし 1=スタンバイのみ 2=発動
-function overlimit(list, k, end, fire) {
+function overlimit(list, k, end, fire, standby) {
   if (k === 0) return;
-  list.push({ action: 'ov', action_start_sec: end - 45, action_end_sec: k === 2 ? fire : end });
+  list.push({ action: 'ov', action_start_sec: standby, action_end_sec: k === 2 ? fire : end });
   if (k === 2) list.push({ action: 'exbst-ov', action_start_sec: fire, action_end_sec: 0 });
   list.sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
 }
@@ -87,11 +87,12 @@ export function generateMatches() {
     m.opponent1_bursts = r.int(0, 3);
     m.opponent2_bursts = r.int(0, 3);
     m.actions = actions(r, deaths, bursts, end);
-    overlimit(m.actions, i % 3, end, end - 20);
+    overlimit(m.actions, i % 3, end, end - 20, end - 45);
     m.partner_actions = actions(r, pDeaths, pBursts, end);
     m.opponent1_actions = actions(r, m.opponent1_deaths, m.opponent1_bursts, end);
     m.opponent2_actions = actions(r, m.opponent2_deaths, m.opponent2_bursts, end);
-    overlimit(m.opponent1_actions, Math.floor(i / 3) % 3, end, end - 10 - Math.floor(i / 9) % 2 * 20);
+    var oppFire = end - 10 - Math.floor(i / 9) % 2 * 20;
+    overlimit(m.opponent1_actions, Math.floor(i / 3) % 3, end, oppFire, oppFire - 25);
     matches.push(m);
   }
   return matches;

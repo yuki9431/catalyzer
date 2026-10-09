@@ -335,8 +335,8 @@ export function OverlimitContent({ overlimit }) {
     return [s.label, s.matches + '戦', colorPct(s.win_rate)];
   });
   return html`<div>
-    <p>自分のOLが発動した試合を、相手の最初の発動との前後で分類（対象: ${overlimit.total}戦）</p>
-    <${Table} headers=${['発動順', '試合数', '勝率']} rows=${rows} />
+    <p>自分がOLスタンバイになった試合を、相手の最初のスタンバイとの前後で分類（対象: ${overlimit.total}戦）</p>
+    <${Table} headers=${['スタンバイの順番', '試合数', '勝率']} rows=${rows} />
   </div>`;
 }
 

@@ -955,16 +955,16 @@ export function computeBurstType(matches) {
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
 }
 
-// 自分のOLが発動した試合を、相手2人のうち最初の発動との前後で分ける。僚機の発動は見ない。
+// 自分がOLスタンバイになった試合を、相手2人のうち最初のスタンバイとの前後で分ける。僚機は見ない。
 var OVERLIMIT_ORDERS = [
   { key: 'first', label: '相手より先' },
   { key: 'same', label: '相手と同時' },
   { key: 'after', label: '相手より後' },
-  { key: 'solo', label: '相手は未発動' },
+  { key: 'solo', label: '相手はスタンバイにならず' },
 ];
 
 function firstOverlimitSec(actions) {
-  var secs = (actions || []).filter(function (a) { return a.action === 'exbst-ov'; }).map(function (a) { return a.action_start_sec; });
+  var secs = (actions || []).filter(function (a) { return a.action === 'ov'; }).map(function (a) { return a.action_start_sec; });
   return secs.length ? Math.min.apply(null, secs) : null;
 }
 
