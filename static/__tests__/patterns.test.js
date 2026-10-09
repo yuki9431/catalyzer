@@ -71,6 +71,10 @@ describe('held_burst boundary (start < t <= end)', function () {
   // 実データ: 撃墜で溜まったゲージの区間は撃墜の直後に始まり、使わなければ試合終了まで続く
   it('real data: interval opened by the death is not held', function () { assert.equal(held([ex(68.42, 92)], 68.4), false); });
   it('real data: finishing death at game end while holding is held', function () { assert.equal(held([ex(68.42, 92)], 92), true); });
+  // 実データ: 試合終了時刻は秒で切り捨てられ、試合を終わらせた撃墜はその1秒以内に記録される
+  function heldAtEnd(t) { return testPattern({ key: 'held_burst' }, makeMatch({ game_end_sec: 170, actions: [ex(135.03, 170), death(t)] })); }
+  it('real data: finishing death just after the truncated game end is held', function () { assert.equal(heldAtEnd(170.52), true); });
+  it('a death more than 1s after the game end is not held', function () { assert.equal(heldAtEnd(171.01), false); });
 });
 
 describe('goalPattern', function () {

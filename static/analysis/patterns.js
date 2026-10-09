@@ -54,8 +54,11 @@ function burstBeforeDeath(m) {
 // 覚醒可能域（ex 区間）の内側で撃墜された自分の撃墜。境界は start < t <= end
 function heldBurstDeaths(m) {
   var ex = (m.actions || []).filter(function (a) { return a.action === 'ex'; });
+  var gameEnd = m.game_end_sec ? cs(m.game_end_sec) : null;
+  // 試合終了時刻は秒で切り捨てられ、試合を終わらせた撃墜は1秒以内に後ろへずれる
+  function endOf(e) { var end = cs(e.action_end_sec); return end === gameEnd ? end + 100 : end; }
   return deathsOf(m.actions).filter(function (d) {
-    return ex.some(function (e) { return cs(e.action_start_sec) < cs(d.action_start_sec) && cs(d.action_start_sec) <= cs(e.action_end_sec); });
+    return ex.some(function (e) { return cs(e.action_start_sec) < cs(d.action_start_sec) && cs(d.action_start_sec) <= endOf(e); });
   });
 }
 
