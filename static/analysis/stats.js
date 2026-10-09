@@ -955,6 +955,80 @@ export function computeBurstType(matches) {
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
 }
 
+// EXオーバーリミットの到達度で3区分する。スタンバイのまま終わった試合は「スタンバイのみ」。
+var OVERLIMIT_STATES = [
+  { key: 'none', label: '未スタンバイ' },
+  { key: 'standby', label: 'スタンバイのみ' },
+  { key: 'fired', label: '発動' },
+];
+
+// 自分が発動した試合を、相手2人のうち最初の発動との前後で分ける。僚機の発動は見ない。
+var OVERLIMIT_ORDERS = [
+  { key: 'first', label: '相手より先' },
+  { key: 'same', label: '相手と同時' },
+  { key: 'after', label: '相手より後' },
+  { key: 'solo', label: '相手は未発動' },
+];
+
+function firstOverlimitSec(actions) {
+  var secs = (actions || []).filter(function (a) { return a.action === 'exbst-ov'; }).map(function (a) { return a.action_start_sec; });
+  return secs.length ? Math.min.apply(null, secs) : null;
+}
+
+function winRateGroups(defs, groups) {
+  return defs.filter(function (s) { return groups[s.key].length; }).map(function (s) {
+    var ms = groups[s.key];
+    return { key: s.key, label: s.label, matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+  });
+}
+
+export function computeOverlimit(matches) {
+  var groups = { none: [], standby: [], fired: [] };
+  var orders = { first: [], same: [], after: [], solo: [] };
+  var total = 0;
+  matches.forEach(function (d) {
+    if (!d.actions || !d.actions.length) return;
+    total++;
+    var mine = firstOverlimitSec(d.actions);
+    if (mine == null) {
+      groups[d.actions.some(function (a) { return a.action === 'ov'; }) ? 'standby' : 'none'].push(d);
+      return;
+    }
+    groups.fired.push(d);
+    var theirs = [firstOverlimitSec(d.opponent1_actions), firstOverlimitSec(d.opponent2_actions)]
+      .filter(function (s) { return s != null; });
+    var enemy = theirs.length ? Math.min.apply(null, theirs) : null;
+    orders[enemy == null ? 'solo' : mine < enemy ? 'first' : mine > enemy ? 'after' : 'same'].push(d);
+  });
+  if (total === 0) return null;
+  return { total: total, by_state: winRateGroups(OVERLIMIT_STATES, groups), by_order: winRateGroups(OVERLIMIT_ORDERS, orders) };
+}
+
+// 試合時間を30秒刻みで区分する。タイムアップは時間の区分に混ぜず独立させる。
+var DURATION_STEP_SEC = 30;
+
+export function computeGameDuration(matches) {
+  var data = matches.filter(function (d) { return d.game_end_sec > 0; });
+  if (!data.length) return null;
+  var bins = {};
+  var timeUp = [];
+  data.forEach(function (d) {
+    if (isTimeUp(d)) { timeUp.push(d); return; }
+    var start = Math.floor(d.game_end_sec / DURATION_STEP_SEC) * DURATION_STEP_SEC;
+    (bins[start] = bins[start] || []).push(d);
+  });
+  var byDuration = Object.keys(bins).map(Number).sort(function (a, b) { return a - b; }).map(function (start) {
+    var ms = bins[start];
+    return { label: start + '〜' + (start + DURATION_STEP_SEC - 1) + '秒', matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+  });
+  if (timeUp.length) byDuration.push({ label: 'タイムアップ', matches: timeUp.length, win_rate: round1(jsWinRate(timeUp)) });
+  var avgSec = function (win) {
+    var secs = data.filter(function (d) { return !!d.win === win; }).map(function (d) { return d.game_end_sec; });
+    return secs.length ? round1(jsAvg(secs)) : null;
+  };
+  return { total: data.length, by_duration: byDuration, avg_win_sec: avgSec(true), avg_lose_sec: avgSec(false) };
+}
+
 export function computeFixedPartners(matches, tagPartners) {
   if (!tagPartners || !tagPartners.length) {
     return { notice: 'タッグ情報が見つかりませんでした。フレンドを登録してタッグを組むと、固定相方の詳細分析が利用できます。', partners: [] };

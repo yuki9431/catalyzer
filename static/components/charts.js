@@ -329,6 +329,33 @@ export function BurstCountContent({ countData }) {
   </div>`;
 }
 
+export function OverlimitContent({ overlimit }) {
+  if (!overlimit || !overlimit.by_state.length) return null;
+  var toRows = function (groups) {
+    return groups.map(function (s) { return [s.label, s.matches + '戦', colorPct(s.win_rate)]; });
+  };
+  var rows = toRows(overlimit.by_state);
+  var orderRows = toRows(overlimit.by_order);
+  return html`<div>
+    <p>EXオーバーリミットの到達度で分類（対象: ${overlimit.total}戦）</p>
+    <${Table} headers=${['区分', '試合数', '勝率']} rows=${rows} />
+    ${orderRows.length > 0 && html`<p>発動した試合を、相手の最初の発動との前後で分類</p>
+    <${Table} headers=${['発動順', '試合数', '勝率']} rows=${orderRows} />`}
+  </div>`;
+}
+
+export function GameDurationContent({ duration }) {
+  if (!duration || !duration.by_duration.length) return null;
+  var rows = duration.by_duration.map(function (b) {
+    return [b.label, b.matches + '戦', colorPct(b.win_rate)];
+  });
+  var avg = function (sec) { return sec == null ? '-' : sec + '秒'; };
+  return html`<div>
+    <p>決着までの時間で分類（対象: ${duration.total}戦）<br />平均試合時間: 勝ち ${avg(duration.avg_win_sec)} / 負け ${avg(duration.avg_lose_sec)}</p>
+    <${Table} headers=${['試合時間', '試合数', '勝率']} rows=${rows} />
+  </div>`;
+}
+
 // レーダーの最低描画半径(%)。全軸が最低評価(0)でも中心の点に潰れず六角形の厚みを残すための底上げ。
 var RADAR_FLOOR_PCT = 15;
 // 0-100の正規化値を [RADAR_FLOOR_PCT, 100] に写像する（順序は保つ）。

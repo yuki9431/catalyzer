@@ -20,6 +20,8 @@ import {
   computeConsecutiveFall,
   computeBurstTiming,
   computeBurstType,
+  computeOverlimit,
+  computeGameDuration,
   computeFixedPartners,
   burstKpi,
   enemyKpi,
@@ -994,5 +996,89 @@ describe('partnerKpi', function () {
     assert.equal(r.count, 1);
     assert.equal(r.top.ms, 'ザク');
     assert.equal(r.bestWinRate.ms, 'ザク');
+  });
+});
+
+// --- computeOverlimit ---
+
+describe('computeOverlimit', function () {
+  it('splits matches into 未スタンバイ / スタンバイのみ / 発動', function () {
+    var r = computeOverlimit([
+      makeMatch({ win: false, actions: [{ action: 'death', action_start_sec: 60 }] }),
+      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 150, action_end_sec: 200 }] }),
+      makeMatch({ win: false, actions: [{ action: 'ov', action_start_sec: 150, action_end_sec: 170 }, { action: 'exbst-ov', action_start_sec: 170 }] }),
+      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 140, action_end_sec: 160 }, { action: 'exbst-ov', action_start_sec: 160 }] }),
+    ]);
+    assert.equal(r.total, 4);
+    assert.deepEqual(r.by_state.map(function (s) { return [s.label, s.matches, s.win_rate]; }), [
+      ['未スタンバイ', 1, 0],
+      ['スタンバイのみ', 1, 100],
+      ['発動', 2, 50],
+    ]);
+  });
+
+  it('counts ov without exbst-ov as スタンバイのみ even when standby lasted until the end', function () {
+    var r = computeOverlimit([makeMatch({ game_end_sec: 200, actions: [{ action: 'ov', action_start_sec: 180, action_end_sec: 200 }] })]);
+    assert.deepEqual(r.by_state.map(function (s) { return s.key; }), ['standby']);
+  });
+
+  it('compares my firing with the earlier of the two enemies and ignores the partner', function () {
+    var fired = function (sec) { return [{ action: 'ov', action_start_sec: sec - 20 }, { action: 'exbst-ov', action_start_sec: sec }]; };
+    var r = computeOverlimit([
+      makeMatch({ win: true, actions: fired(150), opponent1_actions: fired(170), opponent2_actions: [] }),
+      makeMatch({ win: false, actions: fired(150), opponent1_actions: fired(190), opponent2_actions: fired(140) }),
+      makeMatch({ win: false, actions: fired(150), opponent2_actions: fired(150) }),
+      makeMatch({ win: true, actions: fired(150), partner_actions: fired(100) }),
+      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 150 }], opponent1_actions: fired(160) }),
+    ]);
+    assert.deepEqual(r.by_order.map(function (s) { return [s.label, s.matches, s.win_rate]; }), [
+      ['相手より先', 1, 100],
+      ['相手と同時', 1, 0],
+      ['相手より後', 1, 0],
+      ['相手は未発動', 1, 100],
+    ]);
+  });
+
+  it('returns null when no match has a timeline', function () {
+    assert.equal(computeOverlimit([makeMatch({ actions: [] }), makeMatch({ actions: undefined })]), null);
+  });
+});
+
+// --- computeGameDuration ---
+
+describe('computeGameDuration', function () {
+  it('bins by 30 seconds with boundaries at 29/30 and 239/240', function () {
+    var r = computeGameDuration([
+      makeMatch({ win: true, game_end_sec: 29 }),
+      makeMatch({ win: false, game_end_sec: 30 }),
+      makeMatch({ win: true, game_end_sec: 239 }),
+      makeMatch({ win: false, game_end_sec: 240 }),
+    ]);
+    assert.deepEqual(r.by_duration.map(function (b) { return [b.label, b.matches, b.win_rate]; }), [
+      ['0〜29秒', 1, 100],
+      ['30〜59秒', 1, 0],
+      ['210〜239秒', 1, 100],
+      ['タイムアップ', 1, 0],
+    ]);
+    assert.equal(r.total, 4);
+  });
+
+  it('averages duration separately for wins and losses', function () {
+    var r = computeGameDuration([
+      makeMatch({ win: true, game_end_sec: 100 }),
+      makeMatch({ win: true, game_end_sec: 151 }),
+      makeMatch({ win: false, game_end_sec: 240 }),
+    ]);
+    assert.equal(r.avg_win_sec, 125.5);
+    assert.equal(r.avg_lose_sec, 240);
+  });
+
+  it('leaves the loss average null when every match was won', function () {
+    var r = computeGameDuration([makeMatch({ win: true, game_end_sec: 100 })]);
+    assert.equal(r.avg_lose_sec, null);
+  });
+
+  it('returns null when no match has a game end time', function () {
+    assert.equal(computeGameDuration([makeMatch({ game_end_sec: 0 }), makeMatch({})]), null);
   });
 });
