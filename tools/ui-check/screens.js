@@ -12,6 +12,7 @@ var OPEN_SEARCH = [goTab('試合検索')];
 // 起動時はホームが開くため、レポートを撮る画面は先にレポートへ移る
 var REPORT_TAB = goTab('レポート');
 var TABBAR = '[data-ui="tabbar"]';
+var HOME_CLOCK = '2026-10-08T22:00:00+09:00';
 var SORT_TRIGGER = '[data-ui="search-sort-trigger"]';
 var SHEET = '[data-ui="search-filter-sheet"]';
 var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
@@ -62,7 +63,7 @@ var SCREEN_DEFS = [
   { id: 'mobile-home-few', home: true, viewport: M, full: true, start: 'report-today-3', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-card"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="today-card"]', '今日 10/8'], ['[data-ui="today-compare"] tbody tr', null, 7]] },
   { id: 'mobile-home', home: true, viewport: M, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
-    required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], ['[data-ui="panel"] h2', '勝率アップミッション']], tap: [TABBAR_ITEM] },
+    required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], ['[data-ui="panel"] h2', '勝率アップミッション'], ['[data-ui="mission-matches"]', '当てはまった試合を見る']], tap: [TABBAR_ITEM, '[data-ui="mission-matches"]'] },
   { id: 'home', home: true, viewport: D, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], REANALYZE_BTN] },
   { id: 'mobile-home-last-day', home: true, viewport: M, full: true, start: 'report', clock: '2026-10-08T22:00:00+09:00', ops: [{ wait: ['[data-ui="today-compare"]'] }],
@@ -94,7 +95,7 @@ var SCREEN_DEFS = [
     required: [[SHEET + ' h2', '絞り込み'], ['[data-ui="search-filter-foot"]', '27試合が該当'], ['[data-ui="search-filter-apply"]', '結果を見る'],
       ['[data-ui="search-enemy-mode"] button', 'すべて含む'], ['[data-ui="search-enemy-mode"] button[aria-pressed="true"]', 'どれかを含む'], ['[data-ui="search-winloss"] button[aria-pressed="true"]', '勝利']],
     inview: [['[data-ui="search-filter-apply"]'], ['[data-ui="search-filter-clear"]'], ['[data-ui="sheet-close"]']], outview: [[TABBAR]],
-    tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button'] },
+    tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button', '[data-ui="search-pattern-item"]'] },
   { id: 'mobile-search-applied', viewport: M, full: false, start: 'report', ops: OPEN_FILTER.concat([{ click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }]),
     required: [['[data-ui="search-applied"]', '勝敗: 勝利'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）'], ['[data-ui="search-clear"]', '条件をクリア'],
       ['[data-ui="search-total"]', '27試合'], ['[data-ui="search-result"]', null, 20]],
@@ -108,6 +109,25 @@ var SCREEN_DEFS = [
     required: [['[data-ui="match-detail-back"][aria-label="試合検索に戻る"]'], ['[data-ui="search-filter"][inert]'], ['[inert] [data-ui="search-result"]'], [TABBAR + '[inert], [inert] ' + TABBAR], ['[data-ui="match-detail"]'], ['[data-ui="match-detail-back"]', '試合検索'], ['[data-ui="match-result"]', '敗北'], ['[data-ui="match-score-table"] thead th', 'テスト僚機1'], ['[data-ui="match-score-table"] thead th', 'テスト対戦者15'], ['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了']],
     inview: [['[data-ui="match-detail-back"]']], absent: [['[data-ui="match-timeline-toggle"]']], outview: [[TABBAR]],
     tap: ['[data-ui="match-detail-back"]', '[data-ui="radar-toggle"]'] },
+  { id: 'mobile-mission-search', viewport: M, full: false, start: 'report', home: true, clock: HOME_CLOCK,
+    ops: [goTab('ホーム'), { wait: ['[data-ui="mission-matches"]'] }, { click: ['[data-ui="mission-matches"]'] }, { wait: ['[data-ui="search-goal"]'] }],
+    required: [['[data-ui="search-goal"]', '負け筋: '], ['[data-ui="search-goal-remove"][aria-label$="を外す"]'], ['[data-ui="search-reason"]'], ['[data-ui="search-total"]', '39試合'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）']],
+    absent: [['[data-ui="mission-matches"]']], tap: ['[data-ui="search-goal-remove"]', '[data-ui="search-result"]'] },
+  { id: 'mobile-mission-search-removed', viewport: M, full: false, start: 'report', home: true, clock: HOME_CLOCK,
+    ops: [goTab('ホーム'), { wait: ['[data-ui="mission-matches"]'] }, { click: ['[data-ui="mission-matches"]'] }, { wait: ['[data-ui="search-goal"]'] }, { click: ['[data-ui="search-goal-remove"]'] }, { wait: ['[data-ui="search-total"]', '60試合'] }],
+    required: [['[data-ui="search-total"]', '60試合'], ['[data-ui="search-filter-toggle"]', '絞り込み']], absent: [['[data-ui="search-goal"]'], ['[data-ui="search-reason"]']] },
+  { id: 'mobile-search-pattern', viewport: M, full: false, start: 'report',
+    ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-pattern-item"]', '1機目で覚醒せず落ちた'] }, { wait: ['[data-ui="search-pattern-item"][aria-pressed="true"]', '1機目で覚醒せず落ちた'] },
+      { click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }]),
+    required: [['[data-ui="search-applied"]', '試合の展開: 1機目で覚醒せず落ちた'], ['[data-ui="search-reason"]', '撃墜 ']], absent: [[SHEET]] },
+  { id: 'mobile-match-detail-hit', viewport: M, full: false, start: 'report',
+    ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-pattern-item"]', '1機目で覚醒せず落ちた'] }, { click: ['[data-ui="search-filter-apply"]'] },
+      { wait: ['[data-ui="search-reason"]'] }, { click: ['[data-ui="search-result"]'] }, { wait: ['[data-ui="match-note"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
+    required: [['[data-ui="match-note"]', '覚醒を使う前に'], ['[data-ui="gantt-death-hit"]']], inview: [['[data-ui="gantt-death-hit"]']] },
+  { id: 'mobile-home-focus', home: true, viewport: M, full: true, start: 'report-focus', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="focus-review"]'] }],
+    required: [[CURRENT, 'ホーム'], ['[data-ui="focus-review"]', '✗ の試合を見返す'], ['[data-ui="focus-review"]', '3戦']], tap: ['[data-ui="focus-review"]'] },
+  { id: 'mobile-focus-review', home: true, viewport: M, full: false, start: 'report-focus', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="focus-review"]'] }, { click: ['[data-ui="focus-review"]'] }, { wait: ['[data-ui="search-range"]'] }],
+    required: [['[data-ui="search-range"]', '挑戦中のミッションの試合'], ['[data-ui="search-goal"]', '負け筋: 与ダメ12500未満'], ['[data-ui="search-total"]', '3試合']] },
   { id: 'mobile-match-gantt', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
     required: [['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了']], inview: [['[data-ui="gantt-end"]']] },
   // 詳細を開いたまま絞り込みを開こうとしても層は1枚（絞り込みが残り詳細は閉じる）。

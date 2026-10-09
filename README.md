@@ -80,6 +80,7 @@
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
+│   │   ├── patterns.js            # 試合の展開（負け筋）の定義一覧（ミッション判定・試合検索が共用）
 │   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
@@ -107,6 +108,7 @@
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
+│   │   ├── patterns.test.js       # patterns.js テスト
 │   │   ├── today.test.js          # today.js テスト
 │   │   ├── tabseen.test.js        # tabseen.js テスト
 │   │   ├── format.test.js         # format.js テスト
