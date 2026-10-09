@@ -121,6 +121,30 @@ function burstDeathCandidate(ms) {
   });
 }
 
+// オーバーリミットを覚醒と重ねずに使った試合
+function ovSoloCandidate(ms) {
+  var valid = ms.filter(notNull('ov_solo'));
+  return candidate('ov_solo', valid.filter(isBad('ov_solo')), valid.filter(isGood('ov_solo')), valid.length, function (s) {
+    return {
+      title: 'オーバーリミットは覚醒と重ねて使う',
+      condition: 'オーバーリミットを覚醒中に発動する（オーバーリミットを使わなかった試合は対象外）',
+      detail: '覚醒と重ねずにオーバーリミットを使った試合は' + s.count + '（勝率' + s.badWr + '%）。重ねた試合は勝率' + s.goodWr + '%',
+    };
+  });
+}
+
+// 最後のコスト（次にどちらが落ちても負け）に入った時点で覚醒が無かった試合
+function lastCostBurstCandidate(ms) {
+  var valid = ms.filter(notNull('last_cost_burst'));
+  return candidate('last_cost_burst', valid.filter(isBad('last_cost_burst')), valid.filter(isGood('last_cost_burst')), valid.length, function (s) {
+    return {
+      title: '最後のコストに覚醒を持ち込む',
+      condition: '最後のコスト（次にどちらが落ちても負け）に入った時点で覚醒が使える（入らなかった試合は対象外）',
+      detail: '最後のコストに入った時点で覚醒が無かった試合は' + s.count + '（勝率' + s.badWr + '%）。覚醒があった試合は勝率' + s.goodWr + '%',
+    };
+  });
+}
+
 // 覚醒回数：勝ち試合の中央値を目標回数にする
 function burstCountCandidate(ms) {
   var valid = ms.filter(hasTimeline);
@@ -288,6 +312,8 @@ export function computeActionPlan(matches) {
     dmgGivenCandidate(ms),
     consecutiveFallCandidate(ms),
     burstDeathCandidate(ms),
+    ovSoloCandidate(ms),
+    lastCostBurstCandidate(ms),
     burstCountCandidate(ms),
     exDmgCandidate(ms),
   ].filter(Boolean);

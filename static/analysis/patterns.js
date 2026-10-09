@@ -10,6 +10,8 @@ export function hasTimeline(m) {
 }
 // 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比べる
 function cs(sec) { return Math.round(sec * 100); }
+var TEAM_COST = 6000;
+var EX_FRESH_CS = 350; // コンボを受けている間に溜まって落ちた撃墜を拾う
 function first(arr) { return arr.length ? [arr[0]] : []; }
 
 // 自分が相方より先に撃墜されたか。'first' / 'second' / 'none'（自分は撃墜なし）/ null（判定不能）
@@ -51,20 +53,72 @@ function burstBeforeDeath(m) {
   return bursts.length > 0 && bursts[0].action_start_sec < deaths[0].action_start_sec;
 }
 
-// 覚醒可能域（ex 区間）の内側で撃墜された自分の撃墜。境界は start < t <= end
-function heldBurstDeaths(m) {
-  var ex = (m.actions || []).filter(function (a) { return a.action === 'ex'; });
+// 撃墜 d を含む自分の覚醒可能域（ex 区間）。境界は start < t <= end
+function exAround(m, d) {
   var gameEnd = m.game_end_sec ? cs(m.game_end_sec) : null;
   // 試合終了時刻は秒で切り捨てられ、試合を終わらせた撃墜は1秒以内に後ろへずれる
   function endOf(e) { var end = cs(e.action_end_sec); return end === gameEnd ? end + 100 : end; }
-  return deathsOf(m.actions).filter(function (d) {
-    return ex.some(function (e) { return cs(e.action_start_sec) < cs(d.action_start_sec) && cs(d.action_start_sec) <= endOf(e); });
+  return (m.actions || []).filter(function (e) {
+    return e.action === 'ex' && cs(e.action_start_sec) < cs(d.action_start_sec) && cs(d.action_start_sec) <= endOf(e);
   });
+}
+function heldBurstDeaths(m) {
+  return deathsOf(m.actions).filter(function (d) { return exAround(m, d).length > 0; });
 }
 
 function limitDeath(m) {
   var limit = COST_FATAL_DEATHS[m.ms_cost];
   return limit ? deathsOf(m.actions).slice(limit - 1, limit) : [];
+}
+
+// 自分の覚醒区間と重ならない OL 発動（接するだけは重ならない）
+function ovsOf(m) { return byStart((m.actions || []).filter(function (a) { return a.action === 'exbst-ov'; })); }
+function ovSoloHits(m) {
+  var bursts = burstsOf(m.actions);
+  return ovsOf(m).filter(function (ov) {
+    return !bursts.some(function (b) { return Math.min(cs(ov.action_end_sec), cs(b.action_end_sec)) - Math.max(cs(ov.action_start_sec), cs(b.action_start_sec)) > 0; });
+  });
+}
+
+// 最後のコスト（次にどちらが落ちても負け）に入った撃墜。入らなかった・コスト不明・試合経過なしは null
+function lastCostEntry(m) {
+  var mine = m.ms_cost, partner = m.partner_cost;
+  if (!hasTimeline(m) || !(mine > 0) || !(partner > 0)) return null;
+  var list = deathsOf(m.actions).map(function (a) { return { a: a, cost: mine }; })
+    .concat(deathsOf(m.partner_actions).map(function (a) { return { a: a, cost: partner }; }))
+    .sort(function (x, y) { return x.a.action_start_sec - y.a.action_start_sec; });
+  var left = TEAM_COST, floor = Math.min(mine, partner);
+  for (var i = 0; i < list.length; i++) {
+    left -= list[i].cost;
+    if (left <= 0) return null;
+    if (left <= floor) return list[i].a;
+  }
+  return null;
+}
+// 溜まって EX_FRESH_CS 以内に覚醒せず撃墜された自分の撃墜
+function freshHeldDeaths(m, after) {
+  var bursts = burstsOf(m.actions);
+  return deathsOf(m.actions).filter(function (d) {
+    return cs(d.action_start_sec) > cs(after.action_start_sec) && exAround(m, d).some(function (e) {
+      return cs(d.action_start_sec) - cs(e.action_start_sec) <= EX_FRESH_CS
+        && !bursts.some(function (b) { return cs(b.action_start_sec) >= cs(e.action_start_sec) && cs(b.action_start_sec) <= cs(d.action_start_sec); });
+    });
+  });
+}
+// 撃墜で溜まったゲージの区間は撃墜の直後に始まるため、2秒の猶予を見る
+function hasBurstAt(m, t) {
+  return (m.actions || []).some(function (a) {
+    return (a.action === 'ex' || a.action === 'exbst-f' || a.action === 'exbst-s' || a.action === 'exbst-e')
+      && cs(a.action_start_sec) <= cs(t) + 200 && cs(a.action_end_sec) > cs(t);
+  });
+}
+function lastCostBurst(m) {
+  var d = lastCostEntry(m);
+  return d ? !hasBurstAt(m, d.action_start_sec) || freshHeldDeaths(m, d).length > 0 : null;
+}
+function lastCostHits(m) {
+  var d = lastCostEntry(m);
+  return d ? [d].concat(freshHeldDeaths(m, d)) : [];
 }
 
 function neg(b) { return b === null ? null : !b; }
@@ -100,6 +154,18 @@ export var PATTERNS = [
     note: '覚醒中に {t} で撃墜されています',
   },
   {
+    key: 'ov_solo', label: 'オーバーリミットを覚醒と重ねずに使った', sheet: true, goal: true, hitWord: 'OL発動',
+    test: function (m) { var n = ovsOf(m).length; return n ? ovSoloHits(m).length === n : null; },
+    hits: ovSoloHits,
+    note: 'オーバーリミットを {t} に覚醒なしで発動しています',
+  },
+  {
+    key: 'last_cost_burst', label: '最後のコストで覚醒が無かった', sheet: true, goal: true, hitWord: '最後のコスト',
+    test: lastCostBurst,
+    hits: lastCostHits,
+    note: '{t} に最後のコストに入りました。覚醒は使える状態ではありませんでした',
+  },
+  {
     key: 'fall_first', label: '先落ちした', sheet: true,
     test: function (m) { var o = fallOrder(m); return o === null ? null : o === 'first'; },
     hits: function (m) { return first(deathsOf(m.actions)); },
@@ -110,6 +176,12 @@ export var PATTERNS = [
     test: function (m) { var o = fallOrder(m); return o === null || o === 'none' ? null : o === 'second'; },
     hits: function (m) { return first(deathsOf(m.actions)); },
     note: '相方より後に {t} で撃墜されています',
+  },
+  {
+    key: 'fall_first_one_burst', label: '先落ちして覚醒1回', sheet: true,
+    test: function (m) { var o = fallOrder(m); return o === null ? null : o === 'first' && burstsOf(m.actions).length === 1; },
+    hits: function (m) { return first(deathsOf(m.actions)); },
+    note: '{t} で先に撃墜され、覚醒は1回でした',
   },
   {
     key: 'dmg_behind', label: '与ダメが被ダメを下回った', sheet: true,
@@ -201,6 +273,6 @@ export function patternReason(cond, m) {
   var def = cond && findPattern(cond.key);
   if (!def) return '';
   var hits = patternHits(cond, m);
-  if (hits.length) return '撃墜 ' + hits.map(function (h) { return fmtSec(h.action_start_sec); }).join('・');
+  if (hits.length) return (def.hitWord || '撃墜') + ' ' + hits.map(function (h) { return fmtSec(h.action_start_sec); }).join('・');
   return def.reason ? def.reason(m, cond.line) : '';
 }

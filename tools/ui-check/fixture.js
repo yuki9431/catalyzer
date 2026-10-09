@@ -45,6 +45,12 @@ function opponent(r, m, prefix, name, ms) {
   m[prefix + '_score_ranking'] = r.int(1, 4);
 }
 
+// 乱数列に触れず既存試合へ足す固定の場面。OL を覚醒と重ねずに使った試合(詳細の強調用)
+var OL_SOLO_INDEX = 35;
+function addScenes(matches) {
+  matches[OL_SOLO_INDEX].actions.push({ action: 'ov', action_start_sec: 90, action_end_sec: 125 }, { action: 'exbst-ov', action_start_sec: 95, action_end_sec: 110 });
+}
+
 export function generateMatches() {
   var r = rng(20260601);
   var matches = [];
@@ -84,6 +90,7 @@ export function generateMatches() {
     m.opponent2_actions = actions(r, m.opponent2_deaths, m.opponent2_bursts, end);
     matches.push(m);
   }
+  addScenes(matches);
   return matches;
 }
 

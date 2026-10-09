@@ -302,7 +302,7 @@ function ResultItem({ match, msImages, sortKey, timeOnly, reason, onOpen }) {
 }
 
 // 試合経過のガント図（4人分）。行ごとに名前・2レーン・被撃墜×、下に時間軸と終了ラベル。
-function Timeline({ match, msImages, hitSecs }) {
+function Timeline({ match, msImages, hits }) {
   var rows = [
     { ms: match.ms, name: match.name, actions: match.actions, me: true },
     { ms: match.partner_ms, name: match.partner_name, actions: match.partner_actions },
@@ -327,7 +327,8 @@ function Timeline({ match, msImages, hitSecs }) {
     var barEl = html`<span data-ui="gantt-bar" class=${'gantt-bar gantt-' + m.cls} style=${'left:' + left + '%;width:' + w + '%'}></span>`;
     // 発動系は「発動の瞬間＝菱形」＋「その後の発動中＝色付きバー」の両方を描く。
     if (m.kind === 'diamond') {
-      return html`${barEl}<span class=${'gantt-diamond gantt-' + m.cls} style=${'left:' + left + '%'}></span>`;
+      var ovHit = hits && hits.indexOf(a) >= 0 && a.action === 'exbst-ov';
+      return html`${barEl}<span class=${'gantt-diamond gantt-' + m.cls} style=${'left:' + left + '%'}></span>${ovHit && html`<span class="gantt-ov-hit" data-ui="gantt-ov-hit" style=${'left:' + left + '%'}></span>`}`;
     }
     return barEl;
   }
@@ -349,7 +350,7 @@ function Timeline({ match, msImages, hitSecs }) {
         var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
         var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
         var deaths = acts.filter(function (a) { return a.action === 'death'; });
-        return html`<div class=${'gantt-row ' + (i < 2 ? 'gantt-ally' : 'gantt-enemy') + (i === 1 ? ' gantt-teamsep' : '')}>
+        return html`<div class=${'gantt-row ' + (i < 2 ? 'gantt-ally' : 'gantt-enemy') + (i === 1 ? ' gantt-teamsep' : '')} data-ui=${i === 1 ? 'gantt-partner-row' : undefined}>
           <${DetailThumb} name=${r.ms} msImages=${msImages} />
           <div class="gantt-track">
             <div class=${'gantt-name' + (r.me ? ' gantt-me' : '')}>${playerName(r.name)}</div>
@@ -360,7 +361,7 @@ function Timeline({ match, msImages, hitSecs }) {
               <div class="gantt-lane">
                 ${lane0.map(bar)}
                 ${deaths.map(function (a) {
-                  var hit = r.me && hitSecs && hitSecs.indexOf(a.action_start_sec) >= 0;
+                  var hit = hits && hits.indexOf(a) >= 0;
                   return html`<span class=${'gantt-death' + (hit ? ' gantt-death-hit' : '')} data-ui=${hit ? 'gantt-death-hit' : undefined} style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
                 })}
               </div>
@@ -425,10 +426,10 @@ function DetailThumb({ name, msImages }) {
 
 // 試合詳細の全画面。試合経過は常に出す。
 function MatchDetail({ match, msImages, conds, onClose }) {
-  // 当てはまった条件の原因になった自分の撃墜（ガントで強調）と注意の一文
-  var hitSecs = [], note = '';
+  // 当てはまった条件の原因になった撃墜・OL発動（ガントで強調）と注意の一文
+  var hits = [], note = '';
   (conds || []).forEach(function (c) {
-    patternHits(c, match).forEach(function (h) { hitSecs.push(h.action_start_sec); });
+    patternHits(c, match).forEach(function (h) { hits.push(h); });
     if (!note) note = patternNote(c, match);
   });
   // レーダー: 4人分の系列とトグルによる表示切替（既定は自分＋相方＝自陣）。
@@ -502,7 +503,7 @@ function MatchDetail({ match, msImages, conds, onClose }) {
     </${Panel}>
 
     <${Panel} title="試合経過">
-      <${Timeline} match=${match} msImages=${msImages} hitSecs=${hitSecs} />
+      <${Timeline} match=${match} msImages=${msImages} hits=${hits} />
     </${Panel}>
   </${Layer}>`;
 }
