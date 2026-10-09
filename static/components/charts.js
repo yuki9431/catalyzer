@@ -330,17 +330,13 @@ export function BurstCountContent({ countData }) {
 }
 
 export function OverlimitContent({ overlimit }) {
-  if (!overlimit || !overlimit.by_state.length) return null;
-  var toRows = function (groups) {
-    return groups.map(function (s) { return [s.label, s.matches + '戦', colorPct(s.win_rate)]; });
-  };
-  var rows = toRows(overlimit.by_state);
-  var orderRows = toRows(overlimit.by_order);
+  if (!overlimit || !overlimit.by_order.length) return null;
+  var rows = overlimit.by_order.map(function (s) {
+    return [s.label, s.matches + '戦', colorPct(s.win_rate)];
+  });
   return html`<div>
-    <p>EXオーバーリミットの到達度で分類（対象: ${overlimit.total}戦）</p>
-    <${Table} headers=${['区分', '試合数', '勝率']} rows=${rows} />
-    ${orderRows.length > 0 && html`<p>発動した試合を、相手の最初の発動との前後で分類</p>
-    <${Table} headers=${['発動順', '試合数', '勝率']} rows=${orderRows} />`}
+    <p>自分のOLが発動した試合を、相手の最初の発動との前後で分類（対象: ${overlimit.total}戦）</p>
+    <${Table} headers=${['発動順', '試合数', '勝率']} rows=${rows} />
   </div>`;
 }
 

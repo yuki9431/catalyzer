@@ -31,7 +31,7 @@ function actions(r, deaths, bursts, end) {
   return list.sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
 }
 
-// OL は乱数を消費せず試合番号で決める(既存の乱数列を変えない)。k: 0=未スタンバイ 1=スタンバイのみ 2=発動
+// OL は乱数を消費せず試合番号で決める(既存の乱数列を変えない)。k: 0=なし 1=スタンバイのみ 2=発動
 function overlimit(list, k, end, fire) {
   if (k === 0) return;
   list.push({ action: 'ov', action_start_sec: end - 45, action_end_sec: k === 2 ? fire : end });

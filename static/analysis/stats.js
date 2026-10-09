@@ -955,14 +955,7 @@ export function computeBurstType(matches) {
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
 }
 
-// EXオーバーリミットの到達度で3区分する。スタンバイのまま終わった試合は「スタンバイのみ」。
-var OVERLIMIT_STATES = [
-  { key: 'none', label: '未スタンバイ' },
-  { key: 'standby', label: 'スタンバイのみ' },
-  { key: 'fired', label: '発動' },
-];
-
-// 自分が発動した試合を、相手2人のうち最初の発動との前後で分ける。僚機の発動は見ない。
+// 自分のOLが発動した試合を、相手2人のうち最初の発動との前後で分ける。僚機の発動は見ない。
 var OVERLIMIT_ORDERS = [
   { key: 'first', label: '相手より先' },
   { key: 'same', label: '相手と同時' },
@@ -975,33 +968,24 @@ function firstOverlimitSec(actions) {
   return secs.length ? Math.min.apply(null, secs) : null;
 }
 
-function winRateGroups(defs, groups) {
-  return defs.filter(function (s) { return groups[s.key].length; }).map(function (s) {
-    var ms = groups[s.key];
-    return { key: s.key, label: s.label, matches: ms.length, win_rate: round1(jsWinRate(ms)) };
-  });
-}
-
 export function computeOverlimit(matches) {
-  var groups = { none: [], standby: [], fired: [] };
   var orders = { first: [], same: [], after: [], solo: [] };
   var total = 0;
   matches.forEach(function (d) {
-    if (!d.actions || !d.actions.length) return;
-    total++;
     var mine = firstOverlimitSec(d.actions);
-    if (mine == null) {
-      groups[d.actions.some(function (a) { return a.action === 'ov'; }) ? 'standby' : 'none'].push(d);
-      return;
-    }
-    groups.fired.push(d);
+    if (mine == null) return;
+    total++;
     var theirs = [firstOverlimitSec(d.opponent1_actions), firstOverlimitSec(d.opponent2_actions)]
       .filter(function (s) { return s != null; });
     var enemy = theirs.length ? Math.min.apply(null, theirs) : null;
     orders[enemy == null ? 'solo' : mine < enemy ? 'first' : mine > enemy ? 'after' : 'same'].push(d);
   });
   if (total === 0) return null;
-  return { total: total, by_state: winRateGroups(OVERLIMIT_STATES, groups), by_order: winRateGroups(OVERLIMIT_ORDERS, orders) };
+  var byOrder = OVERLIMIT_ORDERS.filter(function (o) { return orders[o.key].length; }).map(function (o) {
+    var ms = orders[o.key];
+    return { key: o.key, label: o.label, matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+  });
+  return { total: total, by_order: byOrder };
 }
 
 // 試合時間を30秒刻みで区分する。タイムアップは時間の区分に混ぜず独立させる。

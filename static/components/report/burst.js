@@ -32,8 +32,8 @@ export function BurstPane({ frontendData }) {
       <${BurstTimingContent} timingData=${burstTiming} />
     <//>`}
 
-    ${overlimit && html`<${Panel} title="OL発動と勝率">
-      <${WinRateBarChart} items=${overlimit.by_state} />
+    ${overlimit && html`<${Panel} title="OL発動の順番と勝率">
+      <${WinRateBarChart} items=${overlimit.by_order} />
       <${OverlimitContent} overlimit=${overlimit} />
     <//>`}
 

@@ -1002,35 +1002,16 @@ describe('partnerKpi', function () {
 // --- computeOverlimit ---
 
 describe('computeOverlimit', function () {
-  it('splits matches into 未スタンバイ / スタンバイのみ / 発動', function () {
-    var r = computeOverlimit([
-      makeMatch({ win: false, actions: [{ action: 'death', action_start_sec: 60 }] }),
-      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 150, action_end_sec: 200 }] }),
-      makeMatch({ win: false, actions: [{ action: 'ov', action_start_sec: 150, action_end_sec: 170 }, { action: 'exbst-ov', action_start_sec: 170 }] }),
-      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 140, action_end_sec: 160 }, { action: 'exbst-ov', action_start_sec: 160 }] }),
-    ]);
-    assert.equal(r.total, 4);
-    assert.deepEqual(r.by_state.map(function (s) { return [s.label, s.matches, s.win_rate]; }), [
-      ['未スタンバイ', 1, 0],
-      ['スタンバイのみ', 1, 100],
-      ['発動', 2, 50],
-    ]);
-  });
-
-  it('counts ov without exbst-ov as スタンバイのみ even when standby lasted until the end', function () {
-    var r = computeOverlimit([makeMatch({ game_end_sec: 200, actions: [{ action: 'ov', action_start_sec: 180, action_end_sec: 200 }] })]);
-    assert.deepEqual(r.by_state.map(function (s) { return s.key; }), ['standby']);
-  });
+  var fired = function (sec) { return [{ action: 'ov', action_start_sec: sec - 20 }, { action: 'exbst-ov', action_start_sec: sec }]; };
 
   it('compares my firing with the earlier of the two enemies and ignores the partner', function () {
-    var fired = function (sec) { return [{ action: 'ov', action_start_sec: sec - 20 }, { action: 'exbst-ov', action_start_sec: sec }]; };
     var r = computeOverlimit([
       makeMatch({ win: true, actions: fired(150), opponent1_actions: fired(170), opponent2_actions: [] }),
       makeMatch({ win: false, actions: fired(150), opponent1_actions: fired(190), opponent2_actions: fired(140) }),
       makeMatch({ win: false, actions: fired(150), opponent2_actions: fired(150) }),
       makeMatch({ win: true, actions: fired(150), partner_actions: fired(100) }),
-      makeMatch({ win: true, actions: [{ action: 'ov', action_start_sec: 150 }], opponent1_actions: fired(160) }),
     ]);
+    assert.equal(r.total, 4);
     assert.deepEqual(r.by_order.map(function (s) { return [s.label, s.matches, s.win_rate]; }), [
       ['相手より先', 1, 100],
       ['相手と同時', 1, 0],
@@ -1039,8 +1020,18 @@ describe('computeOverlimit', function () {
     ]);
   });
 
-  it('returns null when no match has a timeline', function () {
-    assert.equal(computeOverlimit([makeMatch({ actions: [] }), makeMatch({ actions: undefined })]), null);
+  it('leaves out matches where my overlimit did not fire, even on standby', function () {
+    var r = computeOverlimit([
+      makeMatch({ actions: fired(150), opponent1_actions: fired(170) }),
+      makeMatch({ actions: [{ action: 'ov', action_start_sec: 150 }], opponent1_actions: fired(160) }),
+      makeMatch({ actions: [], opponent1_actions: fired(160) }),
+    ]);
+    assert.equal(r.total, 1);
+    assert.deepEqual(r.by_order.map(function (s) { return s.key; }), ['first']);
+  });
+
+  it('returns null when my overlimit never fired', function () {
+    assert.equal(computeOverlimit([makeMatch({ actions: [{ action: 'ov', action_start_sec: 150 }] }), makeMatch({ actions: undefined })]), null);
   });
 });
 
