@@ -1,6 +1,7 @@
 import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.js';
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
+import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
 import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
@@ -54,6 +55,10 @@ export function Report({ data, userKey, actions }) {
   var periodOpen = periodOpenRef[0], setPeriodOpen = periodOpenRef[1];
   var nav = useView();
   var view = nav.view;
+  // ホームのミッションから開いた試合検索の初期条件。search 以外の画面では持ち越さない
+  var presetRef = useState(null);
+  var searchPreset = presetRef[0], setSearchPreset = presetRef[1];
+  useEffect(function () { if (view !== 'search') setSearchPreset(null); }, [view]);
   var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
@@ -212,6 +217,15 @@ export function Report({ data, userKey, actions }) {
     return computeActionPlan(selectedMs ? ms.filter(function (m) { return m.ms === selectedMs; }) : ms);
   }, [allMatches, selectedMs]);
 
+  function showMatches(link) {
+    var f = emptyFilters();
+    f.myMsList = selectedMs ? [selectedMs] : [];
+    f.goal = link.goal;
+    if (link.focusRange) f.focusRange = link.focusRange;
+    setSearchPreset(f);
+    nav.onNavigate('search');
+  }
+
   function handleCustomReport(range) {
     setCustomRange(range);
     setSelectedPeriod('custom');
@@ -234,12 +248,12 @@ export function Report({ data, userKey, actions }) {
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${HomeView} matches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} />
+      <${HomeView} matches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} onShowMatches=${showMatches} />
     </${AppShell}>`;
   }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initialFilters=${searchPreset} />
     </${AppShell}>`;
   }
 

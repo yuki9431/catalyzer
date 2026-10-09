@@ -1,8 +1,9 @@
 // --- 試合検索ロジック ---
 // IndexedDBキャッシュから読み込んだ試合データ配列を、条件で絞り込み・並べ替える純粋関数群。
-// UI（components/search.js）から切り離すことで単体テスト可能にしている。
+// UI から切り離すことで単体テスト可能にしている。
 
 import { PERIOD_DAYS } from './stats.js';
+import { findPattern, goalPattern, testPattern, patternLabel } from './patterns.js';
 
 // 並べ替えの選択肢。key はソート対象のフィールド。並び順（昇順/降順）はUI側のトグルで制御する。
 export var SORT_OPTIONS = [
@@ -39,12 +40,47 @@ export function emptyFilters() {
     scoreMin: '', scoreMax: '',
     exDmgMin: '', exDmgMax: '',
     burstsMin: '', burstsMax: '',
+    pattern: '',             // 試合の展開（シートで選ぶ patterns.js の key。''=指定なし）
+    goal: null,              // ホームのミッションから渡る負け筋 {key, line?, avoid?}
+    focusRange: null,        // 挑戦中カードから渡る範囲 {after, until}（until ''=上限なし）
   };
+}
+
+function validRange(r) { return !!r && typeof r.after === 'string' && r.after !== '' && typeof r.until === 'string'; }
+
+// 当てはまりを調べる条件。ホームから来た goal と、シートで選んだ試合の展開（sheet 項目のみ。goal と同じ key は重ねない）
+export function activeConditions(filters) {
+  var f = filters || {};
+  var out = [];
+  var g = goalPattern(f.goal);
+  if (g) out.push(g);
+  var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
+  if (def && def.sheet === true && !(g && g.key === def.key)) out.push({ key: def.key });
+  return out;
+}
+
+// ×で外せるタグ（ホームから渡った条件）
+export function removableFilterLabels(filters) {
+  var f = filters || {};
+  var out = [];
+  var g = goalPattern(f.goal);
+  if (g) out.push({ field: 'goal', label: '負け筋: ' + patternLabel(g) });
+  if (validRange(f.focusRange)) out.push({ field: 'focusRange', label: '挑戦中のミッションの試合' });
+  return out;
+}
+
+// ×で条件を外す。負け筋を外したら挑戦中の範囲も外す（範囲だけ残ると ✗ 以外の試合まで出る）
+export function removeFilter(filters, field) {
+  var next = Object.assign({}, filters);
+  next[field] = null;
+  if (field === 'goal') next.focusRange = null;
+  return next;
 }
 
 // 何らかの絞り込みが指定されているか（デフォルト状態でないか）を判定する。
 export function hasActiveFilters(filters) {
   var f = filters || {};
+  if (activeConditions(f).length || validRange(f.focusRange)) return true;
   if (f.result && f.result !== 'all') return true;
   var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
   for (var j = 0; j < listKeys.length; j++) {
@@ -173,6 +209,8 @@ export function filterMatches(matches, filters) {
   var scMin = toNum(f.scoreMin), scMax = toNum(f.scoreMax);
   var exMin = toNum(f.exDmgMin), exMax = toNum(f.exDmgMax);
   var buMin = toNum(f.burstsMin), buMax = toNum(f.burstsMax);
+  var conds = activeConditions(f);
+  var range = validRange(f.focusRange) ? f.focusRange : null;
 
   return (matches || []).filter(function (m) {
     var day = (m.date || '').substring(0, 10);
@@ -202,6 +240,10 @@ export function filterMatches(matches, filters) {
     if (!inRange(m.score, scMin, scMax)) return false;
     if (!inRange(m.ex_dmg, exMin, exMax)) return false;
     if (!inRange(m.bursts, buMin, buMax)) return false;
+    if (range && !(m.date > range.after && (range.until === '' || m.date <= range.until))) return false;
+    for (var c = 0; c < conds.length; c++) {
+      if (testPattern(conds[c], m) !== true) return false;
+    }
     return true;
   });
 }
@@ -260,6 +302,10 @@ export function appliedFilterLabels(filters) {
   }
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
+  var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
+  var g = goalPattern(f.goal);
+  // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
+  if (def && def.sheet === true && !(g && g.key === def.key)) out.push('試合の展開: ' + patternLabel({ key: def.key }));
   if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
   else if (f.dateFrom) out.push('日付: ' + f.dateFrom + '以降');
   else if (f.dateTo) out.push('日付: ' + f.dateTo + '以前');

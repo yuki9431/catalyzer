@@ -1,5 +1,5 @@
 import { html, useState, useMemo, useRef, useEffect } from '../htm-preact-standalone.js';
-import { boldText, cellValue, cellDisplay, sortNumber, esc } from '../lib/format.js';
+import { boldText, cellValue, cellDisplay, sortNumber } from '../lib/format.js';
 import { usePopover, useDismiss, Popover } from './popover.js';
 
 export function Tips({ tips }) {
@@ -193,7 +193,7 @@ export function Dropdown({ value, options, onChange, placeholder, noClear, mode 
   return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
     <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen} ref=${pop.triggerRef}
       onClick=${pop.toggle}>
-      <span class="panel-select-label">${esc(label)}</span>
+      <span class="panel-select-label">${label}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
     <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
@@ -204,7 +204,7 @@ export function Dropdown({ value, options, onChange, placeholder, noClear, mode 
         onClick=${function () { pick(''); }}>${ph}</button>`}
       ${filtered.map(function (o) {
         return html`<button type="button" data-ui="select-item" class=${'panel-select-item' + (o.value === value ? ' active' : '')}
-          onClick=${function () { pick(o.value); }}>${esc(o.label)}</button>`;
+          onClick=${function () { pick(o.value); }}>${o.label}</button>`;
       })}
       ${q && !filtered.length && html`<div class="panel-select-empty">該当なし</div>`}
     </${Popover}>
@@ -239,7 +239,7 @@ export function MultiSelect({ values, options, onChange, placeholder, mode }) {
   return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
     <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen} ref=${pop.triggerRef}
       onClick=${pop.toggle}>
-      <span class="panel-select-label">${esc(triggerLabel)}</span>
+      <span class="panel-select-label">${triggerLabel}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
     </button>
     <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
@@ -249,7 +249,7 @@ export function MultiSelect({ values, options, onChange, placeholder, mode }) {
         var on = sel.indexOf(o.value) >= 0;
         return html`<button type="button" data-ui="select-item" class=${'panel-select-item' + (on ? ' active' : '')}
           onClick=${function () { toggle(o.value); }}>
-          <span>${esc(o.label)}</span><span class="panel-select-check">${on ? '✓' : ''}</span>
+          <span>${o.label}</span><span class="panel-select-check">${on ? '✓' : ''}</span>
         </button>`;
       })}
       ${q && !filtered.length && html`<div class="panel-select-empty">該当なし</div>`}
@@ -278,7 +278,7 @@ export function Autocomplete({ value, onChange, options, placeholder }) {
     ${showMenu && html`<div class="search-ac-menu">
       ${matches.map(function (m) {
         return html`<button type="button" class="search-ac-item"
-          onClick=${function () { onChange(m); setOpen(false); }}>${esc(m)}</button>`;
+          onClick=${function () { onChange(m); setOpen(false); }}>${m}</button>`;
       })}
     </div>`}
   </div>`;

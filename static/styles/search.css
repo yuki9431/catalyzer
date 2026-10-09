@@ -107,6 +107,11 @@
 .search-layer-date { grid-column: 3; justify-self: end; color: var(--muted); font-size: 0.875rem; }
 .search-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 0 8px 0 0; }
 .search-layer-body .panel { margin-bottom: 24px; }
+.search-pattern { display: flex; flex-wrap: wrap; gap: 8px; }
+.search-pattern .ui-chip { min-height: 44px; padding: 0 14px; }
+.search-item-reason { margin-top: 6px; }
+.search-item-reason .ui-chip { max-width: 100%; overflow-wrap: anywhere; }
+.search-detail-note { margin: 0 0 24px; padding: 10px 14px; border: 1px solid var(--terrible); border-radius: 8px; background: var(--terrible-a15); color: var(--text); font-size: 0.9375rem; line-height: 1.6; }
 .search-detail-result { display: flex; align-items: center; gap: 8px; margin: 0 0 24px; }
 .search-detail-result strong { font-size: 2rem; line-height: 48px; }
 .search-layer-body .panel h2 { line-height: 32px; }

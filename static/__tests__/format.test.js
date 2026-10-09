@@ -1,34 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, pct, num, cellValue, cellDisplay, wrMark, wrTone, wrBarTone, signed, sortNumber, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
-
-// --- esc ---
-
-describe('esc', function () {
-  it('escapes HTML special characters', function () {
-    assert.equal(esc('<script>alert("xss")</script>'), '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
-  });
-
-  it('escapes ampersand', function () {
-    assert.equal(esc('a & b'), 'a &amp; b');
-  });
-
-  it('returns empty string for null', function () {
-    assert.equal(esc(null), '');
-  });
-
-  it('returns empty string for undefined', function () {
-    assert.equal(esc(undefined), '');
-  });
-
-  it('converts numbers to string', function () {
-    assert.equal(esc(42), '42');
-  });
-
-  it('passes through safe strings unchanged', function () {
-    assert.equal(esc('hello world'), 'hello world');
-  });
-});
+import { pct, num, cellValue, cellDisplay, wrMark, wrTone, wrBarTone, signed, sortNumber, isTimeUp, TIMEUP_SEC } from '../lib/format.js';
 
 // --- pct ---
 

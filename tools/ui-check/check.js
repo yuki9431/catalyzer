@@ -16,7 +16,7 @@ var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
-var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-seen': '/__preview/?seen=50', parts: '/__preview/parts.html' };
+var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');

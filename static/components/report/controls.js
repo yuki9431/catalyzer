@@ -1,5 +1,4 @@
 import { html, useEffect, useRef, useState } from '../../htm-preact-standalone.js';
-import { esc } from '../../lib/format.js';
 import { Chip, ToggleGroup } from '../parts.js';
 import { RangeCalendar } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
@@ -148,13 +147,13 @@ export function MsSelector({ entries, selected, onSelect }) {
   var label = selected ? '1機選択' : '全機体';
   var isSelected = !!selected;
   return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
-    <${Chip} ui="ms-trigger" expanded=${isOpen} active=${isSelected} onClick=${pop.toggle}><span class="ui-chip-text">${esc(label)}</span></${Chip}>
+    <${Chip} ui="ms-trigger" expanded=${isOpen} active=${isSelected} onClick=${pop.toggle}><span class="ui-chip-text">${label}</span></${Chip}>
     <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="ms-panel" title="機体">
       <button data-ui="ms-item" class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); pop.close(); }}>全機体</button>
       ${entries.map(function (e) {
         return html`<button data-ui="ms-item" class=${'ms-topbar-item' + (selected === e.name ? ' active' : '')}
-          onClick=${function () { onSelect(e.name); pop.close(); }}>${esc(e.name)} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
+          onClick=${function () { onSelect(e.name); pop.close(); }}>${e.name} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
       })}
     </${Popover}>
   </div>`;
