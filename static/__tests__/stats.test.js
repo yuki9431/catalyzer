@@ -1009,14 +1009,12 @@ describe('computeOverlimit', function () {
       makeMatch({ win: true, actions: standby(150), opponent1_actions: standby(170), opponent2_actions: [] }),
       makeMatch({ win: false, actions: standby(150), opponent1_actions: standby(190), opponent2_actions: standby(140) }),
       makeMatch({ win: false, actions: standby(150), opponent2_actions: standby(150) }),
-      makeMatch({ win: true, actions: standby(150), partner_actions: standby(100) }),
     ]);
-    assert.equal(r.total, 4);
+    assert.equal(r.total, 3);
     assert.deepEqual(r.by_order.map(function (s) { return [s.label, s.matches, s.win_rate]; }), [
       ['相手より先', 1, 100],
       ['相手と同時', 1, 0],
       ['相手より後', 1, 0],
-      ['相手はスタンバイにならず', 1, 100],
     ]);
   });
 
@@ -1028,17 +1026,18 @@ describe('computeOverlimit', function () {
     assert.deepEqual(r.by_order.map(function (s) { return s.key; }), ['first']);
   });
 
-  it('leaves out matches where I never reached standby', function () {
+  it('leaves out matches where only one side reached standby, ignoring the partner', function () {
     var r = computeOverlimit([
       makeMatch({ actions: standby(150), opponent1_actions: standby(170) }),
       makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }], opponent1_actions: standby(160) }),
       makeMatch({ actions: [], opponent1_actions: standby(160) }),
+      makeMatch({ actions: standby(150), partner_actions: standby(100), opponent1_actions: [] }),
     ]);
     assert.equal(r.total, 1);
   });
 
-  it('returns null when I never reached standby', function () {
-    assert.equal(computeOverlimit([makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }] }), makeMatch({ actions: undefined })]), null);
+  it('returns null when no match has both sides on standby', function () {
+    assert.equal(computeOverlimit([makeMatch({ actions: standby(150) }), makeMatch({ actions: undefined, opponent1_actions: standby(150) })]), null);
   });
 });
 

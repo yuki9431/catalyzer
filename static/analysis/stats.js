@@ -955,12 +955,11 @@ export function computeBurstType(matches) {
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
 }
 
-// 自分がOLスタンバイになった試合を、相手2人のうち最初のスタンバイとの前後で分ける。僚機は見ない。
+// 自分と相手の両方がOLスタンバイになった試合を前後で分ける。片方だけの試合は勝敗がほぼ決まっているので除く。
 var OVERLIMIT_ORDERS = [
   { key: 'first', label: '相手より先' },
   { key: 'same', label: '相手と同時' },
   { key: 'after', label: '相手より後' },
-  { key: 'solo', label: '相手はスタンバイにならず' },
 ];
 
 function firstOverlimitSec(actions) {
@@ -969,16 +968,16 @@ function firstOverlimitSec(actions) {
 }
 
 export function computeOverlimit(matches) {
-  var orders = { first: [], same: [], after: [], solo: [] };
+  var orders = { first: [], same: [], after: [] };
   var total = 0;
   matches.forEach(function (d) {
     var mine = firstOverlimitSec(d.actions);
-    if (mine == null) return;
-    total++;
     var theirs = [firstOverlimitSec(d.opponent1_actions), firstOverlimitSec(d.opponent2_actions)]
       .filter(function (s) { return s != null; });
-    var enemy = theirs.length ? Math.min.apply(null, theirs) : null;
-    orders[enemy == null ? 'solo' : mine < enemy ? 'first' : mine > enemy ? 'after' : 'same'].push(d);
+    if (mine == null || !theirs.length) return;
+    total++;
+    var enemy = Math.min.apply(null, theirs);
+    orders[mine < enemy ? 'first' : mine > enemy ? 'after' : 'same'].push(d);
   });
   if (total === 0) return null;
   var byOrder = OVERLIMIT_ORDERS.filter(function (o) { return orders[o.key].length; }).map(function (o) {
