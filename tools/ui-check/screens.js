@@ -126,7 +126,7 @@ var SCREEN_DEFS = [
     required: [['[data-ui="match-note"]', '覚醒を使う前に'], ['[data-ui="gantt-death-hit"]']], inview: [['[data-ui="gantt-death-hit"]']] },
   { id: 'mobile-match-detail-ol-hit', viewport: M, full: false, start: 'report',
     ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-pattern-item"]', 'オーバーリミットを覚醒と重ねずに使った'] }, { click: ['[data-ui="search-filter-apply"]'] },
-      { wait: ['[data-ui="search-reason"]', 'OL発動 '] }, { click: ['[data-ui="search-result"]'] }, { wait: ['[data-ui="match-note"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
+      { wait: ['[data-ui="search-reason"]', 'OL発動 '] }, { click: ['[data-ui="search-result"]', '23:25'] }, { wait: ['[data-ui="match-note"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
     required: [['[data-ui="match-note"]', 'オーバーリミットを'], ['[data-ui="gantt-ov-hit"]']], absent: [['[data-ui="gantt-death-hit"]']], inview: [['[data-ui="gantt-ov-hit"]']] },
   { id: 'mobile-match-detail-lastcost-hit', viewport: M, full: false, start: 'report',
     ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-pattern-item"]', '最後のコストで覚醒が無かった'] }, { click: ['[data-ui="search-filter-apply"]'] },

@@ -125,7 +125,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/components/ui.js` — 汎用UIコンポーネント（Panel/Tips(事実の箇条書き)/SortableTable/Table/SubSection/Dropdown/MultiSelect/Autocomplete）
 - `static/analysis/classrecord.js` — 通算戦績の整形純粋関数（分析カバー率・通算K/D）
 - `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）
-- `static/components/search.js` — 試合検索ビュー（SearchView。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
+- `static/components/search.js` — 試合検索ビュー（SearchView。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（WinRateRowList/EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得・ログアウト時の全消去 `clearAllMatches`）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）

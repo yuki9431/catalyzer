@@ -179,7 +179,7 @@ describe('last_cost_burst', function () {
       var entry = death(30), d = death(90);
       var m = makeMatch({ actions: [ex(10, 25), entry, ex(88, 200), d] });
       assert.deepEqual(patternHits({ key: 'last_cost_burst' }, m), [entry, d]);
-      assert.equal(patternReason({ key: 'last_cost_burst' }, m), '最後のコスト 0:30・1:30');
+      assert.equal(patternReason({ key: 'last_cost_burst' }, m), '最後のコスト 0:30');
     });
   });
   it('orders falls by time across both players', function () {

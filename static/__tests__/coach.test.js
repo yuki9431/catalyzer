@@ -441,7 +441,6 @@ describe('computeActionPlan matched', function () {
 });
 
 describe('burst-endgame missions', function () {
-  var NEW = ['ov_solo', 'last_cost_burst'];
   function ovMatch(i, solo, win) {
     var b = { action: 'exbst-f', action_start_sec: 10, action_end_sec: 30 };
     var o = { action: 'exbst-ov', action_start_sec: solo ? 50 : 20, action_end_sec: solo ? 60 : 40 };
@@ -477,6 +476,5 @@ describe('burst-endgame missions', function () {
     var ms = build(ovMatch).concat([makeMatch({ date: dateAt(20), actions: [] })]);
     var a = computeActionPlan(ms).actions.filter(function (x) { return x.key === 'ov_solo'; })[0];
     assert.match(a.detail, /20戦中10戦/);
-    assert.equal(NEW.length, 2);
   });
 });

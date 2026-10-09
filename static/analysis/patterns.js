@@ -163,6 +163,7 @@ export var PATTERNS = [
     key: 'last_cost_burst', label: '最後のコストで覚醒が無かった', sheet: true, goal: true, hitWord: '最後のコスト',
     test: lastCostBurst,
     hits: lastCostHits,
+    reasonHits: function (m) { return lastCostHits(m).slice(0, 1); },
     note: '{t} に最後のコストに入りました。覚醒は使える状態ではありませんでした',
   },
   {
@@ -249,7 +250,7 @@ export function patternLabel(cond) {
   return typeof def.label === 'function' ? def.label(cond.line) : def.label;
 }
 
-// 自分の撃墜のうち、当てはまる原因になったもの
+// 当てはまる原因になった action（撃墜・OL発動。僚機の撃墜も含む）
 export function patternHits(cond, m) {
   var def = cond && findPattern(cond.key);
   if (!def || !def.hits || testPattern(cond, m) !== true) return [];
@@ -273,6 +274,8 @@ export function patternReason(cond, m) {
   var def = cond && findPattern(cond.key);
   if (!def) return '';
   var hits = patternHits(cond, m);
+  // 強調だけに使う hits もあるため、理由ラベルは reasonHits があればそちらで並べる
+  if (hits.length && def.reasonHits) hits = def.reasonHits(m);
   if (hits.length) return (def.hitWord || '撃墜') + ' ' + hits.map(function (h) { return fmtSec(h.action_start_sec); }).join('・');
   return def.reason ? def.reason(m, cond.line) : '';
 }

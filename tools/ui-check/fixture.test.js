@@ -12,10 +12,10 @@ describe('fixture', function () {
     assert.equal(ms.length, MATCH_COUNT);
     assert.equal(new Set(ms.map(function (m) { return m.match_id; })).size, MATCH_COUNT);
   });
-  it('has exactly one OL-without-burst match and last-cost matches for the ui-check scenes', function () {
+  it('has OL-without-burst and last-cost matches for the ui-check scenes', function () {
     var ms = generateMatches();
     var count = function (key) { return ms.filter(function (m) { return testPattern({ key: key }, m) === true; }).length; };
-    assert.equal(count('ov_solo'), 1);
+    assert.ok(count('ov_solo') >= 1);
     assert.ok(count('last_cost_burst') > 20);
   });
   it('uses local image URLs for every machine', function () {
