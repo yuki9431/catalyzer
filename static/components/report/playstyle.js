@@ -1,12 +1,13 @@
 import { html } from '../../htm-preact-standalone.js';
 import { Panel } from '../ui.js';
-import { ConsecutiveFallContent, DmgContributionChart, DmgContributionSubSection, FallOrderContent, TeamDeathsHeatmap, TeamDeathsImpactSection, WinRateRowList } from '../charts.js';
+import { ConsecutiveFallContent, DmgContributionChart, DmgContributionSubSection, FallOrderContent, GameDurationContent, TeamDeathsHeatmap, TeamDeathsImpactSection, WinRateBarChart, WinRateRowList } from '../charts.js';
 
 export function PlaystylePane({ frontendData }) {
   var teamDeaths = frontendData.team_deaths;
   var dmg = frontendData.dmg_contribution;
   var fallOrder = frontendData.fall_order;
   var consecutiveFall = frontendData.consecutive_fall;
+  var duration = frontendData.game_duration;
 
   var fallItems = [];
   if (fallOrder) {
@@ -48,6 +49,11 @@ export function PlaystylePane({ frontendData }) {
       <${DmgContributionSubSection} dmg=${dmg} />
     <//>`}
 
-    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !consecutiveFall && !dmg && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
+    ${duration && html`<${Panel} title="試合時間と勝率">
+      <${WinRateBarChart} items=${duration.by_duration} />
+      <${GameDurationContent} duration=${duration} />
+    <//>`}
+
+    ${!(teamDeaths && teamDeaths.groups.length > 0) && !fallOrder && !consecutiveFall && !dmg && !duration && html`<${Panel}><p>立ち回りデータがありません。</p><//>`}
   </div>`;
 }
