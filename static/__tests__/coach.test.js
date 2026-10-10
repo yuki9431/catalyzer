@@ -439,3 +439,42 @@ describe('computeActionPlan matched', function () {
     assert.equal(isValidGoal({ key: 'held_burst' }), false);
   });
 });
+
+describe('burst-endgame missions', function () {
+  function ovMatch(i, solo, win) {
+    var b = { action: 'exbst-f', action_start_sec: 10, action_end_sec: 30 };
+    var o = { action: 'exbst-ov', action_start_sec: solo ? 50 : 20, action_end_sec: solo ? 60 : 40 };
+    return makeMatch({ date: dateAt(i), win: win, actions: [b, o] });
+  }
+  function lastCostMatch(i, held, win) {
+    var d = { action: 'death', action_start_sec: 30, action_end_sec: 0 };
+    var e = { action: 'ex', action_start_sec: held ? 20 : 100, action_end_sec: 90 };
+    return makeMatch({ date: dateAt(i), win: win, partner_cost: 3000, actions: held ? [d, e] : [d] });
+  }
+  function build(make) {
+    var ms = [];
+    for (var i = 0; i < 20; i++) ms.push(make(i, i < 10, i >= 8 && i < 10 ? true : i >= 14));
+    return ms;
+  }
+  it('offers both missions with the specified wording and matched equal to the search count', function () {
+    var cases = [
+      { key: 'ov_solo', ms: build(ovMatch), title: 'オーバーリミットは覚醒と重ねて使う', head: '覚醒と重ねずにオーバーリミットを使った試合は' },
+      { key: 'last_cost_burst', ms: build(function (i, bad, win) { return lastCostMatch(i, !bad, win); }), title: '最後のコストに覚醒を持ち込む', head: '最後のコストに入った時点で覚醒が無かった試合は' },
+    ];
+    cases.forEach(function (c) {
+      var a = computeActionPlan(c.ms).actions.filter(function (x) { return x.key === c.key; })[0];
+      assert.ok(a, c.key);
+      assert.equal(a.title, c.title);
+      assert.ok(a.detail.indexOf(c.head) === 0, a.detail);
+      assert.deepEqual(a.goal, { key: c.key });
+      assert.equal(a.matched, c.ms.filter(function (m) { return testPattern(goalPattern(a.goal), m) === true; }).length);
+      assert.equal(a.matched, Number(/戦中(\d+)戦/.exec(a.detail)[1]));
+      assert.equal(isValidGoal(a.goal), true);
+    });
+  });
+  it('excludes matches the pattern cannot judge from the missions', function () {
+    var ms = build(ovMatch).concat([makeMatch({ date: dateAt(20), actions: [] })]);
+    var a = computeActionPlan(ms).actions.filter(function (x) { return x.key === 'ov_solo'; })[0];
+    assert.match(a.detail, /20戦中10戦/);
+  });
+});

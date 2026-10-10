@@ -6,11 +6,12 @@ import {
 
 function death(t) { return { action: 'death', action_start_sec: t, action_end_sec: 0 }; }
 function burst(s, e) { return { action: 'exbst-f', action_start_sec: s, action_end_sec: e }; }
+function ov(s, e) { return { action: 'exbst-ov', action_start_sec: s, action_end_sec: e }; }
 function ex(s, e) { return { action: 'ex', action_start_sec: s, action_end_sec: e }; }
 
 function makeMatch(overrides) {
   return Object.assign({
-    date: '2025-06-15 14:30', win: false, ms_cost: 3000,
+    date: '2025-06-15 14:30', win: false, ms_cost: 3000, partner_cost: 3000,
     dmg_given: 1000, dmg_taken: 800, deaths: 1, ex_dmg: 150, bursts: 1,
     actions: [], partner_actions: [], opponent1_actions: [], opponent2_actions: [],
   }, overrides);
@@ -22,8 +23,11 @@ var CASES = [
   { key: 'held_burst', t: { actions: [ex(10, 50), death(30)] }, f: { actions: [ex(10, 20), death(30)] }, n: {} },
   { key: 'consecutive_fall', t: { actions: [death(30)], partner_actions: [death(40)] }, f: { actions: [death(30)], partner_actions: [death(100)] }, n: { actions: [burst(1, 2)] } },
   { key: 'burst_death', t: { actions: [burst(10, 20), death(15)] }, f: { actions: [burst(10, 20), death(50)] }, n: { actions: [death(30)] } },
+  { key: 'ov_solo', t: { actions: [burst(10, 20), ov(30, 40)] }, f: { actions: [burst(10, 20), ov(15, 25)] }, n: { actions: [burst(10, 20)] } },
+  { key: 'last_cost_burst', t: { actions: [death(30)] }, f: { actions: [death(30), ex(20, 60)] }, n: { actions: [burst(1, 2)] } },
   { key: 'fall_first', t: { actions: [death(30)], partner_actions: [death(40)] }, f: { actions: [death(50)], partner_actions: [death(40)] }, n: {} },
   { key: 'fall_second', t: { actions: [death(50)], partner_actions: [death(40)] }, f: { actions: [death(30)], partner_actions: [death(40)] }, n: { actions: [burst(1, 2)], partner_actions: [death(40)] } },
+  { key: 'fall_first_one_burst', t: { actions: [burst(1, 2), death(30)], partner_actions: [death(40)] }, f: { actions: [burst(1, 2), death(50)], partner_actions: [death(40)] }, n: {} },
   { key: 'dmg_behind', t: { dmg_given: 100, dmg_taken: 200 }, f: { dmg_given: 300, dmg_taken: 200 }, n: { dmg_given: undefined } },
   { key: 'deaths', t: { deaths: 2 }, f: { deaths: 1 }, n: { ms_cost: 0 } },
   { key: 'dmg_taken', line: 800, t: { dmg_taken: 900 }, f: { dmg_taken: 800 }, n: { dmg_taken: undefined } },
@@ -33,15 +37,15 @@ var CASES = [
 ];
 
 describe('PATTERNS', function () {
-  it('covers all 12 definitions with unique keys', function () {
-    assert.equal(PATTERNS.length, 12);
-    assert.equal(new Set(PATTERNS.map(function (p) { return p.key; })).size, 12);
+  it('covers all 15 definitions with unique keys', function () {
+    assert.equal(PATTERNS.length, 15);
+    assert.equal(new Set(PATTERNS.map(function (p) { return p.key; })).size, 15);
     assert.deepEqual(CASES.map(function (c) { return c.key; }).sort(), PATTERNS.map(function (p) { return p.key; }).sort());
   });
 
   it('lists the sheet items in the specified order', function () {
     var labels = PATTERNS.filter(function (p) { return p.sheet; }).map(function (p) { return patternLabel({ key: p.key }); });
-    assert.deepEqual(labels, ['1機目で覚醒せず落ちた', '覚醒を抱えたまま落ちた', '順落ちした', '覚醒中に撃墜された', '先落ちした', '後落ちした', '与ダメが被ダメを下回った']);
+    assert.deepEqual(labels, ['1機目で覚醒せず落ちた', '覚醒を抱えたまま落ちた', '順落ちした', '覚醒中に撃墜された', 'オーバーリミットを覚醒と重ねずに使った', '最後のコストで覚醒が無かった', '先落ちした', '後落ちした', '先落ちして覚醒1回', '与ダメが被ダメを下回った']);
   });
 
   CASES.forEach(function (c) {
@@ -77,6 +81,115 @@ describe('held_burst boundary (start < t <= end)', function () {
   it('a death more than 1s after the game end is not held', function () { assert.equal(heldAtEnd(171.01), false); });
 });
 
+describe('fall_first_one_burst', function () {
+  function one(bursts) { return testPattern({ key: 'fall_first_one_burst' }, makeMatch({ actions: bursts.concat([death(30)]), partner_actions: [death(40)] })); }
+  it('is true only with exactly one burst', function () {
+    assert.equal(one([burst(1, 2)]), true);
+    assert.equal(one([]), false);
+    assert.equal(one([burst(1, 2), burst(5, 8)]), false);
+  });
+  it('is not a mission goal and reports the first death', function () {
+    assert.equal(goalPattern({ key: 'fall_first_one_burst' }), null);
+    var m = makeMatch({ actions: [burst(1, 2), death(52.3)], partner_actions: [death(70)] });
+    assert.equal(patternNote({ key: 'fall_first_one_burst' }, m), '0:52 で先に撃墜され、覚醒は1回でした');
+    assert.equal(patternReason({ key: 'fall_first_one_burst' }, m), '撃墜 0:52');
+  });
+});
+
+describe('ov_solo boundary (overlap > 0)', function () {
+  function solo(ovs) { return testPattern({ key: 'ov_solo' }, makeMatch({ actions: [burst(10, 20)].concat(ovs) })); }
+  it('touching the burst is not an overlap', function () {
+    assert.equal(solo([ov(20, 30)]), true);
+    assert.equal(solo([ov(5, 10)]), true);
+  });
+  it('overlapping by 0.01s is an overlap', function () {
+    assert.equal(solo([ov(19.99, 30)]), false);
+    assert.equal(solo([ov(5, 10.01)]), false);
+  });
+  it('absorbs float noise at the touching edge', function () {
+    assert.equal(solo([ov(20.000000001, 30)]), true);
+  });
+  it('is false when any activation overlaps; hits are the non-overlapping ones', function () {
+    var a = ov(30, 40), b = ov(15, 25);
+    var m = makeMatch({ actions: [burst(10, 20), a, b] });
+    assert.equal(testPattern({ key: 'ov_solo' }, m), false);
+    assert.equal(patternHits({ key: 'ov_solo' }, makeMatch({ actions: [burst(10, 20), a] }))[0], a);
+  });
+  it('note and reason use the OL wording', function () {
+    var m = makeMatch({ actions: [ov(52.3, 60), ov(100, 110)] });
+    assert.equal(patternNote({ key: 'ov_solo' }, m), 'オーバーリミットを 0:52 に覚醒なしで発動しています');
+    assert.equal(patternReason({ key: 'ov_solo' }, m), 'OL発動 0:52・1:40');
+  });
+});
+
+describe('last_cost_burst', function () {
+  function lcb(actions, extra) { return testPattern({ key: 'last_cost_burst' }, makeMatch(Object.assign({ actions: actions }, extra))); }
+  it('burst boundary: start <= t + 2s counts as held, end > t', function () {
+    assert.equal(lcb([death(30), ex(32, 60)]), false);
+    assert.equal(lcb([death(30), ex(32.01, 60)]), true);
+    assert.equal(lcb([ex(10, 30), death(30)]), true);
+    assert.equal(lcb([ex(10, 30.01), death(30)]), false);
+    assert.equal(lcb([death(30), burst(31, 40)]), false);
+  });
+  it('is null when the team cost goes to 0 without entering the last cost', function () {
+    assert.equal(lcb([death(30), death(60)], { ms_cost: 3000, partner_cost: 1500 }), null);
+  });
+  it('is null when the last cost was never entered or costs are unknown', function () {
+    assert.equal(lcb([death(30)], { ms_cost: 1500, partner_cost: 1500 }), null);
+    assert.equal(lcb([death(30)], { partner_cost: 0 }), null);
+    assert.equal(lcb([death(30)], { partner_cost: undefined }), null);
+  });
+  it('enters on the first fall by either player and highlights that action', function () {
+    var pd = death(50);
+    var m = makeMatch({ ms_cost: 2000, partner_cost: 3000, actions: [death(20), death(90)], partner_actions: [pd] });
+    // 6000-2000=4000 > 2000, 4000-3000=1000 <= 2000 → 僚機の撃墜
+    assert.equal(patternHits({ key: 'last_cost_burst' }, m)[0], pd);
+    assert.equal(patternNote({ key: 'last_cost_burst' }, m), '0:50 に最後のコストに入りました。覚醒は使える状態ではありませんでした');
+    assert.equal(patternReason({ key: 'last_cost_burst' }, m), '最後のコスト 0:50');
+  });
+  describe('(b) gauge filled and fell within 3.5s without bursting', function () {
+    // t=30 で最後のコストに入り、そのとき覚醒は有る(100-200 の ex)。後の撃墜 90 が b の対象になるかを見る
+    function fresh(exStart, extra) {
+      return lcb([ex(10, 200), death(30), ex(exStart, 200), death(90)].concat(extra || []));
+    }
+    it('is true by (b) alone even when a burst was available at t', function () {
+      assert.equal(lcb([ex(10, 40), death(30), ex(88, 200), death(90)]), true);
+      assert.equal(lcb([ex(10, 40), death(30), death(90)]), false);
+    });
+    it('d - start of exactly 3.5s is included, 3.51s is not', function () {
+      assert.equal(lcb([ex(10, 200), death(30), ex(86.5, 200), death(90)]), true);
+      assert.equal(lcb([ex(10, 200), death(30), ex(86.49, 200), death(90)]), false);
+    });
+    it('is false when a burst was activated between the start and d', function () {
+      assert.equal(fresh(88, [burst(89, 89.5)]), false);
+      assert.equal(fresh(88, [burst(88, 89)]), false);
+      assert.equal(lcb([ex(10, 200), death(30), ex(88, 200), burst(91, 95), death(90)]), true);
+    });
+    it('a burst activated before the gauge filled does not block (b)', function () {
+      assert.equal(lcb([ex(10, 40), burst(15, 25), death(30), ex(88, 200), death(90)]), true);
+    });
+    it('ignores deaths before t and the entry death itself', function () {
+      assert.equal(lcb([ex(10, 20), ex(28, 200), death(30)]), false);
+    });
+    it('the end boundary follows the held-burst rule (death just after game end)', function () {
+      assert.equal(lcb([ex(10, 40), death(30), ex(168, 170), death(170.5)], { game_end_sec: 170 }), true);
+      assert.equal(lcb([ex(10, 40), death(30), ex(168, 170), death(171.01)], { game_end_sec: 170 }), false);
+    });
+    it('hits are the entry plus the (b) deaths, entry first', function () {
+      var entry = death(30), d = death(90);
+      var m = makeMatch({ actions: [ex(10, 25), entry, ex(88, 200), d] });
+      assert.deepEqual(patternHits({ key: 'last_cost_burst' }, m), [entry, d]);
+      assert.equal(patternReason({ key: 'last_cost_burst' }, m), '最後のコスト 0:30');
+    });
+  });
+  it('orders falls by time across both players', function () {
+    var md = death(10);
+    var m = makeMatch({ ms_cost: 1500, partner_cost: 3000, actions: [death(60)], partner_actions: [md] });
+    // 僚機 3000 → 残り 3000 > floor 1500、自分 1500 → 1500 <= 1500
+    assert.equal(patternHits({ key: 'last_cost_burst' }, m)[0].action_start_sec, 60);
+  });
+});
+
 describe('goalPattern', function () {
   it('maps fall_order by avoid', function () {
     assert.deepEqual(goalPattern({ key: 'fall_order', avoid: 'first' }), { key: 'fall_first' });
@@ -90,6 +203,8 @@ describe('goalPattern', function () {
     assert.equal(goalPattern({ key: 'dmg_given' }), null);
     assert.equal(goalPattern({ key: 'fall_first' }), null);
     assert.equal(goalPattern({ key: 'held_burst' }), null);
+    assert.deepEqual(goalPattern({ key: 'ov_solo' }), { key: 'ov_solo' });
+    assert.deepEqual(goalPattern({ key: 'last_cost_burst' }), { key: 'last_cost_burst' });
     assert.equal(goalPattern({ key: 'valueOf' }), null);
     assert.equal(goalPattern(null), null);
     assert.equal(findPattern('valueOf'), null);
