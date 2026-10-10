@@ -31,6 +31,14 @@ function actions(r, deaths, bursts, end) {
   return list.sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
 }
 
+// OL は乱数を消費せず試合番号で決める(既存の乱数列を変えない)。k: 0=なし 1=スタンバイのみ 2=発動
+function overlimit(list, k, end, fire, standby) {
+  if (k === 0) return;
+  list.push({ action: 'ov', action_start_sec: standby, action_end_sec: k === 2 ? fire : end });
+  if (k === 2) list.push({ action: 'exbst-ov', action_start_sec: fire, action_end_sec: 0 });
+  list.sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
+}
+
 function opponent(r, m, prefix, name, ms) {
   m[prefix + '_ms'] = ms.name;
   m[prefix + '_cost'] = ms.cost;
@@ -43,12 +51,6 @@ function opponent(r, m, prefix, name, ms) {
   m[prefix + '_ex_dmg'] = r.int(0, 600);
   m[prefix + '_proficiency'] = r.pick(['gold1', 'silver3', 'master']);
   m[prefix + '_score_ranking'] = r.int(1, 4);
-}
-
-// 乱数列に触れず既存試合へ足す固定の場面。OL を覚醒と重ねずに使った試合(詳細の強調用)
-var OL_SOLO_INDEX = 35;
-function addScenes(matches) {
-  matches[OL_SOLO_INDEX].actions.push({ action: 'ov', action_start_sec: 90, action_end_sec: 125 }, { action: 'exbst-ov', action_start_sec: 95, action_end_sec: 110 });
 }
 
 export function generateMatches() {
@@ -85,12 +87,14 @@ export function generateMatches() {
     m.opponent1_bursts = r.int(0, 3);
     m.opponent2_bursts = r.int(0, 3);
     m.actions = actions(r, deaths, bursts, end);
+    overlimit(m.actions, i % 3, end, end - 20, end - 45);
     m.partner_actions = actions(r, pDeaths, pBursts, end);
     m.opponent1_actions = actions(r, m.opponent1_deaths, m.opponent1_bursts, end);
     m.opponent2_actions = actions(r, m.opponent2_deaths, m.opponent2_bursts, end);
+    var oppFire = end - 10 - Math.floor(i / 9) % 2 * 20;
+    overlimit(m.opponent1_actions, Math.floor(i / 3) % 3, end, oppFire, oppFire - 25);
     matches.push(m);
   }
-  addScenes(matches);
   return matches;
 }
 

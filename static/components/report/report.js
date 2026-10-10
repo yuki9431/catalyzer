@@ -1,5 +1,5 @@
 import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.js';
-import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeMsPair, computeMsSummary, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
+import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
@@ -186,6 +186,8 @@ export function Report({ data, userKey, actions }) {
       consecutive_fall: computeConsecutiveFall(filtered),
       burst_timing: computeBurstTiming(filtered),
       burst_type: computeBurstType(filtered),
+      overlimit: computeOverlimit(filtered),
+      game_duration: computeGameDuration(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
   }, [allMatches, selectedPeriod, selectedMs, lens, tagPartners, customRange]);

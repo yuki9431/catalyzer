@@ -329,6 +329,29 @@ export function BurstCountContent({ countData }) {
   </div>`;
 }
 
+export function OverlimitContent({ overlimit }) {
+  if (!overlimit || !overlimit.by_order.length) return null;
+  var rows = overlimit.by_order.map(function (s) {
+    return [s.label, s.matches + '戦', colorPct(s.win_rate)];
+  });
+  return html`<div>
+    <p>自分と相手の両方がOLスタンバイになった試合を、相手の最初のスタンバイとの前後で分類（対象: ${overlimit.total}戦）</p>
+    <${Table} headers=${['スタンバイの順番', '試合数', '勝率']} rows=${rows} />
+  </div>`;
+}
+
+export function GameDurationContent({ duration }) {
+  if (!duration || !duration.by_duration.length) return null;
+  var rows = duration.by_duration.map(function (b) {
+    return [b.label, b.matches + '戦', colorPct(b.win_rate)];
+  });
+  var avg = function (sec) { return sec == null ? '-' : sec + '秒'; };
+  return html`<div>
+    <p>決着までの時間で分類（対象: ${duration.total}戦）<br />平均試合時間: 勝ち ${avg(duration.avg_win_sec)} / 負け ${avg(duration.avg_lose_sec)}</p>
+    <${Table} headers=${['試合時間', '試合数', '勝率']} rows=${rows} />
+  </div>`;
+}
+
 // レーダーの最低描画半径(%)。全軸が最低評価(0)でも中心の点に潰れず六角形の厚みを残すための底上げ。
 var RADAR_FLOOR_PCT = 15;
 // 0-100の正規化値を [RADAR_FLOOR_PCT, 100] に写像する（順序は保つ）。
