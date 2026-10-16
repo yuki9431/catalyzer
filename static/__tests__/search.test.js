@@ -443,11 +443,12 @@ function polar(n) {
 describe('loss pattern filters', function () {
   it('has empty defaults and counts a pattern as an active filter', function () {
     var f = emptyFilters();
-    assert.equal(f.pattern, '');
+    assert.deepEqual(f.patterns, []);
+    assert.equal(f.patternMode, 'and');
     assert.equal(f.goal, null);
     assert.equal(f.focusRange, null);
     assert.equal(hasActiveFilters(f), false);
-    f.pattern = 'burst';
+    f.patterns = ['burst'];
     assert.equal(hasActiveFilters(f), true);
     f = emptyFilters(); f.goal = { key: 'dmg_given', line: 1000 };
     assert.equal(hasActiveFilters(f), true);
@@ -457,17 +458,19 @@ describe('loss pattern filters', function () {
 
   it('ignores invalid pattern / goal / range values', function () {
     var f = emptyFilters();
-    f.pattern = 'deaths'; f.goal = { key: 'held_burst' }; f.focusRange = { after: '', until: '' };
+    f.patterns = ['deaths']; f.goal = { key: 'no_such_pattern' }; f.focusRange = { after: '', until: '' };
     assert.deepEqual(activeConditions(f), []);
     assert.equal(hasActiveFilters(f), false);
-    f.pattern = 'valueOf';
+    f.patterns = ['valueOf', 1, null];
+    assert.deepEqual(activeConditions(f), []);
+    f.patterns = 'burst';
     assert.deepEqual(activeConditions(f), []);
     assert.equal(filterMatches(polar(10), f).length, 10);
   });
 
   it('filters by sheet pattern (null = undecidable is excluded)', function () {
     var ms = polar(20).concat([makeMatch({ date: '2025-07-01 10:00', actions: [], partner_actions: [] })]);
-    var f = emptyFilters(); f.pattern = 'burst';
+    var f = emptyFilters(); f.patterns = ['burst'];
     var got = filterMatches(ms, f);
     assert.ok(got.length > 0 && got.every(function (m) { return !m.win; }));
   });
@@ -477,14 +480,14 @@ describe('loss pattern filters', function () {
     var ms = polar(20).concat([noFall]);
     var f = emptyFilters(); f.goal = { key: 'dmg_given', line: 1000 };
     var a = filterMatches(ms, f).length;
-    f.pattern = 'fall_first';
+    f.patterns = ['fall_first'];
     var b = filterMatches(ms, f).length;
     assert.ok(b > 0);
     assert.equal(b, a - 1);
   });
 
   it('does not repeat a condition chosen both from home and the sheet', function () {
-    var f = emptyFilters(); f.goal = { key: 'burst' }; f.pattern = 'burst';
+    var f = emptyFilters(); f.goal = { key: 'burst' }; f.patterns = ['burst', 'burst'];
     assert.deepEqual(activeConditions(f), [{ key: 'burst' }]);
     assert.equal(appliedFilterLabels(f).length, 0);
     assert.equal(removableFilterLabels(f).length, 1);
@@ -513,7 +516,7 @@ describe('loss pattern filters', function () {
 
   it('builds labels', function () {
     var f = emptyFilters();
-    f.pattern = 'burst';
+    f.patterns = ['burst'];
     f.goal = { key: 'dmg_given', line: 1500 };
     f.focusRange = { after: '2025-06-01 00:00', until: '' };
     assert.deepEqual(appliedFilterLabels(f), ['試合の展開: 1機目で覚醒せず落ちた']);
@@ -522,6 +525,33 @@ describe('loss pattern filters', function () {
       { field: 'focusRange', label: '挑戦中のミッションの試合' },
     ]);
     assert.deepEqual(activeConditions(f), [{ key: 'dmg_given', line: 1500 }, { key: 'burst' }]);
+  });
+
+  it('combines several patterns with AND or OR', function () {
+    function death(t) { return { action: 'death', action_start_sec: t, action_end_sec: 0 }; }
+    function burstAct(s, e) { return { action: 'exbst-f', action_start_sec: s, action_end_sec: e }; }
+    // a: 先落ち・1機目覚醒なし / b: 先落ちだが先に覚醒 / c: 後落ち・1機目覚醒なし / d: 落ちていない
+    var a = makeMatch({ date: '2025-07-01 10:00', actions: [death(30)], partner_actions: [death(60)] });
+    var b = makeMatch({ date: '2025-07-01 10:05', actions: [burstAct(10, 20), death(30)], partner_actions: [death(60)] });
+    var c = makeMatch({ date: '2025-07-01 10:10', actions: [death(70)], partner_actions: [death(60)] });
+    var d = makeMatch({ date: '2025-07-01 10:15', actions: [burstAct(10, 20)], partner_actions: [death(60)] });
+    var ms = [a, b, c, d];
+    var f = emptyFilters(); f.patterns = ['fall_first', 'burst'];
+    assert.deepEqual(filterMatches(ms, f), [a]);
+    f.patternMode = 'or';
+    assert.deepEqual(filterMatches(ms, f), [a, b, c]);
+    // goal は展開の絞り方にかかわらず必ず当てはまる
+    f.goal = { key: 'fall_order', avoid: 'second' };
+    assert.deepEqual(filterMatches(ms, f), [c]);
+  });
+
+  it('labels several patterns with the mode', function () {
+    var f = emptyFilters(); f.patterns = ['burst', 'fall_first'];
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開（すべて当てはまる）: 1機目で覚醒せず落ちた ほか1']);
+    f.patternMode = 'or';
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開（どれかに当てはまる）: 1機目で覚醒せず落ちた ほか1']);
+    f.patterns = ['fall_first'];
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開: 先落ちした']);
   });
 
   it('matches the mission count for every mission, also within a single MS', function () {
