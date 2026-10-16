@@ -531,7 +531,7 @@ describe('loss pattern filters', function () {
       assert.ok(plan.actions.length > 0);
       plan.actions.forEach(function (a) {
         var f = emptyFilters(); f.goal = a.goal; if (ms) f.myMsList = [ms];
-        assert.equal(filterMatches(all, f).length, a.matched, a.key);
+        assert.equal(filterMatches(all, f).length, a.unachieved, a.key);
       });
     });
   });

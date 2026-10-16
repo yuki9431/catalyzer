@@ -45,7 +45,7 @@ SearchView は view 切替ごとに新しくマウントされる。Report に `
 | ファイル | 変更内容 |
 |---|---|
 | `static/analysis/patterns.js`(新規) | 定義一覧 `PATTERNS`(12件)と参照関数。coach.js から `byStart`/`deathsOf`/`burstsOf`/`hasTimeline`/`fallOrder`/`consecutiveFall`/`deathDuringBurst`/`burstBeforeDeath` を移す(中身は変えない)。import は stats.js のみ |
-| `static/analysis/coach.js` | 上の関数を削除し patterns.js から import。bad 集合を `testPattern(cond, m) === true` で作る。`candidate()` に `c.matched = bad.length`。`GOAL_JUDGES` を削除し `evaluateGoal`/`isValidGoal` は `goalPattern`/`testPattern` 経由(公開シグネチャは不変) |
+| `static/analysis/coach.js` | 上の関数を削除し patterns.js から import。bad 集合を `testPattern(cond, m) === true` で作る。`candidate()` に `c.unachieved = bad.length`。`GOAL_JUDGES` を削除し `evaluateGoal`/`isValidGoal` は `goalPattern`/`testPattern` 経由(公開シグネチャは不変) |
 | `static/analysis/search.js` | `emptyFilters` に `pattern: ''`, `goal: null`, `focusRange: null`。`hasActiveFilters`/`filterMatches`/`appliedFilterLabels` を拡張。`activeConditions`/`removableFilterLabels` を新設 |
 | `static/components/search.js` | `SearchView` に `initialFilters`。シートの「勝敗」の直後に「試合の展開」欄(チップの単一選択。モックどおり)。×付きタグ。`ResultItem` に理由ラベル。`MatchDetail` の上部に一文、`Timeline` に強調する撃墜 |
 | `static/components/report/action-plan.js` | 各ミッションに「達成できなかった試合を見る N戦 ›」、`FocusCard` に「✗ の試合を見返す N戦 ›」。prop `onShowMatches` |
@@ -102,7 +102,7 @@ export function fmtSec(sec);            // '0:52'(秒は切り捨て、2桁ゼ�
 - 勝率差の表記に pt・ポイントを使わない。
 
 ### 3-2. `static/analysis/coach.js`
-- `computeActionPlan`: 戻り値は従来どおり + `actions[i].matched`(本文「M戦中N戦」の N)。
+- `computeActionPlan`: 戻り値は従来どおり + `actions[i].unachieved`(本文「M戦中N戦」の N)。
 - `evaluateGoal`: `cond = goalPattern(goal)`、`t = testPattern(cond, m)` が null でない試合を `{date, ok: !t}` で積む。
 - `isValidGoal(goal)`: `goalPattern(goal) !== null`。
 
@@ -128,7 +128,7 @@ ResultItem({ ..., reason })               // 空でなければ Chip tone="bad" 
 MatchDetail({ match, msImages, conds, onClose })
 Timeline({ match, msImages, hitSecs })    // 自分の行で action_start_sec が hitSecs にある ✕ に .gantt-death-hit / data-ui="gantt-death-hit"
 ```
-- ミッションのリンク: `onShowMatches({ goal: a.goal })`。matched が0なら出さない。
+- ミッションのリンク: `onShowMatches({ goal: a.goal })`。unachieved が0なら出さない。
 - FocusCard のリンク: `onShowMatches({ goal: focus.goal, focusRange: { after: focus.since, until: marks.length >= FOCUS_SLOTS ? marks[FOCUS_SLOTS - 1].date : '' } })`。✗ が0なら出さない。
 - MatchDetail: hitSecs は conds ごとの `patternHits` の和集合。一文は最初に空でない `patternNote`。**詳細画面の上部(4人の比較より前)に注意の帯として** `<p class="search-detail-note" data-ui="match-note">` で置く(モックどおり)。conds が空なら強調も一文も出さない。
 - 理由ラベル: `conds.map(c => patternReason(c, m)).filter(Boolean).join('・')`。
@@ -154,12 +154,12 @@ Timeline({ match, msImages, hitSecs })    // 自分の行で action_start_sec �
 - 規約: key 一意、sheet の label が仕様の7項目と同順で deepStrictEqual。
 
 ### 5-2. `coach.test.js`(追加。既存は全件そのまま通す)
-- fixture と手組みデータで各 action の `matched` = detail の「(\d+)戦中(\d+)戦」の2つ目 = `testPattern(goalPattern(a.goal), m) === true` の件数。
+- fixture と手組みデータで各 action の `unachieved` = detail の「(\d+)戦中(\d+)戦」の2つ目 = `testPattern(goalPattern(a.goal), m) === true` の件数。
 - `isValidGoal({key:'fall_first'})`・`{key:'held_burst'}` が false。
 
 ### 5-3. `search.test.js`(追加)
 - 新フィールドと hasActiveFilters、filterMatches(pattern / goal / focusRange の境界)、各ラベル。
-- 一致1: fixture の各ミッションで `filterMatches(all, {goal}).length === a.matched`(機体1つの母集団でも)。
+- 一致1: fixture の各ミッションで `filterMatches(all, {goal}).length === a.unachieved`(機体1つの母集団でも)。
 - 一致2: evaluateGoal の ✗ 数 = focusRange で絞った件数(marks 10件以上と未満の両方)。
 
 ### 5-4. ui-check(6画面・12枚)
@@ -199,5 +199,5 @@ START_URL に `'report-focus': '/__preview/?focus=8'`。seed の `?focus=N`: 後
 
 ## 8. CLAUDE.md / README の更新
 - CLAUDE.md の検証コマンドと tools/ui-check: 「55画面…110枚」→「61画面…122枚」、`?focus=N` を追記。
-- コード構成: `static/analysis/patterns.js` を追加(試合の展開の定義一覧。ミッション判定もここから導く。新しい展開は定義1件+テスト1本)。coach.js(判定は patterns.js、`matched`)、analysis/search.js(試合の展開・負け筋・挑戦中の範囲)、components/search.js(試合の展開欄・×で外せるタグ・理由ラベル・✕ の強調と一文)、action-plan.js/home.js(リンク)、parts.js(Chip の onRemove)、__tests__ に patterns。
+- コード構成: `static/analysis/patterns.js` を追加(試合の展開の定義一覧。ミッション判定もここから導く。新しい展開は定義1件+テスト1本)。coach.js(判定は patterns.js、`unachieved`)、analysis/search.js(試合の展開・負け筋・挑戦中の範囲)、components/search.js(試合の展開欄・×で外せるタグ・理由ラベル・✕ の強調と一文)、action-plan.js/home.js(リンク)、parts.js(Chip の onRemove)、__tests__ に patterns。
 - README.md: analysis/ に `patterns.js`、__tests__/ に `patterns.test.js`。

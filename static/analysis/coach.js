@@ -40,7 +40,7 @@ function candidate(key, bad, good, total, build, weight) {
   if (round1(gap) < MIN_GAP) return null;
   var c = build({ badWr: Math.round(badWr), goodWr: Math.round(goodWr), count: total + '戦中' + bad.length + '戦' });
   c.key = key;
-  c.matched = bad.length;
+  c.unachieved = bad.length;
   if (!c.goal) c.goal = { key: key };
   c.gain_wins = bad.length * gap / 100 * (weight || 1);
   return c;
