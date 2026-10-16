@@ -11,7 +11,8 @@ export function hasTimeline(m) {
 // 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比べる
 function cs(sec) { return Math.round(sec * 100); }
 var TEAM_COST = 6000;
-var EX_FRESH_CS = 350; // コンボを受けている間に溜まってそのまま落ちたゲージは、使えなかったものとして扱う
+// 最後のコストで 3.5秒以内しか使えなかった覚醒は意味がないので数えない（溜まってそのまま落ちたゲージ・入った時点で終わりかけの覚醒）
+var EX_FRESH_CS = 350;
 function first(arr) { return arr.length ? [arr[0]] : []; }
 
 // 自分が相方より先に撃墜されたか。'first' / 'second' / 'none'（自分は撃墜なし）/ null（判定不能）
@@ -105,10 +106,11 @@ function freshHeldDeaths(m, after) {
   });
 }
 // 最後のコストに入ってから試合が終わるまでに、覚醒を使える状態（ex 区間）か覚醒中があったか。
-// 入った瞬間だけでは見ない。溜まって EX_FRESH_CS 以内に覚醒せず落ちたゲージは使える状態に数えない
+// 入った瞬間だけでは見ない。溜まって EX_FRESH_CS 以内に覚醒せず落ちたゲージと、
+// 入った時点で発動中だった覚醒のうち残りが EX_FRESH_CS 以下のもの（僚機が落ちたときに終わりかけ）は数えない
 function burstInLastCost(m, entry) {
   var t = cs(entry.action_start_sec);
-  if (burstsOf(m.actions).some(function (b) { return cs(b.action_end_sec) > t; })) return true;
+  if (burstsOf(m.actions).some(function (b) { return cs(b.action_start_sec) > t || cs(b.action_end_sec) - t > EX_FRESH_CS; })) return true;
   var after = deathsOf(m.actions).filter(function (d) { return cs(d.action_start_sec) > t; });
   return (m.actions || []).some(function (e) {
     if (e.action !== 'ex' || exEnd(m, e) <= t) return false;

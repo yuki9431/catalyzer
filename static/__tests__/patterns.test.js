@@ -119,7 +119,16 @@ describe('last_cost_burst', function () {
     assert.equal(lcb([ex(10, 30.01), death(30)]), false);
     // 覚醒中に撃墜されて最後のコストに入った
     assert.equal(lcb([burst(20, 30), death(30)]), true);
-    assert.equal(lcb([burst(20, 35), death(30)]), false);
+  });
+  it('a burst already active when the partner fell counts only with more than 3.5s left', function () {
+    function partnerEntry(actions) { return lcb(actions, { partner_actions: [death(30)] }); }
+    assert.equal(partnerEntry([]), true);
+    assert.equal(partnerEntry([burst(20, 35)]), false);
+    assert.equal(partnerEntry([burst(20, 33.51)]), false);
+    assert.equal(partnerEntry([burst(20, 33.5)]), true);
+    assert.equal(partnerEntry([burst(20, 31)]), true);
+    // 入った後に発動した覚醒は短くても数える
+    assert.equal(partnerEntry([burst(31, 32)]), false);
   });
   it('is null when the team cost goes to 0 without entering the last cost', function () {
     assert.equal(lcb([death(30), death(60)], { ms_cost: 3000, partner_cost: 1500 }), null);
