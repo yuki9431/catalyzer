@@ -459,7 +459,7 @@ describe('burst-endgame missions', function () {
   it('offers both missions with the specified wording and unachieved equal to the search count', function () {
     var cases = [
       { key: 'ov_solo', ms: build(ovMatch), title: 'オーバーリミットは覚醒と重ねて使う', head: '覚醒と重ねずにオーバーリミットを使った試合は' },
-      { key: 'last_cost_burst', ms: build(function (i, bad, win) { return lastCostMatch(i, !bad, win); }), title: '最後のコストに覚醒を持ち込む', head: '最後のコストに入った時点で覚醒が無かった試合は' },
+      { key: 'last_cost_burst', ms: build(function (i, bad, win) { return lastCostMatch(i, !bad, win); }), title: '最後のコストで覚醒を使えるようにする', head: '最後のコストの間に覚醒が無かった試合は' },
     ];
     cases.forEach(function (c) {
       var a = computeActionPlan(c.ms).actions.filter(function (x) { return x.key === c.key; })[0];

@@ -131,7 +131,7 @@ var SCREEN_DEFS = [
   { id: 'mobile-match-detail-lastcost-hit', viewport: M, full: false, start: 'report',
     ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-pattern-item"]', '最後のコストで覚醒が無かった'] }, { click: ['[data-ui="search-filter-apply"]'] },
       { wait: ['[data-ui="search-reason"]', '最後のコスト '] }, { click: ['[data-ui="search-result"]', '23:10'] }, { wait: ['[data-ui="match-note"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
-    required: [['[data-ui="match-note"]', '最後のコストに入りました'], ['[data-ui="gantt-partner-row"] [data-ui="gantt-death-hit"]']], inview: [['[data-ui="gantt-partner-row"] [data-ui="gantt-death-hit"]']] },
+    required: [['[data-ui="match-note"]', '最後のコストに入り、'], ['[data-ui="gantt-partner-row"] [data-ui="gantt-death-hit"]']], inview: [['[data-ui="gantt-partner-row"] [data-ui="gantt-death-hit"]']] },
   { id: 'mobile-home-focus', home: true, viewport: M, full: true, start: 'report-focus', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="focus-review"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="focus-review"]', '✗ の試合を見返す'], ['[data-ui="focus-review"]', '3戦']], tap: ['[data-ui="focus-review"]'] },
   { id: 'mobile-focus-review', home: true, viewport: M, full: false, start: 'report-focus', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="focus-review"]'] }, { click: ['[data-ui="focus-review"]'] }, { wait: ['[data-ui="search-range"]'] }],

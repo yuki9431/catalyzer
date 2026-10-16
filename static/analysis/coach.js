@@ -133,14 +133,14 @@ function ovSoloCandidate(ms) {
   });
 }
 
-// 最後のコスト（次にどちらが落ちても負け）に入った時点で覚醒が無かった試合
+// 最後のコスト（次にどちらが落ちても負け）の間に覚醒が無かった試合
 function lastCostBurstCandidate(ms) {
   var valid = ms.filter(notNull('last_cost_burst'));
   return candidate('last_cost_burst', valid.filter(isBad('last_cost_burst')), valid.filter(isGood('last_cost_burst')), valid.length, function (s) {
     return {
-      title: '最後のコストに覚醒を持ち込む',
-      condition: '最後のコスト（次にどちらが落ちても負け）に入った時点で覚醒が使える（入らなかった試合は対象外）',
-      detail: '最後のコストに入った時点で覚醒が無かった試合は' + s.count + '（勝率' + s.badWr + '%）。覚醒があった試合は勝率' + s.goodWr + '%',
+      title: '最後のコストで覚醒を使えるようにする',
+      condition: '最後のコスト（次にどちらが落ちても負け）の間に覚醒を使える状態がある（溜まってすぐ落ちたものは除く。入らなかった試合は対象外）',
+      detail: '最後のコストの間に覚醒が無かった試合は' + s.count + '（勝率' + s.badWr + '%）。覚醒があった試合は勝率' + s.goodWr + '%',
     };
   });
 }

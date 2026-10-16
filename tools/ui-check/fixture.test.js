@@ -16,7 +16,7 @@ describe('fixture', function () {
     var ms = generateMatches();
     var count = function (key) { return ms.filter(function (m) { return testPattern({ key: key }, m) === true; }).length; };
     assert.ok(count('ov_solo') >= 1);
-    assert.ok(count('last_cost_burst') > 20);
+    assert.ok(count('last_cost_burst') >= 1);
   });
   it('uses local image URLs for every machine', function () {
     msList().forEach(function (m) { assert.match(m.ImageURL, /^\/__preview\/ms\/\d+\.svg$/); });

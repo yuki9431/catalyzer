@@ -11,7 +11,7 @@ export function hasTimeline(m) {
 // 時刻はセンチ秒精度。浮動小数誤差で境界ちょうどが外れないよう整数に丸めて比べる
 function cs(sec) { return Math.round(sec * 100); }
 var TEAM_COST = 6000;
-var EX_FRESH_CS = 350; // コンボを受けている間に溜まって落ちた撃墜を拾う
+var EX_FRESH_CS = 350; // コンボを受けている間に溜まってそのまま落ちたゲージは、使えなかったものとして扱う
 function first(arr) { return arr.length ? [arr[0]] : []; }
 
 // 自分が相方より先に撃墜されたか。'first' / 'second' / 'none'（自分は撃墜なし）/ null（判定不能）
@@ -55,15 +55,14 @@ function burstBeforeDeath(m) {
 
 // 撃墜 d を含む自分の覚醒可能域（ex 区間）。境界は start < t <= end
 function exAround(m, d) {
-  var gameEnd = m.game_end_sec ? cs(m.game_end_sec) : null;
-  // 試合終了時刻は秒で切り捨てられ、試合を終わらせた撃墜は1秒以内に後ろへずれる
-  function endOf(e) { var end = cs(e.action_end_sec); return end === gameEnd ? end + 100 : end; }
   return (m.actions || []).filter(function (e) {
-    return e.action === 'ex' && cs(e.action_start_sec) < cs(d.action_start_sec) && cs(d.action_start_sec) <= endOf(e);
+    return e.action === 'ex' && cs(e.action_start_sec) < cs(d.action_start_sec) && cs(d.action_start_sec) <= exEnd(m, e);
   });
 }
-function heldBurstDeaths(m) {
-  return deathsOf(m.actions).filter(function (d) { return exAround(m, d).length > 0; });
+// ex 区間の終わり（センチ秒）。試合終了時刻は秒で切り捨てられ、試合を終わらせた撃墜は1秒以内に後ろへずれる
+function exEnd(m, e) {
+  var end = cs(e.action_end_sec);
+  return m.game_end_sec && end === cs(m.game_end_sec) ? end + 100 : end;
 }
 
 function limitDeath(m) {
@@ -95,7 +94,7 @@ function lastCostEntry(m) {
   }
   return null;
 }
-// 溜まって EX_FRESH_CS 以内に覚醒せず撃墜された自分の撃墜
+// 最後のコストに入った後、溜まって EX_FRESH_CS 以内に覚醒せず撃墜された自分の撃墜（次に落ちたら負けなので、その撃墜で試合が終わる）
 function freshHeldDeaths(m, after) {
   var bursts = burstsOf(m.actions);
   return deathsOf(m.actions).filter(function (d) {
@@ -105,20 +104,27 @@ function freshHeldDeaths(m, after) {
     });
   });
 }
-// 撃墜で溜まったゲージの区間は撃墜の直後に始まるため、2秒の猶予を見る
-function hasBurstAt(m, t) {
-  return (m.actions || []).some(function (a) {
-    return (a.action === 'ex' || a.action === 'exbst-f' || a.action === 'exbst-s' || a.action === 'exbst-e')
-      && cs(a.action_start_sec) <= cs(t) + 200 && cs(a.action_end_sec) > cs(t);
+// 最後のコストに入ってから試合が終わるまでに、覚醒を使える状態（ex 区間）か覚醒中があったか。
+// 入った瞬間だけでは見ない。溜まって EX_FRESH_CS 以内に覚醒せず落ちたゲージは使える状態に数えない
+function burstInLastCost(m, entry) {
+  var t = cs(entry.action_start_sec);
+  if (burstsOf(m.actions).some(function (b) { return cs(b.action_end_sec) > t; })) return true;
+  var after = deathsOf(m.actions).filter(function (d) { return cs(d.action_start_sec) > t; });
+  return (m.actions || []).some(function (e) {
+    if (e.action !== 'ex' || exEnd(m, e) <= t) return false;
+    return !after.some(function (d) {
+      var s = cs(e.action_start_sec), at = cs(d.action_start_sec);
+      return s < at && at <= exEnd(m, e) && at - s <= EX_FRESH_CS;
+    });
   });
 }
 function lastCostBurst(m) {
   var d = lastCostEntry(m);
-  return d ? !hasBurstAt(m, d.action_start_sec) || freshHeldDeaths(m, d).length > 0 : null;
+  return d ? !burstInLastCost(m, d) : null;
 }
 function lastCostHits(m) {
   var d = lastCostEntry(m);
-  return d ? [d].concat(freshHeldDeaths(m, d)) : [];
+  return d && !burstInLastCost(m, d) ? [d].concat(freshHeldDeaths(m, d)) : [];
 }
 
 function neg(b) { return b === null ? null : !b; }
@@ -130,12 +136,6 @@ export var PATTERNS = [
     test: function (m) { return neg(burstBeforeDeath(m)); },
     hits: function (m) { return first(deathsOf(m.actions)); },
     note: '覚醒を使う前に {t} で撃墜されています',
-  },
-  {
-    key: 'held_burst', label: '覚醒を抱えたまま落ちた', sheet: true,
-    test: function (m) { return hasTimeline(m) ? heldBurstDeaths(m).length > 0 : null; },
-    hits: heldBurstDeaths,
-    note: '覚醒を使えるまま {t} で撃墜されています',
   },
   {
     key: 'consecutive_fall', label: '順落ちした', sheet: true, goal: true,
@@ -164,7 +164,7 @@ export var PATTERNS = [
     test: lastCostBurst,
     hits: lastCostHits,
     reasonHits: function (m) { return lastCostHits(m).slice(0, 1); },
-    note: '{t} に最後のコストに入りました。覚醒は使える状態ではありませんでした',
+    note: '{t} に最後のコストに入り、その後も覚醒を使える状態になりませんでした',
   },
   {
     key: 'fall_first', label: '先落ちした', sheet: true,

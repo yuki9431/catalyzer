@@ -34,6 +34,7 @@ SearchView は view 切替ごとに新しくマウントされる。Report に `
 `evaluateGoal(goal, targets, 10)` の marks を `(focus.since, until]` で再現する。`until` は marks が10件そろえば `marks[9].date`、未満なら `''`(上限なし)。同じ分に試合は1つしかない(ナレッジ official-detail-url-param-unstable)ので、この範囲はちょうど marks の試合になる。
 
 ### 1-6. 「覚醒を抱えたまま落ちた」の境界: `ex.start < 撃墜 <= ex.end`(前提つき)
+- 2026-10-16 追記: `held_burst` は削除した。この境界は `last_cost_burst` の「溜まってすぐ落ちた」判定(`exAround`)にだけ残る(docs/design/2026-10-09-burst-endgame-patterns.md の5章)。
 - スクレイパー `parseMatchTimeline` も `buildActions` も公式の区間を素通しする。撃墜で区間を切る処理は無い。
 - `TestParseMatchTimeline` では ex [41.75, 46.25] の終点が exbst-f の開始と一致する(覚醒発動で区間が終わる)。撃墜が端点になるかの根拠はリポジトリ内に無い。
 - fixture.js の ex 区間は乱数で根拠にならない。

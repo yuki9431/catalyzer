@@ -20,7 +20,6 @@ function makeMatch(overrides) {
 // key ごとに 当てはまる(t) / 当てはまらない(f) / 判定不能(n) の試合を1つずつ。n が無い定義は null を返さない
 var CASES = [
   { key: 'burst', t: { actions: [death(30)] }, f: { actions: [burst(10, 20), death(30)] }, n: {} },
-  { key: 'held_burst', t: { actions: [ex(10, 50), death(30)] }, f: { actions: [ex(10, 20), death(30)] }, n: {} },
   { key: 'consecutive_fall', t: { actions: [death(30)], partner_actions: [death(40)] }, f: { actions: [death(30)], partner_actions: [death(100)] }, n: { actions: [burst(1, 2)] } },
   { key: 'burst_death', t: { actions: [burst(10, 20), death(15)] }, f: { actions: [burst(10, 20), death(50)] }, n: { actions: [death(30)] } },
   { key: 'ov_solo', t: { actions: [burst(10, 20), ov(30, 40)] }, f: { actions: [burst(10, 20), ov(15, 25)] }, n: { actions: [burst(10, 20)] } },
@@ -37,15 +36,15 @@ var CASES = [
 ];
 
 describe('PATTERNS', function () {
-  it('covers all 15 definitions with unique keys', function () {
-    assert.equal(PATTERNS.length, 15);
-    assert.equal(new Set(PATTERNS.map(function (p) { return p.key; })).size, 15);
+  it('covers all 14 definitions with unique keys', function () {
+    assert.equal(PATTERNS.length, 14);
+    assert.equal(new Set(PATTERNS.map(function (p) { return p.key; })).size, 14);
     assert.deepEqual(CASES.map(function (c) { return c.key; }).sort(), PATTERNS.map(function (p) { return p.key; }).sort());
   });
 
   it('lists the sheet items in the specified order', function () {
     var labels = PATTERNS.filter(function (p) { return p.sheet; }).map(function (p) { return patternLabel({ key: p.key }); });
-    assert.deepEqual(labels, ['1機目で覚醒せず落ちた', '覚醒を抱えたまま落ちた', '順落ちした', '覚醒中に撃墜された', 'オーバーリミットを覚醒と重ねずに使った', '最後のコストで覚醒が無かった', '先落ちした', '後落ちした', '先落ちして覚醒1回', '与ダメが被ダメを下回った']);
+    assert.deepEqual(labels, ['1機目で覚醒せず落ちた', '順落ちした', '覚醒中に撃墜された', 'オーバーリミットを覚醒と重ねずに使った', '最後のコストで覚醒が無かった', '先落ちした', '後落ちした', '先落ちして覚醒1回', '与ダメが被ダメを下回った']);
   });
 
   CASES.forEach(function (c) {
@@ -63,22 +62,6 @@ describe('PATTERNS', function () {
     assert.equal(testPattern(null, makeMatch()), null);
     assert.equal(testPattern({ key: 'valueOf' }, makeMatch()), null);
   });
-});
-
-describe('held_burst boundary (start < t <= end)', function () {
-  function held(exs, t) { return testPattern({ key: 'held_burst' }, makeMatch({ actions: exs.concat([death(t)]) })); }
-  it('death at end is held', function () { assert.equal(held([ex(10, 50)], 50), true); });
-  it('death at start is not held', function () { assert.equal(held([ex(10, 50)], 10), false); });
-  it('death inside is held', function () { assert.equal(held([ex(10, 50)], 30), true); });
-  it('absorbs float noise at the end', function () { assert.equal(held([ex(41.75, 57.48)], 57.480000001), true); });
-  it('no ex interval is not held', function () { assert.equal(held([], 30), false); });
-  // 実データ: 撃墜で溜まったゲージの区間は撃墜の直後に始まり、使わなければ試合終了まで続く
-  it('real data: interval opened by the death is not held', function () { assert.equal(held([ex(68.42, 92)], 68.4), false); });
-  it('real data: finishing death at game end while holding is held', function () { assert.equal(held([ex(68.42, 92)], 92), true); });
-  // 実データ: 試合終了時刻は秒で切り捨てられ、試合を終わらせた撃墜はその1秒以内に記録される
-  function heldAtEnd(t) { return testPattern({ key: 'held_burst' }, makeMatch({ game_end_sec: 170, actions: [ex(135.03, 170), death(t)] })); }
-  it('real data: finishing death just after the truncated game end is held', function () { assert.equal(heldAtEnd(170.52), true); });
-  it('a death more than 1s after the game end is not held', function () { assert.equal(heldAtEnd(171.01), false); });
 });
 
 describe('fall_first_one_burst', function () {
@@ -124,12 +107,19 @@ describe('ov_solo boundary (overlap > 0)', function () {
 
 describe('last_cost_burst', function () {
   function lcb(actions, extra) { return testPattern({ key: 'last_cost_burst' }, makeMatch(Object.assign({ actions: actions }, extra))); }
-  it('burst boundary: start <= t + 2s counts as held, end > t', function () {
+  it('looks at the whole last cost, not only the moment it was entered', function () {
+    assert.equal(lcb([death(30)]), true);
     assert.equal(lcb([death(30), ex(32, 60)]), false);
-    assert.equal(lcb([death(30), ex(32.01, 60)]), true);
+    // 入った瞬間は無くても、後で溜まれば覚醒があった扱い
+    assert.equal(lcb([death(30), ex(80, 120)]), false);
+    assert.equal(lcb([death(30), burst(100, 110)]), false);
+  });
+  it('an interval or burst ending at the entry does not count, one ending after it does', function () {
     assert.equal(lcb([ex(10, 30), death(30)]), true);
     assert.equal(lcb([ex(10, 30.01), death(30)]), false);
-    assert.equal(lcb([death(30), burst(31, 40)]), false);
+    // 覚醒中に撃墜されて最後のコストに入った
+    assert.equal(lcb([burst(20, 30), death(30)]), true);
+    assert.equal(lcb([burst(20, 35), death(30)]), false);
   });
   it('is null when the team cost goes to 0 without entering the last cost', function () {
     assert.equal(lcb([death(30), death(60)], { ms_cost: 3000, partner_cost: 1500 }), null);
@@ -144,42 +134,39 @@ describe('last_cost_burst', function () {
     var m = makeMatch({ ms_cost: 2000, partner_cost: 3000, actions: [death(20), death(90)], partner_actions: [pd] });
     // 6000-2000=4000 > 2000, 4000-3000=1000 <= 2000 → 僚機の撃墜
     assert.equal(patternHits({ key: 'last_cost_burst' }, m)[0], pd);
-    assert.equal(patternNote({ key: 'last_cost_burst' }, m), '0:50 に最後のコストに入りました。覚醒は使える状態ではありませんでした');
+    assert.equal(patternNote({ key: 'last_cost_burst' }, m), '0:50 に最後のコストに入り、その後も覚醒を使える状態になりませんでした');
     assert.equal(patternReason({ key: 'last_cost_burst' }, m), '最後のコスト 0:50');
   });
-  describe('(b) gauge filled and fell within 3.5s without bursting', function () {
-    // t=30 で最後のコストに入り、そのとき覚醒は有る(100-200 の ex)。後の撃墜 90 が b の対象になるかを見る
-    function fresh(exStart, extra) {
-      return lcb([ex(10, 200), death(30), ex(exStart, 200), death(90)].concat(extra || []));
-    }
-    it('is true by (b) alone even when a burst was available at t', function () {
-      assert.equal(lcb([ex(10, 40), death(30), ex(88, 200), death(90)]), true);
-      assert.equal(lcb([ex(10, 40), death(30), death(90)]), false);
+  describe('a gauge that filled and fell within 3.5s without bursting does not count', function () {
+    it('fresh gauge is no burst, a gauge held longer is a burst', function () {
+      assert.equal(lcb([death(30), ex(88, 90), death(90)]), true);
+      assert.equal(lcb([death(30), ex(50, 90), death(90)]), false);
     });
-    it('d - start of exactly 3.5s is included, 3.51s is not', function () {
-      assert.equal(lcb([ex(10, 200), death(30), ex(86.5, 200), death(90)]), true);
-      assert.equal(lcb([ex(10, 200), death(30), ex(86.49, 200), death(90)]), false);
+    it('d - start of exactly 3.5s is fresh, 3.51s is not', function () {
+      assert.equal(lcb([death(30), ex(86.5, 90), death(90)]), true);
+      assert.equal(lcb([death(30), ex(86.49, 90), death(90)]), false);
     });
-    it('is false when a burst was activated between the start and d', function () {
-      assert.equal(fresh(88, [burst(89, 89.5)]), false);
-      assert.equal(fresh(88, [burst(88, 89)]), false);
-      assert.equal(lcb([ex(10, 200), death(30), ex(88, 200), burst(91, 95), death(90)]), true);
+    it('another usable interval in the last cost still counts', function () {
+      assert.equal(lcb([ex(10, 40), death(30), ex(88, 90), death(90)]), false);
     });
-    it('a burst activated before the gauge filled does not block (b)', function () {
-      assert.equal(lcb([ex(10, 40), burst(15, 25), death(30), ex(88, 200), death(90)]), true);
+    it('a burst activated after the gauge filled counts', function () {
+      assert.equal(lcb([death(30), ex(88, 89), burst(89, 89.5), death(90)]), false);
     });
     it('ignores deaths before t and the entry death itself', function () {
-      assert.equal(lcb([ex(10, 20), ex(28, 200), death(30)]), false);
+      assert.equal(lcb([ex(28, 200), death(30)]), false);
     });
-    it('the end boundary follows the held-burst rule (death just after game end)', function () {
-      assert.equal(lcb([ex(10, 40), death(30), ex(168, 170), death(170.5)], { game_end_sec: 170 }), true);
-      assert.equal(lcb([ex(10, 40), death(30), ex(168, 170), death(171.01)], { game_end_sec: 170 }), false);
+    it('the end boundary allows the finishing death just after the game end', function () {
+      assert.equal(lcb([death(30), ex(168, 170), death(170.5)], { game_end_sec: 170 }), true);
+      assert.equal(lcb([death(30), ex(168, 170), death(171.01)], { game_end_sec: 170 }), false);
     });
-    it('hits are the entry plus the (b) deaths, entry first', function () {
+    it('hits are the entry plus the fresh deaths, entry first', function () {
       var entry = death(30), d = death(90);
-      var m = makeMatch({ actions: [ex(10, 25), entry, ex(88, 200), d] });
+      var m = makeMatch({ actions: [ex(10, 25), entry, ex(88, 90), d] });
       assert.deepEqual(patternHits({ key: 'last_cost_burst' }, m), [entry, d]);
       assert.equal(patternReason({ key: 'last_cost_burst' }, m), '最後のコスト 0:30');
+    });
+    it('no hits when a burst was usable', function () {
+      assert.deepEqual(patternHits({ key: 'last_cost_burst' }, makeMatch({ actions: [death(30), ex(32, 60)] })), []);
     });
   });
   it('orders falls by time across both players', function () {
@@ -222,10 +209,6 @@ describe('hits / note / reason', function () {
     assert.deepEqual(patternHits(cond, m).map(function (h) { return h.action_start_sec; }), [52.3]);
     assert.equal(patternNote(cond, m), '覚醒を使う前に 0:52 で撃墜されています');
     assert.equal(patternReason(cond, m), '撃墜 0:52');
-  });
-  it('held_burst: lists every held death', function () {
-    var m = makeMatch({ actions: [ex(10, 50), death(20), death(40), death(90)] });
-    assert.equal(patternReason({ key: 'held_burst' }, m), '撃墜 0:20・0:40');
   });
   it('no hits when the pattern does not apply', function () {
     var m = makeMatch({ actions: [burst(10, 20), death(30)] });
