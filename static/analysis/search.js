@@ -40,7 +40,8 @@ export function emptyFilters() {
     scoreMin: '', scoreMax: '',
     exDmgMin: '', exDmgMax: '',
     burstsMin: '', burstsMax: '',
-    pattern: '',             // 試合の展開（シートで選ぶ patterns.js の key。''=指定なし）
+    patterns: [],            // 試合の展開（シートで選ぶ patterns.js の key。複数選択）
+    patternMode: 'and',      // 'and'=選んだ展開にすべて当てはまる / 'or'=どれかに当てはまる
     goal: null,              // ホームのミッションから渡る負け筋 {key, line?, avoid?}
     focusRange: null,        // 挑戦中カードから渡る範囲 {after, until}（until ''=上限なし）
   };
@@ -48,15 +49,24 @@ export function emptyFilters() {
 
 function validRange(r) { return !!r && typeof r.after === 'string' && r.after !== '' && typeof r.until === 'string'; }
 
-// 当てはまりを調べる条件。ホームから来た goal と、シートで選んだ試合の展開（sheet 項目のみ。goal と同じ key は重ねない）
+// シートで選んだ試合の展開（sheet 項目のみ・重複なし。ホームから来た goal と同じ key は重ねない）
+function sheetConditions(f) {
+  var g = goalPattern(f.goal);
+  var keys = Array.isArray(f.patterns) ? f.patterns : [];
+  var out = [];
+  keys.forEach(function (k) {
+    var def = typeof k === 'string' ? findPattern(k) : null;
+    if (!def || def.sheet !== true || (g && g.key === def.key)) return;
+    if (!out.some(function (c) { return c.key === def.key; })) out.push({ key: def.key });
+  });
+  return out;
+}
+
+// 当てはまりを調べる条件。ホームから来た goal と、シートで選んだ試合の展開
 export function activeConditions(filters) {
   var f = filters || {};
-  var out = [];
   var g = goalPattern(f.goal);
-  if (g) out.push(g);
-  var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
-  if (def && def.sheet === true && !(g && g.key === def.key)) out.push({ key: def.key });
-  return out;
+  return (g ? [g] : []).concat(sheetConditions(f));
 }
 
 // ×で外せるタグ（ホームから渡った条件）
@@ -209,7 +219,9 @@ export function filterMatches(matches, filters) {
   var scMin = toNum(f.scoreMin), scMax = toNum(f.scoreMax);
   var exMin = toNum(f.exDmgMin), exMax = toNum(f.exDmgMax);
   var buMin = toNum(f.burstsMin), buMax = toNum(f.burstsMax);
-  var conds = activeConditions(f);
+  var goal = goalPattern(f.goal);
+  var sheet = sheetConditions(f);
+  var patternMode = f.patternMode === 'or' ? 'or' : 'and';
   var range = validRange(f.focusRange) ? f.focusRange : null;
 
   return (matches || []).filter(function (m) {
@@ -241,8 +253,10 @@ export function filterMatches(matches, filters) {
     if (!inRange(m.ex_dmg, exMin, exMax)) return false;
     if (!inRange(m.bursts, buMin, buMax)) return false;
     if (range && !(m.date > range.after && (range.until === '' || m.date <= range.until))) return false;
-    for (var c = 0; c < conds.length; c++) {
-      if (testPattern(conds[c], m) !== true) return false;
+    if (goal && testPattern(goal, m) !== true) return false;
+    if (sheet.length) {
+      var applies = function (c) { return testPattern(c, m) === true; };
+      if (!(patternMode === 'or' ? sheet.some(applies) : sheet.every(applies))) return false;
     }
     return true;
   });
@@ -302,10 +316,12 @@ export function appliedFilterLabels(filters) {
   }
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
-  var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
-  var g = goalPattern(f.goal);
   // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
-  if (def && def.sheet === true && !(g && g.key === def.key)) out.push('試合の展開: ' + patternLabel({ key: def.key }));
+  var sheet = sheetConditions(f);
+  if (sheet.length) {
+    var pmode = sheet.length > 1 ? (f.patternMode === 'or' ? '（どれかに当てはまる）' : '（すべて当てはまる）') : '';
+    out.push('試合の展開' + pmode + ': ' + listLabel(sheet.map(patternLabel)));
+  }
   if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
   else if (f.dateFrom) out.push('日付: ' + f.dateFrom + '以降');
   else if (f.dateTo) out.push('日付: ' + f.dateTo + '以前');
