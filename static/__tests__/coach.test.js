@@ -412,8 +412,8 @@ function polarMatches() {
   return ms;
 }
 
-describe('computeActionPlan matched', function () {
-  it('matched equals the N in the detail text and the testPattern count for every mission', function () {
+describe('computeActionPlan unachieved', function () {
+  it('unachieved equals the N in the detail text and the testPattern count for every mission', function () {
     var ms = polarMatches();
     var plan = computeActionPlan(ms);
     assert.ok(plan.actions.length >= 5, 'keys: ' + keys(plan));
@@ -421,16 +421,16 @@ describe('computeActionPlan matched', function () {
       var n = Number(/戦中(\d+)戦/.exec(a.detail)[1]);
       var cond = goalPattern(a.goal);
       var count = ms.filter(function (m) { return testPattern(cond, m) === true; }).length;
-      assert.equal(a.matched, n, a.key);
-      assert.equal(a.matched, count, a.key);
+      assert.equal(a.unachieved, n, a.key);
+      assert.equal(a.unachieved, count, a.key);
     });
   });
 
-  it('keeps matched consistent for a subset of matches', function () {
+  it('keeps unachieved consistent for a subset of matches', function () {
     var ms = polarMatches().slice(0, 30);
     computeActionPlan(ms).actions.forEach(function (a) {
       var cond = goalPattern(a.goal);
-      assert.equal(a.matched, ms.filter(function (m) { return testPattern(cond, m) === true; }).length, a.key);
+      assert.equal(a.unachieved, ms.filter(function (m) { return testPattern(cond, m) === true; }).length, a.key);
     });
   });
 
@@ -456,7 +456,7 @@ describe('burst-endgame missions', function () {
     for (var i = 0; i < 20; i++) ms.push(make(i, i < 10, i >= 8 && i < 10 ? true : i >= 14));
     return ms;
   }
-  it('offers both missions with the specified wording and matched equal to the search count', function () {
+  it('offers both missions with the specified wording and unachieved equal to the search count', function () {
     var cases = [
       { key: 'ov_solo', ms: build(ovMatch), title: 'オーバーリミットは覚醒と重ねて使う', head: '覚醒と重ねずにオーバーリミットを使った試合は' },
       { key: 'last_cost_burst', ms: build(function (i, bad, win) { return lastCostMatch(i, !bad, win); }), title: '最後のコストに覚醒を持ち込む', head: '最後のコストに入った時点で覚醒が無かった試合は' },
@@ -467,8 +467,8 @@ describe('burst-endgame missions', function () {
       assert.equal(a.title, c.title);
       assert.ok(a.detail.indexOf(c.head) === 0, a.detail);
       assert.deepEqual(a.goal, { key: c.key });
-      assert.equal(a.matched, c.ms.filter(function (m) { return testPattern(goalPattern(a.goal), m) === true; }).length);
-      assert.equal(a.matched, Number(/戦中(\d+)戦/.exec(a.detail)[1]));
+      assert.equal(a.unachieved, c.ms.filter(function (m) { return testPattern(goalPattern(a.goal), m) === true; }).length);
+      assert.equal(a.unachieved, Number(/戦中(\d+)戦/.exec(a.detail)[1]));
       assert.equal(isValidGoal(a.goal), true);
     });
   });
