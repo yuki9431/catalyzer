@@ -136,7 +136,7 @@ export function ActionPlanPanel({ plan, selectedMs, matches, userKey, onShowMatc
         <div class="action-title">${a.title}<span class=${'action-impact ' + a.level}>影響度 ${IMPACT_LABEL[a.level]}</span></div>
         <div class="action-detail">${a.detail}</div>
         <${WinRateGain} from=${a.win_rate_from} to=${a.win_rate_to} />
-        ${a.matched > 0 && html`<${MatchesLink} ui="mission-matches" label="当てはまった試合を見る" count=${a.matched} onClick=${function () { onShowMatches({ goal: a.goal }); }} />`}
+        ${a.matched > 0 && html`<${MatchesLink} ui="mission-matches" label="達成できなかった試合を見る" count=${a.matched} onClick=${function () { onShowMatches({ goal: a.goal }); }} />`}
         ${userKey && html`<button class="focus-btn" onClick=${function () { choose(a); }}>このミッションに挑戦</button>`}
       </li>`;
     })}</ol>` : html`<p class="action-empty">目立った負け筋は見つかりませんでした。</p>`}

@@ -63,7 +63,7 @@ var SCREEN_DEFS = [
   { id: 'mobile-home-few', home: true, viewport: M, full: true, start: 'report-today-3', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-card"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="today-card"]', '今日 10/8'], ['[data-ui="today-compare"] tbody tr', null, 7]] },
   { id: 'mobile-home', home: true, viewport: M, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
-    required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], ['[data-ui="panel"] h2', '勝率アップミッション'], ['[data-ui="mission-matches"]', '当てはまった試合を見る']], tap: [TABBAR_ITEM, '[data-ui="mission-matches"]'] },
+    required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], ['[data-ui="panel"] h2', '勝率アップミッション'], ['[data-ui="mission-matches"]', '達成できなかった試合を見る']], tap: [TABBAR_ITEM, '[data-ui="mission-matches"]'] },
   { id: 'home', home: true, viewport: D, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="today-compare"] tbody tr', null, 7], REANALYZE_BTN] },
   { id: 'mobile-home-last-day', home: true, viewport: M, full: true, start: 'report', clock: '2026-10-08T22:00:00+09:00', ops: [{ wait: ['[data-ui="today-compare"]'] }],

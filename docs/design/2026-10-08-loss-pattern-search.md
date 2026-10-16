@@ -48,7 +48,7 @@ SearchView は view 切替ごとに新しくマウントされる。Report に `
 | `static/analysis/coach.js` | 上の関数を削除し patterns.js から import。bad 集合を `testPattern(cond, m) === true` で作る。`candidate()` に `c.matched = bad.length`。`GOAL_JUDGES` を削除し `evaluateGoal`/`isValidGoal` は `goalPattern`/`testPattern` 経由(公開シグネチャは不変) |
 | `static/analysis/search.js` | `emptyFilters` に `pattern: ''`, `goal: null`, `focusRange: null`。`hasActiveFilters`/`filterMatches`/`appliedFilterLabels` を拡張。`activeConditions`/`removableFilterLabels` を新設 |
 | `static/components/search.js` | `SearchView` に `initialFilters`。シートの「勝敗」の直後に「試合の展開」欄(チップの単一選択。モックどおり)。×付きタグ。`ResultItem` に理由ラベル。`MatchDetail` の上部に一文、`Timeline` に強調する撃墜 |
-| `static/components/report/action-plan.js` | 各ミッションに「当てはまった試合を見る N戦 ›」、`FocusCard` に「✗ の試合を見返す N戦 ›」。prop `onShowMatches` |
+| `static/components/report/action-plan.js` | 各ミッションに「達成できなかった試合を見る N戦 ›」、`FocusCard` に「✗ の試合を見返す N戦 ›」。prop `onShowMatches` |
 | `static/components/home.js` | `onShowMatches` を ActionPlanPanel に中継 |
 | `static/components/report/report.js` | `searchPreset` state・`showMatches`・view が search 以外で preset を消す effect。`SearchView` に `initialFilters` |
 | `static/components/parts.js` | `Chip` に `onRemove`/`removeLabel`(×ボタン。既存呼び出しは不変) |
@@ -137,7 +137,7 @@ Timeline({ match, msImages, hitSecs })    // 自分の行で action_start_sec �
 ## 4. UI 文言
 | 場所 | 文言 |
 |---|---|
-| ミッション各項目 | 「当てはまった試合を見る」+ 右寄せ「{N}戦 ›」(`data-ui="mission-matches"`) |
+| ミッション各項目 | 「達成できなかった試合を見る」+ 右寄せ「{N}戦 ›」(`data-ui="mission-matches"`) |
 | 挑戦中カード | 「✗ の試合を見返す」+「{N}戦 ›」(`data-ui="focus-review"`) |
 | シートの欄 | 見出し「試合の展開」、未選択「指定なし」 |
 | 適用中タグ | 「試合の展開: ○○」(×なし)/「負け筋: ○○」(×あり、`search-goal`)/「挑戦中のミッションの試合」(×あり、`search-range`) |
