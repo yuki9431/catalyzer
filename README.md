@@ -89,7 +89,7 @@
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー
-│   │   ├── home.js                # ホーム画面（勝率アップミッション・前回との比較）
+│   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
