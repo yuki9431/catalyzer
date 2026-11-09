@@ -338,11 +338,11 @@ async function main() {
     chrome = await launchChrome(CHROME, userDataDir);
     var origin = 'http://127.0.0.1:' + srv.port;
     var metaPath = path.join(BASELINE, 'meta.json');
+    if (!PIXEL && !UPDATE) console.log('SKIP 画像比較: 画像比較は PR の CI で行う');
     if (!UPDATE && fs.existsSync(metaPath)) {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
       if (PIXEL && meta.platform !== process.platform + '-' + process.arch) throw new InfraError('基準は ' + meta.platform + ' で撮影されている。PR に ui-baseline ラベルを付けて CI で撮り直す');
-      if (!PIXEL) console.log('SKIP 画像比較: 画像比較は PR の CI で行う');
-      else if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
+      if (PIXEL && meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
     var okCount = 0, total = 0;
     for (var i = 0; i < screens.length; i++) {

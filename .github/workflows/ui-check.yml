@@ -57,9 +57,9 @@ jobs:
           path: tmp/ui-check/actual
           retention-days: 7
 
-  # PR に ui-baseline ラベルを付けると基準を撮り直し、PR ブランチにコミットする
+  # PR に ui-baseline ラベルを付けると基準を撮り直す。secret は持たせず、結果は artifact で commit ジョブへ渡す
   update:
-    if: github.event.action == 'labeled' && github.event.label.name == 'ui-baseline'
+    if: github.event.action == 'labeled' && github.event.label.name == 'ui-baseline' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     concurrency:
@@ -74,12 +74,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --remove-label ui-baseline
-
-      # 未登録の secret は空文字になり、撮影後の push で初めて気付くため先に確かめる
-      - name: Check token
-        env:
-          PAT: ${{ secrets.GH_PAT }}
-        run: test -n "$PAT" || { echo "GH_PAT が未登録"; exit 1; }
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -114,13 +108,47 @@ jobs:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tools/ui-check/check.js --update
 
-      # PAT で push する(GITHUB_TOKEN の push は次の比較を起動しない)。PAT は PR のコードを動かした後にだけ渡す
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-baseline
+          path: tools/ui-check/baseline
+          retention-days: 1
+
+  # PR のコードを一切動かさないジョブでだけ PAT を使う(同じジョブで動かすと hook 等から盗める)
+  commit:
+    needs: update
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ui-baseline
+          path: ${{ runner.temp }}/ui-baseline
+
+      # artifact は PR のコードが作ったものなので、基準画像以外が混ざっていないか確かめてから取り込む
+      - name: Apply baseline
+        env:
+          SRC: ${{ runner.temp }}/ui-baseline
+        run: |
+          bad=$(find "$SRC" -mindepth 1 ! \( -type f \( -name '*.png' -o -name 'meta.json' \) \) -print -o -path "$SRC/*/*" -print)
+          [ -z "$bad" ] || { echo "想定外のファイル: $bad"; exit 1; }
+          cp "$SRC"/* tools/ui-check/baseline/
+
+      # PAT で push する(GITHUB_TOKEN の push は次の比較を起動しない)
       - name: Commit baseline
         env:
           PAT: ${{ secrets.GH_PAT }}
           HEAD_REF: ${{ github.head_ref }}
           REPO: ${{ github.repository }}
         run: |
+          test -n "$PAT" || { echo "GH_PAT が未登録"; exit 1; }
           git add tools/ui-check/baseline
           if git diff --cached --quiet; then
             echo "基準画像に変更なし"
