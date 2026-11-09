@@ -158,7 +158,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - Deploy: `deploy.yml`（develop の `Pulumi.stg.yaml`・main の `Pulumi.prod.yaml` の変更トリガー or build.yml からの `workflow_dispatch` → `pulumi up`。prod の手動実行は main からのみ）
 - Infra CI: `infra-ci.yml`（infra/配下の変更時にshared + app(prod/staging)のPulumi preview）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。変更時に main 向けPRを自動作成・マージし prod に反映）
-- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。自動マージは Go モジュールの minor/patch のみ（CI 緑で Renovate 自身がマージ）。Actions・npm（infra）・Docker イメージ・Go 本体の更新と major は手動マージ。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
+- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch は CI 緑で Renovate 自身が develop に自動マージし、major は手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
 - **サードパーティアクションを追加・変更する際は、GitHubリポジトリのリリースページで最新メジャーバージョンを確認すること。** 古いバージョンを指定するとNode.js非推奨警告やエラーが発生する（過去に複数回発生）。
 
 ## PR運用ルール

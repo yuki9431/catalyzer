@@ -9,9 +9,7 @@
   postUpdateOptions: ['gomodTidy'],
   packageRules: [
     {
-      // PR の CI(go build/test/lint)で検証される Go モジュールだけ自動マージ。Go 本体の版(golang-version)は含めない
-      matchManagers: ['gomod'],
-      matchDatasources: ['go'],
+      // major は破壊的変更があるため手動。digest は通常発生せず、タグ付け替え時に3日待ちを素通りするため対象外
       matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
     },
