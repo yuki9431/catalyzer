@@ -71,6 +71,9 @@ func StartServer() {
 		}
 	}
 
+	// 国別アクセス制限（GEO_RESTRICT=true で有効。無効・読込失敗時は nil=全許可）
+	geo := newGeoGuard(defaultGeoIPv4Path, defaultGeoIPv6Path)
+
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = fmt.Fprint(w, "ok")
@@ -80,6 +83,12 @@ func StartServer() {
 	http.HandleFunc("/analyze", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// 国別アクセス制限（許可国以外を拒否）
+		if !geo.allowed(r) {
+			sendJSON(w, http.StatusForbidden, map[string]string{"error": geoBlockedMessage})
 			return
 		}
 
@@ -284,7 +293,7 @@ func StartServer() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleReanalyze(w, r, rl)
+		handleReanalyze(w, r, rl, geo)
 	})
 
 	// 自動更新（GET/POST /auto-refresh, POST /auto-refresh/touch, POST /internal/auto-refresh/tick）
@@ -591,7 +600,13 @@ func handleSessionDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleReanalyze は保存済みセッションを使って再分析を実行する
-func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter) {
+func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter, geo *geoGuard) {
+	// 国別アクセス制限（許可国以外を拒否）
+	if !geo.allowed(r) {
+		sendJSON(w, http.StatusForbidden, map[string]string{"error": geoBlockedMessage})
+		return
+	}
+
 	token := getSessionToken(r)
 	if token == "" {
 		sendJSON(w, http.StatusUnauthorized, map[string]string{"error": "セッションが見つかりません。再度ログインしてください。"})

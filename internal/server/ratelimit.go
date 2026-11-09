@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,16 +69,21 @@ func (rl *rateLimiter) cleanup(ttl time.Duration) {
 	}
 }
 
-// clientIP はリクエストからクライアントIPを取得する（Cloud Run対応）
+// clientIP はリクエストからクライアントIPを取得する（Cloud Run対応）。
+// Cloud Run は XFF を `…, 実クライアントIP, GoogleのFE-IP` の順でappendするため
+// 右から2番目が信頼できる実クライアントIP。左端はクライアントが詐称できるので使わない。
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-Forの最初のIPがクライアントIP
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
-			}
+		parts := strings.Split(xff, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
 		}
-		return xff
+		if len(parts) >= 2 {
+			return parts[len(parts)-2]
+		}
+		if parts[0] != "" {
+			return parts[0]
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
