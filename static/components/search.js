@@ -6,7 +6,7 @@ import {
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
   activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
-import { PATTERNS, patternLabel, patternHits, patternNote, patternReason } from '../analysis/patterns.js';
+import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
 import {
   num, cellDisplay, isTimeUp, MODE_LABELS, modeLabel,
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
@@ -106,7 +106,8 @@ var NAME_SCOPE_OPTIONS = [{ value: 'both', label: '両方' }, { value: 'ally', l
 var RESULT_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'win', label: '勝利' }, { value: 'loss', label: '敗北' }];
 var MODE_NOTE = '対戦形式は、この機能の追加後に取り込んだ試合にだけ記録されています。';
 var MODE_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
-var PATTERN_OPTIONS = [{ value: '', label: '指定なし' }].concat(PATTERNS.filter(function (p) { return p.sheet; }).map(function (p) { return { value: p.key, label: patternLabel({ key: p.key }) }; }));
+var PATTERN_OPTIONS = PATTERNS.filter(function (p) { return p.sheet; }).map(function (p) { return { value: p.key, label: patternLabel({ key: p.key }) }; });
+var PATTERN_MODE_OPTIONS = [{ value: 'and', label: 'すべて当てはまる' }, { value: 'or', label: 'どれかに当てはまる' }];
 
 // 絞り込みの入力欄。条件はその場で filters に反映する。
 function FilterFields({ filters, options, onField }) {
@@ -118,6 +119,7 @@ function FilterFields({ filters, options, onField }) {
   // 期間カレンダーはクリックで開くプルダウン形式にする。
   var dateOpenRef = useState(false);
   var dateOpen = dateOpenRef[0], setDateOpen = dateOpenRef[1];
+  var patterns = filters.patterns || [];
 
   return html`<div class="search-form">
       <div class="search-field search-field-wide">
@@ -171,10 +173,16 @@ function FilterFields({ filters, options, onField }) {
       </div>
 
       <div class="search-field search-field-wide">
-        <label class="search-label">試合の展開</label>
+        <label class="search-label">試合の展開（複数選択可）</label>
+        <${ToggleGroup} ui="search-pattern-mode" label="試合の展開の絞り方" options=${PATTERN_MODE_OPTIONS} value=${filters.patternMode}
+          onChange=${function (v) { onField('patternMode', v); }} />
         <div class="search-pattern" role="group" aria-label="試合の展開" data-ui="search-pattern">
+          <${Chip} ui="search-pattern-item" active=${!patterns.length} onClick=${function () { onField('patterns', []); }}>指定なし</${Chip}>
           ${PATTERN_OPTIONS.map(function (o) {
-            return html`<${Chip} ui="search-pattern-item" active=${filters.pattern === o.value} onClick=${function () { onField('pattern', o.value); }}>${o.label}</${Chip}>`;
+            var on = patterns.indexOf(o.value) >= 0;
+            return html`<${Chip} ui="search-pattern-item" active=${on} onClick=${function () {
+              onField('patterns', on ? patterns.filter(function (k) { return k !== o.value; }) : patterns.concat([o.value]));
+            }}>${o.label}</${Chip}>`;
           })}
         </div>
       </div>
@@ -438,6 +446,7 @@ function MatchDetail({ match, msImages, conds, onClose }) {
   // 当てはまった条件の原因になった撃墜・OL発動（ガントで強調）と注意の一文
   var hits = [], note = '';
   (conds || []).forEach(function (c) {
+    // patternHits は当てはまった条件だけ返す（どれかに当てはまる、で絞ったとき外れた展開は出ない）
     patternHits(c, match).forEach(function (h) { hits.push(h); });
     if (!note) note = patternNote(c, match);
   });
@@ -604,7 +613,12 @@ export function SearchView({ matches, msImages, initialFilters }) {
   var labels = appliedFilterLabels(filters);
   var removable = removableFilterLabels(filters);
   var conds = activeConditions(filters);
-  function reasonOf(m) { return conds.map(function (c) { return patternReason(c, m); }).filter(Boolean).join('・'); }
+  // どれかに当てはまる、で絞ったときは当てはまった展開だけを理由にする
+  // 同じ撃墜が複数の展開の理由になったときは1つだけ出す
+  function reasonOf(m) {
+    var rs = conds.filter(function (c) { return testPattern(c, m) === true; }).map(function (c) { return patternReason(c, m); });
+    return rs.filter(function (r, i) { return r && rs.indexOf(r) === i; }).join('・');
+  }
   var shown = labels.length + removable.length;
   // 全画面の層は同時に1枚だけ開く。
   function openSheet() { setDetail(null); setSheetOpen(true); }
