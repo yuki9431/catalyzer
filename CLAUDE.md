@@ -57,6 +57,9 @@ python3 -m http.server 8888 --directory static
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
+# 対戦形式の記録前の試合に推定した形式を書く（既定はドライラン。書き込みは ARGS=-execute）
+FIRESTORE_DATABASE=exvs-analyzer make backfill-match-mode
+
 # Pulumiコマンド（Docker経由。secretはGCP KMSで暗号化するためパスフレーズ不要、ADCで復号）
 make pulumi-shared-preview            # shared プレビュー
 STACK=prod make pulumi-app-preview    # app(本番) プレビュー
@@ -97,12 +100,14 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `cmd/auto-refresh/` — 自動更新の Cloud Run Job のエントリ（`autorefresh.RunJob`）。Dockerfile で `/app/auto-refresh` に入る
 - `cmd/hash-passphrase/` — 自動更新の合言葉の argon2id ハッシュを出力するCLI
 - `cmd/extract-grades/` — Firestoreから全ユーザーの未登録グレードURLを抽出するCLI
+- `cmd/backfill-match-mode/` — 対戦形式が空の既存試合に推定した形式を書くCLI（`-user` で1人に絞る。既定はドライラン、`-execute` で書き込み）
 - `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`, `ClassRecord`/`WinRecord`/`CountStat`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。取得前の試合は空=不明）を判別
+- `internal/matchmode/` — 対戦形式の記録前の試合の形式推定（`New`/`Inferrer.Infer`。相方がタッグ登録済み(名前付きタッグ名の一致を含む)なら固定、それ以外はシャッフル）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
-- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
+- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）+ 対戦形式の補完（`backfill.go`。推定した試合に `match_mode_inferred: true` を付ける）
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る

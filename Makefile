@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
+.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades backfill-match-mode \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
 
@@ -52,6 +52,15 @@ extract-grades:
 		-e FIRESTORE_DATABASE \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		golang:1.26-alpine go run ./cmd/extract-grades
+
+## 対戦形式の記録前の試合に推定した形式を書く（既定はドライラン。書き込みは ARGS=-execute）
+backfill-match-mode:
+	docker run --rm -v "$(CURDIR)":/app -w /app \
+		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
+		-e GCP_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
+		-e FIRESTORE_DATABASE \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
+		golang:1.26-alpine go run ./cmd/backfill-match-mode $(ARGS)
 
 PULUMI_IMAGE := pulumi/pulumi:latest
 PULUMI_STATE_BUCKET ?= exvs2ib-analyzer-pulumi-state

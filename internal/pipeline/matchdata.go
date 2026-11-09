@@ -20,7 +20,7 @@ type ActionJSON struct {
 // MatchDataSchemaVersion はMatchDataの構造バージョン。
 // MatchDataにフィールドを追加/変更しクライアントの全件キャッシュ再構築が
 // 必要になったら +1 する（フロントは /schema-version 経由で自動追従する）。
-const MatchDataSchemaVersion = 1
+const MatchDataSchemaVersion = 2
 
 // MatchData はフロントエンド向けの試合データ（プレイヤー視点）
 type MatchData struct {
