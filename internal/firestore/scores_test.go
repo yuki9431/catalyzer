@@ -87,26 +87,3 @@ func TestBuildMatchDoc_KeepsMatchMode(t *testing.T) {
 		t.Errorf("matchDoc.MatchMode = %q, want %q", got, model.MatchModeFixed)
 	}
 }
-
-func TestInferForDoc(t *testing.T) {
-	infer := func(partnerName, teamName string) string { return partnerName + "/" + teamName }
-	players := []playerDoc{{PlayerNo: 2, Name: "相方"}, {PlayerNo: 1, Name: "自分", TeamName: "タッグ"}, {PlayerNo: 3}, {PlayerNo: 4}}
-	tests := []struct {
-		name        string
-		md          matchDoc
-		wantMode    string
-		wantSkipped bool
-	}{
-		{"形式が空なら相方名と自陣のタッグ名で推定する", matchDoc{Players: players}, "相方/タッグ", false},
-		{"記録済みの形式は補完しない", matchDoc{MatchMode: model.MatchModeShuffle, Players: players}, "", false},
-		{"相方の記録が無ければ推定しない", matchDoc{Players: players[1:]}, "", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mode, skipped := inferForDoc(tt.md, infer)
-			if mode != tt.wantMode || skipped != tt.wantSkipped {
-				t.Errorf("inferForDoc = (%q, %v), want (%q, %v)", mode, skipped, tt.wantMode, tt.wantSkipped)
-			}
-		})
-	}
-}

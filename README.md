@@ -47,8 +47,6 @@
 │   │   └── main.go                # 指定ユーザーの最新N日間の戦績削除CLI
 │   ├── extract-grades/
 │   │   └── main.go                # Firestoreから未登録グレードURL抽出CLI
-│   ├── backfill-match-mode/
-│   │   └── main.go                # 対戦形式の記録前の試合に推定した形式を書くCLI
 │   ├── auto-refresh/
 │   │   └── main.go                # 自動更新の Cloud Run Job
 │   └── hash-passphrase/
@@ -221,10 +219,6 @@ make ui-baseline
 
 # Firestoreから未登録グレードURLを抽出
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
-
-# 対戦形式の記録前の試合に推定した形式を書く（既定はドライラン）
-FIRESTORE_DATABASE=exvs-analyzer make backfill-match-mode
-FIRESTORE_DATABASE=exvs-analyzer ARGS=-execute make backfill-match-mode
 ```
 
 http://localhost:8080 にアクセスしてログインすると分析レポートが表示されます。

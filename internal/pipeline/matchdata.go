@@ -85,7 +85,7 @@ type MatchData struct {
 	Opponent2Actions     []ActionJSON `json:"opponent2_actions"`
 	GameEndSec           float64      `json:"game_end_sec,omitempty"`
 	MatchID              string       `json:"match_id,omitempty"`
-	Mode                 string       `json:"mode,omitempty"` // shuffle / fixed。legacy は省略(不明)
+	Mode                 string       `json:"mode,omitempty"` // shuffle / fixed。判別できなかった試合は省略(不明)
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
