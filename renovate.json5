@@ -1,7 +1,6 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended'],
-  timezone: 'Asia/Tokyo',
   // サプライチェーン攻撃対策。公開から3日経つまで PR を作らない
   minimumReleaseAge: '3 days',
   internalChecksFilter: 'strict',
@@ -10,7 +9,10 @@
   postUpdateOptions: ['gomodTidy'],
   packageRules: [
     {
-      matchUpdateTypes: ['minor', 'patch', 'pin', 'digest'],
+      // PR の CI(go build/test/lint)で検証される Go モジュールだけ自動マージ。Go 本体の版(golang-version)は含めない
+      matchManagers: ['gomod'],
+      matchDatasources: ['go'],
+      matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
     },
   ],
