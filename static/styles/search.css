@@ -108,6 +108,7 @@
 .search-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 0 8px 0 0; }
 .search-layer-body .panel { margin-bottom: 24px; }
 .search-pattern { display: flex; flex-wrap: wrap; gap: 8px; }
+.ui-toggle + .search-pattern { margin-top: 10px; }
 .search-pattern .ui-chip { min-height: 44px; padding: 0 14px; }
 .search-item-reason { margin-top: 6px; }
 .search-item-reason .ui-chip { max-width: 100%; overflow-wrap: anywhere; }
