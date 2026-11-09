@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/yuki9431/catalyzer/internal/model"
 )
 
 // TestScrapingWithOption_CanceledContext は、開始前にキャンセル済みのContextを渡すと
@@ -341,7 +342,7 @@ func TestParseDetailPage_MissingFields(t *testing.T) {
 			if err != nil {
 				t.Fatalf("HTML解析失敗: %v", err)
 			}
-			got := parseDetailPage(doc.Selection, "2026/08/29", "13:00", wins, "店舗", "mid")
+			got := parseDetailPage(doc.Selection, "2026/08/29", "13:00", wins, "店舗", "mid", "")
 			if got != nil {
 				t.Errorf("got %d scores, want nil (スキップされるべき)", len(got))
 			}
@@ -353,7 +354,7 @@ func TestParseDetailPage_MissingFields(t *testing.T) {
 func TestParseDetailPage_ShortWins(t *testing.T) {
 	html := `<div class="panel_area"></div>`
 	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if got := parseDetailPage(doc.Selection, "2026/08/29", "13:00", []bool{true}, "店舗", "mid"); got != nil {
+	if got := parseDetailPage(doc.Selection, "2026/08/29", "13:00", []bool{true}, "店舗", "mid", ""); got != nil {
 		t.Errorf("got %d scores, want nil", len(got))
 	}
 }
@@ -435,6 +436,31 @@ func TestIsSessionExpired(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsSessionExpired(tt.err); got != tt.want {
 				t.Errorf("IsSessionExpired = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMatchModeOf(t *testing.T) {
+	badge := func(picons int) string {
+		return `<li class="item"><div class="line-badge rank fz-ss">クラス<span class="picon-wrap">` +
+			strings.Repeat(`<span class="picon"></span>`, picons) + `</span></div></li>`
+	}
+	tests := []struct {
+		name string
+		html string
+		want string
+	}{
+		{"人型1つはシャッフル", badge(1), model.MatchModeShuffle},
+		{"人型2つは固定", badge(2), model.MatchModeFixed},
+		{"バッジが無ければ不明", `<li class="item"></li>`, ""},
+		{"想定外の数は不明", badge(3), ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, _ := goquery.NewDocumentFromReader(strings.NewReader(tt.html))
+			if got := matchModeOf(doc.Find("li.item")); got != tt.want {
+				t.Errorf("matchModeOf = %q, want %q", got, tt.want)
 			}
 		})
 	}

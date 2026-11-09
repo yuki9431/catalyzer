@@ -2,6 +2,7 @@ import { html, useEffect, useRef, useState } from '../../htm-preact-standalone.j
 import { Chip, ToggleGroup } from '../parts.js';
 import { RangeCalendar } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
+import { MODE_LABELS, modeLabel } from '../../lib/match.js';
 
 export var PERIOD_KEYS = ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d'];
 
@@ -141,14 +142,21 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
   </div>`;
 }
 
-export function MsSelector({ entries, selected, onSelect }) {
+var MODE_OPTIONS = [{ value: 'all', label: '全形式' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
+
+// チップは絞り込み行を1段に収めるため略称にし、機体も選んだら機体を優先する(形式は範囲表示に出る)
+var CHIP_MODE_LABELS = { shuffle: 'シャフ', fixed: '固定' };
+
+// onMode を渡すとシートの先頭で対戦形式も選べる(絞り込み行を1段に収めるため同居させる)
+export function MsSelector({ entries, selected, onSelect, mode, onMode }) {
   var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
-  var label = selected ? '1機選択' : '全機体';
-  var isSelected = !!selected;
+  var label = selected ? '1機選択' : modeLabel(mode) ? CHIP_MODE_LABELS[mode] : '全機体';
+  var isSelected = !!selected || !!modeLabel(mode);
   return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
     <${Chip} ui="ms-trigger" expanded=${isOpen} active=${isSelected} onClick=${pop.toggle}><span class="ui-chip-text">${label}</span></${Chip}>
-    <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="ms-panel" title="機体">
+    <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="ms-panel" title=${onMode ? '対戦形式・機体' : '機体'}>
+      ${onMode && html`<div class="ms-topbar-mode"><${ToggleGroup} ui="mode-toggle" label="対戦形式" options=${MODE_OPTIONS} value=${modeLabel(mode) ? mode : 'all'} onChange=${onMode} /></div>`}
       <button data-ui="ms-item" class=${'ms-topbar-item' + (!selected ? ' active' : '')}
         onClick=${function () { onSelect(null); pop.close(); }}>全機体</button>
       ${entries.map(function (e) {

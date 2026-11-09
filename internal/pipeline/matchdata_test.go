@@ -178,3 +178,24 @@ func TestBuildMatchData_SameMinuteTwoMatches(t *testing.T) {
 		t.Errorf("2試合のMatchIDは異なるはず: got[0]=%q got[1]=%q", got[0].MatchID, got[1].MatchID)
 	}
 }
+
+func TestBuildMatchData_PopulatesMode(t *testing.T) {
+	base := time.Date(2026, 10, 31, 22, 15, 0, 0, time.UTC)
+	shuffle := match(base, true)
+	for i := range shuffle {
+		shuffle[i].MatchMode = model.MatchModeShuffle
+	}
+	legacy := match(base.Add(time.Minute), true)
+
+	got := BuildMatchData(append(shuffle, legacy...), nil, time.Time{})
+	modes := map[string]string{}
+	for _, m := range got {
+		modes[m.Date] = m.Mode
+	}
+	if m := modes[base.Format("2006-01-02 15:04")]; m != model.MatchModeShuffle {
+		t.Errorf("シャッフルの試合の Mode: want %q, got %q", model.MatchModeShuffle, m)
+	}
+	if m := modes[base.Add(time.Minute).Format("2006-01-02 15:04")]; m != "" {
+		t.Errorf("legacy の試合の Mode は空(不明)のはず: got %q", m)
+	}
+}

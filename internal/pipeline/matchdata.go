@@ -85,6 +85,7 @@ type MatchData struct {
 	Opponent2Actions     []ActionJSON `json:"opponent2_actions"`
 	GameEndSec           float64      `json:"game_end_sec,omitempty"`
 	MatchID              string       `json:"match_id,omitempty"`
+	Mode                 string       `json:"mode,omitempty"` // shuffle / fixed。legacy は省略(不明)
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
@@ -244,6 +245,7 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			Arcade:               me.ArcadeName,
 			GameEndSec:           gameEndSec,
 			MatchID:              entries[0].MatchID,
+			Mode:                 entries[0].MatchMode,
 		})
 	}
 

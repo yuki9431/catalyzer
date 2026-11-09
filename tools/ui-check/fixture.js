@@ -79,6 +79,8 @@ export function generateMatches() {
       proficiency: 'gold2', partner_proficiency: 'silver1',
       score_ranking: r.int(1, 4), partner_score_ranking: r.int(1, 4),
       arcade: 'テスト店舗',
+      // 乱数を消費せず試合番号で決める。7試合に1つは形式不明(取得前のデータ)
+      mode: i % 7 === 6 ? undefined : i % 3 === 0 ? 'fixed' : 'shuffle',
       game_end_sec: end,
       match_id: ('0000000' + Math.floor(r() * 4294967296).toString(16)).slice(-8) + ('0000000' + i.toString(16)).slice(-8),
     };
