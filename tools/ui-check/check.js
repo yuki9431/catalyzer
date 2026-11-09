@@ -15,8 +15,8 @@ var CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Content
 var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
-// 基準と撮影環境(OS)が違うときは画像比較を省き、他の検査だけ行う
-var PIXEL = true;
+// 画像比較は基準を撮る CI だけで行う。ローカルは他の検査だけ
+var PIXEL = !!process.env.CI;
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
 var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', 'report-legacy': '/__preview/?legacy=1', parts: '/__preview/parts.html' };
 var INJECT = {};
@@ -340,9 +340,8 @@ async function main() {
     var metaPath = path.join(BASELINE, 'meta.json');
     if (!UPDATE && fs.existsSync(metaPath)) {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-      PIXEL = meta.platform === process.platform + '-' + process.arch;
-      if (!PIXEL && process.env.CI) throw new InfraError('基準は ' + meta.platform + ' で撮影されている。PR に ui-baseline ラベルを付けて CI で撮り直す');
-      if (!PIXEL) console.log('SKIP 画像比較: 基準は ' + meta.platform + ' で撮影。画像比較は PR の CI で行う');
+      if (PIXEL && meta.platform !== process.platform + '-' + process.arch) throw new InfraError('基準は ' + meta.platform + ' で撮影されている。PR に ui-baseline ラベルを付けて CI で撮り直す');
+      if (!PIXEL) console.log('SKIP 画像比較: 画像比較は PR の CI で行う');
       else if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
     var okCount = 0, total = 0;

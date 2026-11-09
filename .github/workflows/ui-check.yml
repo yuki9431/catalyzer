@@ -1,6 +1,6 @@
 name: UI Check
 
-# 基準画像はこのジョブ(Linux・Chrome 固定)で撮ったものだけを正とする。ローカルの Chrome 更新で基準がずれないようにするため
+# 基準画像はこのワークフロー(Linux・Chrome 固定)で撮ったものだけを正とする。ローカルの Chrome 更新で基準がずれないようにするため
 on:
   pull_request:
     branches: [main, develop]
@@ -10,30 +10,25 @@ on:
       - 'tools/ui-check/**'
       - '.github/workflows/ui-check.yml'
 
-concurrency:
-  group: ui-check-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 env:
   CHROME_VERSION: '157.0.8103.38'
+  UI_CHECK_TIMEOUT_MS: '900000'
 
 jobs:
-  ui-check:
-    # 他のラベル付与では回さない。ui-baseline ラベルのときだけ基準を撮り直してコミットする
-    if: github.event.action != 'labeled' || github.event.label.name == 'ui-baseline'
-    runs-on: ubuntu-latest
+  # concurrency は job に置く。ワークフローに置くと skip-ci 等の無関係なラベル付与でも実行中の比較が取り消される
+  check:
+    if: github.event.action != 'labeled'
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
+    concurrency:
+      group: ui-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
       contents: read
-      pull-requests: write
-    env:
-      UPDATE: ${{ github.event.action == 'labeled' }}
     steps:
-      # 更新時は push するためブランチを PAT で取る(GITHUB_TOKEN の push は次の CI を起動しない)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.UPDATE == 'true' && github.head_ref || '' }}
-          token: ${{ env.UPDATE == 'true' && secrets.GH_PAT || github.token }}
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -50,36 +45,81 @@ jobs:
           sudo apt-get install -y -qq fonts-noto-cjk
 
       - name: UI check
-        if: env.UPDATE != 'true'
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-          UI_CHECK_TIMEOUT_MS: '900000'
         run: node tools/ui-check/check.js
 
       - name: Upload screenshots
-        if: failure() && env.UPDATE != 'true'
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ui-check-actual
           path: tmp/ui-check/actual
           retention-days: 7
 
-      - name: Update baseline
-        if: env.UPDATE == 'true'
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-          UI_CHECK_TIMEOUT_MS: '900000'
-        run: node tools/ui-check/check.js --update
-
-      # push より先に外す。push で起きる次の実行がこの実行を取り消しても、ラベルが残らない
+  # PR に ui-baseline ラベルを付けると基準を撮り直し、PR ブランチにコミットする
+  update:
+    if: github.event.action == 'labeled' && github.event.label.name == 'ui-baseline'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    concurrency:
+      group: ui-baseline-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # 撮り直しの前に外す。失敗しても付け直せば再実行できる
       - name: Remove label
-        if: always() && env.UPDATE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --remove-label ui-baseline
 
+      # 未登録の secret は空文字になり、撮影後の push で初めて気付くため先に確かめる
+      - name: Check token
+        env:
+          PAT: ${{ secrets.GH_PAT }}
+        run: test -n "$PAT" || { echo "GH_PAT が未登録"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 比較は base との merge コミットで行うので、base を取り込んでいないブランチで撮ると比較が通らない
+      - name: Check base is merged
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch -q origin "$BASE_REF"
+          git merge-base --is-ancestor "origin/$BASE_REF" HEAD || { echo "$BASE_REF を取り込んでからラベルを付ける"; exit 1; }
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
+
+      - name: Install Japanese fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+
+      - name: Update baseline
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tools/ui-check/check.js --update
+
+      # PAT で push する(GITHUB_TOKEN の push は次の比較を起動しない)。PAT は PR のコードを動かした後にだけ渡す
       - name: Commit baseline
-        if: env.UPDATE == 'true'
+        env:
+          PAT: ${{ secrets.GH_PAT }}
+          HEAD_REF: ${{ github.head_ref }}
+          REPO: ${{ github.repository }}
         run: |
           git add tools/ui-check/baseline
           if git diff --cached --quiet; then
@@ -89,4 +129,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "test: UI 基準画像を CI で更新"
-          git push
+          git push "https://x-access-token:${PAT}@github.com/${REPO}.git" "HEAD:${HEAD_REF}"
