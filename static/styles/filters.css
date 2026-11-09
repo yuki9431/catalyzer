@@ -2,6 +2,7 @@
 .ms-topbar-wrap { position: relative; }
 .ms-topbar-backdrop { display: none; }
 .ms-topbar-dropdown { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-pop); z-index: 100; min-width: 240px; max-height: 60vh; overflow-y: auto; }
+.ms-topbar-mode { padding: 8px 16px; border-bottom: 1px solid var(--line); }
 .ms-topbar-item { display: block; width: 100%; padding: 10px 16px; border: none; background: none; color: var(--text); font-size: 0.875rem; cursor: pointer; text-align: left; transition: all 0.15s; }
 .ms-topbar-item:hover { background: var(--panel-2); }
 .ms-topbar-item.active { color: var(--accent); background: var(--bg); font-weight: bold; }

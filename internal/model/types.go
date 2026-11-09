@@ -11,7 +11,7 @@ import (
 // MatchID未設定のlegacyデータ用フォールバックキー（分精度のため同一分に複数試合があると区別できない。#358）。
 const MatchKeyFormat = "2006-01-02T1504"
 
-// 試合の対戦モード(DatedScore.MatchMode)。取得前の legacy データは空。
+// 試合の対戦形式(DatedScore.MatchMode)。取得前の legacy データは空。
 const (
 	MatchModeShuffle = "shuffle"
 	MatchModeFixed   = "fixed"

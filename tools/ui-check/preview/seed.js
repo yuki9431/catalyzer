@@ -24,6 +24,8 @@ if (focusN > 0) {
     goal: goal, title: '与ダメ12500以上を取る', condition: '与ダメ12500以上', since: sorted[sorted.length - focusN - 1].date, win_rate_from: 50, win_rate_to: 58,
   } } }));
 }
+// ?legacy=1 は全試合の対戦形式を消し、形式の記録前に取り込んだデータだけの状態を再現する
+if (new URLSearchParams(location.search).get('legacy') === '1') matches.forEach(function (m) { delete m.mode; });
 await saveMatchesToDB(USER_KEY, matches, SCHEMA_VERSION);
 localStorage.setItem('catalyzer_user_key', USER_KEY);
 localStorage.setItem('catalyzer_class_record', JSON.stringify({ user_key: USER_KEY, record: classRecord() }));

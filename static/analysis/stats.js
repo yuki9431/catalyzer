@@ -1,4 +1,4 @@
-import { MODE_LABELS, isTimeUp } from '../lib/match.js';
+import { isTimeUp, modeLabel } from '../lib/match.js';
 
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
@@ -73,7 +73,7 @@ export function jsGetBurstEvents(actions) {
 
 // 対戦形式で絞る。'all' 以外では形式不明の試合を除く
 export function filterByMode(matches, mode) {
-  if (!Object.prototype.hasOwnProperty.call(MODE_LABELS, mode)) return matches;
+  if (!modeLabel(mode)) return matches;
   return matches.filter(function (m) { return m.mode === mode; });
 }
 

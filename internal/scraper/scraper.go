@@ -115,7 +115,7 @@ type matchEntry struct {
 	mode      string // model.MatchModeShuffle / MatchModeFixed（判別できなければ空）
 }
 
-// matchModeOf は一覧の試合行のクラスバッジの人型アイコン数から対戦モードを判別する（1=シャッフル、2=固定）
+// matchModeOf は一覧の試合行のクラスバッジの人型アイコン数から対戦形式を判別する（1=シャッフル、2=固定）
 func matchModeOf(item *goquery.Selection) string {
 	switch item.Find("span.picon-wrap > span.picon").Length() {
 	case 1:
@@ -124,6 +124,19 @@ func matchModeOf(item *goquery.Selection) string {
 		return model.MatchModeFixed
 	}
 	return ""
+}
+
+// warnUnknownModes は対戦形式を判別できない試合を日ごとに警告する。差分取得では後から取り直せないため検知を残す
+func warnUnknownModes(date string, entries []matchEntry) {
+	unknown := 0
+	for _, e := range entries {
+		if e.mode == "" {
+			unknown++
+		}
+	}
+	if unknown > 0 {
+		log.Printf("[WARN] collectMatchEntries: 対戦形式を判別できない試合 date=%s %d/%d件", date, unknown, len(entries))
+	}
 }
 
 // stripQueryParam はURLからクエリパラメータを除去する
@@ -499,6 +512,7 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 	})
 
 	_ = c.Visit(dl.url)
+	warnUnknownModes(dl.date, entries)
 	// 1ページ目の上が最新。古い試合から詳細を取る(#456)
 	slices.Reverse(entries)
 	return entries, httpErr

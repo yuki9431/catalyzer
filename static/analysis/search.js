@@ -2,7 +2,7 @@
 // IndexedDBキャッシュから読み込んだ試合データ配列を、条件で絞り込み・並べ替える純粋関数群。
 // UI から切り離すことで単体テスト可能にしている。
 
-import { MODE_LABELS } from '../lib/match.js';
+import { modeLabel } from '../lib/match.js';
 import { PERIOD_DAYS } from './stats.js';
 import { findPattern, goalPattern, testPattern, patternLabel } from './patterns.js';
 
@@ -84,7 +84,7 @@ export function hasActiveFilters(filters) {
   var f = filters || {};
   if (activeConditions(f).length || validRange(f.focusRange)) return true;
   if (f.result && f.result !== 'all') return true;
-  if (f.mode && f.mode !== 'all') return true;
+  if (modeLabel(f.mode)) return true;
   var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
   for (var j = 0; j < listKeys.length; j++) {
     if (f[listKeys[j]] && f[listKeys[j]].length) return true;
@@ -201,7 +201,7 @@ export function filterMatches(matches, filters) {
   var myTagList = f.myTagList || [];
   var enemyTagName = (f.enemyTagName || '').trim().toLowerCase();
   var result = f.result || 'all';
-  var mode = f.mode || 'all';
+  var mode = modeLabel(f.mode) ? f.mode : '';
   // コスト系は複数選択・OR。コストは数値比較のため数値化しておく。
   var myCostList = (f.myCostList || []).map(Number);
   var partnerCostList = (f.partnerCostList || []).map(Number);
@@ -234,7 +234,7 @@ export function filterMatches(matches, filters) {
     if (enemyTagName && String(m.opponent_team_name || '').toLowerCase().indexOf(enemyTagName) < 0) return false;
     if (result === 'win' && !m.win) return false;
     if (result === 'loss' && m.win) return false;
-    if (mode !== 'all' && m.mode !== mode) return false;
+    if (mode && m.mode !== mode) return false;
     if (myCostList.length && myCostList.indexOf(m.ms_cost) < 0) return false;
     if (partnerCostList.length && partnerCostList.indexOf(m.partner_cost) < 0) return false;
     if (enemyCostPairList.length && enemyCostPairList.indexOf(enemyCostPairKey(m.opponent1_cost, m.opponent2_cost)) < 0) return false;
@@ -307,7 +307,7 @@ export function appliedFilterLabels(filters) {
   }
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
-  if (Object.prototype.hasOwnProperty.call(MODE_LABELS, f.mode)) out.push('対戦形式: ' + MODE_LABELS[f.mode]);
+  if (modeLabel(f.mode)) out.push('対戦形式: ' + modeLabel(f.mode));
   var def = typeof f.pattern === 'string' ? findPattern(f.pattern) : null;
   var g = goalPattern(f.goal);
   // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない

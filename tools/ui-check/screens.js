@@ -18,7 +18,7 @@ var SHEET = '[data-ui="search-filter-sheet"]';
 var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
 var COLLAPSED = ['[data-ui="topbar"][data-collapsed="true"]'];
 var EXPANDED = ['[data-ui="topbar"][data-collapsed="false"]'];
-var FILTERS = [['[data-ui="period-trigger"]'], ['[data-ui="mode-trigger"]'], ['[data-ui="ms-trigger"]'], ['[data-ui="lens-toggle"] button', '全体']];
+var FILTERS = [['[data-ui="period-trigger"]'], ['[data-ui="ms-trigger"]'], ['[data-ui="lens-toggle"] button', '全体']];
 var ACTIVE_TAB = ['[data-ui="tab"][aria-selected="true"]', '総合'];
 var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
 var TAP = [TABBAR_ITEM, '[data-ui="more"] button', '[data-ui="more"] a'];
@@ -95,7 +95,7 @@ var SCREEN_DEFS = [
     required: [[SHEET + ' h2', '絞り込み'], ['[data-ui="search-filter-foot"]', '27試合が該当'], ['[data-ui="search-filter-apply"]', '結果を見る'],
       ['[data-ui="search-enemy-mode"] button', 'すべて含む'], ['[data-ui="search-enemy-mode"] button[aria-pressed="true"]', 'どれかを含む'], ['[data-ui="search-winloss"] button[aria-pressed="true"]', '勝利']],
     inview: [['[data-ui="search-filter-apply"]'], ['[data-ui="search-filter-clear"]'], ['[data-ui="sheet-close"]']], outview: [[TABBAR]],
-    tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button', '[data-ui="search-pattern-item"]'] },
+    tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button', '[data-ui="search-mode"] button', '[data-ui="search-pattern-item"]'] },
   { id: 'mobile-search-applied', viewport: M, full: false, start: 'report', ops: OPEN_FILTER.concat([{ click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }]),
     required: [['[data-ui="search-applied"]', '勝敗: 勝利'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）'], ['[data-ui="search-clear"]', '条件をクリア'],
       ['[data-ui="search-total"]', '27試合'], ['[data-ui="search-result"]', null, 20]],
@@ -156,7 +156,7 @@ var SCREEN_DEFS = [
   { id: 'mobile-report-overview', viewport: M, full: true, start: 'report', ops: [{ wait: ['[data-ui="report-scope"]'] }, { scrollBy: [600] }, { wait: COLLAPSED }],
     required: [['[data-ui="tab"][aria-selected="true"]', '総合']].concat(SUMMARY('overview')),
     inview: [ACTIVE_TAB], outview: FILTERS, absent: [['[data-ui="reanalyze-button"]']], fixedMax: 120,
-    tap: ['[data-ui="period-trigger"]', '[data-ui="mode-trigger"]', '[data-ui="ms-trigger"]', '[data-ui="lens-toggle"] button'] },
+    tap: ['[data-ui="period-trigger"]', '[data-ui="ms-trigger"]', '[data-ui="lens-toggle"] button'] },
   { id: 'mobile-report-scroll-up', viewport: M, full: false, start: 'report', ops: [{ wait: ['[data-ui="report-scope"]'] }, { scrollBy: [600] }, { wait: COLLAPSED }, { scrollBy: [-40] }, { wait: EXPANDED }], required: [ACTIVE_TAB], inview: FILTERS },
   { id: 'mobile-pull', viewport: M, full: false, start: 'report', standalone: true, ops: [{ wait: ['[data-ui="report-scope"]'] }, { pull: [40, 'release'] }, { pull: [200] }],
     required: [['[data-ui="pull-indicator"]', '離すと再分析'], ['[data-ui="report-scope"]', '全期間・60試合']] },
@@ -170,9 +170,13 @@ var SCREEN_DEFS = [
   { id: 'mobile-dropdown-period', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="period-trigger"]'] }],
     required: [['[data-ui="period-panel"] h3', '期間'], ['[data-ui="sheet-close"]'], ['[data-ui="period-item"]', null, 2]],
     tap: ['[data-ui="period-item"]', '[data-ui="sheet-close"]'] },
-  { id: 'mobile-dropdown-mode', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="mode-trigger"]'] }, { click: ['[data-ui="mode-item"]', '固定'] }, { click: ['[data-ui="mode-trigger"]'] }],
-    required: [['[data-ui="mode-panel"] h3', '対戦形式'], ['[data-ui="mode-item"]', null, 3], ['[data-ui="mode-trigger"]', '固定']],
-    tap: ['[data-ui="mode-item"]', '[data-ui="sheet-close"]'] },
+  { id: 'mobile-dropdown-mode', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', 'シャッフル'] }, { wait: ['[data-ui="report-scope"]', '全期間・シャッフル・'] }],
+    required: [['[data-ui="ms-panel"] h3', '対戦形式・機体'], ['[data-ui="mode-toggle"] button[aria-pressed="true"]', 'シャッフル'], ['[data-ui="ms-trigger"]', 'シャフ'], ['[data-ui="report-scope"]', '全期間・シャッフル・'], ['[data-ui="ms-item"]', null, 2]],
+    tap: ['[data-ui="mode-toggle"] button', '[data-ui="ms-item"]', '[data-ui="sheet-close"]'] },
+  { id: 'mobile-report-empty-mode', viewport: M, full: false, start: 'report-legacy',
+    ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', '固定'] }, { click: ['[data-ui="sheet-close"]'] }, { wait: ['[data-ui="empty-state"]'] }],
+    required: [['[data-ui="empty-state"] b', 'この対戦形式の試合はありません'], ['[data-ui="empty-action"]', '全形式に戻す'], ['[data-ui="ms-trigger"]', '固定']], inview: FILTERS,
+    tap: ['[data-ui="empty-action"]'] },
   { id: 'mobile-dropdown-ms', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="ms-trigger"]'] }],
     required: [['[data-ui="ms-panel"] h3', '機体'], ['[data-ui="ms-item"]', null, 2]],
     tap: ['[data-ui="ms-item"]', '[data-ui="sheet-close"]'] },

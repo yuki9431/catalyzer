@@ -8,14 +8,14 @@ import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
 import { BurstPane } from './burst.js';
-import { LensToggle, ModeSelector, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
+import { LensToggle, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
 import { MatchupPane } from './matchup.js';
 import { OverviewPane } from './overview.js';
 import { PlaystylePane } from './playstyle.js';
 import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
 import { HomeView } from '../home.js';
-import { MODE_LABELS } from '../../lib/match.js';
+import { modeLabel } from '../../lib/match.js';
 
 var TAB_DEFS = [
   ['overview', '総合'],
@@ -28,7 +28,7 @@ var TAB_DEFS = [
 // 要約の上に出す対象範囲。期間・対戦形式・機体・勝敗レンズを「・」で連結する
 function scopeText(periodKey, periods, ms, lens, mode) {
   var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? (periods.custom ? periods.custom.label : '日付指定') : '直近' + periods[periodKey].label];
-  if (MODE_LABELS[mode]) parts.push(MODE_LABELS[mode]);
+  if (modeLabel(mode)) parts.push(modeLabel(mode));
   if (ms) parts.push(ms);
   if (lens === 'win') parts.push('勝利のみ');
   else if (lens === 'loss') parts.push('敗北のみ');
@@ -162,9 +162,12 @@ export function Report({ data, userKey, actions }) {
       });
     }
     if (!periodFiltered.length) return { empty: true };
-    var msSummary = computeMsSummary(periodFiltered);
+    // 対戦形式は期間と同じく母集団を絞る(機体一覧の件数・機体別比較も形式で揃える)
+    var modeFiltered = filterByMode(periodFiltered, mode);
+    if (!modeFiltered.length) return { empty: true, emptyMode: true };
+    var msSummary = computeMsSummary(modeFiltered);
     var shareItems = computeShareData(periodFiltered);
-    var filtered = filterByMode(periodFiltered, mode);
+    var filtered = modeFiltered;
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
     // 勝敗レンズ: 選択時はレポート全体を勝ち/負け試合のみに絞る（MS一覧・共有データは母集団のまま）
     if (lens === 'win') filtered = filtered.filter(function (m) { return m.win; });
@@ -278,7 +281,9 @@ export function Report({ data, userKey, actions }) {
   }
 
   var pane;
-  if (frontendData.empty) {
+  if (frontendData.emptyMode) {
+    pane = html`<${EmptyMode} scope=${scopeText(selectedPeriod, periods, null, 'all', mode)} onReset=${function () { setMode('all'); }} />`;
+  } else if (frontendData.empty) {
     pane = html`<${EmptyPeriod} scope=${scopeText(selectedPeriod, periods, null, 'all')} onChangePeriod=${function () { setPeriodOpen(periodOpen + 1); }} />`;
   } else if (activeTab === 'playstyle') {
     pane = html`<${PlaystylePane} frontendData=${frontendData} />`;
@@ -296,8 +301,7 @@ export function Report({ data, userKey, actions }) {
   var filters = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} openSignal=${periodOpen} />
-        <${ModeSelector} selected=${mode} onSelect=${setMode} />
-        <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
+        <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} mode=${mode} onMode=${setMode} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
         ${reanalyzeButton(actions)}
       </div>`;
@@ -322,6 +326,15 @@ function EmptyPeriod({ scope, onChangePeriod }) {
   </div>`;
 }
 
+// 対戦形式で絞って0件のとき。形式は機能追加後に取り込んだ試合にしか無いので、その旨と戻す操作を出す
+function EmptyMode({ scope, onReset }) {
+  return html`<div class="report-empty" data-ui="empty-state" role="status">
+    <b>この対戦形式の試合はありません</b>
+    <p>${scope} に試合がありません。対戦形式は、この機能の追加後に取り込んだ試合にだけ記録されています。</p>
+    <button type="button" class="ui-action" data-ui="empty-action" onClick=${onReset}>全形式に戻す</button>
+  </div>`;
+}
+
 // ログイン成功後、データ到着までのダッシュボード骨組み表示
 export function Skeleton({ actions, nav }) {
   var own = useView();
@@ -331,7 +344,6 @@ export function Skeleton({ actions, nav }) {
   }
   var filters = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
         <${Chip} expanded=${false}><span class="ui-chip-text">全データ</span></${Chip}>
-        <${Chip} expanded=${false}><span class="ui-chip-text">全形式</span></${Chip}>
         <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
         <${LensToggle} lens=${'all'} onSelect=${function () {}} />
       </div>`;

@@ -566,4 +566,10 @@ describe('対戦形式の絞り込み', function () {
     assert.strictEqual(hasActiveFilters(f), true);
     assert.deepStrictEqual(appliedFilterLabels(f), ['対戦形式: 固定']);
   });
+
+  it('想定外の値はレポートの filterByMode と同じく絞らない', function () {
+    var f = Object.assign(emptyFilters(), { mode: 'solo' });
+    assert.strictEqual(filterMatches(matches, f).length, 3);
+    assert.strictEqual(hasActiveFilters(f), false);
+  });
 });

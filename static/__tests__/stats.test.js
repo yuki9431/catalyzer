@@ -768,7 +768,7 @@ describe('computeBurstType', function () {
   });
 });
 
-// --- computeFixedPartners ---
+// --- filterByMode ---
 
 describe('filterByMode', function () {
   var matches = [makeMatch({ mode: 'shuffle' }), makeMatch({ mode: 'fixed' }), makeMatch({})];
@@ -777,11 +777,17 @@ describe('filterByMode', function () {
     assert.equal(filterByMode(matches, 'all').length, 3);
   });
 
+  it('想定外の値は all と同じく全件', function () {
+    assert.equal(filterByMode(matches, 'solo').length, 3);
+  });
+
   it('shuffle / fixed はその形式の試合だけ（形式不明は除く）', function () {
     assert.deepEqual(filterByMode(matches, 'shuffle').map(function (m) { return m.mode; }), ['shuffle']);
     assert.deepEqual(filterByMode(matches, 'fixed').map(function (m) { return m.mode; }), ['fixed']);
   });
 });
+
+// --- computeFixedPartners ---
 
 describe('computeFixedPartners', function () {
   it('タッグ登録済みの相手でもシャッフルの試合は数えない（形式不明は数える）', function () {
