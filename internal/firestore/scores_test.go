@@ -77,3 +77,13 @@ func TestMatchDocID(t *testing.T) {
 		t.Errorf("legacy(MatchID空)のdoc IDはsuffixなしのはず: got %q, want %q", legacyID, wantLegacy)
 	}
 }
+
+func TestBuildMatchDoc_KeepsMatchMode(t *testing.T) {
+	ds := scoresFor(time.Date(2026, 10, 31, 17, 52, 0, 0, time.UTC), "mid")
+	for i := range ds {
+		ds[i].MatchMode = model.MatchModeFixed
+	}
+	if got := buildMatchDoc(ds).MatchMode; got != model.MatchModeFixed {
+		t.Errorf("matchDoc.MatchMode = %q, want %q", got, model.MatchModeFixed)
+	}
+}

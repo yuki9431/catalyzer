@@ -1,5 +1,5 @@
 import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.js';
-import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
+import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
@@ -8,13 +8,14 @@ import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
 import { BurstPane } from './burst.js';
-import { LensToggle, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
+import { LensToggle, ModeSelector, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
 import { MatchupPane } from './matchup.js';
 import { OverviewPane } from './overview.js';
 import { PlaystylePane } from './playstyle.js';
 import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
 import { HomeView } from '../home.js';
+import { MODE_LABELS } from '../../lib/match.js';
 
 var TAB_DEFS = [
   ['overview', '総合'],
@@ -24,9 +25,10 @@ var TAB_DEFS = [
   ['time', '時間帯'],
 ];
 
-// 要約の上に出す対象範囲。期間・機体・勝敗レンズを「・」で連結する
-function scopeText(periodKey, periods, ms, lens) {
+// 要約の上に出す対象範囲。期間・対戦形式・機体・勝敗レンズを「・」で連結する
+function scopeText(periodKey, periods, ms, lens, mode) {
   var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? (periods.custom ? periods.custom.label : '日付指定') : '直近' + periods[periodKey].label];
+  if (MODE_LABELS[mode]) parts.push(MODE_LABELS[mode]);
   if (ms) parts.push(ms);
   if (lens === 'win') parts.push('勝利のみ');
   else if (lens === 'loss') parts.push('敗北のみ');
@@ -51,6 +53,8 @@ export function Report({ data, userKey, actions }) {
   var selectedMs = msRef[0], setSelectedMs = msRef[1];
   var lensRef = useState('all');
   var lens = lensRef[0], setLens = lensRef[1];
+  var modeRef = useState('all');
+  var mode = modeRef[0], setMode = modeRef[1];
   var periodOpenRef = useState(0);
   var periodOpen = periodOpenRef[0], setPeriodOpen = periodOpenRef[1];
   var nav = useView();
@@ -160,7 +164,7 @@ export function Report({ data, userKey, actions }) {
     if (!periodFiltered.length) return { empty: true };
     var msSummary = computeMsSummary(periodFiltered);
     var shareItems = computeShareData(periodFiltered);
-    var filtered = periodFiltered;
+    var filtered = filterByMode(periodFiltered, mode);
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
     // 勝敗レンズ: 選択時はレポート全体を勝ち/負け試合のみに絞る（MS一覧・共有データは母集団のまま）
     if (lens === 'win') filtered = filtered.filter(function (m) { return m.win; });
@@ -190,7 +194,7 @@ export function Report({ data, userKey, actions }) {
       game_duration: computeGameDuration(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
-  }, [allMatches, selectedPeriod, selectedMs, lens, tagPartners, customRange]);
+  }, [allMatches, selectedPeriod, selectedMs, lens, mode, tagPartners, customRange]);
 
   var msStats = (frontendData && frontendData.ms_summary) || {};
   var msEntries = useMemo(function () {
@@ -292,6 +296,7 @@ export function Report({ data, userKey, actions }) {
   var filters = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} openSignal=${periodOpen} />
+        <${ModeSelector} selected=${mode} onSelect=${setMode} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
         ${reanalyzeButton(actions)}
@@ -302,7 +307,7 @@ export function Report({ data, userKey, actions }) {
       })}</div>`;
 
   return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${pullAction(actions)} canPull=${actions.canReanalyze} nav=${nav}>
-    ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />`}
+    ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens, mode)} />`}
 
     ${pane}
   </${AppShell}>`;
@@ -326,6 +331,7 @@ export function Skeleton({ actions, nav }) {
   }
   var filters = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
         <${Chip} expanded=${false}><span class="ui-chip-text">全データ</span></${Chip}>
+        <${Chip} expanded=${false}><span class="ui-chip-text">全形式</span></${Chip}>
         <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
         <${LensToggle} lens=${'all'} onSelect=${function () {}} />
       </div>`;

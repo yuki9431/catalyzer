@@ -551,3 +551,19 @@ describe('loss pattern filters', function () {
     assert.ok(evaluateGoal({ key: 'burst' }, all.filter(function (m) { return m.date > dateAt(30); }), 10).marks.length < 10);
   });
 });
+
+describe('対戦形式の絞り込み', function () {
+  var matches = [makeMatch({ mode: 'shuffle' }), makeMatch({ mode: 'fixed' }), makeMatch({})];
+
+  it('既定(all)は形式不明を含めて全件', function () {
+    assert.strictEqual(filterMatches(matches, emptyFilters()).length, 3);
+    assert.strictEqual(hasActiveFilters(emptyFilters()), false);
+  });
+
+  it('形式を選ぶとその形式だけになり、適用中の条件に出る', function () {
+    var f = Object.assign(emptyFilters(), { mode: 'fixed' });
+    assert.deepStrictEqual(filterMatches(matches, f).map(function (m) { return m.mode; }), ['fixed']);
+    assert.strictEqual(hasActiveFilters(f), true);
+    assert.deepStrictEqual(appliedFilterLabels(f), ['対戦形式: 固定']);
+  });
+});

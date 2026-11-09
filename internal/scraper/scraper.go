@@ -112,6 +112,18 @@ type matchEntry struct {
 	wins      []bool
 	detailURL string
 	shopName  string // プレイ店舗名（dailyLinkから引き継ぎ）
+	mode      string // model.MatchModeShuffle / MatchModeFixed（判別できなければ空）
+}
+
+// matchModeOf は一覧の試合行のクラスバッジの人型アイコン数から対戦モードを判別する（1=シャッフル、2=固定）
+func matchModeOf(item *goquery.Selection) string {
+	switch item.Find("span.picon-wrap > span.picon").Length() {
+	case 1:
+		return model.MatchModeShuffle
+	case 2:
+		return model.MatchModeFixed
+	}
+	return ""
 }
 
 // stripQueryParam はURLからクエリパラメータを除去する
@@ -468,6 +480,7 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 			wins:      wins,
 			detailURL: link,
 			shopName:  dl.shopName,
+			mode:      matchModeOf(e.DOM),
 		})
 	})
 
@@ -704,7 +717,7 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 	var scores model.DatedScores
 	doc.Find("div.panel_area").Each(func(_ int, s *goquery.Selection) {
 		// 解析できないpanel_areaで、既に取れた有効なスコアを潰さない
-		if parsed := parseDetailPage(s, e.date, e.hour, e.wins, e.shopName, matchID); parsed != nil {
+		if parsed := parseDetailPage(s, e.date, e.hour, e.wins, e.shopName, matchID, e.mode); parsed != nil {
 			scores = parsed
 		}
 	})
@@ -712,7 +725,7 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 }
 
 // parseDetailPage は試合詳細ページからスコアを抽出する
-func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopName, matchID string) model.DatedScores {
+func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopName, matchID, mode string) model.DatedScores {
 	var scores model.DatedScores
 
 	// スコアタブ(panel3)からの既存データ
@@ -818,9 +831,10 @@ func parseDetailPage(s *goquery.Selection, date, hour string, wins []bool, shopN
 		}
 
 		result := model.DatedScore{
-			PlayerNo: i + 1,
-			Datetime: datetime,
-			MatchID:  matchID,
+			PlayerNo:  i + 1,
+			Datetime:  datetime,
+			MatchID:   matchID,
+			MatchMode: mode,
 			PlayerScore: model.PlayerScore{
 				City:            city,
 				Name:            name,

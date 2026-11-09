@@ -2,6 +2,7 @@ import { html, useEffect, useRef, useState } from '../../htm-preact-standalone.j
 import { Chip, ToggleGroup } from '../parts.js';
 import { RangeCalendar } from '../ui.js';
 import { Popover, usePopover } from '../popover.js';
+import { MODE_LABELS } from '../../lib/match.js';
 
 export var PERIOD_KEYS = ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d'];
 
@@ -154,6 +155,23 @@ export function MsSelector({ entries, selected, onSelect }) {
       ${entries.map(function (e) {
         return html`<button data-ui="ms-item" class=${'ms-topbar-item' + (selected === e.name ? ' active' : '')}
           onClick=${function () { onSelect(e.name); pop.close(); }}>${e.name} <span style="color:var(--muted)">(${e.matches}戦)</span></button>`;
+      })}
+    </${Popover}>
+  </div>`;
+}
+
+var MODE_OPTIONS = [{ value: 'all', label: '全形式' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
+
+// 対戦形式（シャッフル/固定）の選択。見た目は機体の選択と揃える
+export function ModeSelector({ selected, onSelect }) {
+  var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
+  var current = MODE_OPTIONS.filter(function (o) { return o.value === selected; })[0] || MODE_OPTIONS[0];
+  return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
+    <${Chip} ui="mode-trigger" expanded=${pop.isOpen} active=${current.value !== 'all'} onClick=${pop.toggle}><span class="ui-chip-text">${current.label}</span></${Chip}>
+    <${Popover} pop=${pop} panelClass="ms-topbar-dropdown" backdropClass="ms-topbar-backdrop" ui="mode-panel" title="対戦形式">
+      ${MODE_OPTIONS.map(function (o) {
+        return html`<button data-ui="mode-item" class=${'ms-topbar-item' + (current.value === o.value ? ' active' : '')}
+          onClick=${function () { onSelect(o.value); pop.close(); }}>${o.label}</button>`;
       })}
     </${Popover}>
   </div>`;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PERIOD_DAYS,
   filterByPlayDays,
+  filterByMode,
   computeTimeOfDay,
   computeDayOfWeek,
   computeDailyTrend,
@@ -769,7 +770,29 @@ describe('computeBurstType', function () {
 
 // --- computeFixedPartners ---
 
+describe('filterByMode', function () {
+  var matches = [makeMatch({ mode: 'shuffle' }), makeMatch({ mode: 'fixed' }), makeMatch({})];
+
+  it('all は形式不明を含めて全件を返す', function () {
+    assert.equal(filterByMode(matches, 'all').length, 3);
+  });
+
+  it('shuffle / fixed はその形式の試合だけ（形式不明は除く）', function () {
+    assert.deepEqual(filterByMode(matches, 'shuffle').map(function (m) { return m.mode; }), ['shuffle']);
+    assert.deepEqual(filterByMode(matches, 'fixed').map(function (m) { return m.mode; }), ['fixed']);
+  });
+});
+
 describe('computeFixedPartners', function () {
+  it('タッグ登録済みの相手でもシャッフルの試合は数えない（形式不明は数える）', function () {
+    var tagPartners = [{ player_name: 'パートナー', team_name: 'チームA' }];
+    var matches = makeMatches(2, { partner_name: 'パートナー', mode: 'fixed' })
+      .concat(makeMatches(3, { partner_name: 'パートナー', mode: 'shuffle' }))
+      .concat(makeMatches(1, { partner_name: 'パートナー' }));
+    var result = computeFixedPartners(matches, tagPartners);
+    assert.equal(result.partners[0].matches, 3);
+  });
+
   it('returns notice when no tag partners', function () {
     var result = computeFixedPartners([makeMatch()], []);
     assert.ok(result.notice);

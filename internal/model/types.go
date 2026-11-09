@@ -11,6 +11,12 @@ import (
 // MatchID未設定のlegacyデータ用フォールバックキー（分精度のため同一分に複数試合があると区別できない。#358）。
 const MatchKeyFormat = "2006-01-02T1504"
 
+// 試合の対戦モード(DatedScore.MatchMode)。取得前の legacy データは空。
+const (
+	MatchModeShuffle = "shuffle"
+	MatchModeFixed   = "fixed"
+)
+
 // MSInfo は機体情報（画像URL → 機体名のマッピング）
 type MSInfo struct {
 	Name     string
@@ -71,6 +77,7 @@ type DatedScore struct {
 	PlayerNo      int
 	Datetime      time.Time
 	MatchID       string // 試合の一意ID(detailURL由来。同一試合の4人で共有。legacyデータでは空。#358)
+	MatchMode     string // MatchModeShuffle / MatchModeFixed。4人で共有。legacyデータでは空
 	PlayerScore   PlayerScore
 	MatchTimeline *MatchTimeline // 試合経過(PlayerNo==1のときのみセット、4人で共有)
 }
