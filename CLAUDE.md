@@ -13,7 +13,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
-- **画面確認（UI oracle）**: `make ui-check`（67画面をダーク・ライトの2テーマで計134枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直してコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（67画面をダーク・ライトの2テーマで計134枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`gh run download <run-id> -n ui-baseline -D tools/ui-check/baseline` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
@@ -155,7 +155,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - CI: `ci.yml`（main/develop 向けPRのみ。Docker build, golangci-lint, go test -race + coverage, JS test。ラベル `skip-ci` でスキップ）
 - Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の Pulumi yaml の image 更新 → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
 - Deploy: `deploy.yml`（develop の `Pulumi.stg.yaml`・main の `Pulumi.prod.yaml` の変更トリガー or build.yml からの `workflow_dispatch` → `pulumi up`。prod の手動実行は main からのみ）
-- UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し `GH_PAT` で PR にコミット）
+- UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
 - Infra CI: `infra-ci.yml`（infra/配下の変更時にshared + app(prod/staging)のPulumi preview）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。変更時に main 向けPRを自動作成・マージし prod に反映）
 - **サードパーティアクションを追加・変更する際は、GitHubリポジトリのリリースページで最新メジャーバージョンを確認すること。** 古いバージョンを指定するとNode.js非推奨警告やエラーが発生する（過去に複数回発生）。

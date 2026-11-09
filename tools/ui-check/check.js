@@ -315,7 +315,7 @@ async function main() {
   if (unknown.length) throw new InfraError('存在しない画面 id: ' + unknown.join(', '));
   var screens = SCREENS.filter(function (s) { return !ONLY.length || ONLY.includes(s.id); });
   if (!screens.length) throw new InfraError('対象の画面が0件');
-  if (UPDATE && !process.env.CI) throw new InfraError('基準画像は CI で更新する。PR に ui-baseline ラベルを付ける');
+  if (UPDATE && !process.env.CI) throw new InfraError('基準画像は CI で撮る。PR に ui-baseline ラベルを付け、artifact を gh run download で取り込む');
   var userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'catalyzer-ui-check-'));
   var chrome = null, srv = null;
   var cleanup = function () {

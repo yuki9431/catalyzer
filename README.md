@@ -214,7 +214,7 @@ make test-js
 # UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認
 make ui-preview
 make ui-check
-# 基準画像の比較と更新は PR の CI で行う(更新は PR に ui-baseline ラベルを付ける)。ローカルは画像比較を省く
+# 基準画像の比較と更新は PR の CI で行う(更新は PR に ui-baseline ラベルを付け、CI の artifact を gh run download で取り込む)。ローカルは画像比較を省く
 # Chrome が既定パス(macOS の Google Chrome)に無い場合は CHROME_PATH で指定する
 
 # Firestoreから未登録グレードURLを抽出
