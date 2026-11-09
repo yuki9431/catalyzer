@@ -44,6 +44,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
 
+      - name: Diag repeat (temporary)
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: for i in 1 2 3 4 5 6 7 8; do node tools/ui-check/check.js mobile-report-overview mobile-report-scroll-up | grep -E "FAIL|ui-check:" || true; done
+
       - name: UI check
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
