@@ -20,7 +20,7 @@ type ActionJSON struct {
 // MatchDataSchemaVersion はMatchDataの構造バージョン。
 // MatchDataにフィールドを追加/変更しクライアントの全件キャッシュ再構築が
 // 必要になったら +1 する（フロントは /schema-version 経由で自動追従する）。
-const MatchDataSchemaVersion = 1
+const MatchDataSchemaVersion = 2
 
 // MatchData はフロントエンド向けの試合データ（プレイヤー視点）
 type MatchData struct {
@@ -85,7 +85,7 @@ type MatchData struct {
 	Opponent2Actions     []ActionJSON `json:"opponent2_actions"`
 	GameEndSec           float64      `json:"game_end_sec,omitempty"`
 	MatchID              string       `json:"match_id,omitempty"`
-	Mode                 string       `json:"mode,omitempty"` // shuffle / fixed。legacy は省略(不明)
+	Mode                 string       `json:"mode,omitempty"` // shuffle / fixed。判別できなかった試合は省略(不明)
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
