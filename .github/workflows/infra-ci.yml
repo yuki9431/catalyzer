@@ -6,6 +6,7 @@ on:
     paths:
       - "infra/**"
       - ".github/workflows/infra-ci.yml"
+      - ".github/scripts/pulumi-preview-summary.sh"
 
 jobs:
   preview:
@@ -41,6 +42,17 @@ jobs:
       - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         if: steps.check-secrets.outputs.skip != 'true'
 
+      # 公開 repo のジョブログにプロジェクト ID を出さない。auth が環境変数に書き出す前に登録する
+      - name: Mask project ID
+        if: steps.check-secrets.outputs.skip != 'true'
+        env:
+          SA: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+        run: |
+          project=${SA#*@}
+          project=${project%.iam.gserviceaccount.com}
+          [ -n "$project" ] && [ "$project" != "$SA" ] || { echo "::error::サービスアカウントからプロジェクト ID を取り出せない"; exit 1; }
+          echo "::add-mask::$project"
+
       - id: auth
         if: steps.check-secrets.outputs.skip != 'true'
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -61,40 +73,19 @@ jobs:
       - name: Pulumi preview (shared)
         if: steps.check-secrets.outputs.skip != 'true'
         working-directory: infra/shared
-        shell: bash
         run: |
           pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
-          if ! pulumi stack select shared 2>/dev/null; then
-            echo "### shared: stack not initialized, skipping" > /tmp/pulumi-preview.txt
-            exit 0
-          fi
-          echo "### shared" > /tmp/pulumi-preview.txt
-          pulumi preview 2>&1 | tee -a /tmp/pulumi-preview.txt
+          "$GITHUB_WORKSPACE/.github/scripts/pulumi-preview-summary.sh" "shared" shared
 
       - name: Pulumi preview (app/prod)
         if: steps.check-secrets.outputs.skip != 'true'
         working-directory: infra/app
-        shell: bash
-        run: |
-          pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
-          if ! pulumi stack select prod 2>/dev/null; then
-            echo "### app (prod): stack not initialized, skipping" >> /tmp/pulumi-preview.txt
-            exit 0
-          fi
-          echo "### app (prod)" >> /tmp/pulumi-preview.txt
-          pulumi preview 2>&1 | tee -a /tmp/pulumi-preview.txt
+        run: '"$GITHUB_WORKSPACE/.github/scripts/pulumi-preview-summary.sh" "app (prod)" prod'
 
       - name: Pulumi preview (app/stg)
         if: steps.check-secrets.outputs.skip != 'true'
         working-directory: infra/app
-        shell: bash
-        run: |
-          if ! pulumi stack select stg 2>/dev/null; then
-            echo "### app (stg): stack not initialized, skipping" >> /tmp/pulumi-preview.txt
-            exit 0
-          fi
-          echo "### app (stg)" >> /tmp/pulumi-preview.txt
-          pulumi preview 2>&1 | tee -a /tmp/pulumi-preview.txt
+        run: '"$GITHUB_WORKSPACE/.github/scripts/pulumi-preview-summary.sh" "app (stg)" stg'
 
       - name: Comment preview on PR
         if: steps.check-secrets.outputs.skip != 'true' && always()
@@ -103,6 +94,4 @@ jobs:
         run: |
           PREVIEW=$(cat /tmp/pulumi-preview.txt 2>/dev/null || echo "Preview output not available")
           gh pr comment "${{ github.event.pull_request.number }}" --body "## Pulumi Preview
-          \`\`\`
-          ${PREVIEW}
-          \`\`\`"
+          ${PREVIEW}"

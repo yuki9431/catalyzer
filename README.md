@@ -152,6 +152,8 @@
 │   └── app/                       # 環境別リソース（prod/stg）
 │       └── index.ts               # Cloud Run・ドメインマッピング
 ├── .github/
+│   ├── scripts/
+│   │   └── pulumi-preview-summary.sh  # Pulumi previewの要約（PRコメント用。識別子を出さない）
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
