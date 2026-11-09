@@ -333,7 +333,8 @@ async function main() {
     if (!UPDATE && fs.existsSync(metaPath)) {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
       PIXEL = meta.platform === process.platform + '-' + process.arch;
-      if (!PIXEL) console.log('SKIP 画像比較: 基準は ' + meta.platform + ' で撮影(CI)。画像比較は PR の CI で行う');
+      if (!PIXEL && process.env.CI) throw new InfraError('基準は ' + meta.platform + ' で撮影されている。PR に ui-baseline ラベルを付けて CI で撮り直す');
+      if (!PIXEL) console.log('SKIP 画像比較: 基準は ' + meta.platform + ' で撮影。画像比較は PR の CI で行う');
       else if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
     var okCount = 0, total = 0;
