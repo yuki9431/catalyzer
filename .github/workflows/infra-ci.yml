@@ -37,7 +37,7 @@ jobs:
           node-version: "22"
 
       # ubuntu-26.04 のランナーには Pulumi CLI が入っていないため明示的に入れる
-      - uses: pulumi/actions@v7
+      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         if: steps.check-secrets.outputs.skip != 'true'
 
       - id: auth
