@@ -7,7 +7,7 @@ var FLAGS = [
   '--disable-gpu', '--hide-scrollbars', '--disable-lcd-text', '--font-render-hinting=none',
   '--force-color-profile=srgb', '--disable-extensions', '--disable-component-update',
   '--disable-background-networking', '--mute-audio', '--lang=ja-JP',
-];
+].concat(process.env.CI ? ['--no-sandbox'] : []);  // CI の Linux は AppArmor で sandbox を作れない
 
 // Chrome を pipe 接続で起動し、CDP クライアントと kill 関数を返す(依存ゼロ)
 export function launchChrome(chromePath, userDataDir) {

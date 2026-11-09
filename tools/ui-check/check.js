@@ -15,6 +15,8 @@ var CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Content
 var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
+// 基準と撮影環境(OS)が違うときは画像比較を省き、他の検査だけ行う
+var PIXEL = true;
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
 var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', parts: '/__preview/parts.html' };
 var INJECT = {};
@@ -280,6 +282,8 @@ async function runScreen(conn, origin, screen, theme, update) {
     if (update) {
       fs.mkdirSync(BASELINE, { recursive: true });
       fs.writeFileSync(basePath, png);
+    } else if (!PIXEL) {
+      // 画像比較は基準と同じ環境(CI)で行う
     } else if (!fs.existsSync(basePath)) {
       return fail('基準画像なし');
     } else {
@@ -303,6 +307,7 @@ async function main() {
   if (unknown.length) throw new InfraError('存在しない画面 id: ' + unknown.join(', '));
   var screens = SCREENS.filter(function (s) { return !ONLY.length || ONLY.includes(s.id); });
   if (!screens.length) throw new InfraError('対象の画面が0件');
+  if (UPDATE && !process.env.CI) throw new InfraError('基準画像は CI で更新する。PR に ui-baseline ラベルを付ける');
   var userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'catalyzer-ui-check-'));
   var chrome = null, srv = null;
   var cleanup = function () {
@@ -327,7 +332,9 @@ async function main() {
     var metaPath = path.join(BASELINE, 'meta.json');
     if (!UPDATE && fs.existsSync(metaPath)) {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-      if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
+      PIXEL = meta.platform === process.platform + '-' + process.arch;
+      if (!PIXEL) console.log('SKIP 画像比較: 基準は ' + meta.platform + ' で撮影(CI)。画像比較は PR の CI で行う');
+      else if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
     var okCount = 0, total = 0;
     for (var i = 0; i < screens.length; i++) {
