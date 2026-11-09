@@ -123,6 +123,16 @@ describe('screens', () => {
     ['[data-ui="search-result"]', '[data-ui="search-pager"]'].forEach(function (sel) { assert.ok(s.outview.some(function (r) { return r[0] === sel; }), sel); });
   });
 
+  it('mobile-search-page-next は「scrollBy 正→次へ→2ページ目を待つ」の順で、件数の見出しが画面内', () => {
+    var s = get('mobile-search-page-next');
+    var idx = function (f) { return s.ops.findIndex(f); };
+    var sb = idx(function (o) { return o.scrollBy && o.scrollBy[0] > 0; });
+    var next = idx(function (o) { return o.click && o.click[1] === '次へ'; });
+    var wait = idx(function (o) { return o.wait && o.wait[1] === '21〜40'; });
+    assert.ok(sb >= 0 && sb < next && next < wait);
+    assert.ok(s.inview.some(function (r) { return r[0] === '[data-ui="search-total"]'; }));
+  });
+
   it('試合詳細・絞り込みの全画面は下部タブバーを覆い、試合経過は常時表示', () => {
     ['match-detail', 'mobile-match-detail', 'mobile-search-filter'].forEach(function (id) {
       assert.ok(get(id).outview.some(function (r) { return r[0] === '[data-ui="tabbar"]'; }), id);

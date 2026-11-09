@@ -21,6 +21,8 @@
 - ダメージ貢献率
 - 先落ち/後落ち分析・順落ち分析（自機・僚機が順不同で15秒以内に続けて撃墜された試合を、順落ち（試合継続）/順落ち（そのまま負け）/順落ちなしに分けた勝率）
 - 覚醒タイミング・覚醒タイプ別傾向・覚醒回数
+- OLスタンバイの順番と勝率（自分と相手の両方がOLスタンバイになった試合を、相手より先/後に分けた勝率）
+- 試合時間と勝率（30秒刻み＋タイムアップ。勝ち/負けの平均試合時間）
 
 ### 時間帯・曜日
 - 時間帯別・曜日別（平日vs土日）・日別の勝率推移（チャート＋テーブル）
@@ -80,13 +82,14 @@
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
 │   │   ├── stats.js               # 統計分析関数（時間帯/曜日/敵相性等）
+│   │   ├── patterns.js            # 試合の展開（負け筋）の定義一覧（ミッション判定・試合検索が共用）
 │   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー
-│   │   ├── home.js                # ホーム画面（勝率アップミッション・前回との比較）
+│   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
@@ -107,6 +110,7 @@
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
+│   │   ├── patterns.test.js       # patterns.js テスト
 │   │   ├── today.test.js          # today.js テスト
 │   │   ├── tabseen.test.js        # tabseen.js テスト
 │   │   ├── format.test.js         # format.js テスト

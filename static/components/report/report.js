@@ -1,6 +1,7 @@
 import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.js';
-import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeMsPair, computeMsSummary, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByPlayDays } from '../../analysis/stats.js';
+import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
+import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
 import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
@@ -14,6 +15,7 @@ import { PlaystylePane } from './playstyle.js';
 import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
 import { HomeView } from '../home.js';
+import { modeLabel } from '../../lib/match.js';
 
 var TAB_DEFS = [
   ['overview', '総合'],
@@ -23,9 +25,10 @@ var TAB_DEFS = [
   ['time', '時間帯'],
 ];
 
-// 要約の上に出す対象範囲。期間・機体・勝敗レンズを「・」で連結する
-function scopeText(periodKey, periods, ms, lens) {
+// 要約の上に出す対象範囲。期間・対戦形式・機体・勝敗レンズを「・」で連結する
+function scopeText(periodKey, periods, ms, lens, mode) {
   var parts = [periodKey === 'all' ? '全期間' : periodKey === 'custom' ? (periods.custom ? periods.custom.label : '日付指定') : '直近' + periods[periodKey].label];
+  if (modeLabel(mode)) parts.push(modeLabel(mode));
   if (ms) parts.push(ms);
   if (lens === 'win') parts.push('勝利のみ');
   else if (lens === 'loss') parts.push('敗北のみ');
@@ -50,10 +53,16 @@ export function Report({ data, userKey, actions }) {
   var selectedMs = msRef[0], setSelectedMs = msRef[1];
   var lensRef = useState('all');
   var lens = lensRef[0], setLens = lensRef[1];
+  var modeRef = useState('all');
+  var mode = modeRef[0], setMode = modeRef[1];
   var periodOpenRef = useState(0);
   var periodOpen = periodOpenRef[0], setPeriodOpen = periodOpenRef[1];
   var nav = useView();
   var view = nav.view;
+  // ホームのミッションから開いた試合検索の初期条件。search 以外の画面では持ち越さない
+  var presetRef = useState(null);
+  var searchPreset = presetRef[0], setSearchPreset = presetRef[1];
+  useEffect(function () { if (view !== 'search') setSearchPreset(null); }, [view]);
   var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
@@ -153,9 +162,12 @@ export function Report({ data, userKey, actions }) {
       });
     }
     if (!periodFiltered.length) return { empty: true };
-    var msSummary = computeMsSummary(periodFiltered);
+    // 対戦形式は期間と同じく母集団を絞る(機体一覧の件数・機体別比較も形式で揃える)
+    var modeFiltered = filterByMode(periodFiltered, mode);
+    if (!modeFiltered.length) return { empty: true, emptyMode: true };
+    var msSummary = computeMsSummary(modeFiltered);
     var shareItems = computeShareData(periodFiltered);
-    var filtered = periodFiltered;
+    var filtered = modeFiltered;
     if (selectedMs) filtered = filtered.filter(function (m) { return m.ms === selectedMs; });
     // 勝敗レンズ: 選択時はレポート全体を勝ち/負け試合のみに絞る（MS一覧・共有データは母集団のまま）
     if (lens === 'win') filtered = filtered.filter(function (m) { return m.win; });
@@ -181,9 +193,11 @@ export function Report({ data, userKey, actions }) {
       consecutive_fall: computeConsecutiveFall(filtered),
       burst_timing: computeBurstTiming(filtered),
       burst_type: computeBurstType(filtered),
+      overlimit: computeOverlimit(filtered),
+      game_duration: computeGameDuration(filtered),
       fixed_partners: computeFixedPartners(filtered, tagPartners),
     };
-  }, [allMatches, selectedPeriod, selectedMs, lens, tagPartners, customRange]);
+  }, [allMatches, selectedPeriod, selectedMs, lens, mode, tagPartners, customRange]);
 
   var msStats = (frontendData && frontendData.ms_summary) || {};
   var msEntries = useMemo(function () {
@@ -210,6 +224,15 @@ export function Report({ data, userKey, actions }) {
     return computeActionPlan(selectedMs ? ms.filter(function (m) { return m.ms === selectedMs; }) : ms);
   }, [allMatches, selectedMs]);
 
+  function showMatches(link) {
+    var f = emptyFilters();
+    f.myMsList = selectedMs ? [selectedMs] : [];
+    f.goal = link.goal;
+    if (link.focusRange) f.focusRange = link.focusRange;
+    setSearchPreset(f);
+    nav.onNavigate('search');
+  }
+
   function handleCustomReport(range) {
     setCustomRange(range);
     setSelectedPeriod('custom');
@@ -232,12 +255,12 @@ export function Report({ data, userKey, actions }) {
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${HomeView} matches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} />
+      <${HomeView} matches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} onShowMatches=${showMatches} />
     </${AppShell}>`;
   }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initialFilters=${searchPreset} />
     </${AppShell}>`;
   }
 
@@ -258,7 +281,9 @@ export function Report({ data, userKey, actions }) {
   }
 
   var pane;
-  if (frontendData.empty) {
+  if (frontendData.emptyMode) {
+    pane = html`<${EmptyMode} scope=${scopeText(selectedPeriod, periods, null, 'all', mode)} onReset=${function () { setMode('all'); }} />`;
+  } else if (frontendData.empty) {
     pane = html`<${EmptyPeriod} scope=${scopeText(selectedPeriod, periods, null, 'all')} onChangePeriod=${function () { setPeriodOpen(periodOpen + 1); }} />`;
   } else if (activeTab === 'playstyle') {
     pane = html`<${PlaystylePane} frontendData=${frontendData} />`;
@@ -276,7 +301,7 @@ export function Report({ data, userKey, actions }) {
   var filters = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
           userKey=${userKey} onCustomReport=${handleCustomReport} openSignal=${periodOpen} />
-        <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
+        <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} mode=${mode} onMode=${setMode} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
         ${reanalyzeButton(actions)}
       </div>`;
@@ -286,7 +311,7 @@ export function Report({ data, userKey, actions }) {
       })}</div>`;
 
   return html`<${AppShell} filters=${filters} tabs=${tabs} onPull=${pullAction(actions)} canPull=${actions.canReanalyze} nav=${nav}>
-    ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens)} />`}
+    ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens, mode)} />`}
 
     ${pane}
   </${AppShell}>`;
@@ -298,6 +323,15 @@ function EmptyPeriod({ scope, onChangePeriod }) {
     <b>この期間の試合はありません</b>
     <p>${scope} に試合がありません。期間を広げると表示されます。</p>
     <button type="button" class="ui-action" data-ui="empty-action" onClick=${onChangePeriod}>期間を変更</button>
+  </div>`;
+}
+
+// 対戦形式で絞って0件のとき。形式は機能追加後に取り込んだ試合にしか無いので、その旨と戻す操作を出す
+function EmptyMode({ scope, onReset }) {
+  return html`<div class="report-empty" data-ui="empty-state" role="status">
+    <b>この対戦形式の試合はありません</b>
+    <p>${scope} に試合がありません。対戦形式は、この機能の追加後に取り込んだ試合にだけ記録されています。</p>
+    <button type="button" class="ui-action" data-ui="empty-action" onClick=${onReset}>全形式に戻す</button>
   </div>`;
 }
 

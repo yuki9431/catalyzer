@@ -3,8 +3,9 @@ import assert from 'node:assert';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
-  appliedFilterLabels, sortDirLabel, sortLabel,
+  appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
+import { computeActionPlan, evaluateGoal } from '../analysis/coach.js';
 
 function makeMatch(overrides) {
   return Object.assign({
@@ -416,5 +417,189 @@ describe('sortDirLabel / sortLabel', function () {
     assert.equal(sortLabel('dmg_given', true), '与ダメージが大きい順');
     assert.equal(sortLabel('date', false), '日付が古い順');
     assert.equal(sortLabel('nope', true), '日付が新しい順');
+  });
+});
+
+function death(t) { return { action: 'death', action_start_sec: t, action_end_sec: 0 }; }
+function burst(a, b) { return { action: 'exbst-f', action_start_sec: a, action_end_sec: b }; }
+function dateAt(i) { return '2025-06-' + String(1 + Math.floor(i / 5)).padStart(2, '0') + ' 20:0' + (i % 5); }
+
+// 負け試合は覚醒前に先落ち・順落ち、勝ち試合は覚醒を先に使う二極のデータ
+function polar(n) {
+  var out = [];
+  for (var i = 0; i < n; i++) {
+    var win = i % 3 === 0;
+    out.push(makeMatch(win ? {
+      date: dateAt(i), win: true, ms: i % 2 ? 'ザク' : 'ガンダム', deaths: 1, dmg_given: 1500 + i, dmg_taken: 500 + i, ex_dmg: 400, bursts: 2,
+      actions: [burst(10, 20), burst(60, 70), death(90)], partner_actions: [death(50)],
+    } : {
+      date: dateAt(i), win: false, ms: i % 2 ? 'ザク' : 'ガンダム', deaths: 3, dmg_given: 600 + i, dmg_taken: 1500 + i, ex_dmg: i % 2 ? 100 : 0, bursts: i % 2,
+      actions: i % 2 ? [burst(40, 50), death(20), death(45), death(120)] : [death(20 + (i % 5)), death(100)], partner_actions: [death(30 + (i % 5))],
+    }));
+  }
+  return out;
+}
+
+describe('loss pattern filters', function () {
+  it('has empty defaults and counts a pattern as an active filter', function () {
+    var f = emptyFilters();
+    assert.deepEqual(f.patterns, []);
+    assert.equal(f.patternMode, 'and');
+    assert.equal(f.goal, null);
+    assert.equal(f.focusRange, null);
+    assert.equal(hasActiveFilters(f), false);
+    f.patterns = ['burst'];
+    assert.equal(hasActiveFilters(f), true);
+    f = emptyFilters(); f.goal = { key: 'dmg_given', line: 1000 };
+    assert.equal(hasActiveFilters(f), true);
+    f = emptyFilters(); f.focusRange = { after: '2025-06-01 00:00', until: '' };
+    assert.equal(hasActiveFilters(f), true);
+  });
+
+  it('ignores invalid pattern / goal / range values', function () {
+    var f = emptyFilters();
+    f.patterns = ['deaths']; f.goal = { key: 'no_such_pattern' }; f.focusRange = { after: '', until: '' };
+    assert.deepEqual(activeConditions(f), []);
+    assert.equal(hasActiveFilters(f), false);
+    f.patterns = ['valueOf', 1, null];
+    assert.deepEqual(activeConditions(f), []);
+    f.patterns = 'burst';
+    assert.deepEqual(activeConditions(f), []);
+    assert.equal(filterMatches(polar(10), f).length, 10);
+  });
+
+  it('filters by sheet pattern (null = undecidable is excluded)', function () {
+    var ms = polar(20).concat([makeMatch({ date: '2025-07-01 10:00', actions: [], partner_actions: [] })]);
+    var f = emptyFilters(); f.patterns = ['burst'];
+    var got = filterMatches(ms, f);
+    assert.ok(got.length > 0 && got.every(function (m) { return !m.win; }));
+  });
+
+  it('ANDs goal and pattern', function () {
+    var noFall = makeMatch({ date: '2025-07-02 10:00', dmg_given: 500, actions: [], partner_actions: [{ action: 'death', action_start_sec: 30, action_end_sec: 0 }] });
+    var ms = polar(20).concat([noFall]);
+    var f = emptyFilters(); f.goal = { key: 'dmg_given', line: 1000 };
+    var a = filterMatches(ms, f).length;
+    f.patterns = ['fall_first'];
+    var b = filterMatches(ms, f).length;
+    assert.ok(b > 0);
+    assert.equal(b, a - 1);
+  });
+
+  it('does not repeat a condition chosen both from home and the sheet', function () {
+    var f = emptyFilters(); f.goal = { key: 'burst' }; f.patterns = ['burst', 'burst'];
+    assert.deepEqual(activeConditions(f), [{ key: 'burst' }]);
+    assert.equal(appliedFilterLabels(f).length, 0);
+    assert.equal(removableFilterLabels(f).length, 1);
+  });
+
+  it('applies focusRange as (after, until]', function () {
+    var ms = polar(10);
+    var f = emptyFilters(); f.focusRange = { after: ms[2].date, until: ms[5].date };
+    assert.deepEqual(filterMatches(ms, f).map(function (m) { return m.date; }), [ms[3].date, ms[4].date, ms[5].date]);
+    f.focusRange = { after: ms[7].date, until: '' };
+    assert.equal(filterMatches(ms, f).length, 2);
+  });
+
+  it('removes focusRange together with goal, but keeps goal when only the range is removed', function () {
+    var f = emptyFilters();
+    f.goal = { key: 'burst' };
+    f.focusRange = { after: '2025-06-01 00:00', until: '' };
+    var g = removeFilter(f, 'goal');
+    assert.equal(g.goal, null);
+    assert.equal(g.focusRange, null);
+    var r = removeFilter(f, 'focusRange');
+    assert.deepEqual(r.goal, { key: 'burst' });
+    assert.equal(r.focusRange, null);
+    assert.deepEqual(f.focusRange, { after: '2025-06-01 00:00', until: '' });
+  });
+
+  it('builds labels', function () {
+    var f = emptyFilters();
+    f.patterns = ['burst'];
+    f.goal = { key: 'dmg_given', line: 1500 };
+    f.focusRange = { after: '2025-06-01 00:00', until: '' };
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開: 1機目で覚醒せず落ちた']);
+    assert.deepEqual(removableFilterLabels(f), [
+      { field: 'goal', label: '負け筋: 与ダメ1500未満' },
+      { field: 'focusRange', label: '挑戦中のミッションの試合' },
+    ]);
+    assert.deepEqual(activeConditions(f), [{ key: 'dmg_given', line: 1500 }, { key: 'burst' }]);
+  });
+
+  it('combines several patterns with AND or OR', function () {
+    function death(t) { return { action: 'death', action_start_sec: t, action_end_sec: 0 }; }
+    function burstAct(s, e) { return { action: 'exbst-f', action_start_sec: s, action_end_sec: e }; }
+    // a: 先落ち・1機目覚醒なし / b: 先落ちだが先に覚醒 / c: 後落ち・1機目覚醒なし / d: 落ちていない
+    var a = makeMatch({ date: '2025-07-01 10:00', actions: [death(30)], partner_actions: [death(60)] });
+    var b = makeMatch({ date: '2025-07-01 10:05', actions: [burstAct(10, 20), death(30)], partner_actions: [death(60)] });
+    var c = makeMatch({ date: '2025-07-01 10:10', actions: [death(70)], partner_actions: [death(60)] });
+    var d = makeMatch({ date: '2025-07-01 10:15', actions: [burstAct(10, 20)], partner_actions: [death(60)] });
+    var ms = [a, b, c, d];
+    var f = emptyFilters(); f.patterns = ['fall_first', 'burst'];
+    assert.deepEqual(filterMatches(ms, f), [a]);
+    f.patternMode = 'or';
+    assert.deepEqual(filterMatches(ms, f), [a, b, c]);
+    // goal は展開の絞り方にかかわらず必ず当てはまる
+    f.goal = { key: 'fall_order', avoid: 'second' };
+    assert.deepEqual(filterMatches(ms, f), [c]);
+  });
+
+  it('labels several patterns with the mode', function () {
+    var f = emptyFilters(); f.patterns = ['burst', 'fall_first'];
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開（すべて当てはまる）: 1機目で覚醒せず落ちた ほか1']);
+    f.patternMode = 'or';
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開（どれかに当てはまる）: 1機目で覚醒せず落ちた ほか1']);
+    f.patterns = ['fall_first'];
+    assert.deepEqual(appliedFilterLabels(f), ['試合の展開: 先落ちした']);
+  });
+
+  it('matches the mission count for every mission, also within a single MS', function () {
+    [null, 'ガンダム'].forEach(function (ms) {
+      var all = polar(40);
+      var plan = computeActionPlan(all.filter(function (m) { return !ms || m.ms === ms; }));
+      assert.ok(plan.actions.length > 0);
+      plan.actions.forEach(function (a) {
+        var f = emptyFilters(); f.goal = a.goal; if (ms) f.myMsList = [ms];
+        assert.equal(filterMatches(all, f).length, a.unachieved, a.key);
+      });
+    });
+  });
+
+  it('matches the X marks of a challenge with 10+ and fewer than 10 judged matches', function () {
+    var all = polar(40);
+    [{ since: dateAt(4), goal: { key: 'dmg_given', line: 1000 } }, { since: dateAt(30), goal: { key: 'burst' } }].forEach(function (c) {
+      var targets = all.filter(function (m) { return m.date > c.since; });
+      var ev = evaluateGoal(c.goal, targets, 10);
+      var missed = ev.marks.filter(function (x) { return !x.ok; }).length;
+      var f = emptyFilters(); f.goal = c.goal;
+      f.focusRange = { after: c.since, until: ev.marks.length >= 10 ? ev.marks[9].date : '' };
+      assert.ok(missed > 0);
+      assert.equal(filterMatches(all, f).length, missed);
+    });
+    assert.equal(evaluateGoal({ key: 'dmg_given', line: 1000 }, all.filter(function (m) { return m.date > dateAt(4); }), 10).marks.length, 10);
+    assert.ok(evaluateGoal({ key: 'burst' }, all.filter(function (m) { return m.date > dateAt(30); }), 10).marks.length < 10);
+  });
+});
+
+describe('対戦形式の絞り込み', function () {
+  var matches = [makeMatch({ mode: 'shuffle' }), makeMatch({ mode: 'fixed' }), makeMatch({})];
+
+  it('既定(all)は形式不明を含めて全件', function () {
+    assert.strictEqual(filterMatches(matches, emptyFilters()).length, 3);
+    assert.strictEqual(hasActiveFilters(emptyFilters()), false);
+  });
+
+  it('形式を選ぶとその形式だけになり、適用中の条件に出る', function () {
+    var f = Object.assign(emptyFilters(), { mode: 'fixed' });
+    assert.deepStrictEqual(filterMatches(matches, f).map(function (m) { return m.mode; }), ['fixed']);
+    assert.strictEqual(hasActiveFilters(f), true);
+    assert.deepStrictEqual(appliedFilterLabels(f), ['対戦形式: 固定']);
+  });
+
+  it('想定外の値はレポートの filterByMode と同じく絞らない', function () {
+    var f = Object.assign(emptyFilters(), { mode: 'solo' });
+    assert.strictEqual(filterMatches(matches, f).length, 3);
+    assert.strictEqual(hasActiveFilters(f), false);
   });
 });

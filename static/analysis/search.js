@@ -1,8 +1,10 @@
 // --- 試合検索ロジック ---
 // IndexedDBキャッシュから読み込んだ試合データ配列を、条件で絞り込み・並べ替える純粋関数群。
-// UI（components/search.js）から切り離すことで単体テスト可能にしている。
+// UI から切り離すことで単体テスト可能にしている。
 
+import { modeLabel } from '../lib/match.js';
 import { PERIOD_DAYS } from './stats.js';
+import { findPattern, goalPattern, testPattern, patternLabel } from './patterns.js';
 
 // 並べ替えの選択肢。key はソート対象のフィールド。並び順（昇順/降順）はUI側のトグルで制御する。
 export var SORT_OPTIONS = [
@@ -29,6 +31,7 @@ export function emptyFilters() {
     myTagList: [],           // 味方タッグ名（複数選択・OR）
     enemyTagName: '',        // 敵陣タッグ名の部分一致（曖昧検索）
     result: 'all',           // 'all' | 'win' | 'loss'
+    mode: 'all',             // 'all' | 'shuffle' | 'fixed'（形式不明の試合は 'all' のときだけ出る）
     myCostList: [],          // 自機コスト（複数選択・OR）
     partnerCostList: [],     // 僚機コスト（複数選択・OR）
     enemyCostPairList: [],   // 相手コスト編成（複数選択・OR）
@@ -39,13 +42,59 @@ export function emptyFilters() {
     scoreMin: '', scoreMax: '',
     exDmgMin: '', exDmgMax: '',
     burstsMin: '', burstsMax: '',
+    patterns: [],            // 試合の展開（シートで選ぶ patterns.js の key。複数選択）
+    patternMode: 'and',      // 'and'=選んだ展開にすべて当てはまる / 'or'=どれかに当てはまる
+    goal: null,              // ホームのミッションから渡る負け筋 {key, line?, avoid?}
+    focusRange: null,        // 挑戦中カードから渡る範囲 {after, until}（until ''=上限なし）
   };
+}
+
+function validRange(r) { return !!r && typeof r.after === 'string' && r.after !== '' && typeof r.until === 'string'; }
+
+// シートで選んだ試合の展開（sheet 項目のみ・重複なし。ホームから来た goal と同じ key は重ねない）
+function sheetConditions(f) {
+  var g = goalPattern(f.goal);
+  var keys = Array.isArray(f.patterns) ? f.patterns : [];
+  var out = [];
+  keys.forEach(function (k) {
+    var def = typeof k === 'string' ? findPattern(k) : null;
+    if (!def || def.sheet !== true || (g && g.key === def.key)) return;
+    if (!out.some(function (c) { return c.key === def.key; })) out.push({ key: def.key });
+  });
+  return out;
+}
+
+// 当てはまりを調べる条件。ホームから来た goal と、シートで選んだ試合の展開
+export function activeConditions(filters) {
+  var f = filters || {};
+  var g = goalPattern(f.goal);
+  return (g ? [g] : []).concat(sheetConditions(f));
+}
+
+// ×で外せるタグ（ホームから渡った条件）
+export function removableFilterLabels(filters) {
+  var f = filters || {};
+  var out = [];
+  var g = goalPattern(f.goal);
+  if (g) out.push({ field: 'goal', label: '負け筋: ' + patternLabel(g) });
+  if (validRange(f.focusRange)) out.push({ field: 'focusRange', label: '挑戦中のミッションの試合' });
+  return out;
+}
+
+// ×で条件を外す。負け筋を外したら挑戦中の範囲も外す（範囲だけ残ると ✗ 以外の試合まで出る）
+export function removeFilter(filters, field) {
+  var next = Object.assign({}, filters);
+  next[field] = null;
+  if (field === 'goal') next.focusRange = null;
+  return next;
 }
 
 // 何らかの絞り込みが指定されているか（デフォルト状態でないか）を判定する。
 export function hasActiveFilters(filters) {
   var f = filters || {};
+  if (activeConditions(f).length || validRange(f.focusRange)) return true;
   if (f.result && f.result !== 'all') return true;
+  if (modeLabel(f.mode)) return true;
   var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
   for (var j = 0; j < listKeys.length; j++) {
     if (f[listKeys[j]] && f[listKeys[j]].length) return true;
@@ -162,6 +211,7 @@ export function filterMatches(matches, filters) {
   var myTagList = f.myTagList || [];
   var enemyTagName = (f.enemyTagName || '').trim().toLowerCase();
   var result = f.result || 'all';
+  var mode = modeLabel(f.mode) ? f.mode : '';
   // コスト系は複数選択・OR。コストは数値比較のため数値化しておく。
   var myCostList = (f.myCostList || []).map(Number);
   var partnerCostList = (f.partnerCostList || []).map(Number);
@@ -173,6 +223,10 @@ export function filterMatches(matches, filters) {
   var scMin = toNum(f.scoreMin), scMax = toNum(f.scoreMax);
   var exMin = toNum(f.exDmgMin), exMax = toNum(f.exDmgMax);
   var buMin = toNum(f.burstsMin), buMax = toNum(f.burstsMax);
+  var goal = goalPattern(f.goal);
+  var sheet = sheetConditions(f);
+  var patternMode = f.patternMode === 'or' ? 'or' : 'and';
+  var range = validRange(f.focusRange) ? f.focusRange : null;
 
   return (matches || []).filter(function (m) {
     var day = (m.date || '').substring(0, 10);
@@ -192,6 +246,7 @@ export function filterMatches(matches, filters) {
     if (enemyTagName && String(m.opponent_team_name || '').toLowerCase().indexOf(enemyTagName) < 0) return false;
     if (result === 'win' && !m.win) return false;
     if (result === 'loss' && m.win) return false;
+    if (mode && m.mode !== mode) return false;
     if (myCostList.length && myCostList.indexOf(m.ms_cost) < 0) return false;
     if (partnerCostList.length && partnerCostList.indexOf(m.partner_cost) < 0) return false;
     if (enemyCostPairList.length && enemyCostPairList.indexOf(enemyCostPairKey(m.opponent1_cost, m.opponent2_cost)) < 0) return false;
@@ -202,6 +257,12 @@ export function filterMatches(matches, filters) {
     if (!inRange(m.score, scMin, scMax)) return false;
     if (!inRange(m.ex_dmg, exMin, exMax)) return false;
     if (!inRange(m.bursts, buMin, buMax)) return false;
+    if (range && !(m.date > range.after && (range.until === '' || m.date <= range.until))) return false;
+    if (goal && testPattern(goal, m) !== true) return false;
+    if (sheet.length) {
+      var applies = function (c) { return testPattern(c, m) === true; };
+      if (!(patternMode === 'or' ? sheet.some(applies) : sheet.every(applies))) return false;
+    }
     return true;
   });
 }
@@ -260,6 +321,13 @@ export function appliedFilterLabels(filters) {
   }
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
+  if (modeLabel(f.mode)) out.push('対戦形式: ' + modeLabel(f.mode));
+  // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
+  var sheet = sheetConditions(f);
+  if (sheet.length) {
+    var pmode = sheet.length > 1 ? (f.patternMode === 'or' ? '（どれかに当てはまる）' : '（すべて当てはまる）') : '';
+    out.push('試合の展開' + pmode + ': ' + listLabel(sheet.map(patternLabel)));
+  }
   if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
   else if (f.dateFrom) out.push('日付: ' + f.dateFrom + '以降');
   else if (f.dateTo) out.push('日付: ' + f.dateTo + '以前');

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PERIOD_DAYS,
   filterByPlayDays,
+  filterByMode,
   computeTimeOfDay,
   computeDayOfWeek,
   computeDailyTrend,
@@ -20,6 +21,8 @@ import {
   computeConsecutiveFall,
   computeBurstTiming,
   computeBurstType,
+  computeOverlimit,
+  computeGameDuration,
   computeFixedPartners,
   burstKpi,
   enemyKpi,
@@ -765,9 +768,37 @@ describe('computeBurstType', function () {
   });
 });
 
+// --- filterByMode ---
+
+describe('filterByMode', function () {
+  var matches = [makeMatch({ mode: 'shuffle' }), makeMatch({ mode: 'fixed' }), makeMatch({})];
+
+  it('all は形式不明を含めて全件を返す', function () {
+    assert.equal(filterByMode(matches, 'all').length, 3);
+  });
+
+  it('想定外の値は all と同じく全件', function () {
+    assert.equal(filterByMode(matches, 'solo').length, 3);
+  });
+
+  it('shuffle / fixed はその形式の試合だけ（形式不明は除く）', function () {
+    assert.deepEqual(filterByMode(matches, 'shuffle').map(function (m) { return m.mode; }), ['shuffle']);
+    assert.deepEqual(filterByMode(matches, 'fixed').map(function (m) { return m.mode; }), ['fixed']);
+  });
+});
+
 // --- computeFixedPartners ---
 
 describe('computeFixedPartners', function () {
+  it('タッグ登録済みの相手でもシャッフルの試合は数えない（形式不明は数える）', function () {
+    var tagPartners = [{ player_name: 'パートナー', team_name: 'チームA' }];
+    var matches = makeMatches(2, { partner_name: 'パートナー', mode: 'fixed' })
+      .concat(makeMatches(3, { partner_name: 'パートナー', mode: 'shuffle' }))
+      .concat(makeMatches(1, { partner_name: 'パートナー' }));
+    var result = computeFixedPartners(matches, tagPartners);
+    assert.equal(result.partners[0].matches, 3);
+  });
+
   it('returns notice when no tag partners', function () {
     var result = computeFixedPartners([makeMatch()], []);
     assert.ok(result.notice);
@@ -994,5 +1025,86 @@ describe('partnerKpi', function () {
     assert.equal(r.count, 1);
     assert.equal(r.top.ms, 'ザク');
     assert.equal(r.bestWinRate.ms, 'ザク');
+  });
+});
+
+// --- computeOverlimit ---
+
+describe('computeOverlimit', function () {
+  var standby = function (sec) { return [{ action: 'ov', action_start_sec: sec, action_end_sec: sec + 20 }]; };
+
+  it('compares my standby with the earlier of the two enemies and ignores the partner', function () {
+    var r = computeOverlimit([
+      makeMatch({ win: true, actions: standby(150), opponent1_actions: standby(170), opponent2_actions: [] }),
+      makeMatch({ win: false, actions: standby(150), opponent1_actions: standby(190), opponent2_actions: standby(140) }),
+      makeMatch({ win: false, actions: standby(150), opponent2_actions: standby(150) }),
+    ]);
+    assert.equal(r.total, 3);
+    assert.deepEqual(r.by_order.map(function (s) { return [s.label, s.matches, s.win_rate]; }), [
+      ['相手より先', 1, 100],
+      ['相手と同時', 1, 0],
+      ['相手より後', 1, 0],
+    ]);
+  });
+
+  it('uses the standby start, not the firing time', function () {
+    var r = computeOverlimit([makeMatch({
+      actions: standby(150).concat([{ action: 'exbst-ov', action_start_sec: 200 }]),
+      opponent1_actions: standby(160).concat([{ action: 'exbst-ov', action_start_sec: 165 }]),
+    })]);
+    assert.deepEqual(r.by_order.map(function (s) { return s.key; }), ['first']);
+  });
+
+  it('leaves out matches where only one side reached standby, ignoring the partner', function () {
+    var r = computeOverlimit([
+      makeMatch({ actions: standby(150), opponent1_actions: standby(170) }),
+      makeMatch({ actions: [{ action: 'death', action_start_sec: 60 }], opponent1_actions: standby(160) }),
+      makeMatch({ actions: [], opponent1_actions: standby(160) }),
+      makeMatch({ actions: standby(150), partner_actions: standby(100), opponent1_actions: [] }),
+    ]);
+    assert.equal(r.total, 1);
+  });
+
+  it('returns null when no match has both sides on standby', function () {
+    assert.equal(computeOverlimit([makeMatch({ actions: standby(150) }), makeMatch({ actions: undefined, opponent1_actions: standby(150) })]), null);
+  });
+});
+
+// --- computeGameDuration ---
+
+describe('computeGameDuration', function () {
+  it('bins by 30 seconds with boundaries at 29/30 and 239/240', function () {
+    var r = computeGameDuration([
+      makeMatch({ win: true, game_end_sec: 29 }),
+      makeMatch({ win: false, game_end_sec: 30 }),
+      makeMatch({ win: true, game_end_sec: 239 }),
+      makeMatch({ win: false, game_end_sec: 240 }),
+    ]);
+    assert.deepEqual(r.by_duration.map(function (b) { return [b.label, b.matches, b.win_rate]; }), [
+      ['0〜29秒', 1, 100],
+      ['30〜59秒', 1, 0],
+      ['210〜239秒', 1, 100],
+      ['タイムアップ', 1, 0],
+    ]);
+    assert.equal(r.total, 4);
+  });
+
+  it('averages duration separately for wins and losses', function () {
+    var r = computeGameDuration([
+      makeMatch({ win: true, game_end_sec: 100 }),
+      makeMatch({ win: true, game_end_sec: 151 }),
+      makeMatch({ win: false, game_end_sec: 240 }),
+    ]);
+    assert.equal(r.avg_win_sec, 125.5);
+    assert.equal(r.avg_lose_sec, 240);
+  });
+
+  it('leaves the loss average null when every match was won', function () {
+    var r = computeGameDuration([makeMatch({ win: true, game_end_sec: 100 })]);
+    assert.equal(r.avg_lose_sec, null);
+  });
+
+  it('returns null when no match has a game end time', function () {
+    assert.equal(computeGameDuration([makeMatch({ game_end_sec: 0 }), makeMatch({})]), null);
   });
 });

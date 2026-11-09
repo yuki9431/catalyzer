@@ -1,4 +1,4 @@
-import { isTimeUp } from '../lib/match.js';
+import { isTimeUp, modeLabel } from '../lib/match.js';
 
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
@@ -70,6 +70,12 @@ export function jsGetBurstEvents(actions) {
 }
 
 // --- Exported Analysis Functions ---
+
+// 対戦形式で絞る。'all' 以外では形式不明の試合を除く
+export function filterByMode(matches, mode) {
+  if (!modeLabel(mode)) return matches;
+  return matches.filter(function (m) { return m.mode === mode; });
+}
 
 export function filterByPlayDays(matches, days) {
   if (!matches.length) return [];
@@ -955,6 +961,63 @@ export function computeBurstType(matches) {
   return { total_bursts: totalBursts, by_type: byType, tips: tips };
 }
 
+// 自分と相手の両方がOLスタンバイになった試合を前後で分ける。片方だけの試合は勝敗がほぼ決まっているので除く。
+var OVERLIMIT_ORDERS = [
+  { key: 'first', label: '相手より先' },
+  { key: 'same', label: '相手と同時' },
+  { key: 'after', label: '相手より後' },
+];
+
+function firstOverlimitSec(actions) {
+  var secs = (actions || []).filter(function (a) { return a.action === 'ov'; }).map(function (a) { return a.action_start_sec; });
+  return secs.length ? Math.min.apply(null, secs) : null;
+}
+
+export function computeOverlimit(matches) {
+  var orders = { first: [], same: [], after: [] };
+  var total = 0;
+  matches.forEach(function (d) {
+    var mine = firstOverlimitSec(d.actions);
+    var theirs = [firstOverlimitSec(d.opponent1_actions), firstOverlimitSec(d.opponent2_actions)]
+      .filter(function (s) { return s != null; });
+    if (mine == null || !theirs.length) return;
+    total++;
+    var enemy = Math.min.apply(null, theirs);
+    orders[mine < enemy ? 'first' : mine > enemy ? 'after' : 'same'].push(d);
+  });
+  if (total === 0) return null;
+  var byOrder = OVERLIMIT_ORDERS.filter(function (o) { return orders[o.key].length; }).map(function (o) {
+    var ms = orders[o.key];
+    return { key: o.key, label: o.label, matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+  });
+  return { total: total, by_order: byOrder };
+}
+
+// 試合時間を30秒刻みで区分する。タイムアップは時間の区分に混ぜず独立させる。
+var DURATION_STEP_SEC = 30;
+
+export function computeGameDuration(matches) {
+  var data = matches.filter(function (d) { return d.game_end_sec > 0; });
+  if (!data.length) return null;
+  var bins = {};
+  var timeUp = [];
+  data.forEach(function (d) {
+    if (isTimeUp(d)) { timeUp.push(d); return; }
+    var start = Math.floor(d.game_end_sec / DURATION_STEP_SEC) * DURATION_STEP_SEC;
+    (bins[start] = bins[start] || []).push(d);
+  });
+  var byDuration = Object.keys(bins).map(Number).sort(function (a, b) { return a - b; }).map(function (start) {
+    var ms = bins[start];
+    return { label: start + '〜' + (start + DURATION_STEP_SEC - 1) + '秒', matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+  });
+  if (timeUp.length) byDuration.push({ label: 'タイムアップ', matches: timeUp.length, win_rate: round1(jsWinRate(timeUp)) });
+  var avgSec = function (win) {
+    var secs = data.filter(function (d) { return !!d.win === win; }).map(function (d) { return d.game_end_sec; });
+    return secs.length ? round1(jsAvg(secs)) : null;
+  };
+  return { total: data.length, by_duration: byDuration, avg_win_sec: avgSec(true), avg_lose_sec: avgSec(false) };
+}
+
 export function computeFixedPartners(matches, tagPartners) {
   if (!tagPartners || !tagPartners.length) {
     return { notice: 'タッグ情報が見つかりませんでした。フレンドを登録してタッグを組むと、固定相方の詳細分析が利用できます。', partners: [] };
@@ -968,6 +1031,8 @@ export function computeFixedPartners(matches, tagPartners) {
   var NO_NAME_TAG = 'NO_NAME_TAG';
   var fixedMatches = {};   // key -> matches[]
   matches.forEach(function (d) {
+    // タッグ登録済みの相手とシャッフルで偶然組んだ試合は固定に数えない（形式不明の試合は従来どおり）
+    if (d.mode === 'shuffle') return;
     if (!Object.prototype.hasOwnProperty.call(teamOf, d.partner_name)) return;
     var team = teamOf[d.partner_name];
     var named = team && team !== NO_NAME_TAG;

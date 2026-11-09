@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { FallOrderContent } from '../components/charts.js';
+import { FallOrderContent, ConsecutiveFallContent } from '../components/charts.js';
 
 function stat(count, v) { return { count: count, rate: 0, win_rate: v, avg_dmg_given: v, avg_dmg_taken: v, dmg_efficiency: v }; }
 
@@ -22,5 +22,15 @@ describe('FallOrderContent', function () {
     var first = rows.find(function (r) { return r[0] === '先落ち'; });
     assert.equal(first[2].sortValue, 40);
     assert.ok(!rows.some(function (r) { return r[0] === '同時落ち'; }));
+  });
+});
+
+describe('ConsecutiveFallContent', function () {
+  it('0戦の群は勝率・与被ダメ比が "-"（色付けしない）', function () {
+    var rows = findRows(ConsecutiveFallContent({ consecutiveFall: { mid_fall: stat(0, 0), finish_fall: stat(3, 0), no_fall: stat(7, 60) } }));
+    var mid = rows.find(function (r) { return r[0] === '順落ち（試合継続）'; });
+    assert.deepEqual([mid[1], mid[3], mid[4]], ['0戦', '-', '-']);
+    var none = rows.find(function (r) { return r[0] === '順落ちなし'; });
+    assert.equal(none[3].sortValue, 60);
   });
 });

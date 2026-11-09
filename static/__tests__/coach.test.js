@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeActionPlan, evaluateGoal, isValidGoal } from '../analysis/coach.js';
+import { goalPattern, testPattern } from '../analysis/patterns.js';
 
 function makeMatch(overrides) {
   return Object.assign({
@@ -390,5 +391,90 @@ describe('isValidGoal', function () {
     assert.equal(isValidGoal({ key: 'fall_order', avoid: 'none' }), false);
     assert.equal(isValidGoal({ key: 'valueOf', line: 1 }), false);
     assert.equal(evaluateGoal({ key: 'valueOf', line: 1 }, [makeMatch()]).total, 0);
+  });
+});
+
+// 負け試合は「覚醒前に先落ち・順落ち・覚醒中に撃墜」、勝ち試合は覚醒を先に使って落ちない、という二極のデータ
+function polarMatches() {
+  var ms = [];
+  for (var i = 0; i < 40; i++) {
+    var win = i % 3 === 0;
+    var d = function (t) { return { action: 'death', action_start_sec: t, action_end_sec: 0 }; };
+    var b = function (s, e) { return { action: 'exbst-f', action_start_sec: s, action_end_sec: e }; };
+    ms.push(makeMatch(win ? {
+      date: dateAt(i), win: true, deaths: 1, dmg_given: 1500 + i, dmg_taken: 500 + i, ex_dmg: 400, bursts: 2,
+      actions: [b(10, 20), b(60, 70), d(90)], partner_actions: [d(50)],
+    } : {
+      date: dateAt(i), win: false, deaths: 3, dmg_given: 600 + i, dmg_taken: 1500 + i, ex_dmg: i % 2 ? 100 : 0, bursts: i % 2,
+      actions: i % 2 ? [b(40, 50), d(20), d(45), d(120)] : [d(20 + (i % 5)), d(100)], partner_actions: [d(30 + (i % 5))],
+    }));
+  }
+  return ms;
+}
+
+describe('computeActionPlan unachieved', function () {
+  it('unachieved equals the N in the detail text and the testPattern count for every mission', function () {
+    var ms = polarMatches();
+    var plan = computeActionPlan(ms);
+    assert.ok(plan.actions.length >= 5, 'keys: ' + keys(plan));
+    plan.actions.forEach(function (a) {
+      var n = Number(/戦中(\d+)戦/.exec(a.detail)[1]);
+      var cond = goalPattern(a.goal);
+      var count = ms.filter(function (m) { return testPattern(cond, m) === true; }).length;
+      assert.equal(a.unachieved, n, a.key);
+      assert.equal(a.unachieved, count, a.key);
+    });
+  });
+
+  it('keeps unachieved consistent for a subset of matches', function () {
+    var ms = polarMatches().slice(0, 30);
+    computeActionPlan(ms).actions.forEach(function (a) {
+      var cond = goalPattern(a.goal);
+      assert.equal(a.unachieved, ms.filter(function (m) { return testPattern(cond, m) === true; }).length, a.key);
+    });
+  });
+
+  it('does not treat held_burst or fall_first goals as valid missions', function () {
+    assert.equal(isValidGoal({ key: 'fall_first' }), false);
+    assert.equal(isValidGoal({ key: 'held_burst' }), false);
+  });
+});
+
+describe('burst-endgame missions', function () {
+  function ovMatch(i, solo, win) {
+    var b = { action: 'exbst-f', action_start_sec: 10, action_end_sec: 30 };
+    var o = { action: 'exbst-ov', action_start_sec: solo ? 50 : 20, action_end_sec: solo ? 60 : 40 };
+    return makeMatch({ date: dateAt(i), win: win, actions: [b, o] });
+  }
+  function lastCostMatch(i, held, win) {
+    var d = { action: 'death', action_start_sec: 30, action_end_sec: 0 };
+    var e = { action: 'ex', action_start_sec: held ? 20 : 100, action_end_sec: 90 };
+    return makeMatch({ date: dateAt(i), win: win, partner_cost: 3000, actions: held ? [d, e] : [d] });
+  }
+  function build(make) {
+    var ms = [];
+    for (var i = 0; i < 20; i++) ms.push(make(i, i < 10, i >= 8 && i < 10 ? true : i >= 14));
+    return ms;
+  }
+  it('offers both missions with the specified wording and unachieved equal to the search count', function () {
+    var cases = [
+      { key: 'ov_solo', ms: build(ovMatch), title: 'オーバーリミットは覚醒と重ねて使う', head: '覚醒と重ねずにオーバーリミットを使った試合は' },
+      { key: 'last_cost_burst', ms: build(function (i, bad, win) { return lastCostMatch(i, !bad, win); }), title: '最後のコストに覚醒を持ち込む', head: '最後のコストに入った時点で覚醒が無かった試合は' },
+    ];
+    cases.forEach(function (c) {
+      var a = computeActionPlan(c.ms).actions.filter(function (x) { return x.key === c.key; })[0];
+      assert.ok(a, c.key);
+      assert.equal(a.title, c.title);
+      assert.ok(a.detail.indexOf(c.head) === 0, a.detail);
+      assert.deepEqual(a.goal, { key: c.key });
+      assert.equal(a.unachieved, c.ms.filter(function (m) { return testPattern(goalPattern(a.goal), m) === true; }).length);
+      assert.equal(a.unachieved, Number(/戦中(\d+)戦/.exec(a.detail)[1]));
+      assert.equal(isValidGoal(a.goal), true);
+    });
+  });
+  it('excludes matches the pattern cannot judge from the missions', function () {
+    var ms = build(ovMatch).concat([makeMatch({ date: dateAt(20), actions: [] })]);
+    var a = computeActionPlan(ms).actions.filter(function (x) { return x.key === 'ov_solo'; })[0];
+    assert.match(a.detail, /20戦中10戦/);
   });
 });

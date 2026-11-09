@@ -36,12 +36,12 @@ function TodayCompare({ matches, selectedMs }) {
   </div>`;
 }
 
-// ホーム画面: 勝率アップミッションと、今日(無ければ最後に遊んだ日)の成績と前回の比較
-export function HomeView({ matches, selectedMs, userKey, plan }) {
+// ホーム画面: 今日(無ければ最後に遊んだ日)の成績と前回の比較と、勝率アップミッション
+export function HomeView({ matches, selectedMs, userKey, plan, onShowMatches }) {
   return html`<div class="tabpane home" data-ui="home">
-    <${ActionPlanPanel} plan=${plan} selectedMs=${selectedMs} matches=${matches} userKey=${userKey} />
     <${Panel} title="前回との比較">
       <${TodayCompare} matches=${matches} selectedMs=${selectedMs} />
     <//>
+    <${ActionPlanPanel} plan=${plan} selectedMs=${selectedMs} matches=${matches} userKey=${userKey} onShowMatches=${onShowMatches} />
   </div>`;
 }

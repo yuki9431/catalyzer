@@ -280,13 +280,7 @@ async function logout() {
     await fetch('/session', { method: 'DELETE' });
   } catch (e) {}
   try { await clearAllMatches(); } catch (e) {}
-  localStorage.removeItem(ANALYSIS_STARTED_KEY);
-  localStorage.removeItem(ANALYSIS_FINISHED_KEY);
-  localStorage.removeItem(CLASS_RECORD_KEY);
-  localStorage.removeItem(FOCUS_KEY);
-  localStorage.removeItem(VIEW_KEY);
-  localStorage.removeItem(TAB_SEEN_KEY);
-  try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
+  clearUserState();
 
   clearProgress();
   document.getElementById('status').style.display = 'none';
@@ -363,10 +357,18 @@ function setRebuildBackoff(active) {
   } catch (e) {}
 }
 
+// ユーザーに紐づく画面状態を消す。ログアウトとセッション失効で同じ基準にする(#520)
+function clearUserState() {
+  [
+    'catalyzer_user_key', 'catalyzer_has_session', ANALYSIS_STARTED_KEY, ANALYSIS_FINISHED_KEY,
+    CLASS_RECORD_KEY, FOCUS_KEY, VIEW_KEY, TAB_SEEN_KEY,
+  ].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+  try { sessionStorage.removeItem('catalyzer_cred'); } catch (e) {}
+}
+
 // セッション失効時にログイン画面へ戻す。pageTitle(ロゴ)を復帰させ、その safe-area で上端の被りを防ぐ
 function returnToLogin() {
-  localStorage.removeItem('catalyzer_user_key');
-  localStorage.removeItem('catalyzer_has_session');
+  clearUserState();
   var rep = document.getElementById('report');
   if (rep) { render(null, rep); rep.style.display = 'none'; }
   var lf = document.getElementById('loginForm');

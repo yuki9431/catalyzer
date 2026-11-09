@@ -5,9 +5,10 @@ import { html } from '../htm-preact-standalone.js';
 function has(v) { return v != null && v !== ''; }
 
 // expanded を渡すと開閉ボタン(シートを開くチップ)。渡さなければ従来のチップ
-export function Chip({ tone, active, onClick, expanded, ui, children }) {
+export function Chip({ tone, active, onClick, expanded, ui, onRemove, removeLabel, children }) {
   var cls = 'ui-chip' + (tone ? ' ui-chip-' + tone : '') + (active ? ' ui-chip-active' : '') + (expanded !== undefined ? ' ui-chip-opener' : '');
   var d = ui || 'chip';
+  if (onRemove) return html`<span class=${cls} data-ui=${d}>${children}<button type="button" class="ui-chip-remove" data-ui=${d + '-remove'} aria-label=${removeLabel} onClick=${onRemove}>×</button></span>`;
   if (expanded !== undefined) return html`<button type="button" class=${cls} data-ui=${d} aria-expanded=${!!expanded} aria-haspopup="dialog" onClick=${onClick}>${children}</button>`;
   if (onClick) return html`<button type="button" class=${cls} data-ui=${d} aria-pressed=${!!active} onClick=${onClick}>${children}</button>`;
   return html`<span class=${cls} data-ui=${d}>${children}</span>`;

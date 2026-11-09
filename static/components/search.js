@@ -4,9 +4,11 @@ import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
+  activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
+import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
 import {
-  num, cellDisplay, isTimeUp,
+  num, cellDisplay, isTimeUp, MODE_LABELS, modeLabel,
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
@@ -102,6 +104,10 @@ var COST_OPTIONS = [
 var ENEMY_MODE_OPTIONS = [{ value: 'and', label: 'すべて含む' }, { value: 'or', label: 'どれかを含む' }];
 var NAME_SCOPE_OPTIONS = [{ value: 'both', label: '両方' }, { value: 'ally', label: '相方' }, { value: 'enemy', label: '相手' }];
 var RESULT_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'win', label: '勝利' }, { value: 'loss', label: '敗北' }];
+var MODE_NOTE = '対戦形式は、この機能の追加後に取り込んだ試合にだけ記録されています。';
+var MODE_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
+var PATTERN_OPTIONS = PATTERNS.filter(function (p) { return p.sheet; }).map(function (p) { return { value: p.key, label: patternLabel({ key: p.key }) }; });
+var PATTERN_MODE_OPTIONS = [{ value: 'and', label: 'すべて当てはまる' }, { value: 'or', label: 'どれかに当てはまる' }];
 
 // 絞り込みの入力欄。条件はその場で filters に反映する。
 function FilterFields({ filters, options, onField }) {
@@ -113,6 +119,7 @@ function FilterFields({ filters, options, onField }) {
   // 期間カレンダーはクリックで開くプルダウン形式にする。
   var dateOpenRef = useState(false);
   var dateOpen = dateOpenRef[0], setDateOpen = dateOpenRef[1];
+  var patterns = filters.patterns || [];
 
   return html`<div class="search-form">
       <div class="search-field search-field-wide">
@@ -157,6 +164,27 @@ function FilterFields({ filters, options, onField }) {
         <label class="search-label">勝敗</label>
         <${ToggleGroup} ui="search-winloss" label="勝敗" options=${RESULT_OPTIONS} value=${filters.result}
           onChange=${function (v) { onField('result', v); }} />
+      </div>
+
+      <div class="search-field search-field-wide">
+        <label class="search-label">対戦形式</label>
+        <${ToggleGroup} ui="search-mode" label="対戦形式" options=${MODE_OPTIONS} value=${filters.mode || 'all'}
+          onChange=${function (v) { onField('mode', v); }} />
+      </div>
+
+      <div class="search-field search-field-wide">
+        <label class="search-label">試合の展開（複数選択可）</label>
+        <${ToggleGroup} ui="search-pattern-mode" label="試合の展開の絞り方" options=${PATTERN_MODE_OPTIONS} value=${filters.patternMode}
+          onChange=${function (v) { onField('patternMode', v); }} />
+        <div class="search-pattern" role="group" aria-label="試合の展開" data-ui="search-pattern">
+          <${Chip} ui="search-pattern-item" active=${!patterns.length} onClick=${function () { onField('patterns', []); }}>指定なし</${Chip}>
+          ${PATTERN_OPTIONS.map(function (o) {
+            var on = patterns.indexOf(o.value) >= 0;
+            return html`<${Chip} ui="search-pattern-item" active=${on} onClick=${function () {
+              onField('patterns', on ? patterns.filter(function (k) { return k !== o.value; }) : patterns.concat([o.value]));
+            }}>${o.label}</${Chip}>`;
+          })}
+        </div>
       </div>
 
       <div class="search-adv">
@@ -255,15 +283,17 @@ function MsThumb({ name, msImages }) {
 }
 
 // 1試合分のサマリーカード。機体は画像で並べ、クリックで詳細を開く。
-function ResultItem({ match, msImages, sortKey, timeOnly, onOpen }) {
+function ResultItem({ match, msImages, sortKey, timeOnly, reason, onOpen }) {
   var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
   return html`<button type="button" class=${'search-item ' + (match.win ? 'win' : 'lose')} data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
+      ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
+    ${reason && html`<div class="search-item-reason"><${Chip} tone="bad" ui="search-reason">${reason}</${Chip}></div>`}
     <div class="search-item-battle">
       <div class="search-ms-imgs self">
         <${MsThumb} name=${match.ms} msImages=${msImages} />
@@ -289,7 +319,7 @@ function ResultItem({ match, msImages, sortKey, timeOnly, onOpen }) {
 }
 
 // 試合経過のガント図（4人分）。行ごとに名前・2レーン・被撃墜×、下に時間軸と終了ラベル。
-function Timeline({ match, msImages }) {
+function Timeline({ match, msImages, hits }) {
   var rows = [
     { ms: match.ms, name: match.name, actions: match.actions, me: true },
     { ms: match.partner_ms, name: match.partner_name, actions: match.partner_actions },
@@ -314,7 +344,8 @@ function Timeline({ match, msImages }) {
     var barEl = html`<span data-ui="gantt-bar" class=${'gantt-bar gantt-' + m.cls} style=${'left:' + left + '%;width:' + w + '%'}></span>`;
     // 発動系は「発動の瞬間＝菱形」＋「その後の発動中＝色付きバー」の両方を描く。
     if (m.kind === 'diamond') {
-      return html`${barEl}<span class=${'gantt-diamond gantt-' + m.cls} style=${'left:' + left + '%'}></span>`;
+      var ovHit = hits && hits.indexOf(a) >= 0 && a.action === 'exbst-ov';
+      return html`${barEl}<span class=${'gantt-diamond gantt-' + m.cls} style=${'left:' + left + '%'}></span>${ovHit && html`<span class="gantt-ov-hit" data-ui="gantt-ov-hit" style=${'left:' + left + '%'}></span>`}`;
     }
     return barEl;
   }
@@ -336,7 +367,7 @@ function Timeline({ match, msImages }) {
         var lane0 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 0; });
         var lane1 = acts.filter(function (a) { return GANTT_BAR[a.action] && GANTT_BAR[a.action].lane === 1; });
         var deaths = acts.filter(function (a) { return a.action === 'death'; });
-        return html`<div class=${'gantt-row ' + (i < 2 ? 'gantt-ally' : 'gantt-enemy') + (i === 1 ? ' gantt-teamsep' : '')}>
+        return html`<div class=${'gantt-row ' + (i < 2 ? 'gantt-ally' : 'gantt-enemy') + (i === 1 ? ' gantt-teamsep' : '')} data-ui=${i === 1 ? 'gantt-partner-row' : undefined}>
           <${DetailThumb} name=${r.ms} msImages=${msImages} />
           <div class="gantt-track">
             <div class=${'gantt-name' + (r.me ? ' gantt-me' : '')}>${playerName(r.name)}</div>
@@ -347,7 +378,8 @@ function Timeline({ match, msImages }) {
               <div class="gantt-lane">
                 ${lane0.map(bar)}
                 ${deaths.map(function (a) {
-                  return html`<span class="gantt-death" style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
+                  var hit = hits && hits.indexOf(a) >= 0;
+                  return html`<span class=${'gantt-death' + (hit ? ' gantt-death-hit' : '')} data-ui=${hit ? 'gantt-death-hit' : undefined} style=${'left:' + pct(a.action_start_sec) + '%'}>✕</span>`;
                 })}
               </div>
               <div class="gantt-lane">${lane1.map(bar)}</div>
@@ -410,7 +442,14 @@ function DetailThumb({ name, msImages }) {
 }
 
 // 試合詳細の全画面。試合経過は常に出す。
-function MatchDetail({ match, msImages, onClose }) {
+function MatchDetail({ match, msImages, conds, onClose }) {
+  // 当てはまった条件の原因になった撃墜・OL発動（ガントで強調）と注意の一文
+  var hits = [], note = '';
+  (conds || []).forEach(function (c) {
+    // patternHits は当てはまった条件だけ返す（どれかに当てはまる、で絞ったとき外れた展開は出ない）
+    patternHits(c, match).forEach(function (h) { hits.push(h); });
+    if (!note) note = patternNote(c, match);
+  });
   // レーダー: 4人分の系列とトグルによる表示切替（既定は自分＋相方＝自陣）。
   var theme = useThemeName();
   var players = useMemo(function () { return radarPlayers(match); }, [match, theme]);
@@ -443,7 +482,9 @@ function MatchDetail({ match, msImages, onClose }) {
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
     <span class="search-layer-date">${match.date}</span>`;
   return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
-    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
+    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}</p>
+
+    ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
 
     <${Panel} title="4人の比較">
       <div class="search-radar-toggles">
@@ -480,7 +521,7 @@ function MatchDetail({ match, msImages, onClose }) {
     </${Panel}>
 
     <${Panel} title="試合経過">
-      <${Timeline} match=${match} msImages=${msImages} />
+      <${Timeline} match=${match} msImages=${msImages} hits=${hits} />
     </${Panel}>
   </${Layer}>`;
 }
@@ -511,8 +552,8 @@ function SortSheet({ sortKey, desc, pageSize, onSortKey, onDir, onPageSize }) {
 }
 
 // 試合検索ビュー本体。matches はIndexedDBから読み込んだ全試合。
-export function SearchView({ matches, msImages }) {
-  var filtersRef = useState(emptyFilters);
+export function SearchView({ matches, msImages, initialFilters }) {
+  var filtersRef = useState(function () { return Object.assign(emptyFilters(), initialFilters); });
   var filters = filtersRef[0], setFilters = filtersRef[1];
   var sortRef = useState('date');
   var sortKey = sortRef[0], setSortKey = sortRef[1];
@@ -546,6 +587,7 @@ export function SearchView({ matches, msImages }) {
     });
     setPage(1);
   }
+  function onRemove(field) { setFilters(function (prev) { return removeFilter(prev, field); }); setPage(1); }
   function onReset() { setFilters(emptyFilters()); setPage(1); }
   function onSortKey(key) { setSortKey(key); setPage(1); }
   function onDir(d) { if (d !== desc) { setDir(d); setPage(1); } }
@@ -559,8 +601,25 @@ export function SearchView({ matches, msImages }) {
   var pageItems = filtered.slice(start, start + pageSize);
   var byDate = sortKey === 'date';
   function onPageSize(n) { setPageSize(n); setPage(1); }
+  var headRef = useRef(null);
+  // ページを替えたら結果の先頭へ。見出しは一覧より上なので描き直しを待たずに位置が決まる(#513)
+  function goPage(n) {
+    setPage(n);
+    var h = headRef.current, bar = document.querySelector('.topbar');
+    var barH = bar ? bar.getBoundingClientRect().bottom : 0;
+    if (h && h.getBoundingClientRect().top < barH) window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - barH);
+  }
 
   var labels = appliedFilterLabels(filters);
+  var removable = removableFilterLabels(filters);
+  var conds = activeConditions(filters);
+  // どれかに当てはまる、で絞ったときは当てはまった展開だけを理由にする
+  // 同じ撃墜が複数の展開の理由になったときは1つだけ出す
+  function reasonOf(m) {
+    var rs = conds.filter(function (c) { return testPattern(c, m) === true; }).map(function (c) { return patternReason(c, m); });
+    return rs.filter(function (r, i) { return r && rs.indexOf(r) === i; }).join('・');
+  }
+  var shown = labels.length + removable.length;
   // 全画面の層は同時に1枚だけ開く。
   function openSheet() { setDetail(null); setSheetOpen(true); }
   function openDetail(m) { setSheetOpen(false); setDetail(m); }
@@ -568,10 +627,14 @@ export function SearchView({ matches, msImages }) {
   return html`<div class="search-view">
     <div class="search-toolbar" data-ui="search-filter">
       <div class="search-toolbar-row">
-        <${Chip} ui="search-filter-toggle" expanded=${sheetOpen} active=${labels.length > 0} onClick=${openSheet}>${labels.length ? '絞り込み（' + labels.length + '件適用中）' : '絞り込み'}</${Chip}>
+        <${Chip} ui="search-filter-toggle" expanded=${sheetOpen} active=${shown > 0} onClick=${openSheet}>${shown ? '絞り込み（' + shown + '件適用中）' : '絞り込み'}</${Chip}>
         ${hasActiveFilters(filters) && html`<button type="button" class="search-link" data-ui="search-clear" onClick=${onReset}>条件をクリア</button>`}
       </div>
-      ${labels.length > 0 && html`<div class="search-applied-list">
+      ${shown > 0 && html`<div class="search-applied-list">
+        ${removable.map(function (r) {
+          var ui = r.field === 'goal' ? 'search-goal' : 'search-range';
+          return html`<${Chip} ui=${ui} onRemove=${function () { onRemove(r.field); }} removeLabel=${r.label + ' を外す'}>${r.label}</${Chip}>`;
+        })}
         ${labels.map(function (l) { return html`<${Chip} ui="search-applied">${l}</${Chip}>`; })}
       </div>`}
     </div>
@@ -579,32 +642,32 @@ export function SearchView({ matches, msImages }) {
       onField=${onField} onReset=${onReset} onClose=${function () { setSheetOpen(false); }} />`}
 
     <section class="search-results">
-      <div class="search-results-head">
+      <div class="search-results-head" ref=${headRef}>
         <h2 class="search-total" data-ui="search-total">${total}試合${total > 0 && html`<small>勝率 ${winRate.toFixed(1)}%</small>`}</h2>
         <${SortSheet} sortKey=${sortKey} desc=${desc} pageSize=${pageSize}
           onSortKey=${onSortKey} onDir=${onDir} onPageSize=${onPageSize} />
       </div>
 
       ${total === 0
-        ? html`<p class="search-empty">条件に一致する試合がありません。</p>`
+        ? html`<p class="search-empty">条件に一致する試合がありません。${modeLabel(filters.mode) && html`<br />${MODE_NOTE}`}</p>`
         : html`<div class="search-list">
             ${pageItems.map(function (m, i) {
               var day = (m.date || '').slice(0, 10);
               var sep = byDate && (i === 0 || day !== (pageItems[i - 1].date || '').slice(0, 10))
                 ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
-              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} onOpen=${openDetail} />`;
+              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} onOpen=${openDetail} />`;
             })}
           </div>`}
 
       ${totalPages > 1 && html`<div class="search-pager" data-ui="search-pager">
         <button class="search-page-btn" disabled=${curPage <= 1}
-          onClick=${function () { setPage(curPage - 1); }}>← 前へ</button>
+          onClick=${function () { goPage(curPage - 1); }}>← 前へ</button>
         <span class="search-page-info">${start + 1}〜${Math.min(start + pageSize, total)} / ${total}件（${curPage}/${totalPages}）</span>
         <button class="search-page-btn" disabled=${curPage >= totalPages}
-          onClick=${function () { setPage(curPage + 1); }}>次へ →</button>
+          onClick=${function () { goPage(curPage + 1); }}>次へ →</button>
       </div>`}
     </section>
 
-    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} onClose=${function () { setDetail(null); }} />`}
+    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} onClose=${function () { setDetail(null); }} />`}
   </div>`;
 }

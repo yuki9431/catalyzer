@@ -1,11 +1,12 @@
 import { html } from '../../htm-preact-standalone.js';
 import { Panel } from '../ui.js';
-import { BurstCountContent, BurstTimingContent, BurstTypeContent, WinRateBarChart } from '../charts.js';
+import { BurstCountContent, BurstTimingContent, BurstTypeContent, OverlimitContent, WinRateBarChart } from '../charts.js';
 
 export function BurstPane({ frontendData }) {
   var burstCount = frontendData.burst_count;
   var burstTiming = frontendData.burst_timing;
   var burstType = frontendData.burst_type;
+  var overlimit = frontendData.overlimit;
 
   var countItems = burstCount && burstCount.by_count ? burstCount.by_count : [];
   var typeItems = burstType && burstType.by_type
@@ -31,6 +32,11 @@ export function BurstPane({ frontendData }) {
       <${BurstTimingContent} timingData=${burstTiming} />
     <//>`}
 
-    ${!countItems.length && !typeItems.length && !timingItems.length && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
+    ${overlimit && html`<${Panel} title="OLスタンバイの順番と勝率">
+      <${WinRateBarChart} items=${overlimit.by_order} />
+      <${OverlimitContent} overlimit=${overlimit} />
+    <//>`}
+
+    ${!countItems.length && !typeItems.length && !timingItems.length && !overlimit && html`<${Panel}><p>覚醒データがありません（タイムラインデータが必要です）。</p><//>`}
   </div>`;
 }
