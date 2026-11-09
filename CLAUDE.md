@@ -100,7 +100,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`, `ClassRecord`/`WinRecord`/`CountStat`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
-- `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。取得前の試合は空=不明）を判別
+- `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。判別できなければ空=不明。機能追加前の試合は相方のタッグ登録から推定して DB に補完済みで `match_mode_inferred: true` が付く）を判別
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
