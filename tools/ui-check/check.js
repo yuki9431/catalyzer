@@ -15,6 +15,8 @@ var CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Content
 var TOTAL_TIMEOUT = Number(process.env.UI_CHECK_TIMEOUT_MS) || 300000;
 var WAIT_MS = 10000, NAV_MS = 15000, MAX_PX = 16384;
 var UPDATE = process.argv.includes('--update');
+// 画像比較は基準を撮る CI だけで行う。ローカルは他の検査だけ
+var PIXEL = !!process.env.CI;
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
 var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', 'report-legacy': '/__preview/?legacy=1', parts: '/__preview/parts.html' };
 var INJECT = {};
@@ -173,7 +175,11 @@ async function runScreen(conn, origin, screen, theme, update) {
         continue;
       }
       if (kind === 'scrollBy') {
-        await evalJs('window.scrollBy(0,' + a[0] + ');new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        // 描画途中でページが短いと scrollBy が頭打ちになり、後から伸びても scroll が起きない。届くか高さが落ち着くまで待つ
+        await evalJs('(function(n,ms){var end=Date.now()+ms,h=-1,since=0;return new Promise(function(r){(function f(){var d=document.documentElement;' +
+          'if(d.scrollHeight!==h){h=d.scrollHeight;since=Date.now()}' +
+          'if(h-innerHeight>=scrollY+n||Date.now()-since>=500||Date.now()>end)return r();setTimeout(f,50)})()})})(' + a[0] + ',' + WAIT_MS + ')' +
+          '.then(function(){window.scrollBy(0,' + a[0] + ');return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
         continue;
       }
       if (kind === 'pull') {
@@ -194,7 +200,11 @@ async function runScreen(conn, origin, screen, theme, update) {
         await reloaded;
         continue;
       }
-      if (!(await waitCount(a[0], kind === 'click' || kind === 'wait' ? a[1] : null, 1))) return fail('必須要素なし ' + a[0]);
+      if (!(await waitCount(a[0], kind === 'click' || kind === 'wait' ? a[1] : null, 1))) {
+        // CI でだけ起きる待ち切れの切り分け用に、その時点のスクロール位置を添える
+        var at = await evalJs('"scrollY "+Math.round(scrollY)+" / 高さ "+(document.documentElement.scrollHeight-innerHeight)');
+        return fail('必須要素なし ' + a[0] + ' (' + at + ')');
+      }
       if (kind === 'wait') continue;
       if (kind === 'scroll') {
         await evalJs('document.querySelector(' + JSON.stringify(a[0]) + ').scrollIntoView({block:"center"})');
@@ -280,6 +290,8 @@ async function runScreen(conn, origin, screen, theme, update) {
     if (update) {
       fs.mkdirSync(BASELINE, { recursive: true });
       fs.writeFileSync(basePath, png);
+    } else if (!PIXEL) {
+      // 画像比較は基準と同じ環境(CI)で行う
     } else if (!fs.existsSync(basePath)) {
       return fail('基準画像なし');
     } else {
@@ -303,6 +315,7 @@ async function main() {
   if (unknown.length) throw new InfraError('存在しない画面 id: ' + unknown.join(', '));
   var screens = SCREENS.filter(function (s) { return !ONLY.length || ONLY.includes(s.id); });
   if (!screens.length) throw new InfraError('対象の画面が0件');
+  if (UPDATE && !process.env.CI) throw new InfraError('基準画像は CI で撮る。PR に ui-baseline ラベルを付け、make ui-baseline RUN=<run-id> で取り込む');
   var userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'catalyzer-ui-check-'));
   var chrome = null, srv = null;
   var cleanup = function () {
@@ -325,9 +338,11 @@ async function main() {
     chrome = await launchChrome(CHROME, userDataDir);
     var origin = 'http://127.0.0.1:' + srv.port;
     var metaPath = path.join(BASELINE, 'meta.json');
+    if (!PIXEL && !UPDATE) console.log('SKIP 画像比較: 画像比較は PR の CI で行う');
     if (!UPDATE && fs.existsSync(metaPath)) {
       var meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-      if (meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
+      if (PIXEL && meta.platform !== process.platform + '-' + process.arch) throw new InfraError('基準は ' + meta.platform + ' で撮影されている。PR に ui-baseline ラベルを付けて CI で撮り直す');
+      if (PIXEL && meta.chrome !== chrome.version) console.log('WARN Chrome ' + chrome.version + ' は基準 (' + meta.chrome + ') と異なる。不一致は環境差の可能性');
     }
     var okCount = 0, total = 0;
     for (var i = 0; i < screens.length; i++) {

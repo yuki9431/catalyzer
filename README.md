@@ -211,10 +211,10 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認 / 基準画像の更新
+# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認
 make ui-preview
 make ui-check
-make ui-baseline
+# 基準画像の比較と更新は PR の CI で行う(更新は PR に ui-baseline ラベルを付け、make ui-baseline RUN=<run-id> で取り込む)。ローカルは画像比較を省く
 # Chrome が既定パス(macOS の Google Chrome)に無い場合は CHROME_PATH で指定する
 
 # Firestoreから未登録グレードURLを抽出
