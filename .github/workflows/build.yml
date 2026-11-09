@@ -83,6 +83,9 @@ jobs:
         with:
           node-version: "22"
 
+      # ubuntu-26.04 のランナーには Pulumi CLI が入っていないため明示的に入れる
+      - uses: pulumi/actions@v7
+
       - name: Install dependencies
         working-directory: infra/app
         run: npm ci

@@ -36,6 +36,10 @@ jobs:
         with:
           node-version: "22"
 
+      # ubuntu-26.04 のランナーには Pulumi CLI が入っていないため明示的に入れる
+      - uses: pulumi/actions@v7
+        if: steps.check-secrets.outputs.skip != 'true'
+
       - id: auth
         if: steps.check-secrets.outputs.skip != 'true'
         uses: google-github-actions/auth@v3
