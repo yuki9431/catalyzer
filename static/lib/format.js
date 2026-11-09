@@ -12,7 +12,7 @@ export function boldText(s) {
 export function pct(n) { return n != null ? n.toFixed(1) + '%' : '-'; }
 export function num(n, d) { return n != null ? n.toFixed(d != null ? d : 0) : '-'; }
 
-export { TIMEUP_SEC, isTimeUp } from './match.js';
+export { MODE_LABELS, TIMEUP_SEC, isTimeUp, modeLabel } from './match.js';
 
 function valClass4(n, great, good, bad, terrible, higherIsBetter) {
   if (n == null) return '';

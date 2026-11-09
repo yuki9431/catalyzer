@@ -8,7 +8,7 @@ import {
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
 import {
-  num, cellDisplay, isTimeUp,
+  num, cellDisplay, isTimeUp, MODE_LABELS, modeLabel,
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
@@ -104,6 +104,8 @@ var COST_OPTIONS = [
 var ENEMY_MODE_OPTIONS = [{ value: 'and', label: 'すべて含む' }, { value: 'or', label: 'どれかを含む' }];
 var NAME_SCOPE_OPTIONS = [{ value: 'both', label: '両方' }, { value: 'ally', label: '相方' }, { value: 'enemy', label: '相手' }];
 var RESULT_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'win', label: '勝利' }, { value: 'loss', label: '敗北' }];
+var MODE_NOTE = '対戦形式は、この機能の追加後に取り込んだ試合にだけ記録されています。';
+var MODE_OPTIONS = [{ value: 'all', label: 'すべて' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
 var PATTERN_OPTIONS = PATTERNS.filter(function (p) { return p.sheet; }).map(function (p) { return { value: p.key, label: patternLabel({ key: p.key }) }; });
 var PATTERN_MODE_OPTIONS = [{ value: 'and', label: 'すべて当てはまる' }, { value: 'or', label: 'どれかに当てはまる' }];
 
@@ -162,6 +164,12 @@ function FilterFields({ filters, options, onField }) {
         <label class="search-label">勝敗</label>
         <${ToggleGroup} ui="search-winloss" label="勝敗" options=${RESULT_OPTIONS} value=${filters.result}
           onChange=${function (v) { onField('result', v); }} />
+      </div>
+
+      <div class="search-field search-field-wide">
+        <label class="search-label">対戦形式</label>
+        <${ToggleGroup} ui="search-mode" label="対戦形式" options=${MODE_OPTIONS} value=${filters.mode || 'all'}
+          onChange=${function (v) { onField('mode', v); }} />
       </div>
 
       <div class="search-field search-field-wide">
@@ -281,6 +289,7 @@ function ResultItem({ match, msImages, sortKey, timeOnly, reason, onOpen }) {
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
+      ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
@@ -473,7 +482,7 @@ function MatchDetail({ match, msImages, conds, onClose }) {
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
     <span class="search-layer-date">${match.date}</span>`;
   return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
-    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
+    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}</p>
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
 
@@ -640,7 +649,7 @@ export function SearchView({ matches, msImages, initialFilters }) {
       </div>
 
       ${total === 0
-        ? html`<p class="search-empty">条件に一致する試合がありません。</p>`
+        ? html`<p class="search-empty">条件に一致する試合がありません。${modeLabel(filters.mode) && html`<br />${MODE_NOTE}`}</p>`
         : html`<div class="search-list">
             ${pageItems.map(function (m, i) {
               var day = (m.date || '').slice(0, 10);

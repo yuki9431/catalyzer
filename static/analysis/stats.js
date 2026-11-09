@@ -1,4 +1,4 @@
-import { isTimeUp } from '../lib/match.js';
+import { isTimeUp, modeLabel } from '../lib/match.js';
 
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
@@ -70,6 +70,12 @@ export function jsGetBurstEvents(actions) {
 }
 
 // --- Exported Analysis Functions ---
+
+// 対戦形式で絞る。'all' 以外では形式不明の試合を除く
+export function filterByMode(matches, mode) {
+  if (!modeLabel(mode)) return matches;
+  return matches.filter(function (m) { return m.mode === mode; });
+}
 
 export function filterByPlayDays(matches, days) {
   if (!matches.length) return [];
@@ -1025,6 +1031,8 @@ export function computeFixedPartners(matches, tagPartners) {
   var NO_NAME_TAG = 'NO_NAME_TAG';
   var fixedMatches = {};   // key -> matches[]
   matches.forEach(function (d) {
+    // タッグ登録済みの相手とシャッフルで偶然組んだ試合は固定に数えない（形式不明の試合は従来どおり）
+    if (d.mode === 'shuffle') return;
     if (!Object.prototype.hasOwnProperty.call(teamOf, d.partner_name)) return;
     var team = teamOf[d.partner_name];
     var named = team && team !== NO_NAME_TAG;
