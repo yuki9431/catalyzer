@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test test-js ui-preview ui-check extract-grades \
+.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
 
@@ -39,6 +39,13 @@ ui-preview:
 ## 全画面をヘッドレスChromeで撮影し検査（要: Google Chrome。基準画像との比較は PR の CI で行う）
 ui-check:
 	node tools/ui-check/check.js
+
+## CI(PR の ui-baseline ラベル)が撮った基準画像を取り込む（例: make ui-baseline RUN=<run-id>。gh run download は上書きしないので一時ディレクトリを経由する）
+ui-baseline:
+	@test -n "$(RUN)" || { echo "RUN=<run-id> を指定する"; exit 1; }
+	rm -rf tmp/ui-baseline
+	gh run download $(RUN) -n ui-baseline -D tmp/ui-baseline
+	cp tmp/ui-baseline/* tools/ui-check/baseline/
 
 ## Firestoreから未登録グレードURLを抽出
 extract-grades:

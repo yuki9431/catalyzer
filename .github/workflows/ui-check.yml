@@ -116,4 +116,4 @@ jobs:
 
       - name: How to apply
         run: |
-          echo "取り込み: gh run download ${{ github.run_id }} -n ui-baseline -D tools/ui-check/baseline" >> "$GITHUB_STEP_SUMMARY"
+          echo "取り込み: make ui-baseline RUN=${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"

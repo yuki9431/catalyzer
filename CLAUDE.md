@@ -13,7 +13,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
-- **画面確認（UI oracle）**: `make ui-check`（67画面をダーク・ライトの2テーマで計134枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`gh run download <run-id> -n ui-baseline -D tools/ui-check/baseline` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（67画面をダーク・ライトの2テーマで計134枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
@@ -41,9 +41,10 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認（基準画像の比較と更新は PR の CI。更新は ui-baseline ラベル）
+# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認（基準画像の比較と更新は PR の CI。更新は ui-baseline ラベル）/ CI が撮った基準の取り込み
 make ui-preview
 make ui-check
+make ui-baseline RUN=<run-id>
 
 # ポート変更
 PORT=3000 make run
