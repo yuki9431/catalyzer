@@ -175,7 +175,11 @@ async function runScreen(conn, origin, screen, theme, update) {
         continue;
       }
       if (kind === 'scrollBy') {
-        await evalJs('window.scrollBy(0,' + a[0] + ');new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        // 描画途中でページが短いと scrollBy が頭打ちになり、後から伸びても scroll が起きない。届くか高さが落ち着くまで待つ
+        await evalJs('(function(n,ms){var end=Date.now()+ms,h=-1,since=0;return new Promise(function(r){(function f(){var d=document.documentElement;' +
+          'if(d.scrollHeight!==h){h=d.scrollHeight;since=Date.now()}' +
+          'if(h-innerHeight>=scrollY+n||Date.now()-since>=500||Date.now()>end)return r();setTimeout(f,50)})()})})(' + a[0] + ',' + WAIT_MS + ')' +
+          '.then(function(){window.scrollBy(0,' + a[0] + ');return new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})})', true);
         continue;
       }
       if (kind === 'pull') {
