@@ -200,7 +200,11 @@ async function runScreen(conn, origin, screen, theme, update) {
         await reloaded;
         continue;
       }
-      if (!(await waitCount(a[0], kind === 'click' || kind === 'wait' ? a[1] : null, 1))) return fail('必須要素なし ' + a[0]);
+      if (!(await waitCount(a[0], kind === 'click' || kind === 'wait' ? a[1] : null, 1))) {
+        // CI でだけ起きる待ち切れの切り分け用に、その時点のスクロール位置を添える
+        var at = await evalJs('"scrollY "+Math.round(scrollY)+" / 高さ "+(document.documentElement.scrollHeight-innerHeight)');
+        return fail('必須要素なし ' + a[0] + ' (' + at + ')');
+      }
       if (kind === 'wait') continue;
       if (kind === 'scroll') {
         await evalJs('document.querySelector(' + JSON.stringify(a[0]) + ').scrollIntoView({block:"center"})');
