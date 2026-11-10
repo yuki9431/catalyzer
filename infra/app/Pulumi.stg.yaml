@@ -5,6 +5,8 @@ config:
   exvs-app:cpu: "1"
   exvs-app:domain: stg.exvs-analyzer.com
   exvs-app:firestoreDatabase: exvs-analyzer
+  exvs-app:geoRestrict: "true"
+  exvs-app:rateLimit: "60"
   exvs-app:image:
     secure: v1:q7/WcDV2sY1/G270:DggE7VOVqX8iND7SrBgyrPi5GlXK4LXK8puQ/Ceffa9ZtAUuZSIbmfNZWod3k5ifOI/OtPL3WPPrjvU52HrsOge65zOfY4lR4lITh/lkMrx1inMFXid9Hy5ZorJ+MyEieCTiOAC8QgfOZJsh3mSPKk7Qx67EQg==
   exvs-app:maxInstances: "1"

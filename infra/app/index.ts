@@ -11,6 +11,10 @@ const domain = config.require("domain");
 const firestoreDatabase = config.require("firestoreDatabase");
 const sessionEncryptionKey = config.getSecret("sessionEncryptionKey");
 
+// レート制限(1時間あたりの最大/IP。未設定で無制限)と国別アクセス制限(日本のみ)
+const rateLimit = config.getNumber("rateLimit");
+const geoRestrict = config.getBoolean("geoRestrict") ?? false;
+
 // 自動更新(#288)。Job と Scheduler は prod のみ(config で制御)
 const autoRefreshEnabled = config.getBoolean("autoRefreshEnabled") ?? false;
 const autoRefreshPaused = config.getBoolean("autoRefreshPaused") ?? false;
@@ -105,6 +109,8 @@ export const service = new gcp.cloudrunv2.Service(
                 ]
               : []),
             ...autoRefreshEnvs,
+            ...(rateLimit !== undefined ? [{ name: "RATE_LIMIT", value: String(rateLimit) }] : []),
+            ...(geoRestrict ? [{ name: "GEO_RESTRICT", value: "true" }] : []),
           ],
           resources: {
             cpuIdle: true,
