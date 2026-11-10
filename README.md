@@ -70,9 +70,11 @@
 │   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
+│   ├── geoip/                     # 国別アクセス判定（CC0許可リストの二分探索）
 │   └── server/
 │       ├── server.go              # HTTPサーバー・API
-│       ├── ratelimit.go           # IPベースレート制限
+│       ├── ratelimit.go           # IPベースレート制限・クライアントIP解決
+│       ├── geoblock.go            # 国別アクセス制限（日本のみ許可）
 │       ├── basicauth.go           # Basic認証ミドルウェア
 │       └── block403.go            # 403時の一時ブロック管理
 ├── static/
@@ -181,11 +183,12 @@
 | `internal/mslist/` | MSリストの読み書き・マージ |
 | `internal/gradelist/` | グレードリストの読み込み・未知URL検出 |
 | `internal/scraper/` | スクレイピング・ログイン処理 |
+| `internal/geoip/` | 国別アクセス判定（CC0のIP許可リストを二分探索） |
 | `internal/session/` | セッション暗号化（AES-256-GCM）・CookieJarシリアライズ |
 | `internal/firestore/` | Firestoreクライアント・データの読み書き・セッション保存 |
 | `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・JSON生成・セッション永続化） |
 | `internal/nationalstats/` | 機体ごとの全国統計（勝率・使用率）JSONの読み書き |
-| `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
+| `internal/server/` | HTTPハンドラ・レート制限・国別アクセス制限・Basic認証・403ブロック・セッション管理 |
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/styles/` | CSS（`tokens.css` に色・文字・余白の定義、他は画面・部品ごと） |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |

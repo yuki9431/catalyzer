@@ -9,6 +9,8 @@ const newSecret = (env: string) =>
     {
       secretId: `session-encryption-key-${env}`,
       replication: { auto: {} },
+      // 版は Pulumi 管理外で、消えると復元できない
+      deletionProtection: true,
     },
     { dependsOn: services }
   );

@@ -14,7 +14,7 @@
       automerge: true,
     },
     {
-      // infra の依存コードはデプロイ用 SA の権限で動くため、人が見てからマージする
+      // infra の依存更新は人が見てからマージする
       matchFileNames: ['infra/**'],
       automerge: false,
     },

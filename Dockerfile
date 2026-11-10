@@ -20,6 +20,8 @@ COPY --from=builder /app/auto-refresh .
 COPY data/ms_list.json data/
 COPY data/national_ms_stats.json data/
 COPY data/grade_list.json data/
+COPY data/jp_ipv4.csv data/
+COPY data/jp_ipv6.csv data/
 
 # フロントエンド
 COPY static/ static/

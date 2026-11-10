@@ -6,7 +6,7 @@ GCPリソースをPulumi (TypeScript) で管理する。2プロジェクト構�
 
 ```
 infra/
-├── shared/    ← 環境非依存リソース（API, IAM, DNS, GCS, Artifact Registry）
+├── shared/    ← 共有リソース（API, IAM, DNS, GCS, Artifact Registry, Secret Manager）
 │   └── スタック: shared（固定）
 └── app/       ← 環境ごとにデプロイするリソース（Cloud Run, ドメインマッピング）
     ├── スタック: prod

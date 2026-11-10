@@ -101,12 +101,13 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。判別できなければ空=不明。機能追加前の試合は相方のタッグ登録から推定して DB に補完済みで `match_mode_inferred: true` が付く）を判別
+- `internal/geoip/` — 国別アクセス判定（`geoip.go`。CC0の許可リストCSVをソート済みレンジに読み込み二分探索。`Load`, `Contains`）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`。`clientIP` は Cloud Run の XFF 右から2番目=実クライアントIPを採る。左端は詐称可能なので使わない）+ 国別アクセス制限（`geoblock.go`。`GEO_RESTRICT=true` で `/analyze`・`/reanalyze` を日本のみ許可。読込失敗・IP解釈不能時はフェイルオープン）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
 - `static/styles/` — CSS（ダーク既定・ライトは選択可(端末に合わせる/ダーク/ライト)、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `:root[data-theme="light"]` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/theme-init.js` — テーマの初期適用と切替（`window.catalyzerTheme`。`<head>` の同期クラシックスクリプト。`catalyzer_theme` を読み `<html data-theme>` と theme-color meta を付け、端末に合わせる中は OS 変更を購読）。import を持たない
@@ -147,6 +148,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/ms_list.json` — MS画像URL→名前・コストのマッピング（コスト: 3000/2500/2000/1500）
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
+- `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
 - `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`）
 - `infra/app/` — Pulumi IaC 環境別リソース（自動更新の Cloud Run Job と Scheduler は config `autoRefreshEnabled` が true の環境（prod のみ）に作る。`index.ts` — Cloud Run, ドメインマッピング, CNAME）
 
