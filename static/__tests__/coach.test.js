@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeActionPlan, evaluateGoal, isValidGoal } from '../analysis/coach.js';
+import { computeActionPlan, evaluateGoal, focusSince, isValidGoal } from '../analysis/coach.js';
 import { goalPattern, testPattern } from '../analysis/patterns.js';
 
 function makeMatch(overrides) {
@@ -476,5 +476,16 @@ describe('burst-endgame missions', function () {
     var ms = build(ovMatch).concat([makeMatch({ date: dateAt(20), actions: [] })]);
     var a = computeActionPlan(ms).actions.filter(function (x) { return x.key === 'ov_solo'; })[0];
     assert.match(a.detail, /20戦中10戦/);
+  });
+});
+
+describe('focusSince', function () {
+  it('最新の試合日時を返す（10戦を超えて貯まった試合も次の10戦に持ち越さない）', function () {
+    var ms = [{ date: '2026/11/01 10:00' }, { date: '2026/11/03 21:30' }, { date: '2026/11/02 12:00' }];
+    assert.equal(focusSince(ms), '2026/11/03 21:30');
+  });
+  it('試合が無ければ空文字（全試合が対象）', function () {
+    assert.equal(focusSince([]), '');
+    assert.equal(focusSince(null), '');
   });
 });
