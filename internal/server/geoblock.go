@@ -39,8 +39,8 @@ func newGeoGuard(v4Path, v6Path string) *geoGuard {
 }
 
 // allowed は接続元が許可国かを返す。guard が nil のときは常に許可。
-// Cloud Run は XFF の右から2番目に実クライアントIPをappendするため、攻撃者は
-// この位置を詐称できない（clientIP 参照）。IPを解釈できない異常時は締め出さない。
+// 実クライアントIPは XFF 末尾（clientIP 参照）で攻撃者が詐称できない。
+// IPを解釈できない異常時は締め出さない。
 func (g *geoGuard) allowed(r *http.Request) bool {
 	if g == nil {
 		return true

@@ -107,12 +107,14 @@ func TestClientIP_XForwardedFor(t *testing.T) {
 		xff  string
 		want string
 	}{
-		// Cloud Run は `…, 実クライアントIP, GoogleのFE-IP` の順。右から2番目が実IP。
+		// Cloud Run（domain mapping）は XFF 末尾に実クライアントIPを追記する。末尾を採る。
 		{"single IP", "203.0.113.50", "203.0.113.50"},
-		{"client + GoogleFE", "203.0.113.50,70.41.3.18", "203.0.113.50"},
-		{"with spaces", "203.0.113.50, 70.41.3.18", "203.0.113.50"},
-		// 攻撃者が左端に偽IPを足しても、右から2番目の実IPを採るので詐称が効かない。
-		{"spoofed leftmost", "6.6.6.6, 203.0.113.50, 70.41.3.18", "203.0.113.50"},
+		{"CloudRunが実IPを末尾に追記", "6.6.6.6,203.0.113.50", "203.0.113.50"},
+		{"with spaces", "6.6.6.6, 203.0.113.50", "203.0.113.50"},
+		// 攻撃者が末尾より前に偽IPをいくつ足しても、末尾の実IPを採るので詐称が効かない。
+		{"spoofed before last", "1.1.1.1, 2.2.2.2, 203.0.113.50", "203.0.113.50"},
+		// 末尾が空（末尾カンマ）なら手前の非空エントリを採る。
+		{"trailing empty skipped", "6.6.6.6, 203.0.113.50, ", "203.0.113.50"},
 	}
 
 	for _, tt := range tests {
@@ -129,19 +131,19 @@ func TestClientIP_XForwardedFor(t *testing.T) {
 }
 
 func TestClientIP_MultiLineXFF(t *testing.T) {
-	// XFF が複数ヘッダ行で届いても連結して右から2番目を採る。
+	// XFF が複数ヘッダ行で届いても連結して末尾を採る。
 	r := &http.Request{
 		RemoteAddr: "127.0.0.1:12345",
 		Header:     http.Header{"X-Forwarded-For": {"6.6.6.6, 203.0.113.50", "70.41.3.18"}},
 	}
-	if got := clientIP(r); got != "203.0.113.50" {
-		t.Errorf("clientIP() = %q, want %q", got, "203.0.113.50")
+	if got := clientIP(r); got != "70.41.3.18" {
+		t.Errorf("clientIP() = %q, want %q", got, "70.41.3.18")
 	}
 }
 
 func TestClientIP_EmptyCandidateFallsBack(t *testing.T) {
-	// 右から2番目が空なら XFF 無しと同じく RemoteAddr に落とす。
-	for _, xff := range []string{", ", "x,, a"} {
+	// 全エントリが空なら XFF 無しと同じく RemoteAddr に落とす。
+	for _, xff := range []string{"", ", ", " , ,  "} {
 		r := &http.Request{
 			RemoteAddr: "192.168.1.1:54321",
 			Header:     http.Header{"X-Forwarded-For": {xff}},
@@ -158,8 +160,8 @@ func TestRateLimitKey(t *testing.T) {
 		xff  string
 		want string
 	}{
-		{"IPv4はアドレス単位", "203.0.113.50, 70.41.3.18", "203.0.113.50"},
-		{"IPv6は/64に丸める", "2001:db8:abcd:1234:5:6:7:8, 70.41.3.18", "2001:db8:abcd:1234::/64"},
+		{"IPv4はアドレス単位", "6.6.6.6, 203.0.113.50", "203.0.113.50"},
+		{"IPv6は/64に丸める", "70.41.3.18, 2001:db8:abcd:1234:5:6:7:8", "2001:db8:abcd:1234::/64"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

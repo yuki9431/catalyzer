@@ -38,14 +38,14 @@ func TestGeoGuard_Allowed(t *testing.T) {
 	g := testGeoGuard(t)
 	tests := []struct {
 		name string
-		xff  string // `実クライアントIP, GoogleFE` の形
+		xff  string // Cloud Run が実クライアントIPを末尾に追記した形
 		want bool
 	}{
-		{"JP実クライアント", "60.71.146.85, 142.250.23.121", true},
-		{"US実クライアント", "8.8.8.8, 142.250.23.121", false},
-		{"詐称: 左端JPでも実IPは海外", "60.71.146.85, 8.8.8.8, 142.250.23.121", false},
-		{"詐称: 左端海外でも実IPはJP", "8.8.8.8, 60.71.146.85, 142.250.23.121", true},
-		{"解釈不能なIPはフェイルオープン", "not-an-ip, 142.250.23.121", true},
+		{"末尾がJP実クライアント→許可", "8.8.8.8, 60.71.146.85", true},
+		{"末尾が海外実クライアント→拒否", "60.71.146.85, 8.8.8.8", false},
+		{"詐称: 末尾より前にJPを置いても末尾の海外で拒否", "60.71.146.85, 103.62.49.6, 8.8.8.8", false},
+		{"詐称: 末尾より前に海外を置いても末尾JPで許可", "8.8.8.8, 1.1.1.1, 60.71.146.85", true},
+		{"末尾が解釈不能ならフェイルオープン", "8.8.8.8, not-an-ip", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -73,7 +73,7 @@ func TestNewGeoGuard_EnabledLoadFailFailsOpen(t *testing.T) {
 func TestHandleReanalyze_GeoBlocked(t *testing.T) {
 	g := testGeoGuard(t)
 	r := httptest.NewRequest(http.MethodPost, "/reanalyze", nil)
-	r.Header.Set("X-Forwarded-For", "8.8.8.8, 142.250.23.121") // 海外の実クライアント
+	r.Header.Set("X-Forwarded-For", "60.71.146.85, 8.8.8.8") // 末尾=海外の実クライアント
 	w := httptest.NewRecorder()
 
 	handleReanalyze(w, r, nil, g)
@@ -91,7 +91,7 @@ func TestNewGeoGuard_Enabled(t *testing.T) {
 	if g == nil {
 		t.Fatal("expected non-nil guard when enabled and allowlist loads")
 	}
-	if g.allowed(reqWithXFF("8.8.8.8, 142.250.23.121")) {
+	if g.allowed(reqWithXFF("60.71.146.85, 8.8.8.8")) {
 		t.Error("US client should be blocked when guard enabled")
 	}
 }
