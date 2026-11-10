@@ -44,15 +44,17 @@ export const wifProvider = new gcp.iam.WorkloadIdentityPoolProvider(
   }
 );
 
-// WIF → サービスアカウントへのworkloadIdentityUser権限
+// GitHub OIDC の sub で束縛する。environment を参照した job は `environment:<名前>` になる
+const wifSubject = (sub: string) =>
+  pulumi.interpolate`principal://iam.googleapis.com/${wifPool.name}/subject/repo:${githubRepo}:${sub}`;
+
+// prod デプロイ専用。environment prod(main のみ)の job だけが借りられる
 export const wifBinding = new gcp.serviceaccount.IAMBinding(
   "github-actions-wif",
   {
     serviceAccountId: githubActionsSa.name,
     role: "roles/iam.workloadIdentityUser",
-    members: [
-      pulumi.interpolate`principalSet://iam.googleapis.com/${wifPool.name}/attribute.repository/${githubRepo}`,
-    ],
+    members: [wifSubject("environment:prod")],
   }
 );
 
@@ -68,9 +70,7 @@ export const saUserBinding = new gcp.serviceaccount.IAMBinding(
 
 // プロジェクトレベルのIAMロール（最小権限）
 const projectRoles = [
-  "roles/cloudbuild.builds.editor",
   "roles/run.developer",
-  "roles/viewer",
 ];
 
 export const projectBindings = projectRoles.map(
@@ -94,30 +94,6 @@ export const stateBucketBinding = new gcp.storage.BucketIAMMember(
   {
     bucket: stateBucket.name,
     role: "roles/storage.objectAdmin",
-    member: githubActionsSa.member,
-  }
-);
-
-// Cloud Buildバケットへのストレージ権限（gcloud builds submitのソースアップロード用）
-export const cloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
-  "github-actions-cloudbuild-bucket",
-  {
-    bucket: `${gcp.config.project}_cloudbuild`,
-    role: "roles/storage.objectUser",
-    member: githubActionsSa.member,
-  }
-);
-
-// --- Artifact Registry権限 ---
-
-// イメージへのコミットSHA追跡タグ付与用（artifactregistry.tags.create。リポジトリ単位に限定）
-export const artifactRegistryBinding = new gcp.artifactregistry.RepositoryIamMember(
-  "github-actions-artifact-registry",
-  {
-    project: repository.project,
-    location: repository.location,
-    repository: repository.name,
-    role: "roles/artifactregistry.writer",
     member: githubActionsSa.member,
   }
 );
@@ -238,8 +214,6 @@ export const githubActionsAddedBindings = githubActionsAddedRoles.map(
 // GitHub Actions SAの新設SAに対するactAs（SA単位）
 export const githubActionsActAsBindings = [
   { name: "run", sa: runSa },
-  { name: "run-stg", sa: runStgSa },
-  { name: "build", sa: buildSa },
   { name: "auto-refresh-job", sa: autoRefreshJobSa },
   { name: "auto-refresh-scheduler", sa: autoRefreshSchedulerSa },
 ].map(
@@ -252,10 +226,6 @@ export const githubActionsActAsBindings = [
 );
 
 // --- CI の身元分離: PR の preview・stg(全ブランチ)・prod(main のみ)で SA を分ける ---
-
-// GitHub OIDC の sub で束縛する。environment を参照した job は `environment:<名前>` になる
-const wifSubject = (sub: string) =>
-  pulumi.interpolate`principal://iam.googleapis.com/${wifPool.name}/subject/repo:${githubRepo}:${sub}`;
 
 // PR の preview 用(読み取りと復号だけ)
 export const ghaPrSa = new gcp.serviceaccount.Account("gha-pr", {
