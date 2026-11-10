@@ -11,4 +11,6 @@ config:
   exvs-shared:domain: exvs-analyzer.com
   exvs-shared:domainVerificationTxt: google-site-verification=TAXKxm2PncupGRZkk0mBxIxslp_7aZj-w9dxPAi-ObE
   exvs-shared:githubRepo: yuki9431/catalyzer
+  exvs-shared:githubRepoId: "546382639"
+  exvs-shared:githubOwnerId: "28643424"
   gcp:region: asia-northeast1

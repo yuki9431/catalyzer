@@ -32,6 +32,9 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.check-secrets.outputs.skip != 'true'
+        with:
+          # 依存コードが .git/config のトークンを読めないようにする
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: steps.check-secrets.outputs.skip != 'true'
@@ -46,7 +49,7 @@ jobs:
       - name: Mask GCP identifiers
         if: steps.check-secrets.outputs.skip != 'true'
         env:
-          SA: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          SA: ${{ secrets.WIF_PR_SERVICE_ACCOUNT }}
           WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
         run: '"$GITHUB_WORKSPACE/.github/scripts/mask-gcp-ids.sh"'
 
@@ -55,7 +58,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          service_account: ${{ secrets.WIF_PR_SERVICE_ACCOUNT }}
 
       - name: Install shared dependencies
         if: steps.check-secrets.outputs.skip != 'true'

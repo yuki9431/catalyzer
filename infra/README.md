@@ -106,8 +106,9 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | `PULUMI_STATE_BUCKET` | Pulumiステート保存用GCSバケット名 |
 | `IMAGE_URI` | コンテナイメージURIベース |
 | `WIF_PROVIDER` | Workload Identity Provider |
-| `WIF_SERVICE_ACCOUNT` | GitHub Actions用サービスアカウント |
+| `WIF_PR_SERVICE_ACCOUNT` | PR の preview 用 SA(`gha-pr`)。repo の secret |
+| `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)。environment `prod` は main のみ |
 
 ## シークレットの暗号化
 
-Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した `github-actions@` SA が KMS 鍵（`pulumi-secrets/pulumi-state`、ロール `cloudkms.cryptoKeyEncrypterDecrypter`）で復号する。
+Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した SA（PR の preview は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`）が KMS 鍵（`pulumi-secrets/pulumi-state`）で復号する。
