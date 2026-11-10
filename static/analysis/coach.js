@@ -340,6 +340,13 @@ export function isValidGoal(goal) {
   return goalPattern(goal) !== null;
 }
 
+// ミッションの判定の起点。挑戦開始・続行の時点の最新試合より後だけを数え、貯まった試合を持ち越さない
+export function focusSince(matches) {
+  var since = '';
+  (matches || []).forEach(function (m) { if (m.date > since) since = m.date; });
+  return since;
+}
+
 // 選択したミッション（goal）の達成状況を古い順に最大 limit 件で返す: { total, achieved, streak（末尾からの連続達成）, marks: [{date, ok}] }
 export function evaluateGoal(goal, matches, limit) {
   var cond = goalPattern(goal);

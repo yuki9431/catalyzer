@@ -1,5 +1,5 @@
 import { html, useEffect, useState } from '../../htm-preact-standalone.js';
-import { evaluateGoal, isValidGoal } from '../../analysis/coach.js';
+import { evaluateGoal, focusSince, isValidGoal } from '../../analysis/coach.js';
 import { pct } from '../../lib/format.js';
 import { Panel } from '../ui.js';
 
@@ -77,7 +77,7 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue, onShowMatc
     <div class="focus-caption">${marks.length ? '✓ 達成 / ✗ 未達成。試合ごとに左から埋まります' : '次の試合から、試合ごとに左から埋まります'}</div>
     ${missed > 0 && html`<${MatchesLink} ui="focus-review" label="✗ の試合を見返す" count=${missed} onClick=${review} />`}
     <div class="focus-actions">
-      ${complete && html`<button class="focus-btn" onClick=${function () { onContinue(last.date); }}>もう${FOCUS_SLOTS}戦続ける</button>`}
+      ${complete && html`<button class="focus-btn" onClick=${function () { onContinue(); }}>もう${FOCUS_SLOTS}戦続ける</button>`}
       <button class="focus-btn ghost" onClick=${onClear}>ミッションを選び直す</button>
     </div>
   </div>`;
@@ -101,15 +101,13 @@ export function ActionPlanPanel({ plan, selectedMs, matches, userKey, onShowMatc
     setFocusState({ scope: scope, value: f });
   }
   function choose(a) {
-    var since = '';
-    (matches || []).forEach(function (m) { if (m.date > since) since = m.date; });
-    setFocus({ goal: a.goal, title: a.title, condition: a.condition, since: since, win_rate_from: a.win_rate_from, win_rate_to: a.win_rate_to });
+    setFocus({ goal: a.goal, title: a.title, condition: a.condition, since: focusSince(matches), win_rate_from: a.win_rate_from, win_rate_to: a.win_rate_to });
   }
   var title = '勝率アップミッション';
   if (focus) {
     return html`<${Panel} title=${title}>
       <${FocusCard} focus=${focus} matches=${matches} selectedMs=${selectedMs} onClear=${function () { setFocus(null); }}
-        onContinue=${function (since) { setFocus(Object.assign({}, focus, { since: since })); }} onShowMatches=${onShowMatches} />
+        onContinue=${function () { setFocus(Object.assign({}, focus, { since: focusSince(matches) })); }} onShowMatches=${onShowMatches} />
     <//>`;
   }
   if (plan.insufficient) {
