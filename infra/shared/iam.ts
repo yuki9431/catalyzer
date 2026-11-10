@@ -283,7 +283,6 @@ export const ciWifBindings = [
 
 export const ghaStgProjectBindings = [
   "roles/cloudbuild.builds.editor",
-  "roles/run.developer",
   "roles/serviceusage.serviceUsageConsumer",
 ].map(
   (role) =>
@@ -293,6 +292,27 @@ export const ghaStgProjectBindings = [
       { dependsOn: services }
     )
 );
+
+// Cloud Run は stg のサービスだけ操作できる。project には LRO の待ち合わせだけを許す
+export const ciRunOperationsRole = new gcp.projects.IAMCustomRole("ci-run-operations", {
+  roleId: "ciRunOperationsViewer",
+  title: "CI Cloud Run operations viewer",
+  permissions: ["run.operations.get"],
+});
+
+export const ghaStgRunOperationsBinding = new gcp.projects.IAMMember(
+  "gha-stg-run-operations",
+  { project: gcp.config.project!, role: ciRunOperationsRole.name, member: ghaStgSa.member },
+  { dependsOn: services }
+);
+
+// サービス名は infra/app/Pulumi.stg.yaml の serviceName
+export const ghaStgRunServiceBinding = new gcp.cloudrunv2.ServiceIamMember("gha-stg-run-developer", {
+  name: "stg-exvs-analyzer",
+  location: gcp.config.region!,
+  role: "roles/run.developer",
+  member: ghaStgSa.member,
+});
 
 export const ghaStateBucketBindings = [
   { name: "gha-pr", sa: ghaPrSa, role: "roles/storage.objectViewer" },
@@ -306,13 +326,28 @@ export const ghaStateBucketBindings = [
     })
 );
 
-export const ghaStgCloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
-  "gha-stg-cloudbuild-bucket",
-  {
-    bucket: `${gcp.config.project}_cloudbuild`,
-    role: "roles/storage.objectUser",
-    member: ghaStgSa.member,
-  }
+// preview がロックを書く場合に備え、locks/ 配下だけ書ける
+export const ghaPrStateLockBinding = new gcp.storage.BucketIAMMember("gha-pr-state-lock", {
+  bucket: stateBucket.name,
+  role: "roles/storage.objectUser",
+  member: ghaPrSa.member,
+  condition: {
+    title: "pulumi-locks-only",
+    expression: pulumi.interpolate`resource.name.startsWith("projects/_/buckets/${stateBucket.name}/objects/.pulumi/locks/")`,
+  },
+});
+
+// gcloud builds submit は既定バケットの buckets.get を要する(objectUser に無い)
+export const ghaStgCloudbuildBucketBindings = [
+  "roles/storage.objectUser",
+  "roles/storage.legacyBucketReader",
+].map(
+  (role) =>
+    new gcp.storage.BucketIAMMember(`gha-stg-cloudbuild-bucket-${role.split(".")[1]}`, {
+      bucket: `${gcp.config.project}_cloudbuild`,
+      role,
+      member: ghaStgSa.member,
+    })
 );
 
 export const ghaStgArtifactRegistryBinding = new gcp.artifactregistry.RepositoryIamMember(
@@ -326,7 +361,7 @@ export const ghaStgArtifactRegistryBinding = new gcp.artifactregistry.Repository
   }
 );
 
-// stg 用は prod の実行 SA を actAs できない(prod へのデプロイ経路にならない)
+// stg 用は prod の実行 SA を actAs できない(prod の実行 SA で新しいリビジョンを作れない)
 export const ghaStgActAsBindings = [
   { name: "build", sa: buildSa },
   { name: "run-stg", sa: runStgSa },
@@ -339,7 +374,7 @@ export const ghaStgActAsBindings = [
     })
 );
 
-// Pulumi の secret 用 KMS 鍵(手動作成。既存の手動付与は残すため非権威の Member で足す)
+// 各スタックの secretsprovider と同じ鍵(手動作成。既存の手動付与は残すため非権威の Member で足す)
 const pulumiKmsKey = `projects/${gcp.config.project}/locations/${gcp.config.region}/keyRings/pulumi-secrets/cryptoKeys/pulumi-state`;
 
 export const ghaKmsBindings = [
