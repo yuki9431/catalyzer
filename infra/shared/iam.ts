@@ -6,6 +6,9 @@ import { repository } from "./artifact-registry";
 
 const config = new pulumi.Config();
 const githubRepo = config.require("githubRepo");
+// 改名・再取得で同名 repo が作られても通さないため、数値 ID でも照合する
+const githubRepoId = config.require("githubRepoId");
+const githubOwnerId = config.require("githubOwnerId");
 const computeSa = config.requireSecret("computeSa");
 
 // GitHub Actions用サービスアカウント
@@ -34,7 +37,7 @@ export const wifProvider = new gcp.iam.WorkloadIdentityPoolProvider(
       "google.subject": "assertion.sub",
       "attribute.repository": "assertion.repository",
     },
-    attributeCondition: `assertion.repository=='${githubRepo}'`,
+    attributeCondition: `assertion.repository=='${githubRepo}' && assertion.repository_id=='${githubRepoId}' && assertion.repository_owner_id=='${githubOwnerId}'`,
     oidc: {
       issuerUri: "https://token.actions.githubusercontent.com",
     },
@@ -245,5 +248,108 @@ export const githubActionsActAsBindings = [
       serviceAccountId: sa.name,
       role: "roles/iam.serviceAccountUser",
       member: githubActionsSa.member,
+    })
+);
+
+// --- CI の身元分離: PR の preview・stg(全ブランチ)・prod(main のみ)で SA を分ける ---
+
+// GitHub OIDC の sub で束縛する。environment を参照した job は `environment:<名前>` になる
+const wifSubject = (sub: string) =>
+  pulumi.interpolate`principal://iam.googleapis.com/${wifPool.name}/subject/repo:${githubRepo}:${sub}`;
+
+// PR の preview 用(読み取りと復号だけ)
+export const ghaPrSa = new gcp.serviceaccount.Account("gha-pr", {
+  accountId: "gha-pr",
+  displayName: "GitHub Actions (PR preview)",
+});
+
+// ビルドと stg デプロイ用
+export const ghaStgSa = new gcp.serviceaccount.Account("gha-stg", {
+  accountId: "gha-stg",
+  displayName: "GitHub Actions (stg)",
+});
+
+export const ciWifBindings = [
+  { name: "gha-pr", sa: ghaPrSa, sub: "pull_request" },
+  { name: "gha-stg", sa: ghaStgSa, sub: "environment:stg" },
+].map(
+  ({ name, sa, sub }) =>
+    new gcp.serviceaccount.IAMBinding(`${name}-wif`, {
+      serviceAccountId: sa.name,
+      role: "roles/iam.workloadIdentityUser",
+      members: [wifSubject(sub)],
+    })
+);
+
+export const ghaStgProjectBindings = [
+  "roles/cloudbuild.builds.editor",
+  "roles/run.developer",
+  "roles/serviceusage.serviceUsageConsumer",
+].map(
+  (role) =>
+    new gcp.projects.IAMMember(
+      `gha-stg-${role.split("/")[1]}`,
+      { project: gcp.config.project!, role, member: ghaStgSa.member },
+      { dependsOn: services }
+    )
+);
+
+export const ghaStateBucketBindings = [
+  { name: "gha-pr", sa: ghaPrSa, role: "roles/storage.objectViewer" },
+  { name: "gha-stg", sa: ghaStgSa, role: "roles/storage.objectAdmin" },
+].map(
+  ({ name, sa, role }) =>
+    new gcp.storage.BucketIAMMember(`${name}-state-bucket`, {
+      bucket: stateBucket.name,
+      role,
+      member: sa.member,
+    })
+);
+
+export const ghaStgCloudbuildBucketBinding = new gcp.storage.BucketIAMMember(
+  "gha-stg-cloudbuild-bucket",
+  {
+    bucket: `${gcp.config.project}_cloudbuild`,
+    role: "roles/storage.objectUser",
+    member: ghaStgSa.member,
+  }
+);
+
+export const ghaStgArtifactRegistryBinding = new gcp.artifactregistry.RepositoryIamMember(
+  "gha-stg-artifact-registry",
+  {
+    project: repository.project,
+    location: repository.location,
+    repository: repository.name,
+    role: "roles/artifactregistry.writer",
+    member: ghaStgSa.member,
+  }
+);
+
+// stg 用は prod の実行 SA を actAs できない(prod へのデプロイ経路にならない)
+export const ghaStgActAsBindings = [
+  { name: "build", sa: buildSa },
+  { name: "run-stg", sa: runStgSa },
+].map(
+  ({ name, sa }) =>
+    new gcp.serviceaccount.IAMMember(`gha-stg-actas-${name}`, {
+      serviceAccountId: sa.name,
+      role: "roles/iam.serviceAccountUser",
+      member: ghaStgSa.member,
+    })
+);
+
+// Pulumi の secret 用 KMS 鍵(手動作成。既存の手動付与は残すため非権威の Member で足す)
+const pulumiKmsKey = `projects/${gcp.config.project}/locations/${gcp.config.region}/keyRings/pulumi-secrets/cryptoKeys/pulumi-state`;
+
+export const ghaKmsBindings = [
+  { name: "gha-pr", sa: ghaPrSa, role: "roles/cloudkms.cryptoKeyDecrypter" },
+  { name: "gha-stg", sa: ghaStgSa, role: "roles/cloudkms.cryptoKeyEncrypterDecrypter" },
+].map(
+  ({ name, sa, role }) =>
+    new gcp.kms.CryptoKeyIAMMember(`${name}-kms`, {
+      cryptoKeyId: pulumiKmsKey,
+      role,
+      member: sa.member,
     })
 );

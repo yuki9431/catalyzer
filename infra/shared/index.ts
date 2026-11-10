@@ -9,6 +9,8 @@ import {
   buildSa,
   autoRefreshJobSa,
   autoRefreshSchedulerSa,
+  ghaPrSa,
+  ghaStgSa,
   wifPool,
   wifProvider,
 } from "./iam";
@@ -28,6 +30,8 @@ export const pulumiStateBucketName = stateBucket.name;
 export const serviceAccountEmail = githubActionsSa.email;
 export const runSaEmail = runSa.email;
 export const runStgSaEmail = runStgSa.email;
+export const ghaPrSaEmail = ghaPrSa.email;
+export const ghaStgSaEmail = ghaStgSa.email;
 export const sessionKeySecretProdId = sessionKeySecretProd.secretId;
 export const sessionKeySecretStgId = sessionKeySecretStg.secretId;
 export const buildSaEmail = buildSa.email;
