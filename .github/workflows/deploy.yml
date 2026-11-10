@@ -20,6 +20,8 @@ on:
 jobs:
   detect-environment:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       environments: ${{ steps.detect.outputs.environments }}
     steps:
