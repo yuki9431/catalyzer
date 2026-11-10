@@ -101,6 +101,9 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
+      - name: "TEMP: show identity"
+        run: jq -r .service_account_impersonation_url "$GOOGLE_APPLICATION_CREDENTIALS" | sed -E 's#.*/serviceAccounts/([^@]+)@.*#identity=\1#'
+
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Compute image content key

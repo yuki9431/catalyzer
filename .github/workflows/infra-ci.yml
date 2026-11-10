@@ -60,6 +60,10 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_PR_SERVICE_ACCOUNT }}
 
+      - name: "TEMP: show identity"
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: jq -r .service_account_impersonation_url "$GOOGLE_APPLICATION_CREDENTIALS" | sed -E 's#.*/serviceAccounts/([^@]+)@.*#identity=\1#'
+
       - name: Install shared dependencies
         if: steps.check-secrets.outputs.skip != 'true'
         working-directory: infra/shared
