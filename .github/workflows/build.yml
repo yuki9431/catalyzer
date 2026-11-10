@@ -72,6 +72,8 @@ jobs:
     needs: check-deploy-label
     if: needs.check-deploy-label.outputs.no-deploy != 'true'
     runs-on: ubuntu-latest
+    # ビルドは全 ref で stg の身元で行い、prod の身元はデプロイだけが使う
+    environment: stg
     permissions:
       contents: write
       id-token: write
@@ -89,10 +91,6 @@ jobs:
 
       # ubuntu-26.04 のランナーには Pulumi CLI が入っていないため明示的に入れる
       - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
-
-      - name: Install dependencies
-        working-directory: infra/app
-        run: npm ci --ignore-scripts
 
       # 公開 repo のジョブログにプロジェクト ID・番号を出さない。auth が環境変数に書き出す前に登録する
       - name: Mask GCP identifiers
@@ -140,8 +138,10 @@ jobs:
             # 未登録の secret は空文字になり、gcloud は空の SA を拒否せず既定 SA で黙ってビルドするため止める
             BUILD_SA="${{ secrets.BUILD_SERVICE_ACCOUNT }}"
             test -n "$BUILD_SA" || { echo "::error::BUILD_SERVICE_ACCOUNT が未設定"; exit 1; }
+            # staging 先を指定すると gcloud がバケット一覧(所有者確認)を要しない
             gcloud builds submit --config cloudbuild.yaml --substitutions=_IMAGE="$IMAGE_KEY" \
-              --service-account="$BUILD_SA"
+              --service-account="$BUILD_SA" \
+              --gcs-source-staging-dir="gs://${GOOGLE_CLOUD_PROJECT}_cloudbuild/source"
             # コミットSHAからも辿れるよう、同一イメージに追跡用タグを付与（失敗してもデプロイは止めず警告に留める）
             gcloud artifacts docker tags add "$IMAGE_KEY" "$IMAGE_SHA" \
               || echo "::warning::追跡用タグ付与に失敗: ${{ github.sha }}"
