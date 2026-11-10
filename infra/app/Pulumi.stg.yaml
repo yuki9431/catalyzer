@@ -8,7 +8,7 @@ config:
   exvs-app:geoRestrict: "true"
   exvs-app:rateLimit: "60"
   exvs-app:image:
-    secure: v1:q7/WcDV2sY1/G270:DggE7VOVqX8iND7SrBgyrPi5GlXK4LXK8puQ/Ceffa9ZtAUuZSIbmfNZWod3k5ifOI/OtPL3WPPrjvU52HrsOge65zOfY4lR4lITh/lkMrx1inMFXid9Hy5ZorJ+MyEieCTiOAC8QgfOZJsh3mSPKk7Qx67EQg==
+    secure: v1:MiOt1eVB1Z0dSbQx:qxd8zWoryUjT/HFmtRAxSjkygNngUavCzY2pXHF9/G71euEfr5IuERH8P73ybRcew8fifrAaPtMUBwZb5MM/UlvZZ7zhxwQ7aN5ODOhX1Ny2wnH8Embz6+0FscXxRJWSmg2wODLRkxd6+3+4MpuUF2emJ/HRGA==
   exvs-app:maxInstances: "1"
   exvs-app:memory: 512Mi
   exvs-app:serviceName: stg-exvs-analyzer
