@@ -163,7 +163,7 @@
 │       ├── deploy.yml             # デプロイ（Pulumi up）
 │       ├── infra-ci.yml           # インフラCI（Pulumi preview）
 │       └── update-mslist.yml      # MSリスト自動更新
-├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ。infra/は手動）
+├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
 ├── .golangci.yml                  # golangci-lint設定
 ├── Makefile                       # ビルド・起動・インフラコマンド
 ├── Dockerfile                     # マルチステージビルド
