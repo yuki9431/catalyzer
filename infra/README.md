@@ -40,6 +40,10 @@ STACK=stg make pulumi-app-init
 STACK=prod make pulumi-app-shell
 pulumi config set gcp:project <PROJECT_ID> --secret
 pulumi config set exvs-app:image <IMAGE_URI> --secret
+pulumi config set exvs-app:sessionKeyVersion <版番号>
+
+# 5. セッション鍵の版を追加（環境ごとに別の鍵。末尾に改行が入ると鍵が不正になり暗号化が黙って無効になる）
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add <Secret ID> --data-file=-
 ```
 
 ## 日常操作
