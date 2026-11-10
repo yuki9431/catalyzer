@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -66,6 +67,19 @@ func TestNewGeoGuard_EnabledLoadFailFailsOpen(t *testing.T) {
 	t.Setenv("GEO_RESTRICT", "true")
 	if g := newGeoGuard("missing_v4.csv", "missing_v6.csv"); g != nil {
 		t.Error("expected nil guard (fail-open) when allowlist load fails")
+	}
+}
+
+func TestHandleReanalyze_GeoBlocked(t *testing.T) {
+	g := testGeoGuard(t)
+	r := httptest.NewRequest(http.MethodPost, "/reanalyze", nil)
+	r.Header.Set("X-Forwarded-For", "8.8.8.8, 142.250.23.121") // 海外の実クライアント
+	w := httptest.NewRecorder()
+
+	handleReanalyze(w, r, nil, g)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusForbidden)
 	}
 }
 

@@ -36,6 +36,10 @@ func TestContains_RealData(t *testing.T) {
 		{"NL スキャナ", "2.57.122.202", false},
 		{"IPv4射影されたJP", "::ffff:60.71.146.85", true},
 		{"プライベートIP", "192.168.1.1", false},
+		// 入れ子レンジの外側に含まれるJP。併合前は二分探索が取りこぼしていた。
+		{"入れ子外側のJP(v4)", "103.62.49.6", true},
+		{"入れ子外側のJP(v4)2", "134.159.160.224", true},
+		{"入れ子外側のJP(v6)", "2606:f187:c002::", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -73,6 +77,39 @@ func TestContains_Boundaries(t *testing.T) {
 		if got := db.Contains(netip.MustParseAddr(tt.ip)); got != tt.want {
 			t.Errorf("Contains(%s) = %v, want %v", tt.ip, got, tt.want)
 		}
+	}
+}
+
+func TestContains_NestedRanges(t *testing.T) {
+	// 外側レンジの中に内側レンジが入れ子になっても、併合後は外側全体を含む。
+	raw := []ipRange{
+		{start: netip.MustParseAddr("10.0.0.0"), end: netip.MustParseAddr("10.0.0.255")},
+		{start: netip.MustParseAddr("10.0.0.5"), end: netip.MustParseAddr("10.0.0.5")}, // 入れ子
+	}
+	db := &DB{v4: mergeRanges(raw)} // raw は start 昇順
+	for _, ip := range []string{"10.0.0.5", "10.0.0.6", "10.0.0.255"} {
+		if !db.Contains(netip.MustParseAddr(ip)) {
+			t.Errorf("Contains(%s) = false, want true (入れ子外側)", ip)
+		}
+	}
+}
+
+func TestLoad_MergedRangesDisjoint(t *testing.T) {
+	db := loadTestDB(t)
+	for _, rs := range [][]ipRange{db.v4, db.v6} {
+		for i := 1; i < len(rs); i++ {
+			if !rs[i-1].end.Less(rs[i].start) {
+				t.Fatalf("併合後に重なり/隣接が残っている (index %d)", i)
+			}
+		}
+	}
+}
+
+func TestLoad_FamilyMismatch(t *testing.T) {
+	// v4ファイルをv6スロットに渡すとファミリ不一致でエラーになる。
+	v4 := filepath.Join("..", "..", "data", "jp_ipv4.csv")
+	if _, err := Load(v4, v4); err == nil {
+		t.Error("expected error when IPv4 file is loaded as IPv6")
 	}
 }
 

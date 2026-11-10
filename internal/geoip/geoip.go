@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// ipRange は [Start, End] の閉区間。CSV は国別に昇順・非重複で並ぶ前提。
+// ipRange は [Start, End] の閉区間。読み込み時に併合し非重複・非隣接にする。
 type ipRange struct {
 	start netip.Addr
 	end   netip.Addr
@@ -24,19 +24,22 @@ type DB struct {
 }
 
 // Load は許可国のIPv4/IPv6レンジCSV（start,end,country）を読み込む。
+// 不正行が1件でもあれば（許可リストが黙って縮むのを避けるため）エラーにする。
 func Load(v4Path, v6Path string) (*DB, error) {
-	v4, err := loadRanges(v4Path)
+	v4, err := loadRanges(v4Path, false)
 	if err != nil {
 		return nil, fmt.Errorf("IPv4レンジの読み込み: %w", err)
 	}
-	v6, err := loadRanges(v6Path)
+	v6, err := loadRanges(v6Path, true)
 	if err != nil {
 		return nil, fmt.Errorf("IPv6レンジの読み込み: %w", err)
 	}
 	return &DB{v4: v4, v6: v6}, nil
 }
 
-func loadRanges(path string) ([]ipRange, error) {
+// loadRanges は1ファイルを読み、昇順ソートして重なり・隣接を併合する。
+// wantV6 は期待するアドレスファミリ。混在・逆転・解釈不能・0件はエラー。
+func loadRanges(path string, wantV6 bool) ([]ipRange, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -44,6 +47,7 @@ func loadRanges(path string) ([]ipRange, error) {
 	defer func() { _ = f.Close() }()
 
 	var ranges []ipRange
+	var malformed int
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
@@ -51,7 +55,8 @@ func loadRanges(path string) ([]ipRange, error) {
 			continue
 		}
 		start, end, ok := parseLine(line)
-		if !ok {
+		if !ok || start.Is4() == wantV6 || end.Is4() == wantV6 || end.Less(start) {
+			malformed++
 			continue
 		}
 		ranges = append(ranges, ipRange{start: start, end: end})
@@ -59,10 +64,35 @@ func loadRanges(path string) ([]ipRange, error) {
 	if err := sc.Err(); err != nil {
 		return nil, err
 	}
+	if malformed > 0 {
+		return nil, fmt.Errorf("%d 件の不正行", malformed)
+	}
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("有効なレンジが0件")
+	}
 	sort.Slice(ranges, func(i, j int) bool {
 		return ranges[i].start.Less(ranges[j].start)
 	})
-	return ranges, nil
+	return mergeRanges(ranges), nil
+}
+
+// mergeRanges は昇順ソート済みレンジの重なり・隣接を併合し非重複にする。
+// 併合しないと入れ子レンジで二分探索が包含を取りこぼす。
+func mergeRanges(ranges []ipRange) []ipRange {
+	merged := make([]ipRange, 0, len(ranges))
+	merged = append(merged, ranges[0])
+	for _, r := range ranges[1:] {
+		last := len(merged) - 1
+		next := merged[last].end.Next()
+		if next.IsValid() && r.start.Compare(next) > 0 {
+			merged = append(merged, r) // 隙間あり
+			continue
+		}
+		if merged[last].end.Less(r.end) {
+			merged[last].end = r.end
+		}
+	}
+	return merged
 }
 
 // parseLine は "start,end,country" の先頭2列をアドレスとして解釈する。

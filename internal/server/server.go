@@ -94,7 +94,7 @@ func StartServer() {
 
 		// レート制限チェック
 		if rl != nil {
-			ip := clientIP(r)
+			ip := rateLimitKey(r)
 			if !rl.getLimiter(ip).Allow() {
 				sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "リクエスト回数の上限に達しました。しばらく時間をおいてから再度お試しください"})
 				return
@@ -615,7 +615,7 @@ func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter, ge
 
 	// レート制限チェック
 	if rl != nil {
-		ip := clientIP(r)
+		ip := rateLimitKey(r)
 		if !rl.getLimiter(ip).Allow() {
 			sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "リクエスト回数の上限に達しました。しばらく時間をおいてから再度お試しください"})
 			return
