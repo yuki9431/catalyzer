@@ -550,10 +550,11 @@ export function computeSeason(matches) {
     }
     var endMonth = startMonth < 12 ? startMonth + 1 : 1;
     var endYear = startMonth < 12 ? sYear : sYear + 1;
-    if (startMonth === 12) {
-      return sYear + '年' + startMonth + '月-' + endYear + '年' + endMonth + '月';
-    }
-    return sYear + '年' + startMonth + '-' + endMonth + '月';
+    var name = startMonth === 12
+      ? sYear + '年' + startMonth + '月-' + endYear + '年' + endMonth + '月'
+      : sYear + '年' + startMonth + '-' + endMonth + '月';
+    // 月をゼロ埋めしない名前の文字列ソートは 10月が 2月より前に来るので数値キーで並べる
+    return { name: name, sort: sYear * 100 + startMonth };
   }
 
   function getSeasonHalf(dateStr) {
@@ -563,19 +564,24 @@ export function computeSeason(matches) {
 
   var seasonData = {};
   var seasonHalf = {};
+  var seasonSort = {};
 
   matches.forEach(function (d) {
-    var s = getSeason(d.date);
+    var season = getSeason(d.date);
+    var s = season.name;
     var h = getSeasonHalf(d.date);
     if (!seasonData[s]) seasonData[s] = [];
     seasonData[s].push(d);
+    if (seasonSort[s] === undefined) seasonSort[s] = season.sort;
     if (!seasonHalf[s]) seasonHalf[s] = {};
     if (!seasonHalf[s][h]) seasonHalf[s][h] = [];
     seasonHalf[s][h].push(d);
   });
 
   var results = [];
-  Object.keys(seasonData).sort().forEach(function (seasonName) {
+  Object.keys(seasonData).sort(function (a, b) {
+    return seasonSort[a] - seasonSort[b];
+  }).forEach(function (seasonName) {
     var data = seasonData[seasonName];
     var firstHalf = (seasonHalf[seasonName] && seasonHalf[seasonName]['前半']) || [];
     var secondHalf = (seasonHalf[seasonName] && seasonHalf[seasonName]['後半']) || [];
