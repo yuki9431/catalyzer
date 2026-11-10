@@ -148,6 +148,7 @@
 │   │   ├── firestore.ts           # Firestore定義
 │   │   ├── dns.ts                 # Cloud DNS定義
 │   │   ├── iam.ts                 # サービスアカウント・Workload Identity
+│   │   ├── secrets.ts             # セッション鍵の Secret Manager（版は手作業）
 │   │   └── budget.ts              # 予算アラート定義
 │   └── app/                       # 環境別リソース（prod/stg）
 │       └── index.ts               # Cloud Run・ドメインマッピング
@@ -160,7 +161,7 @@
 │       ├── deploy.yml             # デプロイ（Pulumi up）
 │       ├── infra-ci.yml           # インフラCI（Pulumi preview）
 │       └── update-mslist.yml      # MSリスト自動更新
-├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
+├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ。infra/は手動）
 ├── .golangci.yml                  # golangci-lint設定
 ├── Makefile                       # ビルド・起動・インフラコマンド
 ├── Dockerfile                     # マルチステージビルド

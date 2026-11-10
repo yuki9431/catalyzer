@@ -5,6 +5,7 @@ import { stateBucket } from "./storage";
 import {
   githubActionsSa,
   runSa,
+  runStgSa,
   buildSa,
   autoRefreshJobSa,
   autoRefreshSchedulerSa,
@@ -12,6 +13,7 @@ import {
   wifProvider,
 } from "./iam";
 import { firestoreDb } from "./firestore";
+import { sessionKeySecretProd, sessionKeySecretStg } from "./secrets";
 // TODO: budget importはBilling Budget APIのquota project設定後に対応
 // import { budget } from "./budget";
 
@@ -25,6 +27,9 @@ export const artifactRegistryId = repository.id;
 export const pulumiStateBucketName = stateBucket.name;
 export const serviceAccountEmail = githubActionsSa.email;
 export const runSaEmail = runSa.email;
+export const runStgSaEmail = runStgSa.email;
+export const sessionKeySecretProdId = sessionKeySecretProd.secretId;
+export const sessionKeySecretStgId = sessionKeySecretStg.secretId;
 export const buildSaEmail = buildSa.email;
 export const autoRefreshJobSaEmail = autoRefreshJobSa.email;
 export const autoRefreshSchedulerSaEmail = autoRefreshSchedulerSa.email;

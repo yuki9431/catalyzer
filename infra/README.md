@@ -84,6 +84,7 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | GCSバケット | `storage.ts` |
 | Cloud DNS ゾーン | `dns.ts` |
 | IAM / WIF | `iam.ts` |
+| セッション鍵の Secret(版は手作業で追加) | `secrets.ts` |
 | 予算アラート | `budget.ts` |
 
 ### app

@@ -13,6 +13,11 @@
       matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
     },
+    {
+      // infra の依存コードはデプロイ用 SA の権限で動くため、人が見てからマージする
+      matchFileNames: ['infra/**'],
+      automerge: false,
+    },
   ],
   vulnerabilityAlerts: {
     // 既定は null(待たない)。修正版を装った悪性リリースも同じく3日待つ
