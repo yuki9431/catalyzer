@@ -11,9 +11,8 @@ config:
     secure: v1:MiOt1eVB1Z0dSbQx:qxd8zWoryUjT/HFmtRAxSjkygNngUavCzY2pXHF9/G71euEfr5IuERH8P73ybRcew8fifrAaPtMUBwZb5MM/UlvZZ7zhxwQ7aN5ODOhX1Ny2wnH8Embz6+0FscXxRJWSmg2wODLRkxd6+3+4MpuUF2emJ/HRGA==
   exvs-app:maxInstances: "1"
   exvs-app:memory: 512Mi
+  exvs-app:sessionKeyVersion: "1"
   exvs-app:serviceName: stg-exvs-analyzer
   exvs-app:sharedStack: organization/exvs-shared/shared
   gcp:project: exvs2ib-analyzer
   gcp:region: asia-northeast1
-  exvs-app:sessionEncryptionKey:
-    secure: v1:vVvFyaTGB6LXa+TX:E27DnnLeNESxIaq6IFlX4gi796mnG+zlD4OexyrgqOsIo35FLA09sGjwV1DNUwiczGdx3IbF5Qidmm2P8kPJYrudDDJ3rOMj4fmJ5dOjgY4=

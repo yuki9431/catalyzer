@@ -11,11 +11,10 @@ config:
     secure: v1:iiuRo/OYmRRdo2Z7:4eg80A2kYamukorFzEYjR+XuTRJo1m+kdtG/KIo3VhFaDVqljcoN2mAp8d0T3jOzMEmzNNiJkIq0lo1+Gp/kwEacQHhSXa8pPtFilp6yE0f2U5j/hOh0xZaoww64zSMKTzDOcb9pTkfxW21kHgKVNEmhHlhZnA==
   exvs-app:maxInstances: "3"
   exvs-app:memory: 1Gi
+  exvs-app:sessionKeyVersion: "1"
   exvs-app:serviceName: exvs-analyzer
   exvs-app:sharedStack: organization/exvs-shared/shared
   gcp:project: exvs2ib-analyzer
   gcp:region: asia-northeast1
-  exvs-app:sessionEncryptionKey:
-    secure: v1:ay3DXBLUnNZxg2tO:rv3t+K6ITd6nu3MXxCOo0Y5f4tlBSRVAlSJEe2Tj2PxDN0Cm7D6CgI0IvGAcFqQPPz1MpoM/K8JAKmoeMdK75/waKpfrTQiWtFGKgBNnnZ0=
   exvs-app:autoRefreshPassphraseHash:
     secure: v1:FxzP6A0owhA9dZKR:giAcLRDtvPGvZCbtMw0XZNrO/mCwUA25PfsIjKqfS32hYezn/KjzSfCodYdf3fWTyujAQnUX+JXa2xUnLpGPu0MCVTh7PIGDXWqrSD2mytRuhLtBcyk2lIrt1V4mUkL3yF1Gq5AMG1WJsWUzdrx5SlU=
