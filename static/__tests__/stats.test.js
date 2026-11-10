@@ -487,6 +487,16 @@ describe('computeSeason', function () {
     var s = result.find(function (r) { return r.first_half && r.second_half; });
     assert.ok(s);
   });
+
+  it('orders seasons chronologically, not by string sort', function () {
+    var matches = [
+      makeMatch({ date: '2024-10-15 10:00' }), // 10-11月
+      makeMatch({ date: '2024-02-15 10:00' }), // 2-3月
+      makeMatch({ date: '2024-12-15 10:00' }), // 12月-翌1月
+    ];
+    var names = computeSeason(matches).map(function (r) { return r.name; });
+    assert.deepEqual(names, ['2024年2-3月', '2024年10-11月', '2024年12月-2025年1月']);
+  });
 });
 
 // --- computeBurstCount ---
