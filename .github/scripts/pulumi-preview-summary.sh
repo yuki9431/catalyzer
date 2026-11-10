@@ -14,7 +14,10 @@ status=0
 pulumi preview --json >"$json" || status=$?
 
 # digest は config と全リソースの state を含むので、解析できなくても中身は出さない
-if ! jq -e 'type == "object"' "$json" >/dev/null 2>&1; then
+shape='type == "object"
+  and ((.steps // []) | type == "array" and all(.[]; (.op | type) == "string" and (.urn | type) == "string"))
+  and ((.diagnostics // []) | type == "array")'
+if ! jq -e "$shape" "$json" >/dev/null 2>&1; then
   echo "::error::$label: preview の出力を JSON として解析できない($(wc -c <"$json" | tr -d ' ') bytes)"
   printf '### %s\npreview 失敗(出力を解析できない。詳細はジョブログ)\n\n' "$label" >>"$out"
   [ "$status" -ne 0 ] && exit "$status"
@@ -22,9 +25,9 @@ if ! jq -e 'type == "object"' "$json" >/dev/null 2>&1; then
 fi
 
 echo "--- $label: diagnostics"
-jq -r '(.diagnostics // [])[] | "[\(.severity)] \(.message)"' "$json"
+jq -r '(.diagnostics // [])[] | "[\(.severity)] \(.message)"' "$json" 2>/dev/null || true
 echo "--- $label: changes"
-jq -r '.steps[]? | select(.op != "same") | "\(.op)\t\(.urn)\t\((.diffReasons // []) | join(","))"' "$json"
+jq -r '.steps[]? | select(.op != "same") | "\(.op)\t\(.urn)\t\((.diffReasons // []) | join(","))"' "$json" 2>/dev/null || true
 
 {
   echo "### $label"

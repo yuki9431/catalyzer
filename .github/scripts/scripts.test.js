@@ -24,7 +24,9 @@ function run(args, env) {
     env: { ...process.env, PATH: tmp + ':' + process.env.PATH, PREVIEW_OUT: out, ...env },
     encoding: 'utf8',
   });
-  return { code: r.status, log: r.stdout + r.stderr, comment: fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '' };
+  var comment = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return { code: r.status, log: r.stdout + r.stderr, comment };
 }
 
 function digest(steps, extra) {
@@ -49,6 +51,7 @@ describe('pulumi-preview-summary.sh', () => {
     assert.match(r.comment, /- update `gcp:cloudrunv2\/service:Service` `svc`/);
     assert.match(r.comment, /- create `gcp:dns\/recordSet:RecordSet` `a::b`/);
     assert.ok(!r.comment.includes(SECRET));
+    assert.ok(!r.log.includes(SECRET));
   });
 
   it('StackReference の read だけなら変更なしと書く', () => {
@@ -74,6 +77,22 @@ describe('pulumi-preview-summary.sh', () => {
     assert.notStrictEqual(r.code, 0);
     assert.match(r.comment, /出力を解析できない/);
     assert.ok(!r.log.includes(SECRET));
+  });
+
+  it('失敗かつ JSON でない出力は pulumi の終了コードを返す', () => {
+    var r = run(['shared', 'shared'], { FAKE_OUT: 'panic ' + SECRET, FAKE_EXIT: '255' });
+    assert.strictEqual(r.code, 255);
+    assert.match(r.comment, /出力を解析できない/);
+    assert.ok(!r.log.includes(SECRET));
+  });
+
+  it('JSON の形が想定外でも中身を出さず失敗にする', () => {
+    for (var extra of [{ diagnostics: SECRET }, { steps: [{ op: 'update' }] }]) {
+      var r = run(['shared', 'shared'], { FAKE_OUT: digest([], extra) });
+      assert.notStrictEqual(r.code, 0);
+      assert.match(r.comment, /出力を解析できない/);
+      assert.ok(!r.log.includes(SECRET));
+    }
   });
 
   it('出力が空でも緑にしない', () => {
@@ -102,7 +121,7 @@ describe('mask-gcp-ids.sh', () => {
   });
 
   it('サービスアカウントの形式が想定外なら失敗する', () => {
-    for (var sa of ['broken', 'gha@my-proj-1.example.com', '']) {
+    for (var sa of ['broken', 'gha@my-proj-1.example.com', 'gha@x\nleaked-proj.iam.gserviceaccount.com']) {
       var r = mask({ ...OK, SA: sa });
       assert.strictEqual(r.status, 1, sa);
       assert.ok(!r.stdout.includes('add-mask'), sa);
@@ -110,8 +129,17 @@ describe('mask-gcp-ids.sh', () => {
   });
 
   it('WIF provider から番号を取り出せなければ失敗する', () => {
-    var r = mask({ ...OK, WIF_PROVIDER: 'pools/p' });
+    for (var wp of ['pools/p', 'projects/1/x', 'projects/123456/x\n987654']) {
+      var r = mask({ ...OK, WIF_PROVIDER: wp });
+      assert.strictEqual(r.status, 1, wp);
+      assert.ok(!r.stdout.includes('add-mask'), wp);
+      assert.ok(!r.stdout.includes('987654'), wp);
+    }
+  });
+
+  it('未設定なら形式エラーと区別して知らせる', () => {
+    var r = mask({ ...OK, SA: '' });
     assert.strictEqual(r.status, 1);
-    assert.ok(!r.stdout.includes('add-mask'));
+    assert.match(r.stdout, /未設定/);
   });
 });
