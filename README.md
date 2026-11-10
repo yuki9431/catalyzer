@@ -150,6 +150,7 @@
 │   │   ├── firestore.ts           # Firestore定義
 │   │   ├── dns.ts                 # Cloud DNS定義
 │   │   ├── iam.ts                 # サービスアカウント・Workload Identity
+│   │   ├── secrets.ts             # セッション鍵の Secret Manager（版は手作業）
 │   │   └── budget.ts              # 予算アラート定義
 │   └── app/                       # 環境別リソース（prod/stg）
 │       └── index.ts               # Cloud Run・ドメインマッピング

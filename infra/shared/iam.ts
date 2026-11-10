@@ -66,9 +66,7 @@ export const saUserBinding = new gcp.serviceaccount.IAMBinding(
 // プロジェクトレベルのIAMロール（最小権限）
 const projectRoles = [
   "roles/cloudbuild.builds.editor",
-  "roles/resourcemanager.projectIamAdmin",
   "roles/run.developer",
-  "roles/serviceusage.serviceUsageAdmin",
   "roles/viewer",
 ];
 
@@ -136,10 +134,16 @@ export const firestoreComputeSaIam = new gcp.projects.IAMMember(
 
 // --- 最小権限SA(#460・#288。加算のみ。既存の権限は移行完了後に別PRで外す) ---
 
-// Cloud Run実行SA(prod・stg共用)
+// Cloud Run実行SA(prod)
 export const runSa = new gcp.serviceaccount.Account("catalyzer-run", {
   accountId: "catalyzer-run",
   displayName: "Catalyzer Cloud Run",
+});
+
+// Cloud Run実行SA(stg)。セッション鍵を環境ごとに分けるため prod と別にする
+export const runStgSa = new gcp.serviceaccount.Account("catalyzer-run-stg", {
+  accountId: "catalyzer-run-stg",
+  displayName: "Catalyzer Cloud Run (stg)",
 });
 
 // Cloud Build実行SA
@@ -169,6 +173,7 @@ export const autoRefreshSchedulerSa = new gcp.serviceaccount.Account(
 const newSaRoles: { name: string; sa: gcp.serviceaccount.Account; role: string }[] = [
   { name: "run-datastore", sa: runSa, role: "roles/datastore.user" },
   { name: "run-invoker", sa: runSa, role: "roles/run.invoker" },
+  { name: "run-stg-datastore", sa: runStgSa, role: "roles/datastore.user" },
   { name: "build-logwriter", sa: buildSa, role: "roles/logging.logWriter" },
   { name: "auto-refresh-job-datastore", sa: autoRefreshJobSa, role: "roles/datastore.user" },
 ];
@@ -208,7 +213,7 @@ export const buildSourceBucketBinding = new gcp.storage.BucketIAMMember(
   }
 );
 
-// GitHub Actions SAへの追加ロール（serviceUsageAdminは移行完了後に外す）
+// GitHub Actions SAへの追加ロール
 const githubActionsAddedRoles = [
   "roles/serviceusage.serviceUsageConsumer",
   "roles/cloudscheduler.admin",
@@ -230,6 +235,7 @@ export const githubActionsAddedBindings = githubActionsAddedRoles.map(
 // GitHub Actions SAの新設SAに対するactAs（SA単位）
 export const githubActionsActAsBindings = [
   { name: "run", sa: runSa },
+  { name: "run-stg", sa: runStgSa },
   { name: "build", sa: buildSa },
   { name: "auto-refresh-job", sa: autoRefreshJobSa },
   { name: "auto-refresh-scheduler", sa: autoRefreshSchedulerSa },
