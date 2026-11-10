@@ -3,7 +3,7 @@
 set -euo pipefail
 
 fail() { echo "::error::$1"; exit 1; }
-[ -n "${SA:-}" ] || fail "WIF_SERVICE_ACCOUNT が未設定"
+[ -n "${SA:-}" ] || fail "サービスアカウントの secret が未設定"
 [ -n "${WIF_PROVIDER:-}" ] || fail "WIF_PROVIDER が未設定"
 # 文字列全体で照合する(改行入りの値で一部だけが平文で出るのを防ぐ)
 [[ $SA =~ ^[^@[:space:]]+@([a-z][a-z0-9-]{4,28}[a-z0-9])\.iam\.gserviceaccount\.com$ ]] \
