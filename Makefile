@@ -28,9 +28,9 @@ stop:
 test:
 	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
 
-## フロントエンド（JS）テストを実行
+## JS テストを実行（フロントエンド・ui-check・CI スクリプト。CI スクリプトのテストは bash と jq が要る）
 test-js:
-	node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'
+	node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'
 
 ## サンプルデータのUIプレビューを起動（http://127.0.0.1:8090/__preview/）
 ui-preview:
