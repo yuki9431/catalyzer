@@ -9,24 +9,35 @@ if ! pulumi stack select "$stack" 2>/dev/null; then
 fi
 
 json=$(mktemp)
+trap 'rm -f "$json"' EXIT
 status=0
 pulumi preview --json >"$json" || status=$?
 
+# digest は config と全リソースの state を含むので、解析できなくても中身は出さない
+if ! jq -e 'type == "object"' "$json" >/dev/null 2>&1; then
+  echo "::error::$label: preview の出力を JSON として解析できない($(wc -c <"$json" | tr -d ' ') bytes)"
+  printf '### %s\npreview 失敗(出力を解析できない。詳細はジョブログ)\n\n' "$label" >>"$out"
+  [ "$status" -ne 0 ] && exit "$status"
+  exit 1
+fi
+
 echo "--- $label: diagnostics"
-jq -r '(.diagnostics // [])[] | "[\(.severity)] \(.message)"' "$json" 2>/dev/null || cat "$json"
+jq -r '(.diagnostics // [])[] | "[\(.severity)] \(.message)"' "$json"
 echo "--- $label: changes"
-jq -r '.steps[]? | select(.op != "same") | "\(.op)\t\(.urn)\t\((.diffReasons // []) | join(","))"' "$json" 2>/dev/null || true
+jq -r '.steps[]? | select(.op != "same") | "\(.op)\t\(.urn)\t\((.diffReasons // []) | join(","))"' "$json"
 
 {
   echo "### $label"
   if [ "$status" -ne 0 ]; then
     echo "preview 失敗(詳細はジョブログ)"
   else
-    jq -r '[.steps[]? | select(.op != "same")] as $s
+    # StackReference は差分が無くても毎回 read で載るので数えない
+    jq -r '[.steps[]? | select(.op != "same" and .op != "read")] as $s
       | if ($s | length) == 0 then "変更なし"
         else
           ($s | group_by(.op) | map("\(.[0].op): \(length)") | join(" / ")),
-          ($s[] | (.urn | split("::")) as $u | "- \(.op) `\($u[-2] | split("$") | last)` \($u[-1])")
+          ($s[] | (.urn | split("::")) as $u
+            | "- \(.op) `\($u[2] | split("$") | last)` `\($u[3:] | join("::"))`")
         end' "$json"
   fi
   echo

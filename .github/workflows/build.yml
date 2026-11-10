@@ -90,6 +90,13 @@ jobs:
         working-directory: infra/app
         run: npm ci --ignore-scripts
 
+      # 公開 repo のジョブログにプロジェクト ID・番号を出さない。auth が環境変数に書き出す前に登録する
+      - name: Mask GCP identifiers
+        env:
+          SA: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+        run: '"$GITHUB_WORKSPACE/.github/scripts/mask-gcp-ids.sh"'
+
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:

@@ -153,7 +153,9 @@
 │       └── index.ts               # Cloud Run・ドメインマッピング
 ├── .github/
 │   ├── scripts/
-│   │   └── pulumi-preview-summary.sh  # Pulumi previewの要約（PRコメント用。識別子を出さない）
+│   │   ├── pulumi-preview-summary.sh  # Pulumi previewの要約（PRコメント用。識別子を出さない）
+│   │   ├── mask-gcp-ids.sh        # ジョブログのプロジェクトID・番号をマスク
+│   │   └── scripts.test.js        # 上記2スクリプトのテスト
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
