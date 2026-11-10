@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   check-labels:
     runs-on: ubuntu-latest
@@ -67,7 +70,7 @@ jobs:
           node-version: "22"
 
       - name: JS test
-        run: node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'
+        run: node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'
 
   validate-mslist:
     runs-on: ubuntu-latest

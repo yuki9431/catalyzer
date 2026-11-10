@@ -1,4 +1,4 @@
-import { html, useEffect, useMemo, useState } from '../../htm-preact-standalone.js';
+import { html, useEffect, useLayoutEffect, useMemo, useState } from '../../htm-preact-standalone.js';
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { emptyFilters } from '../../analysis/search.js';
@@ -139,8 +139,8 @@ export function Report({ data, userKey, actions }) {
       .catch(function () {});
   }, [userKey]);
 
-  // view 切替時にスクロールロック解除と先頭復帰。再マウント時にも効かせるため onNavigate と二重に持つ
-  useEffect(function () {
+  // view 切替時にスクロールロック解除と先頭復帰。再マウント時にも効かせるため onNavigate と二重に持つ。描画後に走ると利用者のスクロールを先頭へ戻すので layout で行う(#555)
+  useLayoutEffect(function () {
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
     window.scrollTo(0, 0);

@@ -12,8 +12,8 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
-- **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'`
-- **画面確認（UI oracle）**: `make ui-check`（67画面をダーク・ライトの2テーマで計134枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。意図した変更は `make ui-baseline` で基準更新、画面を追加したときは既存基準を触らず `node tools/ui-check/check.js --update <id>…` で新画面のみ基準作成(両テーマ分)。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'`（`.github/scripts` のテストは bash と jq が要る）
+- **画面確認（UI oracle）**: `make ui-check`（67画面をダーク・ライトの2テーマで計134枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
@@ -41,10 +41,10 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認 / 基準更新
+# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認（基準画像の比較と更新は PR の CI。更新は ui-baseline ラベル）/ CI が撮った基準の取り込み
 make ui-preview
 make ui-check
-make ui-baseline
+make ui-baseline RUN=<run-id>
 
 # ポート変更
 PORT=3000 make run
@@ -101,12 +101,13 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出（`LoadGradeList`, `BuildGradeMap`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。判別できなければ空=不明。機能追加前の試合は相方のタッグ登録から推定して DB に補完済みで `match_mode_inferred: true` が付く）を判別
+- `internal/geoip/` — 国別アクセス判定（`geoip.go`。CC0の許可リストCSVをソート済みレンジに読み込み二分探索。`Load`, `Contains`）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`。`clientIP` は Cloud Run（domain mapping）の XFF 末尾=実クライアントIPを採る。末尾より前は詐称可能なので使わない）+ 国別アクセス制限（`geoblock.go`。`GEO_RESTRICT=true` で `/analyze`・`/reanalyze` を日本のみ許可。読込失敗・IP解釈不能時はフェイルオープン）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
 - `static/styles/` — CSS（ダーク既定・ライトは選択可(端末に合わせる/ダーク/ライト)、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `:root[data-theme="light"]` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/theme-init.js` — テーマの初期適用と切替（`window.catalyzerTheme`。`<head>` の同期クラシックスクリプト。`catalyzer_theme` を読み `<html data-theme>` と theme-color meta を付け、端末に合わせる中は OS 変更を購読）。import を持たない
@@ -139,7 +140,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/lib/launch.js` — 起動経路の判定（`navigationType`・`isStandalone`・再読み込みでの再分析の抑止 `shouldReanalyzeOnReload`）。DOM・storage を持たない
 - `static/lib/userkey.js` — サーバーの `model.UserKey` と同じユーザーキーの導出（`userKeyOf`。ログイン時に前ユーザーのキャッシュを出さない判定に使う）
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定・対戦形式の表示名 `MODE_LABELS`/`modeLabel`）。import を持たず analysis 層からも使う
-- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信。状態は持たず、`/analyze` の username（`prelim@`/`partial@`/`error@example.com`）でジョブ id を、Cookie `preview_session=valid` で `/session` を選ぶ、`/__preview/` でサンプル投入（`preview/seed.js`。`?today=N` で最後の N 試合を今日に、`?seen=N` でタブの点を再現、`?focus=N` で後ろから N 戦を挑戦中のミッションの対象に、`?legacy=1` で全試合を対戦形式不明に））/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（67画面×ダーク/ライトの134枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）/colorScheme（端末の配色を切り替える）。画面の `standalone` でホーム画面アプリとして開く。画面の `clock` で Date を指定日時から進む時計に固定（カレンダー初期月など日時依存の UI 用）。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の134枚。Chrome・マシン依存）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
+- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信。状態は持たず、`/analyze` の username（`prelim@`/`partial@`/`error@example.com`）でジョブ id を、Cookie `preview_session=valid` で `/session` を選ぶ、`/__preview/` でサンプル投入（`preview/seed.js`。`?today=N` で最後の N 試合を今日に、`?seen=N` でタブの点を再現、`?focus=N` で後ろから N 戦を挑戦中のミッションの対象に、`?legacy=1` で全試合を対戦形式不明に））/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（67画面×ダーク/ライトの134枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）/colorScheme（端末の配色を切り替える）。画面の `standalone` でホーム画面アプリとして開く。画面の `clock` で Date を指定日時から進む時計に固定（カレンダー初期月など日時依存の UI 用）。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の134枚。CI の Linux・固定 Chrome で撮影）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
 - `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/patterns/today/tabseen/format/search/classrecord/theme/theme-init（初期適用・FOUC 構造）/topbar/runlock/launch/userkey/progress/ganttの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、user-state（ログアウトとセッション失効で消す画面状態のキーが揃っているかを app.js の静的検査で確認）、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
@@ -147,7 +148,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/ms_list.json` — MS画像URL→名前・コストのマッピング（コスト: 3000/2500/2000/1500）
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
-- `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `budget.ts`）
+- `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
+- `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`）
 - `infra/app/` — Pulumi IaC 環境別リソース（自動更新の Cloud Run Job と Scheduler は config `autoRefreshEnabled` が true の環境（prod のみ）に作る。`index.ts` — Cloud Run, ドメインマッピング, CNAME）
 
 ## GitHub Actions
@@ -156,8 +158,10 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - CI: `ci.yml`（main/develop 向けPRのみ。Docker build, golangci-lint, go test -race + coverage, JS test。ラベル `skip-ci` でスキップ）
 - Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の Pulumi yaml の image 更新 → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
 - Deploy: `deploy.yml`（develop の `Pulumi.stg.yaml`・main の `Pulumi.prod.yaml` の変更トリガー or build.yml からの `workflow_dispatch` → `pulumi up`。prod の手動実行は main からのみ）
-- Infra CI: `infra-ci.yml`（infra/配下の変更時にshared + app(prod/staging)のPulumi preview）
+- UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
+- Infra CI: `infra-ci.yml`（infra/配下・`.github/scripts/`・自身の変更時にshared + app(prod/staging)のPulumi preview。PR コメントは `.github/scripts/pulumi-preview-summary.sh` が出す変更件数とリソースの型・論理名だけ（公開 repo に識別子を出さない）。infra-ci・build・deploy のジョブログは `.github/scripts/mask-gcp-ids.sh` でプロジェクト ID・番号をマスク。両スクリプトのテストは `.github/scripts/scripts.test.js`）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。変更時に main 向けPRを自動作成・マージし prod に反映）
+- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch は CI 緑で Renovate 自身が develop に自動マージし、major は手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
 - **サードパーティアクションを追加・変更する際は、GitHubリポジトリのリリースページで最新メジャーバージョンを確認すること。** 古いバージョンを指定するとNode.js非推奨警告やエラーが発生する（過去に複数回発生）。
 
 ## PR運用ルール
@@ -165,7 +169,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **PRのマージは絶対に勝手に行わない。** 必ずユーザーの明示的な指示を待つ
 - 作業ブランチのPRは `develop` 向けに作る。本番リリースは `develop` → `main` のPR
 - PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）
-- Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける
+- Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける（Renovate の PR には付けない。skipped のチェックも緑とみなして自動マージされる）
 - **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `no-deploy` なしでPRをマージ、または `gh workflow run build.yml --ref <branch>` で手動実行（main は prod、それ以外は stg）
 - **コード構成やディレクトリ構造に変更があった場合は、CLAUDE.mdの「コード構成」セクションとREADME.mdのプロジェクト構成も合わせて更新すること**
@@ -185,7 +189,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
 - 自動更新(#288): prod のみ有効。サービスの env `AUTO_REFRESH_JOB`/`AUTO_REFRESH_AUDIENCE`/`AUTO_REFRESH_INVOKER`/`AUTO_REFRESH_PASSPHRASE_HASH`/`AUTO_REFRESH_OPEN` は infra/app が設定（未設定の環境は有効化 POST が503・tick が404・状態取得 GET が200で available:false・touch が200で status:"off"）。合言葉は `go run ./cmd/hash-passphrase` でハッシュを作り `STACK=prod make pulumi-app-shell` で `pulumi config set --secret autoRefreshPassphraseHash <hash>`。設計は `docs/design/2026-10-05-auto-refresh.md`
-- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
+- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/secrets.ts`）に置き、infra/app の config `sessionKeyVersion` で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→`sessionKeyVersion` を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
 - 試合の一意キーは詳細ページURL由来の `MatchID`（`model.DatedScore.GroupKey()` に一元化）。MatchID未設定のlegacyデータは分精度日時にフォールバックする（#358。実データでは同じ分に試合は1つで、同一分の区別は保険）。詳細URLの param は日を跨ぐと変わるため、保存済みの試合を MatchID で照合しない（差分取得の since は保存済みの最新日時ちょうど。#522）
 
 ## Goコーディング規約

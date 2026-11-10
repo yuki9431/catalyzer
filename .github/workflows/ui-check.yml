@@ -1,0 +1,119 @@
+name: UI Check
+
+# 基準画像はこのワークフロー(Linux・Chrome 固定)で撮ったものだけを正とする。ローカルの Chrome 更新で基準がずれないようにするため
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'static/**'
+      - 'tools/ui-check/**'
+      - '.github/workflows/ui-check.yml'
+
+env:
+  CHROME_VERSION: '157.0.8103.38'
+  UI_CHECK_TIMEOUT_MS: '900000'
+
+jobs:
+  # concurrency は job に置く。ワークフローに置くと skip-ci 等の無関係なラベル付与でも実行中の比較が取り消される
+  check:
+    if: github.event.action != 'labeled'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    concurrency:
+      group: ui-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
+
+      - name: Install Japanese fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+
+      - name: UI check
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tools/ui-check/check.js
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-check-actual
+          path: tmp/ui-check/actual
+          retention-days: 7
+
+  # PR に ui-baseline ラベルを付けると基準を撮り直し artifact に上げる。取り込みは手元で gh run download(CI に push 権限を持たせない)
+  update:
+    if: github.event.action == 'labeled' && github.event.label.name == 'ui-baseline' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    concurrency:
+      group: ui-baseline-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # 撮り直しの前に外す。失敗しても付け直せば再実行できる
+      - name: Remove label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --remove-label ui-baseline
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # 比較は base との merge コミットで行うので、画面に効く base の変更を取り込んでいないと比較が通らない
+      - name: Check base is merged
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch -q origin "$BASE_REF"
+          git diff --quiet "$(git merge-base "origin/$BASE_REF" HEAD)" "origin/$BASE_REF" -- static tools/ui-check || { echo "$BASE_REF を取り込んでからラベルを付ける"; exit 1; }
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
+
+      - name: Install Japanese fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+
+      - name: Update baseline
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tools/ui-check/check.js --update
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-baseline
+          path: tools/ui-check/baseline
+          retention-days: 7
+
+      - name: How to apply
+        run: |
+          echo "取り込み: make ui-baseline RUN=${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"

@@ -5,15 +5,16 @@ config:
   exvs-app:cpu: "2"
   exvs-app:domain: www.exvs-analyzer.com
   exvs-app:firestoreDatabase: exvs-analyzer
+  exvs-app:geoRestrict: "true"
+  exvs-app:rateLimit: "60"
   exvs-app:image:
     secure: v1:joE9A44z3WNIrE9z:h0NFJKwoF8I17OmWbJZnsIXHIy/qzR0Um2eM+bCH0/ezi2Gke0SVpXsv7Qjf9yieyZrxB9EuTOXV5XWBO84zNHQDBo4rWKMGkiOXNYvpljJi9+puwskCOH5acPZTTt1mVzFc7+YBo5U19EgLfKD5/Qb8Tj4xbw==
   exvs-app:maxInstances: "3"
   exvs-app:memory: 1Gi
+  exvs-app:sessionKeyVersion: "1"
   exvs-app:serviceName: exvs-analyzer
   exvs-app:sharedStack: organization/exvs-shared/shared
   gcp:project: exvs2ib-analyzer
   gcp:region: asia-northeast1
-  exvs-app:sessionEncryptionKey:
-    secure: v1:ay3DXBLUnNZxg2tO:rv3t+K6ITd6nu3MXxCOo0Y5f4tlBSRVAlSJEe2Tj2PxDN0Cm7D6CgI0IvGAcFqQPPz1MpoM/K8JAKmoeMdK75/waKpfrTQiWtFGKgBNnnZ0=
   exvs-app:autoRefreshPassphraseHash:
     secure: v1:FxzP6A0owhA9dZKR:giAcLRDtvPGvZCbtMw0XZNrO/mCwUA25PfsIjKqfS32hYezn/KjzSfCodYdf3fWTyujAQnUX+JXa2xUnLpGPu0MCVTh7PIGDXWqrSD2mytRuhLtBcyk2lIrt1V4mUkL3yF1Gq5AMG1WJsWUzdrx5SlU=

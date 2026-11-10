@@ -28,21 +28,24 @@ stop:
 test:
 	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
 
-## フロントエンド（JS）テストを実行
+## JS テストを実行（フロントエンド・ui-check・CI スクリプト。CI スクリプトのテストは bash と jq が要る）
 test-js:
-	node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js'
+	node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'
 
 ## サンプルデータのUIプレビューを起動（http://127.0.0.1:8090/__preview/）
 ui-preview:
 	node tools/ui-check/server.js
 
-## 全画面をヘッドレスChromeで撮影し基準画像と比較（要: Google Chrome）
+## 全画面をヘッドレスChromeで撮影し検査（要: Google Chrome。基準画像との比較は PR の CI で行う）
 ui-check:
 	node tools/ui-check/check.js
 
-## 基準画像を現在の描画で更新
+## CI(PR の ui-baseline ラベル)が撮った基準画像を取り込む（例: make ui-baseline RUN=<run-id>。gh run download は上書きしないので一時ディレクトリを経由する）
 ui-baseline:
-	node tools/ui-check/check.js --update
+	@test -n "$(RUN)" || { echo "RUN=<run-id> を指定する"; exit 1; }
+	rm -rf tmp/ui-baseline
+	gh run download $(RUN) -n ui-baseline -D tmp/ui-baseline
+	cp tmp/ui-baseline/* tools/ui-check/baseline/
 
 ## Firestoreから未登録グレードURLを抽出
 extract-grades:

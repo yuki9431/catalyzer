@@ -43,7 +43,8 @@ export function decodePng(buf) {
   return { width: width, height: height, data: rgba };
 }
 
-// ピクセル完全一致比較(許容0)。サイズ違いは sizeMismatch
+// 各チャンネルの差が TOLERANCE 以下の画素は一致とみなす(角丸の縁のアンチエイリアスが ±1 揺れる。#555)。サイズ違いは sizeMismatch
+var TOLERANCE = 2;
 export function comparePng(bufA, bufB) {
   var a = decodePng(bufA), b = decodePng(bufB);
   if (a.width !== b.width || a.height !== b.height) {
@@ -51,11 +52,17 @@ export function comparePng(bufA, bufB) {
   }
   var diff = 0, x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
   for (var i = 0; i < a.width * a.height; i++) {
-    if (a.data.readUInt32LE(i * 4) !== b.data.readUInt32LE(i * 4)) {
+    if (a.data.readUInt32LE(i * 4) !== b.data.readUInt32LE(i * 4) && channelDiff(a.data, b.data, i * 4) > TOLERANCE) {
       var x = i % a.width, y = (i / a.width) | 0;
       diff++;
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
   }
   return { equal: diff === 0, sizeMismatch: false, diffCount: diff, bbox: diff ? { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } : null };
+}
+
+function channelDiff(a, b, i) {
+  var d = 0;
+  for (var k = 0; k < 4; k++) d = Math.max(d, Math.abs(a[i + k] - b[i + k]));
+  return d;
 }

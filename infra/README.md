@@ -6,7 +6,7 @@ GCPリソースをPulumi (TypeScript) で管理する。2プロジェクト構�
 
 ```
 infra/
-├── shared/    ← 環境非依存リソース（API, IAM, DNS, GCS, Artifact Registry）
+├── shared/    ← 共有リソース（API, IAM, DNS, GCS, Artifact Registry, Secret Manager）
 │   └── スタック: shared（固定）
 └── app/       ← 環境ごとにデプロイするリソース（Cloud Run, ドメインマッピング）
     ├── スタック: prod
@@ -40,6 +40,10 @@ STACK=stg make pulumi-app-init
 STACK=prod make pulumi-app-shell
 pulumi config set gcp:project <PROJECT_ID> --secret
 pulumi config set exvs-app:image <IMAGE_URI> --secret
+pulumi config set exvs-app:sessionKeyVersion <版番号>
+
+# 5. セッション鍵の版を追加（環境ごとに別の鍵。末尾に改行が入ると鍵が不正になり暗号化が黙って無効になる）
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add <Secret ID> --data-file=-
 ```
 
 ## 日常操作
@@ -84,6 +88,7 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | GCSバケット | `storage.ts` |
 | Cloud DNS ゾーン | `dns.ts` |
 | IAM / WIF | `iam.ts` |
+| セッション鍵の Secret(版は手作業で追加) | `secrets.ts` |
 | 予算アラート | `budget.ts` |
 
 ### app

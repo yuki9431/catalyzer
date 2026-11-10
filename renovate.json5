@@ -1,0 +1,21 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended'],
+  // サプライチェーン攻撃対策。公開から3日経つまで PR を作らない
+  minimumReleaseAge: '3 days',
+  internalChecksFilter: 'strict',
+  // develop にブランチ保護が無いため、GitHub ネイティブの auto-merge だと CI 失敗でもマージされうる
+  platformAutomerge: false,
+  postUpdateOptions: ['gomodTidy'],
+  packageRules: [
+    {
+      // major は破壊的変更があるため手動。digest は通常発生せず、タグ付け替え時に3日待ちを素通りするため対象外
+      matchUpdateTypes: ['minor', 'patch'],
+      automerge: true,
+    },
+  ],
+  vulnerabilityAlerts: {
+    // 既定は null(待たない)。修正版を装った悪性リリースも同じく3日待つ
+    minimumReleaseAge: '3 days',
+  },
+}

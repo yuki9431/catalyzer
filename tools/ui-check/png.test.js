@@ -78,10 +78,18 @@ describe('comparePng', function () {
     assert.equal(r.bbox, null);
   });
   it('reports a 1px difference with bbox', function () {
-    var r = comparePng(rgbaPng(4, 3, base), rgbaPng(4, 3, function (x, y) { return x === 2 && y === 1 ? [0, 0, 0, 255] : base(x, y); }));
+    var r = comparePng(rgbaPng(4, 3, base), rgbaPng(4, 3, function (x, y) { return x === 2 && y === 1 ? [200, 0, 0, 255] : base(x, y); }));
     assert.equal(r.equal, false);
     assert.equal(r.diffCount, 1);
     assert.deepEqual(r.bbox, { x: 2, y: 1, w: 1, h: 1 });
+  });
+  it('treats a channel difference of 2 or less as equal (antialiasing jitter)', function () {
+    var r = comparePng(rgbaPng(4, 3, base), rgbaPng(4, 3, function (x, y) { return x === 2 && y === 1 ? [4, 0, 2, 255] : base(x, y); }));
+    assert.equal(r.equal, true);
+  });
+  it('counts a channel difference of 3 as a difference', function () {
+    var r = comparePng(rgbaPng(4, 3, base), rgbaPng(4, 3, function (x, y) { return x === 2 && y === 1 ? [5, 1, 0, 255] : base(x, y); }));
+    assert.equal(r.diffCount, 1);
   });
   it('reports size mismatch', function () {
     var r = comparePng(rgbaPng(4, 3, base), rgbaPng(5, 3, base));

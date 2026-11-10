@@ -9,7 +9,12 @@ const maxInstances = config.requireNumber("maxInstances");
 const image = config.requireSecret("image");
 const domain = config.require("domain");
 const firestoreDatabase = config.require("firestoreDatabase");
-const sessionEncryptionKey = config.getSecret("sessionEncryptionKey");
+// セッション鍵は Secret Manager の版を固定して参照する。latest だと切替中にインスタンス間でセッションを消し合う
+const sessionKeyVersion = config.require("sessionKeyVersion");
+
+// レート制限(1時間あたりの最大/IP。未設定で無制限)と国別アクセス制限(日本のみ)
+const rateLimit = config.getNumber("rateLimit");
+const geoRestrict = config.getBoolean("geoRestrict") ?? false;
 
 // 自動更新(#288)。Job と Scheduler は prod のみ(config で制御)
 const autoRefreshEnabled = config.getBoolean("autoRefreshEnabled") ?? false;
@@ -24,8 +29,15 @@ const dnsZoneName = shared.getOutput("dnsZoneName") as pulumi.Output<string>;
 // 有効時のみ必須。shared 未 apply なら広い権限の SA で Job を作らず失敗させる
 const autoRefreshJobSaEmail = autoRefreshEnabled ? (shared.requireOutput("autoRefreshJobSaEmail") as pulumi.Output<string>) : undefined;
 const autoRefreshSchedulerSaEmail = autoRefreshEnabled ? (shared.requireOutput("autoRefreshSchedulerSaEmail") as pulumi.Output<string>) : undefined;
-// サービスは専用の実行 SA で動かす。compute のデフォルト SA(editor)を使わない(#460)
-const runSaEmail = shared.requireOutput("runSaEmail") as pulumi.Output<string>;
+// サービスは環境ごとの実行 SA で動かす。compute のデフォルト SA(editor)を使わない(#460)
+const stack = pulumi.getStack();
+if (stack !== "prod" && stack !== "stg") throw new Error(`unknown stack: ${stack}`);
+const runSaEmail = shared.requireOutput(stack === "prod" ? "runSaEmail" : "runStgSaEmail") as pulumi.Output<string>;
+const sessionKeySecret = shared.requireOutput(stack === "prod" ? "sessionKeySecretProdId" : "sessionKeySecretStgId") as pulumi.Output<string>;
+const sessionKeyEnv = {
+  name: "SESSION_ENCRYPTION_KEY",
+  valueSource: { secretKeyRef: { secret: sessionKeySecret, version: sessionKeyVersion } },
+};
 
 // 自動更新の Cloud Run Job(サービスと同じイメージ)
 const autoRefreshJob = autoRefreshEnabled
@@ -46,9 +58,7 @@ const autoRefreshJob = autoRefreshEnabled
               commands: ["/app/auto-refresh"],
               envs: [
                 { name: "FIRESTORE_DATABASE", value: firestoreDatabase },
-                ...(sessionEncryptionKey !== undefined
-                  ? [{ name: "SESSION_ENCRYPTION_KEY", value: sessionEncryptionKey }]
-                  : []),
+                sessionKeyEnv,
               ],
               resources: { limits: { cpu: "1", memory: "512Mi" } },
             },
@@ -96,15 +106,10 @@ export const service = new gcp.cloudrunv2.Service(
               name: "FIRESTORE_DATABASE",
               value: firestoreDatabase,
             },
-            ...(sessionEncryptionKey !== undefined
-              ? [
-                  {
-                    name: "SESSION_ENCRYPTION_KEY",
-                    value: sessionEncryptionKey,
-                  },
-                ]
-              : []),
+            sessionKeyEnv,
             ...autoRefreshEnvs,
+            ...(rateLimit !== undefined ? [{ name: "RATE_LIMIT", value: String(rateLimit) }] : []),
+            ...(geoRestrict ? [{ name: "GEO_RESTRICT", value: "true" }] : []),
           ],
           resources: {
             cpuIdle: true,

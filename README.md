@@ -70,9 +70,11 @@
 │   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
+│   ├── geoip/                     # 国別アクセス判定（CC0許可リストの二分探索）
 │   └── server/
 │       ├── server.go              # HTTPサーバー・API
-│       ├── ratelimit.go           # IPベースレート制限
+│       ├── ratelimit.go           # IPベースレート制限・クライアントIP解決
+│       ├── geoblock.go            # 国別アクセス制限（日本のみ許可）
 │       ├── basicauth.go           # Basic認証ミドルウェア
 │       └── block403.go            # 403時の一時ブロック管理
 ├── static/
@@ -148,16 +150,22 @@
 │   │   ├── firestore.ts           # Firestore定義
 │   │   ├── dns.ts                 # Cloud DNS定義
 │   │   ├── iam.ts                 # サービスアカウント・Workload Identity
+│   │   ├── secrets.ts             # セッション鍵の Secret Manager（版は手作業）
 │   │   └── budget.ts              # 予算アラート定義
 │   └── app/                       # 環境別リソース（prod/stg）
 │       └── index.ts               # Cloud Run・ドメインマッピング
 ├── .github/
+│   ├── scripts/
+│   │   ├── pulumi-preview-summary.sh  # Pulumi previewの要約（PRコメント用。識別子を出さない）
+│   │   ├── mask-gcp-ids.sh        # ジョブログのプロジェクトID・番号をマスク
+│   │   └── scripts.test.js        # 上記2スクリプトのテスト
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
 │       ├── deploy.yml             # デプロイ（Pulumi up）
 │       ├── infra-ci.yml           # インフラCI（Pulumi preview）
 │       └── update-mslist.yml      # MSリスト自動更新
+├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
 ├── .golangci.yml                  # golangci-lint設定
 ├── Makefile                       # ビルド・起動・インフラコマンド
 ├── Dockerfile                     # マルチステージビルド
@@ -177,11 +185,12 @@
 | `internal/mslist/` | MSリストの読み書き・マージ |
 | `internal/gradelist/` | グレードリストの読み込み・未知URL検出 |
 | `internal/scraper/` | スクレイピング・ログイン処理 |
+| `internal/geoip/` | 国別アクセス判定（CC0のIP許可リストを二分探索） |
 | `internal/session/` | セッション暗号化（AES-256-GCM）・CookieJarシリアライズ |
 | `internal/firestore/` | Firestoreクライアント・データの読み書き・セッション保存 |
 | `internal/pipeline/` | 分析パイプライン（ジョブ管理・実行・JSON生成・セッション永続化） |
 | `internal/nationalstats/` | 機体ごとの全国統計（勝率・使用率）JSONの読み書き |
-| `internal/server/` | HTTPハンドラ・レート制限・Basic認証・403ブロック・セッション管理 |
+| `internal/server/` | HTTPハンドラ・レート制限・国別アクセス制限・Basic認証・403ブロック・セッション管理 |
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/styles/` | CSS（`tokens.css` に色・文字・余白の定義、他は画面・部品ごと） |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |
@@ -211,10 +220,10 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認 / 基準画像の更新
+# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認
 make ui-preview
 make ui-check
-make ui-baseline
+# 基準画像の比較と更新は PR の CI で行う(更新は PR に ui-baseline ラベルを付け、make ui-baseline RUN=<run-id> で取り込む)。ローカルは画像比較を省く
 # Chrome が既定パス(macOS の Google Chrome)に無い場合は CHROME_PATH で指定する
 
 # Firestoreから未登録グレードURLを抽出

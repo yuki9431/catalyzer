@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,20 +70,38 @@ func (rl *rateLimiter) cleanup(ttl time.Duration) {
 	}
 }
 
-// clientIP はリクエストからクライアントIPを取得する（Cloud Run対応）
+// clientIP は Cloud Run（domain mapping）でのクライアントIPを返す。実IPは XFF 末尾に
+// 追記されるため末尾の非空エントリを採る（それより前はクライアントが詐称できる）。
+// XFF が複数行で届く場合に備え全行を連結する。XFF が無い/全て空なら RemoteAddr に落とす。
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-Forの最初のIPがクライアントIP
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
+	if vals := r.Header.Values("X-Forwarded-For"); len(vals) > 0 {
+		parts := strings.Split(strings.Join(vals, ","), ",")
+		for i := len(parts) - 1; i >= 0; i-- {
+			if cand := strings.TrimSpace(parts[i]); cand != "" {
+				return cand
 			}
 		}
-		return xff
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// rateLimitKey はレート制限のキーを返す。IPv6 は端末ごとにアドレスを回せる（/64 以上が
+// 割り当てられる）ため /64 に丸めてキーにする。IPv4 と v4射影はアドレス単位。
+func rateLimitKey(r *http.Request) string {
+	ip := clientIP(r)
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ip
+	}
+	addr = addr.Unmap()
+	if addr.Is6() {
+		if p, perr := addr.Prefix(64); perr == nil {
+			return p.String()
+		}
+	}
+	return addr.String()
 }
