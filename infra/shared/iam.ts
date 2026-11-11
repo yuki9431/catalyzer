@@ -397,11 +397,12 @@ export const ghaMslistActAsBinding = new gcp.serviceaccount.IAMMember("gha-mslis
   member: ghaMslistSa.member,
 });
 
-// gcloud builds submit はステージング先バケットの buckets.get を要する
+// objectUser に buckets.get が無い。gcloud のステージングと Cloud Build の成果物・ログの書き込みが使う
 export const mslistBucketBindings = [
   { name: "gha-mslist-objectUser", sa: ghaMslistSa, role: "roles/storage.objectUser" },
   { name: "gha-mslist-legacyBucketReader", sa: ghaMslistSa, role: "roles/storage.legacyBucketReader" },
   { name: "mslist-build-objectUser", sa: mslistBuildSa, role: "roles/storage.objectUser" },
+  { name: "mslist-build-legacyBucketReader", sa: mslistBuildSa, role: "roles/storage.legacyBucketReader" },
 ].map(
   ({ name, sa, role }) =>
     new gcp.storage.BucketIAMMember(`mslist-bucket-${name}`, {

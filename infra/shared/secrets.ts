@@ -43,12 +43,16 @@ const newCredentialSecret = (name: string) =>
     { dependsOn: services }
   );
 
-export const officialSiteSecrets = ["username", "password"].map((name) => {
-  const secret = newCredentialSecret(name);
-  new gcp.secretmanager.SecretIamMember(`official-site-${name}-mslist-build`, {
-    secretId: secret.id,
-    role: "roles/secretmanager.secretAccessor",
-    member: mslistBuildSa.member,
-  });
-  return secret;
-});
+export const officialSiteSecrets = ["username", "password"].map((name) => ({
+  name,
+  secret: newCredentialSecret(name),
+}));
+
+export const officialSiteAccessors = officialSiteSecrets.map(
+  ({ name, secret }) =>
+    new gcp.secretmanager.SecretIamMember(`official-site-${name}-mslist-build`, {
+      secretId: secret.id,
+      role: "roles/secretmanager.secretAccessor",
+      member: mslistBuildSa.member,
+    })
+);
