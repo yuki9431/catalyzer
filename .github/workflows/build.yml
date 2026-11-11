@@ -205,6 +205,8 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # checkout は origin/main を起動時の SHA に戻すので、build が積んだ image 更新コミットを取り直す
+          git fetch origin main
           git checkout develop
           BEFORE=$(git rev-parse HEAD)
           if ! git merge --no-edit origin/main; then
