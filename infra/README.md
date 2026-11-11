@@ -44,6 +44,10 @@ pulumi config set exvs-app:sessionKeyVersion <版番号>
 
 # 5. セッション鍵の版を追加（環境ごとに別の鍵。末尾に改行が入ると鍵が不正になり暗号化が黙って無効になる）
 openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add <Secret ID> --data-file=-
+
+# 6. 公式サイトのログイン情報の版を追加（MSリスト更新用。履歴に残さないよう read で受け、末尾に改行を入れない）
+read -r U && printf '%s' "$U" | gcloud secrets versions add official-site-username --data-file=-
+read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-password --data-file=-; unset U P
 ```
 
 ## 日常操作
@@ -88,7 +92,7 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | GCSバケット | `storage.ts` |
 | Cloud DNS ゾーン | `dns.ts` |
 | IAM / WIF | `iam.ts` |
-| セッション鍵の Secret(版は手作業で追加) | `secrets.ts` |
+| セッション鍵・公式サイトのログイン情報の Secret(版は手作業で追加) | `secrets.ts` |
 | 予算アラート | `budget.ts` |
 
 ### app
@@ -107,7 +111,7 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | `IMAGE_URI` | コンテナイメージURIベース |
 | `WIF_PROVIDER` | Workload Identity Provider |
 | `WIF_PR_SERVICE_ACCOUNT` | PR の preview 用 SA(`gha-pr`)。repo の secret |
-| `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)。environment `prod` は main のみ |
+| `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)、`mslist` は `gha-mslist`(MSリスト更新の Cloud Build 起動)。environment `prod` は main、`mslist` は develop のみ |
 
 ## シークレットの暗号化
 

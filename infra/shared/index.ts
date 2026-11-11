@@ -11,6 +11,7 @@ import {
   autoRefreshSchedulerSa,
   ghaPrSa,
   ghaStgSa,
+  ghaMslistSa,
   wifPool,
   wifProvider,
 } from "./iam";
@@ -32,6 +33,7 @@ export const runSaEmail = runSa.email;
 export const runStgSaEmail = runStgSa.email;
 export const ghaPrSaEmail = ghaPrSa.email;
 export const ghaStgSaEmail = ghaStgSa.email;
+export const ghaMslistSaEmail = ghaMslistSa.email;
 export const sessionKeySecretProdId = sessionKeySecretProd.secretId;
 export const sessionKeySecretStgId = sessionKeySecretStg.secretId;
 export const buildSaEmail = buildSa.email;
