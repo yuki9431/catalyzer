@@ -190,6 +190,7 @@ resource "google_project_iam_member" "sa" {
 - deletion_protection 以外の change が出たら、HCL を cloud の値に合わせる。それでも消えない差分は止めて報告する
 - apply → imports.tf を削除 → plan が exit 0 → マージ
 - この時点から shared の `pulumi up` は禁止する(Pulumi の shared state は app の StackReference が読むので、まだ残しておく)
+- PR-2 で Infra CI が tofu になるまで、infra/shared/*.tf を変える他の PR は入れない(CI の Pulumi preview は .tf の差分を見ない)
 
 **PR-2**
 - shared: plan が `1 to add, 0 to change, 2 to destroy`(KMS の付け替えと #27 の削除)であることを確かめてから apply する

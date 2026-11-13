@@ -21,7 +21,7 @@ infra/
 ## 初期セットアップ
 
 ```bash
-# 1. shared スタック初期化
+# 1. shared スタック初期化(移行中: shared は OpenTofu 管理。下の Pulumi 手順は PR-4 で書き換える)
 make pulumi-shared-install
 make pulumi-shared-init
 

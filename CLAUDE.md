@@ -150,7 +150,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
 - `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
-- `infra/shared/` — 共有リソース。OpenTofu(`main.tf`/`iam.tf`/`resources.tf`。`make tofu-shared-plan`/`apply`)へ移行中で、Pulumi の（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`）
+- `infra/shared/` — 共有リソース。OpenTofu(`main.tf`/`iam.tf`/`resources.tf`。`make tofu-shared-plan`/`apply`)へ移行中。Pulumi 版（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`） も PR-4 まで残す
 - `infra/app/` — Pulumi IaC 環境別リソース（自動更新の Cloud Run Job と Scheduler は config `autoRefreshEnabled` が true の環境（prod のみ）に作る。`index.ts` — Cloud Run, ドメインマッピング, CNAME）
 
 ## GitHub Actions

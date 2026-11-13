@@ -3,6 +3,11 @@ resource "google_artifact_registry_repository" "repo" {
   location      = local.region
   format        = "DOCKER"
   description   = "Cloud Run Source Deployments"
+
+  # 消すと稼働中のイメージも消える
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_storage_bucket" "state" {
