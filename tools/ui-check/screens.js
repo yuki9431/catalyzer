@@ -96,7 +96,8 @@ var SCREEN_DEFS = [
       ['[data-ui="search-enemy-mode"] button', 'すべて含む'], ['[data-ui="search-enemy-mode"] button[aria-pressed="true"]', 'どれかを含む'], ['[data-ui="search-winloss"] button[aria-pressed="true"]', '勝利']],
     inview: [['[data-ui="search-filter-apply"]'], ['[data-ui="search-filter-clear"]'], ['[data-ui="sheet-close"]']], outview: [[TABBAR]],
     tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button', '[data-ui="search-mode"] button', '[data-ui="search-pattern-mode"] button', '[data-ui="search-pattern-item"]'] },
-  { id: 'mobile-search-applied', viewport: M, full: false, start: 'report', ops: OPEN_FILTER.concat([{ click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }]),
+  // 他の画面へ移って戻っても条件が残る
+  { id: 'mobile-search-applied', viewport: M, full: false, start: 'report', ops: OPEN_FILTER.concat([{ click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }, goTab('ホーム'), { wait: [CURRENT, 'ホーム'] }, goTab('試合検索'), { wait: ['[data-ui="search-applied"]'] }]),
     required: [['[data-ui="search-applied"]', '勝敗: 勝利'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）'], ['[data-ui="search-clear"]', '条件をクリア'],
       ['[data-ui="search-total"]', '27試合'], ['[data-ui="search-result"]', null, 20]],
     absent: [[SHEET]], tap: ['[data-ui="search-filter-toggle"]', '[data-ui="search-clear"]', SORT_TRIGGER, '[data-ui="search-result"]', '[data-ui="search-pager"] button'] },
