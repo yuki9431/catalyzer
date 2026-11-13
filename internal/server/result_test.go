@@ -52,3 +52,28 @@ func TestHandleResult_ClassRecord(t *testing.T) {
 		})
 	}
 }
+
+func TestPreliminaryRequiresLogin(t *testing.T) {
+	for _, loggedIn := range []bool{false, true} {
+		j := pipeline.NewJob()
+		j.Status = model.StatusScraping
+		j.PreliminaryReport = "[]"
+		j.PreliminaryVersion = 1
+		j.LoggedIn = loggedIn
+
+		rec := httptest.NewRecorder()
+		handleResult(rec, httptest.NewRequest(http.MethodGet, "/result/"+j.ID, nil), j.ID)
+		wantCode := http.StatusAccepted
+		if loggedIn {
+			wantCode = http.StatusOK
+		}
+		if rec.Code != wantCode {
+			t.Errorf("loggedIn=%v: /result code = %d, want %d", loggedIn, rec.Code, wantCode)
+		}
+
+		_, has := statusResponse(j.Snapshot())["has_preliminary_report"]
+		if has != loggedIn {
+			t.Errorf("loggedIn=%v: /status has_preliminary_report = %v", loggedIn, has)
+		}
+	}
+}

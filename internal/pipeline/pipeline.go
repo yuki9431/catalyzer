@@ -167,16 +167,6 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		if !since.IsZero() {
 			log.Printf("[INFO] Fetching scores after %s", since.Format("2006-01-02 15:04"))
 		}
-
-		// 既存データから速報マッチデータを生成
-		prelimMatches := buildMatchesJSON(existingScores, costsMap)
-		if prelimMatches != "" {
-			jobsMu.Lock()
-			j.PreliminaryReport = prelimMatches
-			j.PreliminaryVersion++
-			jobsMu.Unlock()
-			log.Printf("[INFO] Job %s: preliminary matches ready", j.ID)
-		}
 	}
 
 	// スクレイピング
@@ -223,9 +213,18 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		OnBatchReady:   onBatchReady,
 		BatchSize:      prelimBatchSize,
 		FirstBatchSize: prelimFirstBatchSize,
+		// 既存データの速報はログイン成功後に出す。メールアドレスだけで他人の戦績を返さない
 		OnLoginSuccess: func() {
+			prelimMatches := ""
+			if exists {
+				prelimMatches = buildMatchesJSON(existingScores, costsMap)
+			}
 			jobsMu.Lock()
 			j.LoggedIn = true
+			if prelimMatches != "" {
+				j.PreliminaryReport = prelimMatches
+				j.PreliminaryVersion++
+			}
 			jobsMu.Unlock()
 			log.Printf("[INFO] Job %s: login succeeded", j.ID)
 		},
@@ -302,7 +301,15 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 				log.Printf("[WARN] Failed to encrypt CookieJar: %v", sessErr)
 				return
 			}
-			if sessErr = fs.SaveSession(j.SessionToken, j.UserKey, encData); sessErr != nil {
+			// 再分析は既存セッションの更新に限る。実行中にログアウトされたセッションを作り直さない
+			if usingSession {
+				sessErr = fs.RefreshSession(j.SessionToken, encData)
+			} else {
+				sessErr = fs.SaveSession(j.SessionToken, j.UserKey, encData)
+			}
+			if errors.Is(sessErr, fs.ErrSessionNotFound) {
+				log.Printf("[INFO] Job %s: session was deleted during the job, not saving", j.ID)
+			} else if sessErr != nil {
 				log.Printf("[WARN] Failed to save session: %v", sessErr)
 			}
 		}()
