@@ -1,6 +1,6 @@
 import * as gcp from "@pulumi/gcp";
 import { services } from "./apis";
-import { runSa, runStgSa, autoRefreshJobSa } from "./iam";
+import { runSa, runStgSa, autoRefreshJobSa, mslistBuildSa } from "./iam";
 
 // セッション暗号化鍵の入れ物。版(鍵の値)は Pulumi に入れず gcloud で手作業で足す
 const newSecret = (env: string) =>
@@ -28,5 +28,31 @@ export const sessionKeyAccessors = [
       secretId: secret.id,
       role: "roles/secretmanager.secretAccessor",
       member: sa.member,
+    })
+);
+
+// 公式サイトのログイン情報(MSリスト更新用)。版は gcloud で手作業で足す
+const newCredentialSecret = (name: string) =>
+  new gcp.secretmanager.Secret(
+    `official-site-${name}`,
+    {
+      secretId: `official-site-${name}`,
+      replication: { auto: {} },
+      deletionProtection: true,
+    },
+    { dependsOn: services }
+  );
+
+export const officialSiteSecrets = ["username", "password"].map((name) => ({
+  name,
+  secret: newCredentialSecret(name),
+}));
+
+export const officialSiteAccessors = officialSiteSecrets.map(
+  ({ name, secret }) =>
+    new gcp.secretmanager.SecretIamMember(`official-site-${name}-mslist-build`, {
+      secretId: secret.id,
+      role: "roles/secretmanager.secretAccessor",
+      member: mslistBuildSa.member,
     })
 );

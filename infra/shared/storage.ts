@@ -12,3 +12,12 @@ export const stateBucket = new gcp.storage.Bucket("pulumi-state", {
   publicAccessPrevention: "enforced",
   forceDestroy: false,
 });
+
+// MSリスト更新の受け渡し用(Cloud Build へのソース・取得結果・ビルドログ)。中身は使い捨て
+export const mslistBucket = new gcp.storage.Bucket("mslist", {
+  name: `${gcp.config.project}-mslist`,
+  location: gcp.config.region!,
+  uniformBucketLevelAccess: true,
+  publicAccessPrevention: "enforced",
+  lifecycleRules: [{ action: { type: "Delete" }, condition: { age: 7 } }],
+});

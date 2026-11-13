@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { stateBucket } from "./storage";
+import { stateBucket, mslistBucket } from "./storage";
 import { services } from "./apis";
 import { repository } from "./artifact-registry";
 
@@ -354,6 +354,59 @@ export const ghaKmsBindings = [
   ({ name, sa, role }) =>
     new gcp.kms.CryptoKeyIAMMember(`${name}-kms`, {
       cryptoKeyId: pulumiKmsKey,
+      role,
+      member: sa.member,
+    })
+);
+
+// --- MSリスト更新: 公式サイトは日本の IP しか通さないため、取得だけ東京の Cloud Build で行う(#595) ---
+
+// GitHub Actions が借りる。environment mslist(develop のみ)の job だけ
+export const ghaMslistSa = new gcp.serviceaccount.Account("gha-mslist", {
+  accountId: "gha-mslist",
+  displayName: "GitHub Actions (MS list update)",
+});
+
+// Cloud Build の実行 SA。公式サイトのログイン情報を読めるのはこれだけ
+export const mslistBuildSa = new gcp.serviceaccount.Account("mslist-build", {
+  accountId: "mslist-build",
+  displayName: "MS list update build",
+});
+
+export const ghaMslistWifBinding = new gcp.serviceaccount.IAMBinding("gha-mslist-wif", {
+  serviceAccountId: ghaMslistSa.name,
+  role: "roles/iam.workloadIdentityUser",
+  members: [wifSubject("environment:mslist")],
+});
+
+export const ghaMslistProjectBindings = [
+  "roles/cloudbuild.builds.editor",
+  "roles/serviceusage.serviceUsageConsumer",
+].map(
+  (role) =>
+    new gcp.projects.IAMMember(
+      `gha-mslist-${role.split("/")[1]}`,
+      { project: gcp.config.project!, role, member: ghaMslistSa.member },
+      { dependsOn: services }
+    )
+);
+
+export const ghaMslistActAsBinding = new gcp.serviceaccount.IAMMember("gha-mslist-actas-mslist-build", {
+  serviceAccountId: mslistBuildSa.name,
+  role: "roles/iam.serviceAccountUser",
+  member: ghaMslistSa.member,
+});
+
+// objectUser に buckets.get が無い。gcloud のステージングと Cloud Build の成果物・ログの書き込みが使う
+export const mslistBucketBindings = [
+  { name: "gha-mslist-objectUser", sa: ghaMslistSa, role: "roles/storage.objectUser" },
+  { name: "gha-mslist-legacyBucketReader", sa: ghaMslistSa, role: "roles/storage.legacyBucketReader" },
+  { name: "mslist-build-objectUser", sa: mslistBuildSa, role: "roles/storage.objectUser" },
+  { name: "mslist-build-legacyBucketReader", sa: mslistBuildSa, role: "roles/storage.legacyBucketReader" },
+].map(
+  ({ name, sa, role }) =>
+    new gcp.storage.BucketIAMMember(`mslist-bucket-${name}`, {
+      bucket: mslistBucket.name,
       role,
       member: sa.member,
     })
