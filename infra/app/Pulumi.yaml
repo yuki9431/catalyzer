@@ -1,3 +1,5 @@
 name: exvs-app
 runtime: nodejs
 description: catalyzer アプリ環境（環境ごとにデプロイ）
+options:
+  refresh: always
