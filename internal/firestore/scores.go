@@ -18,6 +18,7 @@ type matchDoc struct {
 	GameEndSec float64     `firestore:"game_end_sec"`
 	MatchID    string      `firestore:"match_id"`
 	MatchMode  string      `firestore:"match_mode"`
+	WinStreak  int         `firestore:"win_streak,omitempty"`
 	Players    []playerDoc `firestore:"players"`
 }
 
@@ -177,6 +178,7 @@ func docsToScores(docs []*firestore.DocumentSnapshot) model.DatedScores {
 				Datetime:  md.Datetime,
 				MatchID:   md.MatchID,
 				MatchMode: md.MatchMode,
+				WinStreak: md.WinStreak,
 				PlayerScore: model.PlayerScore{
 					City:            p.City,
 					Name:            p.Name,
@@ -317,6 +319,7 @@ func buildMatchDoc(entries []model.DatedScore) matchDoc {
 		GameEndSec: gameEndSec,
 		MatchID:    entries[0].MatchID,
 		MatchMode:  entries[0].MatchMode,
+		WinStreak:  entries[0].WinStreak,
 		Players:    players,
 	}
 }

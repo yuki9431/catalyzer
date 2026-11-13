@@ -80,6 +80,7 @@
 .search-item:hover { background: var(--accent-a10); }
 .search-item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .search-item-mode { color: var(--muted); font-size: 0.875rem; }
+.search-item-streak { color: var(--great); font-size: 0.875rem; font-weight: 700; }
 .search-item-date { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
 .search-item-metric { color: var(--accent-2); font-size: 0.875rem; font-weight: 600; }
 .search-item-battle { display: flex; align-items: center; gap: 10px; }
@@ -117,6 +118,7 @@
 .search-detail-result { display: flex; align-items: center; gap: 8px; margin: 0 0 24px; }
 .search-detail-result strong { font-size: 2rem; line-height: 48px; }
 .search-detail-mode { color: var(--muted); font-size: 0.9375rem; }
+.search-detail-streak { color: var(--great); font-size: 0.9375rem; font-weight: 700; }
 .search-layer-body .panel h2 { line-height: 32px; }
 .search-detail-result strong.win { color: var(--great); }
 .search-detail-result strong.lose { color: var(--terrible); }
