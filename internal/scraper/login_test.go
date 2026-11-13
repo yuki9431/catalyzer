@@ -240,3 +240,37 @@ func TestAuthParams(t *testing.T) {
 		t.Errorf("codeが載っていない: %v", got)
 	}
 }
+
+type failingTransport struct{}
+
+func (failingTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("connection reset")
+}
+
+func TestLoginErrorOmitsURLQuery(t *testing.T) {
+	c := NewClient("user@example.com", "pw")
+	c.HTTPClient.Transport = failingTransport{}
+
+	err := c.Login()
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		t.Fatalf("通信エラーが url.Error で返らない: %v", err)
+	}
+	if strings.Contains(err.Error(), "?") || !strings.Contains(err.Error(), "bandainamcoid.com") {
+		t.Errorf("クエリを外しホストは残すこと: %v", err)
+	}
+}
+
+func TestGetAPIErrorOmitsCookieAndCode(t *testing.T) {
+	c := NewClient("user@example.com", "pw")
+	c.HTTPClient.Transport = failingTransport{}
+
+	_, err := c.getAPI(passkeyInfoURL, url.Values{"code": {"secret-code"}})
+	got := err.Error()
+	if strings.Contains(got, "secret-code") || strings.Contains(got, "cookie") {
+		t.Errorf("認可コードと cookie が残っている: %s", got)
+	}
+	if !strings.Contains(got, "認証APIの呼び出しに失敗") || !strings.Contains(got, "/v3/passkey/info") {
+		t.Errorf("文脈とパスは残すこと: %s", got)
+	}
+}
