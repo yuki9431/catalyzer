@@ -199,3 +199,24 @@ func TestBuildMatchData_PopulatesMode(t *testing.T) {
 		t.Errorf("legacy の試合の Mode は空(不明)のはず: got %q", m)
 	}
 }
+
+func TestBuildMatchData_PopulatesWinStreak(t *testing.T) {
+	base := time.Date(2026, 11, 13, 23, 46, 0, 0, time.UTC)
+	won := match(base, true)
+	for i := range won {
+		won[i].WinStreak = 3
+	}
+	legacy := match(base.Add(time.Minute), true)
+
+	got := BuildMatchData(append(won, legacy...), nil, time.Time{})
+	streaks := map[string]int{}
+	for _, m := range got {
+		streaks[m.Date] = m.WinStreak
+	}
+	if s := streaks[base.Format("2006-01-02 15:04")]; s != 3 {
+		t.Errorf("連勝数: want 3, got %d", s)
+	}
+	if s := streaks[base.Add(time.Minute).Format("2006-01-02 15:04")]; s != 0 {
+		t.Errorf("取得前の試合の連勝数は0(省略)のはず: got %d", s)
+	}
+}

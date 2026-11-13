@@ -8,7 +8,7 @@ import {
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
 import {
-  num, cellDisplay, isTimeUp, MODE_LABELS, modeLabel,
+  num, cellDisplay, isTimeUp, MODE_LABELS, modeLabel, winStreaks, streakKey, streakLabel,
   colorKillsInt, colorDeathsInt, colorDmgGiven, colorDmgTaken, colorExDmg,
 } from '../lib/format.js';
 import { CompareRadar } from './charts.js';
@@ -283,11 +283,12 @@ function MsThumb({ name, msImages }) {
 }
 
 // 1試合分のサマリーカード。機体は画像で並べ、クリックで詳細を開く。
-function ResultItem({ match, msImages, sortKey, timeOnly, reason, onOpen }) {
+function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, onOpen }) {
   var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
   return html`<button type="button" class=${'search-item ' + (match.win ? 'win' : 'lose')} data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
+      ${streakLabel(streak) && html`<span class="search-item-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
       ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
@@ -442,7 +443,7 @@ function DetailThumb({ name, msImages }) {
 }
 
 // 試合詳細の全画面。試合経過は常に出す。
-function MatchDetail({ match, msImages, conds, onClose }) {
+function MatchDetail({ match, msImages, conds, streak, onClose }) {
   // 当てはまった条件の原因になった撃墜・OL発動（ガントで強調）と注意の一文
   var hits = [], note = '';
   (conds || []).forEach(function (c) {
@@ -482,7 +483,7 @@ function MatchDetail({ match, msImages, conds, onClose }) {
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
     <span class="search-layer-date">${match.date}</span>`;
   return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
-    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}</p>
+    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${streakLabel(streak) && html`<span class="search-detail-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}</p>
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
 
@@ -574,6 +575,8 @@ export function SearchView({ matches, msImages, initial, onChange }) {
   var sheetOpen = sheetRef[0], setSheetOpen = sheetRef[1];
 
   var options = useMemo(function () { return collectMsOptions(matches); }, [matches]);
+  // 連勝は絞り込み前の全試合の並びで数える
+  var streaks = useMemo(function () { return winStreaks(matches); }, [matches]);
 
   var filtered = useMemo(function () {
     // 期間プリセット（直近Nプレイ日）はレポートと同じ filterByPlayDays で先に絞る。
@@ -660,7 +663,7 @@ export function SearchView({ matches, msImages, initial, onChange }) {
               var day = (m.date || '').slice(0, 10);
               var sep = byDate && (i === 0 || day !== (pageItems[i - 1].date || '').slice(0, 10))
                 ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
-              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} onOpen=${openDetail} />`;
+              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} streak=${streaks.get(streakKey(m))} onOpen=${openDetail} />`;
             })}
           </div>`}
 
@@ -673,6 +676,6 @@ export function SearchView({ matches, msImages, initial, onChange }) {
       </div>`}
     </section>
 
-    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} onClose=${function () { setDetail(null); }} />`}
+    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} streak=${streaks.get(streakKey(detail))} onClose=${function () { setDetail(null); }} />`}
   </div>`;
 }

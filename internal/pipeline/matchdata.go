@@ -85,7 +85,8 @@ type MatchData struct {
 	Opponent2Actions     []ActionJSON `json:"opponent2_actions"`
 	GameEndSec           float64      `json:"game_end_sec,omitempty"`
 	MatchID              string       `json:"match_id,omitempty"`
-	Mode                 string       `json:"mode,omitempty"` // shuffle / fixed。判別できなかった試合は省略(不明)
+	Mode                 string       `json:"mode,omitempty"`       // shuffle / fixed。判別できなかった試合は省略(不明)
+	WinStreak            int          `json:"win_streak,omitempty"` // 公式の連勝数。負け・取得前の試合は省略(フロントが推定)
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
@@ -246,6 +247,7 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			GameEndSec:           gameEndSec,
 			MatchID:              entries[0].MatchID,
 			Mode:                 entries[0].MatchMode,
+			WinStreak:            entries[0].WinStreak,
 		})
 	}
 
