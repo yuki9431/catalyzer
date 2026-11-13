@@ -123,6 +123,9 @@ func (j *Job) Snapshot() model.JobSnapshot {
 	}
 }
 
+// newCookieJar はパスワードでログインする(テストで差し替える)
+var newCookieJar = scraper.NewCookieJar
+
 // On403Func は403検出時に呼び出されるコールバック型
 type On403Func func(userHash string)
 
@@ -150,9 +153,10 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	jar := j.SavedJar
 	if !usingSession {
 		var loginErr error
-		jar, loginErr = scraper.NewCookieJar(username, password)
+		jar, loginErr = newCookieJar(username, password)
 		if loginErr != nil || (j.ctx != nil && j.ctx.Err() != nil) {
-			failScrape(j, loginErr, usingSession, on403)
+			// ログイン段階では本人と確定していないので、userKey に 403 ブロックを付けない
+			failScrape(j, loginErr, usingSession, nil)
 			return
 		}
 	}
@@ -162,7 +166,9 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			setError(j, clientErr, "rejected after login")
 			return
 		}
-		defer release()
+		if release != nil {
+			defer release()
+		}
 	}
 
 	// MSリストから機体名・コストマッピングを読み込み

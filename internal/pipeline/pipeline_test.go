@@ -3,7 +3,9 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/cookiejar"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,5 +91,35 @@ func TestRunStopsWhenRejectedAfterLogin(t *testing.T) {
 	}
 	if snap.PreliminaryReport != "" || snap.LoggedIn {
 		t.Errorf("拒否したジョブは速報もログイン済みも出さない")
+	}
+}
+
+func TestRunPasswordPathLogsInBeforeGate(t *testing.T) {
+	orig := newCookieJar
+	t.Cleanup(func() { newCookieJar = orig })
+	var order []string
+	gate := func(string) (func(), string) { order = append(order, "gate"); return nil, "拒否" }
+
+	newCookieJar = func(string, string) (http.CookieJar, error) {
+		order = append(order, "login")
+		return nil, fmt.Errorf("ログインに失敗: %w", scraper.ErrLoginFailed)
+	}
+	j := NewJob()
+	j.AfterLogin = gate
+	Run(j, "user@example.com", "wrong")
+	if snap := j.Snapshot(); len(order) != 1 || !strings.HasPrefix(snap.Error, "ログインに失敗しました") {
+		t.Fatalf("ログイン失敗では判定を呼ばずログイン失敗の文言: order=%v error=%q", order, snap.Error)
+	}
+
+	order = nil
+	newCookieJar = func(string, string) (http.CookieJar, error) {
+		order = append(order, "login")
+		return cookiejar.New(nil)
+	}
+	j = NewJob()
+	j.AfterLogin = gate
+	Run(j, "user@example.com", "pw")
+	if strings.Join(order, ",") != "login,gate" || j.Snapshot().Error != "拒否" {
+		t.Errorf("ログイン成功後に判定する: order=%v error=%q", order, j.Snapshot().Error)
 	}
 }
