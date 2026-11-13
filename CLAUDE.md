@@ -78,6 +78,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 ```
 ブラウザ → POST /analyze → ジョブ作成（pending）
+  → バンナムIDでログイン → 403ブロック・自動更新の lease を判定（ログイン前にユーザー単位の判定・読み込みをしない）
   → Firestoreから既存matchesを読み取り → 速報マッチデータ生成
   → Collyで新規戦績をスクレイピング（状態: scraping）
   → data/ms_list.jsonからMS名・コストを補完
