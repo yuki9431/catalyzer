@@ -86,6 +86,18 @@ export const projectBindings = projectRoles.map(
     )
 );
 
+// Cloud Run はデプロイ時にデプロイ元の権限で image のタグを解決するため、prod デプロイにも読み取りが要る
+export const githubActionsArtifactRegistryReader = new gcp.artifactregistry.RepositoryIamMember(
+  "github-actions-artifact-registry-reader",
+  {
+    project: repository.project,
+    location: repository.location,
+    repository: repository.name,
+    role: "roles/artifactregistry.reader",
+    member: githubActionsSa.member,
+  }
+);
+
 // --- Storage権限 ---
 
 // Pulumiステートバケットへの管理権限（GitHub Actions SA）
