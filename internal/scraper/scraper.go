@@ -113,6 +113,7 @@ type matchEntry struct {
 	detailURL string
 	shopName  string // プレイ店舗名（dailyLinkから引き継ぎ）
 	mode      string // model.MatchModeShuffle / MatchModeFixed（判別できなければ空）
+	streak    int    // 公式の連勝数。勝ちは1以上、負け・不明は0
 }
 
 // matchModeOf は一覧の試合行のクラスバッジの人型アイコン数から対戦形式を判別する（1=シャッフル、2=固定）
@@ -126,16 +127,49 @@ func matchModeOf(item *goquery.Selection) string {
 	return ""
 }
 
-// warnUnknownModes は対戦形式を判別できない試合を日ごとに警告する。差分取得では後から取り直せないため検知を残す
-func warnUnknownModes(date string, entries []matchEntry) {
-	unknown := 0
+var streakRe = regexp.MustCompile(`(\d+)\s*WINS`)
+
+// winStreakOf は一覧の試合行の「N WINS」から連勝数を読む。表示の無い勝ちは1、読めなければ0(不明。フロントが推定する)
+func winStreakOf(item *goquery.Selection, win bool) int {
+	if !win {
+		return 0
+	}
+	wrap := item.Find("div.result-wrap").First()
+	if wrap.Length() == 0 {
+		return 0
+	}
+	// 表示の無い勝ちは結果欄に文字が無い。文字があるのに読めなければ不明にする(誤った1は取り直せない)
+	text := wrap.Text()
+	if strings.TrimSpace(text) == "" {
+		return 1
+	}
+	if m := streakRe.FindStringSubmatch(text); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+// warnUnknownListInfo は対戦形式・連勝数を判別できない試合を日ごとに警告する。差分取得では後から取り直せないため検知を残す
+func warnUnknownListInfo(date string, entries []matchEntry) {
+	unknown, won, unknownStreak := 0, 0, 0
 	for _, e := range entries {
 		if e.mode == "" {
 			unknown++
 		}
+		if e.wins[0] {
+			won++
+			if e.streak == 0 {
+				unknownStreak++
+			}
+		}
 	}
 	if unknown > 0 {
 		log.Printf("[WARN] collectMatchEntries: 対戦形式を判別できない試合 date=%s %d/%d件", date, unknown, len(entries))
+	}
+	if unknownStreak > 0 {
+		log.Printf("[WARN] collectMatchEntries: 連勝数を判別できない勝ち date=%s %d/%d件", date, unknownStreak, won)
 	}
 }
 
@@ -475,7 +509,8 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 		}
 
 		var wins []bool
-		if e.ChildAttr("a", "class") == "right-arrow vs-detail win" {
+		win := e.ChildAttr("a", "class") == "right-arrow vs-detail win"
+		if win {
 			wins = []bool{true, true, false, false}
 		} else {
 			wins = []bool{false, false, true, true}
@@ -494,6 +529,7 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 			detailURL: link,
 			shopName:  dl.shopName,
 			mode:      matchModeOf(e.DOM),
+			streak:    winStreakOf(e.DOM, win),
 		})
 	})
 
@@ -512,7 +548,7 @@ func collectMatchEntries(jar http.CookieJar, dl dailyLink, since time.Time) ([]m
 	})
 
 	_ = c.Visit(dl.url)
-	warnUnknownModes(dl.date, entries)
+	warnUnknownListInfo(dl.date, entries)
 	// 1ページ目の上が最新。古い試合から詳細を取る(#456)
 	slices.Reverse(entries)
 	return entries, httpErr
@@ -735,6 +771,10 @@ func fetchSingleDetail(ctx context.Context, jar http.CookieJar, e matchEntry) (m
 			scores = parsed
 		}
 	})
+	// 連勝数は自陣(勝った側)のもの。4人で共有して試合ドキュメントに載せる
+	for i := range scores {
+		scores[i].WinStreak = e.streak
+	}
 	return scores, nil
 }
 

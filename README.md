@@ -113,6 +113,7 @@
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── patterns.test.js       # patterns.js テスト
+│   │   ├── streak.test.js         # 連勝数（match.js の winStreaks）テスト
 │   │   ├── today.test.js          # today.js テスト
 │   │   ├── tabseen.test.js        # tabseen.js テスト
 │   │   ├── format.test.js         # format.js テスト
@@ -150,7 +151,7 @@
 │   │   ├── firestore.ts           # Firestore定義
 │   │   ├── dns.ts                 # Cloud DNS定義
 │   │   ├── iam.ts                 # サービスアカウント・Workload Identity
-│   │   ├── secrets.ts             # セッション鍵の Secret Manager（版は手作業）
+│   │   ├── secrets.ts             # セッション鍵・公式サイトのログイン情報の Secret Manager（版は手作業）
 │   │   └── budget.ts              # 予算アラート定義
 │   └── app/                       # 環境別リソース（prod/stg）
 │       └── index.ts               # Cloud Run・ドメインマッピング

@@ -78,6 +78,7 @@ type DatedScore struct {
 	Datetime      time.Time
 	MatchID       string // 試合の一意ID(detailURL由来。同一試合の4人で共有。legacyデータでは空。#358)
 	MatchMode     string // MatchModeShuffle / MatchModeFixed。4人で共有。判別できなかった試合は空
+	WinStreak     int    // 公式一覧の連勝数(勝った試合のみ1以上)。負け・不明・取得前の試合は0
 	PlayerScore   PlayerScore
 	MatchTimeline *MatchTimeline // 試合経過(PlayerNo==1のときのみセット、4人で共有)
 }

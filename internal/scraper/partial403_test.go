@@ -41,6 +41,16 @@ func (f *fakeSite) RoundTrip(r *http.Request) (*http.Response, error) {
 // fakePicons は試合 i の人型アイコン数(偶数=シャッフル1、奇数=固定2)
 func fakePicons(i int) int { return 1 + i%2 }
 
+// fakeStreak は試合 i の公式の連勝数(1連勝は公式が表示しない)
+func fakeStreak(i int) int { return 1 + i%3 }
+
+func fakeStreakLabel(i int) string {
+	if fakeStreak(i) < 2 {
+		return ""
+	}
+	return fmt.Sprintf(`<p class="col-light fz-m fw-b">%d<span class="fz-xs fw-n">WINS</span></p>`, fakeStreak(i))
+}
+
 func detailURL(param string, i int) string {
 	return fmt.Sprintf("%s/match_detail?pi=%s-m%02d", fakeBase, param, i)
 }
@@ -74,8 +84,8 @@ func (f *fakeSite) serve(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Sscanf(r.URL.Query().Get("page"), "%d", &page)
 		b.WriteString("<ul>")
 		for i := (page - 1) * f.perPage; i < page*f.perPage && i < len(f.hours); i++ {
-			fmt.Fprintf(&b, `<li class="item"><a href="%s" class="right-arrow vs-detail win"><p class="datetime fz-ss">%s</p><div class="line-badge rank fz-ss">クラス<span class="picon-wrap">%s</span></div></a></li>`,
-				detailURL(param, i), f.hours[i], strings.Repeat(`<span class="picon"></span>`, fakePicons(i)))
+			fmt.Fprintf(&b, `<li class="item"><a href="%s" class="right-arrow vs-detail win"><p class="datetime fz-ss">%s</p><div class="line-badge rank fz-ss">クラス<span class="picon-wrap">%s</span></div><div class="result-wrap"><div class="result-img win"></div>%s<div class="result-img lose"></div></div></a></li>`,
+				detailURL(param, i), f.hours[i], strings.Repeat(`<span class="picon"></span>`, fakePicons(i)), fakeStreakLabel(i))
 		}
 		b.WriteString("</ul>")
 		next := "javascript:void(0);"
@@ -278,8 +288,8 @@ func TestScraping_RankpageForbidden(t *testing.T) {
 	}
 }
 
-// 一覧で判別した対戦形式が、詳細ページから作る4人全員に入る
-func TestScraping_MatchModeReachesAllPlayers(t *testing.T) {
+// 一覧で判別した対戦形式と連勝数が、詳細ページから作る4人全員に入る
+func TestScraping_ListInfoReachesAllPlayers(t *testing.T) {
 	t.Setenv("SCRAPER_THROTTLE_DELAY_MS", "0")
 	orig := http.DefaultTransport
 	site := newSite([]string{"2026/10/03"}, 4, 4, 4)
@@ -288,12 +298,14 @@ func TestScraping_MatchModeReachesAllPlayers(t *testing.T) {
 	jar, _ := cookiejar.New(nil)
 
 	want := map[string]string{}
+	wantStreak := map[string]int{}
 	for i := range site.hours {
 		mode := model.MatchModeShuffle
 		if fakePicons(i) == 2 {
 			mode = model.MatchModeFixed
 		}
 		want[model.MatchIDFromURL(detailURL("d0", i))] = mode
+		wantStreak[model.MatchIDFromURL(detailURL("d0", i))] = fakeStreak(i)
 	}
 	got, _, err := ScrapingWithOption("", "", time.Time{}, ScrapingOption{SavedJar: jar})
 	if err != nil || len(got) != len(site.hours)*4 {
@@ -302,6 +314,9 @@ func TestScraping_MatchModeReachesAllPlayers(t *testing.T) {
 	for _, sc := range got {
 		if sc.MatchMode != want[sc.MatchID] {
 			t.Errorf("MatchID=%s PlayerNo=%d: MatchMode=%q, want %q", sc.MatchID, sc.PlayerNo, sc.MatchMode, want[sc.MatchID])
+		}
+		if sc.WinStreak != wantStreak[sc.MatchID] {
+			t.Errorf("MatchID=%s PlayerNo=%d: WinStreak=%d, want %d", sc.MatchID, sc.PlayerNo, sc.WinStreak, wantStreak[sc.MatchID])
 		}
 	}
 }

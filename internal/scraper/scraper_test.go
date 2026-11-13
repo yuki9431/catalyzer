@@ -441,6 +441,37 @@ func TestIsSessionExpired(t *testing.T) {
 	}
 }
 
+func TestWinStreakOf(t *testing.T) {
+	row := func(label string) string {
+		return `<li class="item"><a class="right-arrow vs-detail win"><div class="result-wrap"><div class="result-img win"></div>` +
+			label + `<div class="result-img lose"></div></div></a></li>`
+	}
+	tests := []struct {
+		name string
+		html string
+		win  bool
+		want int
+	}{
+		{"N WINS を読む", row(`<p class="col-light fz-m fw-b">5<span class="fz-xs fw-n">WINS</span></p>`), true, 5},
+		{"10連勝も読む", row(`<p class="col-light fz-m fw-b">10<span class="fz-xs fw-n">WINS</span></p>`), true, 10},
+		{"表示の無い勝ちは1連勝", row(""), true, 1},
+		{"負けは0", row(`<p class="col-light fz-m fw-b">3<span class="fz-xs fw-n">WINS</span></p>`), false, 0},
+		{"数字の後の改行や空白を許す", row("<p class=\"col-light fz-m fw-b\">\n  3\n  <span class=\"fz-xs fw-n\">WINS</span></p>"), true, 3},
+		{"数字で読めなければ不明", row(`<p class="col-light fz-m fw-b">?<span class="fz-xs fw-n">WINS</span></p>`), true, 0},
+		{"class が変わっても文字で読む", row(`<div class="streak"><p class="new-class">4<span>WINS</span></p></div>`), true, 4},
+		{"文言が変わったら不明", row(`<p class="col-light fz-m fw-b">4<span class="fz-xs fw-n">連勝</span></p>`), true, 0},
+		{"結果欄が無ければ不明", `<li class="item"><a class="right-arrow vs-detail win"></a></li>`, true, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, _ := goquery.NewDocumentFromReader(strings.NewReader(tt.html))
+			if got := winStreakOf(doc.Find("li.item"), tt.win); got != tt.want {
+				t.Errorf("winStreakOf = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMatchModeOf(t *testing.T) {
 	badge := func(picons int) string {
 		return `<li class="item"><div class="line-badge rank fz-ss">クラス<span class="picon-wrap">` +

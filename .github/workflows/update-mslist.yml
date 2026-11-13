@@ -8,9 +8,12 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    # 公式サイトのログイン情報を読む Cloud Build を起動できる身元。environment mslist は develop のみ
+    environment: mslist
     permissions:
       contents: write
       pull-requests: write
+      id-token: write
 
     steps:
       - name: Random delay (0-180 min)
@@ -35,17 +38,60 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        if: steps.existing-pr.outputs.skip == 'false'
-        with:
-          go-version: "1.26"
-
-      - name: Run update-mslist
+      # 公開 repo のジョブログにプロジェクト ID・番号を出さない。auth が環境変数に書き出す前に登録する
+      - name: Mask GCP identifiers
         if: steps.existing-pr.outputs.skip == 'false'
         env:
-          USERNAME: ${{ secrets.USERNAME }}
-          PASSWORD: ${{ secrets.PASSWORD }}
-        run: go run ./cmd/update-mslist
+          SA: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+        run: '"$GITHUB_WORKSPACE/.github/scripts/mask-gcp-ids.sh"'
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        if: steps.existing-pr.outputs.skip == 'false'
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        if: steps.existing-pr.outputs.skip == 'false'
+
+      # 公式サイトは日本以外の IP を 403 で拒否するため、取得だけ東京の Cloud Build で行う(#595)
+      - name: Run update-mslist (Cloud Build, asia-northeast1)
+        if: steps.existing-pr.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          BUCKET="${GOOGLE_CLOUD_PROJECT}-mslist"
+          OUT="gs://${BUCKET}/out/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          SRC="$RUNNER_TEMP/src"
+          mkdir -p "$SRC"
+          cp -r go.mod go.sum cmd internal data "$SRC/"
+          cat > "$RUNNER_TEMP/cloudbuild.yaml" <<EOF
+          steps:
+          - name: golang:1.26-alpine
+            entrypoint: go
+            args: [run, ./cmd/update-mslist]
+            env: [GOTOOLCHAIN=local]
+            secretEnv: [USERNAME, PASSWORD]
+          availableSecrets:
+            secretManager:
+            - versionName: projects/${GOOGLE_CLOUD_PROJECT}/secrets/official-site-username/versions/latest
+              env: USERNAME
+            - versionName: projects/${GOOGLE_CLOUD_PROJECT}/secrets/official-site-password/versions/latest
+              env: PASSWORD
+          artifacts:
+            objects:
+              location: ${OUT}/
+              paths: [data/ms_list.json, data/national_ms_stats.json]
+          logsBucket: gs://${BUCKET}/logs
+          options:
+            logging: GCS_ONLY
+          EOF
+          gcloud builds submit "$SRC" \
+            --region=asia-northeast1 \
+            --config="$RUNNER_TEMP/cloudbuild.yaml" \
+            --service-account="projects/${GOOGLE_CLOUD_PROJECT}/serviceAccounts/mslist-build@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+            --gcs-source-staging-dir="gs://${BUCKET}/source"
+          gcloud storage cp "${OUT}/ms_list.json" "${OUT}/national_ms_stats.json" data/
 
       - name: Check for changes
         id: diff

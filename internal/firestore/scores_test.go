@@ -87,3 +87,13 @@ func TestBuildMatchDoc_KeepsMatchMode(t *testing.T) {
 		t.Errorf("matchDoc.MatchMode = %q, want %q", got, model.MatchModeFixed)
 	}
 }
+
+func TestBuildMatchDoc_KeepsWinStreak(t *testing.T) {
+	ds := scoresFor(time.Date(2026, 6, 20, 21, 46, 0, 0, time.UTC), "mid")
+	for i := range ds {
+		ds[i].WinStreak = 3
+	}
+	if got := buildMatchDoc(ds).WinStreak; got != 3 {
+		t.Errorf("matchDoc.WinStreak = %d, want 3", got)
+	}
+}

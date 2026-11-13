@@ -1,4 +1,4 @@
-import { html, useEffect, useLayoutEffect, useMemo, useState } from '../../htm-preact-standalone.js';
+import { html, useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../htm-preact-standalone.js';
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { emptyFilters } from '../../analysis/search.js';
@@ -59,10 +59,8 @@ export function Report({ data, userKey, actions }) {
   var periodOpen = periodOpenRef[0], setPeriodOpen = periodOpenRef[1];
   var nav = useView();
   var view = nav.view;
-  // ホームのミッションから開いた試合検索の初期条件。search 以外の画面では持ち越さない
-  var presetRef = useState(null);
-  var searchPreset = presetRef[0], setSearchPreset = presetRef[1];
-  useEffect(function () { if (view !== 'search') setSearchPreset(null); }, [view]);
+  // 試合検索の条件。画面を切り替えても残し、ミッションから開いたときはその条件で上書きする
+  var searchState = useRef(null);
   var matchesRef = useState(data.matches || null);
   var allMatches = matchesRef[0], setAllMatches = matchesRef[1];
   var tagPartnersRef = useState(null);
@@ -229,7 +227,7 @@ export function Report({ data, userKey, actions }) {
     f.myMsList = selectedMs ? [selectedMs] : [];
     f.goal = link.goal;
     if (link.focusRange) f.focusRange = link.focusRange;
-    setSearchPreset(f);
+    searchState.current = { filters: f };
     nav.onNavigate('search');
   }
 
@@ -260,7 +258,7 @@ export function Report({ data, userKey, actions }) {
   }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initialFilters=${searchPreset} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} onChange=${function (st) { searchState.current = st; }} />
     </${AppShell}>`;
   }
 

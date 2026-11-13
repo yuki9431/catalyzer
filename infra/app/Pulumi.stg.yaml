@@ -8,7 +8,7 @@ config:
   exvs-app:geoRestrict: "true"
   exvs-app:rateLimit: "60"
   exvs-app:image:
-    secure: v1:PzRZniwYIkVJONa8:d9ErUjCgMl2Mkm9IihG0vUKa8S5y5m/BwpwShQJGIbilubl5XoghoQDyVJu7DcLl4HfCBKMRdG6FYEotWvDEjGhzHhS+DWaeizakVBWBJR5LuPTA7BMxzVV6981LaKOgKOeYdrVyaYWH17/wj2SWWAtSzz085w==
+    secure: v1:kqzJEgrqembXdR3J:l6WCba5XvRtlC2RySHuRVbQYKblO1ddk9D5P3ATfQ+DJKV5MH1oBiO0o1HLwRz+ye/zGI5LJn62Am13BCK0HaDZBo4YtPmUxNCeSb0eEybGW/5H+zRs0fZtpMf9jwAuOsXzNv/kHr8ZgUXszwX8EW/TPo2tTbQ==
   exvs-app:maxInstances: "1"
   exvs-app:memory: 512Mi
   exvs-app:sessionKeyVersion: "1"

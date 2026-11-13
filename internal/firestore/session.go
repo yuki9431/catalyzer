@@ -129,10 +129,30 @@ func UpdateSessionJar(ctx context.Context, token string, encryptedJar []byte) er
 	return nil
 }
 
+// RefreshSession は既存セッションの jar と期限を更新する。ドキュメントが無ければ ErrSessionNotFound を返し作り直さない。
+func RefreshSession(token string, encryptedJar []byte) error {
+	c := getClient()
+	if c == nil {
+		return fmt.Errorf("firestore client not initialized")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	_, err := c.Collection("sessions").Doc(token).Update(ctx, []firestore.Update{
+		{Path: "jar", Value: base64.StdEncoding.EncodeToString(encryptedJar)},
+		{Path: "updated_at", Value: firestore.ServerTimestamp},
+		{Path: "expire_at", Value: time.Now().Add(sessionTTL)},
+	})
+	if err != nil {
+		return sessionUpdateError(err)
+	}
+	return nil
+}
+
 // sessionUpdateError は生エラーが doc パス(token)を含むので、sentinel か code だけに落とす。
 func sessionUpdateError(err error) error {
 	if status.Code(err) == codes.NotFound {
 		return ErrSessionNotFound
 	}
-	return fmt.Errorf("update session jar: %s", status.Code(err))
+	return fmt.Errorf("update session: %s", status.Code(err))
 }

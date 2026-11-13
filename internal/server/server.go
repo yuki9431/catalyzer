@@ -179,33 +179,7 @@ func StartServer() {
 			return
 		}
 
-		snap := j.Snapshot()
-		resp := map[string]interface{}{
-			"id":     snap.ID,
-			"status": string(snap.Status),
-		}
-		if snap.Message != "" {
-			resp["message"] = snap.Message
-		}
-		if snap.Progress > 0 {
-			resp["progress"] = snap.Progress
-		}
-		// 総数はPhase2確定後のみ。0の間はフロントが不定表示にする
-		if snap.ProgressTotal > 0 {
-			resp["progress_total"] = snap.ProgressTotal
-		}
-		if snap.Error != "" {
-			resp["error"] = snap.Error
-		}
-		if snap.LoggedIn {
-			resp["logged_in"] = true
-		}
-		if snap.PreliminaryReport != "" {
-			resp["has_preliminary_report"] = true
-			resp["preliminary_version"] = snap.PreliminaryVersion
-		}
-
-		sendJSON(w, http.StatusOK, resp)
+		sendJSON(w, http.StatusOK, statusResponse(j.Snapshot()))
 	})
 
 	// POST /cancel/{id} → 実行中のジョブ（スクレイピング）を中断する（ログアウト時などに使用）
@@ -315,6 +289,35 @@ func StartServer() {
 	}
 }
 
+// statusResponse は GET /status/{id} の応答を組み立てる
+func statusResponse(snap model.JobSnapshot) map[string]interface{} {
+	resp := map[string]interface{}{
+		"id":     snap.ID,
+		"status": string(snap.Status),
+	}
+	if snap.Message != "" {
+		resp["message"] = snap.Message
+	}
+	if snap.Progress > 0 {
+		resp["progress"] = snap.Progress
+	}
+	// 総数はPhase2確定後のみ。0の間はフロントが不定表示にする
+	if snap.ProgressTotal > 0 {
+		resp["progress_total"] = snap.ProgressTotal
+	}
+	if snap.Error != "" {
+		resp["error"] = snap.Error
+	}
+	if snap.LoggedIn {
+		resp["logged_in"] = true
+	}
+	if snap.LoggedIn && snap.PreliminaryReport != "" {
+		resp["has_preliminary_report"] = true
+		resp["preliminary_version"] = snap.PreliminaryVersion
+	}
+	return resp
+}
+
 func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	j, ok := pipeline.GetJob(id)
 	if !ok {
@@ -331,7 +334,8 @@ func handleResult(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	if snap.Status != model.StatusDone && snap.Status != model.StatusError {
-		if snap.PreliminaryReport != "" {
+		// 速報はログイン成功後だけ返す(未認証のジョブから戦績を読ませない)
+		if snap.LoggedIn && snap.PreliminaryReport != "" {
 			sendMatchesResponse(w, http.StatusOK, snap.PreliminaryReport, string(snap.Status), snap.UserKey, true)
 			return
 		}

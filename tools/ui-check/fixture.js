@@ -53,6 +53,17 @@ function opponent(r, m, prefix, name, ms) {
   m[prefix + '_score_ranking'] = r.int(1, 4);
 }
 
+// 新しい2日分だけ公式の連勝数を持たせる。それより前は取得前の試合として画面側の推定に任せる
+function officialStreaks(matches) {
+  var from = DAYS[DAYS.length - 2];
+  var prev = 0;
+  matches.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) {
+    if (m.date < from) return;
+    prev = m.win ? (prev > 0 && prev < 10 ? prev + 1 : 1) : 0;
+    if (m.win) m.win_streak = prev;
+  });
+}
+
 export function generateMatches() {
   var r = rng(20260601);
   var matches = [];
@@ -97,6 +108,7 @@ export function generateMatches() {
     overlimit(m.opponent1_actions, Math.floor(i / 3) % 3, end, oppFire, oppFire - 25);
     matches.push(m);
   }
+  officialStreaks(matches);
   return matches;
 }
 
