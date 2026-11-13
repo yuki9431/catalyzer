@@ -3,9 +3,11 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"net/http/cookiejar"
 	"testing"
 	"time"
 
+	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/scraper"
 )
 
@@ -69,5 +71,23 @@ func TestShouldDeleteSession(t *testing.T) {
 				t.Errorf("shouldDeleteSession = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRunStopsWhenRejectedAfterLogin(t *testing.T) {
+	jar, _ := cookiejar.New(nil)
+	j := NewJob()
+	j.UserKey = "gate-test"
+	j.SavedJar = jar
+	j.AfterLogin = func(string) (func(), string) { return nil, "拒否" }
+
+	Run(j, "", "")
+
+	snap := j.Snapshot()
+	if snap.Status != model.StatusError || snap.Error != "拒否" {
+		t.Fatalf("拒否の文言でエラーになるはず: status=%s error=%q", snap.Status, snap.Error)
+	}
+	if snap.PreliminaryReport != "" || snap.LoggedIn {
+		t.Errorf("拒否したジョブは速報もログイン済みも出さない")
 	}
 }

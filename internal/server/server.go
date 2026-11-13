@@ -127,31 +127,17 @@ func StartServer() {
 			return
 		}
 
-		// 403ブロックチェック
-		userHash := model.UserKey(req.Username)
-		if forbidden403.IsBlocked(userHash) {
-			sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"})
-			return
-		}
-
-		// 自動更新が同じユーザーを取得中なら重複取得を避ける
-		leaseOwner, leased := acquireManualLease(userHash)
-		if !leased {
-			sendJSON(w, http.StatusConflict, map[string]string{"error": manualLeaseBusyMessage})
-			return
-		}
-
 		// 同時実行数制限
 		select {
 		case requestLimiter <- struct{}{}:
 		default:
-			releaseManualLease(userHash, leaseOwner)
 			sendJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Server is busy, please try again later"})
 			return
 		}
 
-		// ジョブ作成
+		// ジョブ作成。403 ブロックと lease はログイン成功後に判定する(パスワード無しで登録の有無を返さない)
 		j := pipeline.NewJob()
+		j.AfterLogin = analyzeGate
 
 		// remember=true かつセッション暗号化が有効な場合、セッショントークンを生成
 		if req.Remember && session.Enabled() {
@@ -162,7 +148,6 @@ func StartServer() {
 		// バックグラウンドで実行
 		go func() {
 			defer func() { <-requestLimiter }()
-			defer releaseManualLease(userHash, leaseOwner)
 			pipeline.Run(j, req.Username, req.Password, forbidden403.Block)
 		}()
 
@@ -287,6 +272,20 @@ func StartServer() {
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("[ERROR] Server failed: %v", err)
 	}
+}
+
+const blocked403Message = "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"
+
+// analyzeGate は /analyze のログイン成功後に、403 ブロック中か・自動更新が取得中かを判定し lease を取る
+func analyzeGate(userKey string) (release func(), clientErr string) {
+	if forbidden403.IsBlocked(userKey) {
+		return nil, blocked403Message
+	}
+	owner, ok := acquireManualLease(userKey)
+	if !ok {
+		return nil, manualLeaseBusyMessage
+	}
+	return func() { releaseManualLease(userKey, owner) }, ""
 }
 
 // statusResponse は GET /status/{id} の応答を組み立てる

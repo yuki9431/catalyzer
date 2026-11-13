@@ -53,9 +53,11 @@ type Job struct {
 	Remember           bool            `json:"-"`
 	SessionToken       string          `json:"-"`
 	SavedJar           http.CookieJar  `json:"-"`
-	completedAt        time.Time
-	ctx                context.Context    // スクレイピングのキャンセル用Context（NewJobで生成）
-	cancel             context.CancelFunc // ctxのキャンセル関数。CancelJobから呼ばれる
+	// AfterLogin はログイン成功後にユーザー単位の可否を判定する。拒否なら clientErr を返す(ログイン前に登録の有無を漏らさない)
+	AfterLogin  func(userKey string) (release func(), clientErr string) `json:"-"`
+	completedAt time.Time
+	ctx         context.Context    // スクレイピングのキャンセル用Context（NewJobで生成）
+	cancel      context.CancelFunc // ctxのキャンセル関数。CancelJobから呼ばれる
 
 	ClassRecord *model.ClassRecord `json:"-"` // 公式サイトのクラスマッチ通算戦績（取得失敗時nil）
 }
@@ -143,6 +145,26 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	jobsMu.Unlock()
 	updateStatus(j, model.StatusScraping)
 
+	// パスワードのログインを先に済ませ、ユーザーに依存する判定・読み込みはその後に行う
+	usingSession := j.SavedJar != nil
+	jar := j.SavedJar
+	if !usingSession {
+		var loginErr error
+		jar, loginErr = scraper.NewCookieJar(username, password)
+		if loginErr != nil || (j.ctx != nil && j.ctx.Err() != nil) {
+			failScrape(j, loginErr, usingSession, on403)
+			return
+		}
+	}
+	if j.AfterLogin != nil {
+		release, clientErr := j.AfterLogin(j.UserKey)
+		if clientErr != "" {
+			setError(j, clientErr, "rejected after login")
+			return
+		}
+		defer release()
+	}
+
 	// MSリストから機体名・コストマッピングを読み込み
 	msList, err := mslist.LoadMSList(DefaultMSListPath)
 	if err != nil {
@@ -228,57 +250,15 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			jobsMu.Unlock()
 			log.Printf("[INFO] Job %s: login succeeded", j.ID)
 		},
-		SavedJar: j.SavedJar,
+		SavedJar: jar,
 		Context:  j.ctx,
 	}
 
-	var datedScores model.DatedScores
-	var jar http.CookieJar
-	usingSession := j.SavedJar != nil
-
-	datedScores, jar, err = scraper.ScrapingWithOption(username, password, since, scrapingOpt)
-	// ログアウト等でキャンセルされた場合は、途中データやセッションを一切保存せず中断する。
-	// スクレイピングが成功して返った直後や、ログイン/日別ページ収集の早期エラーが
-	// ログアウトと競合した場合でも、ctxがキャンセル済みなら error/403 と誤判定せず中断する
-	// （セッション再保存や403ブロックの誤発動を防ぐ）
-	if errors.Is(err, scraper.ErrCanceled) || (j.ctx != nil && j.ctx.Err() != nil) {
-		markCancelled(j)
-		return
-	}
+	datedScores, jar, err := scraper.ScrapingWithOption(username, password, since, scrapingOpt)
 	// 403の場合でも途中データがあれば保存・分析を続行する
 	is403WithPartialData := errors.Is(err, scraper.ErrAccessDenied) && len(datedScores) > 0
-	if err != nil && !is403WithPartialData {
-		// 保存済みセッションの失効が確定したときだけセッションを削除する(一時障害では残す)
-		if shouldDeleteSession(usingSession, j.SessionToken, err) {
-			if delErr := fs.DeleteSession(j.SessionToken); delErr != nil {
-				log.Printf("[WARN] Failed to delete expired session: %v", delErr)
-			}
-		}
-		switch {
-		case errors.Is(err, scraper.ErrLoginFailed):
-			if usingSession {
-				setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
-			} else {
-				setError(j, "ログインに失敗しました。メールアドレスとパスワードを確認してください。", err.Error())
-			}
-		case errors.Is(err, scraper.ErrAccessDenied):
-			if usingSession {
-				setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
-			} else {
-				setError(j, "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。", err.Error())
-				if len(on403) > 0 && on403[0] != nil {
-					on403[0](j.UserKey)
-				}
-			}
-		case errors.Is(err, scraper.ErrUnauthorized):
-			setError(j, "認証の有効期限が切れました。再度ログインしてお試しください。", err.Error())
-		case errors.Is(err, scraper.ErrNotFound):
-			setError(j, "対戦履歴ページが見つかりませんでした。サイトの仕様が変更された可能性があります。", err.Error())
-		case errors.Is(err, scraper.ErrServerError):
-			setError(j, "ガンダムモバイルのサーバーでエラーが発生しています。しばらく時間をおいてから再度お試しください。", err.Error())
-		default:
-			setError(j, "データの取得に失敗しました。時間をおいて再度お試しいただき、解決しない場合は開発者までお問い合わせください。", err.Error())
-		}
+	if (err != nil && !is403WithPartialData) || (j.ctx != nil && j.ctx.Err() != nil) {
+		failScrape(j, err, usingSession, on403)
 		return
 	}
 	if is403WithPartialData {
@@ -422,6 +402,49 @@ func markCancelled(j *Job) {
 	j.completedAt = time.Now()
 	jobsMu.Unlock()
 	log.Printf("[INFO] Job %s cancelled by user", j.ID)
+}
+
+// failScrape はログイン・スクレイピングの失敗をジョブのエラー(またはキャンセル)にする
+func failScrape(j *Job, err error, usingSession bool, on403 []On403Func) {
+	// ログアウト等でキャンセルされた場合は、途中データやセッションを一切保存せず中断する。
+	// スクレイピングが成功して返った直後や、ログイン/日別ページ収集の早期エラーが
+	// ログアウトと競合した場合でも、ctxがキャンセル済みなら error/403 と誤判定せず中断する
+	// （セッション再保存や403ブロックの誤発動を防ぐ）
+	if errors.Is(err, scraper.ErrCanceled) || (j.ctx != nil && j.ctx.Err() != nil) {
+		markCancelled(j)
+		return
+	}
+	// 保存済みセッションの失効が確定したときだけセッションを削除する(一時障害では残す)
+	if shouldDeleteSession(usingSession, j.SessionToken, err) {
+		if delErr := fs.DeleteSession(j.SessionToken); delErr != nil {
+			log.Printf("[WARN] Failed to delete expired session: %v", delErr)
+		}
+	}
+	switch {
+	case errors.Is(err, scraper.ErrLoginFailed):
+		if usingSession {
+			setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
+		} else {
+			setError(j, "ログインに失敗しました。メールアドレスとパスワードを確認してください。", err.Error())
+		}
+	case errors.Is(err, scraper.ErrAccessDenied):
+		if usingSession {
+			setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
+		} else {
+			setError(j, "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。", err.Error())
+			if len(on403) > 0 && on403[0] != nil {
+				on403[0](j.UserKey)
+			}
+		}
+	case errors.Is(err, scraper.ErrUnauthorized):
+		setError(j, "認証の有効期限が切れました。再度ログインしてお試しください。", err.Error())
+	case errors.Is(err, scraper.ErrNotFound):
+		setError(j, "対戦履歴ページが見つかりませんでした。サイトの仕様が変更された可能性があります。", err.Error())
+	case errors.Is(err, scraper.ErrServerError):
+		setError(j, "ガンダムモバイルのサーバーでエラーが発生しています。しばらく時間をおいてから再度お試しください。", err.Error())
+	default:
+		setError(j, "データの取得に失敗しました。時間をおいて再度お試しいただき、解決しない場合は開発者までお問い合わせください。", err.Error())
+	}
 }
 
 func setError(j *Job, clientMsg, detail string) {
