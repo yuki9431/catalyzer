@@ -8,11 +8,11 @@ import path from 'node:path';
 var DIR = path.dirname(new URL(import.meta.url).pathname);
 var SECRET = 'leak-project-123';
 
-// 偽の pulumi。MODE で preview の出力を切り替える
+// 偽の pulumi。MODE で preview の出力を切り替える。PR の身元は refresh できないので --refresh=false 無しの preview は失敗させる
 var FAKE = `#!/usr/bin/env bash
 case "$1" in
   stack) [ "$3" = missing ] && exit 255; exit 0;;
-  preview) printf '%s' "$FAKE_OUT"; exit "\${FAKE_EXIT:-0}";;
+  preview) [[ " $* " == *" --refresh=false "* ]] || exit 97; printf '%s' "$FAKE_OUT"; exit "\${FAKE_EXIT:-0}";;
 esac
 `;
 
