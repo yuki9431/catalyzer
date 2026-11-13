@@ -552,17 +552,22 @@ function SortSheet({ sortKey, desc, pageSize, onSortKey, onDir, onPageSize }) {
 }
 
 // 試合検索ビュー本体。matches はIndexedDBから読み込んだ全試合。
-export function SearchView({ matches, msImages, initialFilters }) {
-  var filtersRef = useState(function () { return Object.assign(emptyFilters(), initialFilters); });
+// initial は前回 onChange で渡した状態(画面を切り替えても条件を残すため)
+export function SearchView({ matches, msImages, initial, onChange }) {
+  var init = initial || {};
+  var filtersRef = useState(function () { return Object.assign(emptyFilters(), init.filters); });
   var filters = filtersRef[0], setFilters = filtersRef[1];
-  var sortRef = useState('date');
+  var sortRef = useState(init.sortKey || 'date');
   var sortKey = sortRef[0], setSortKey = sortRef[1];
-  var descRef = useState(true);
+  var descRef = useState(init.desc !== undefined ? init.desc : true);
   var desc = descRef[0], setDir = descRef[1];
-  var pageRef = useState(1);
+  var pageRef = useState(init.page || 1);
   var page = pageRef[0], setPage = pageRef[1];
-  var pageSizeRef = useState(PAGE_SIZE);
+  var pageSizeRef = useState(init.pageSize || PAGE_SIZE);
   var pageSize = pageSizeRef[0], setPageSize = pageSizeRef[1];
+  useEffect(function () {
+    if (onChange) onChange({ filters: filters, sortKey: sortKey, desc: desc, page: page, pageSize: pageSize });
+  }, [filters, sortKey, desc, page, pageSize]);
   var detailRef = useState(null);
   var detail = detailRef[0], setDetail = detailRef[1];
   var sheetRef = useState(false);
