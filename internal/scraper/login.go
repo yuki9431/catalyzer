@@ -203,6 +203,26 @@ func (c *Client) Login() error {
 	return c.followAuthChain(l.redirect())
 }
 
+// httpGet は通信エラーの URL からクエリを外して返す。認証 API はクエリに cookie や認可コードを載せ、エラーはログに出る
+func (c *Client) httpGet(rawURL string) (*http.Response, error) {
+	resp, err := c.HTTPClient.Get(rawURL)
+	return resp, redactURLQuery(err)
+}
+
+func redactURLQuery(err error) error {
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		return err
+	}
+	if u, perr := url.Parse(ue.URL); perr == nil {
+		u.RawQuery, u.Fragment = "", ""
+		ue.URL = u.String()
+	} else {
+		ue.URL = "(URL 省略)"
+	}
+	return err
+}
+
 // startAuthSession はOAuth入口を踏み、ログイン画面のURLに載ったパラメータを返す。
 // ここを踏まないと backto 等のOAuthセッションが確立せず、認証してもログイン画面に差し戻される。
 func (c *Client) startAuthSession() (url.Values, error) {
@@ -213,7 +233,7 @@ func (c *Client) startAuthSession() (url.Values, error) {
 		}
 	}
 
-	resp, err := c.HTTPClient.Get(entry)
+	resp, err := c.httpGet(entry)
 	if err != nil {
 		return nil, fmt.Errorf("OAuth入口の取得に失敗: %w", err)
 	}
@@ -251,7 +271,7 @@ func (c *Client) followAuthChain(next string) error {
 			return ErrLoginFailed
 		}
 
-		resp, err := c.HTTPClient.Get(next)
+		resp, err := c.httpGet(next)
 		if err != nil {
 			return fmt.Errorf("認証リダイレクトに失敗: %w", err)
 		}
@@ -296,7 +316,7 @@ func authParams(q url.Values, extra ...string) url.Values {
 
 func (c *Client) getAPI(endpoint string, v url.Values) (loginResponse, error) {
 	v.Set("cookie", c.jarCookieJSON())
-	resp, err := c.HTTPClient.Get(endpoint + "?" + v.Encode())
+	resp, err := c.httpGet(endpoint + "?" + v.Encode())
 	if err != nil {
 		return loginResponse{}, fmt.Errorf("認証APIの呼び出しに失敗: %w", err)
 	}
@@ -359,7 +379,7 @@ func (c *Client) jarCookieJSON() string {
 }
 
 func (c *Client) get(rawURL string) ([]byte, error) {
-	resp, err := c.HTTPClient.Get(rawURL)
+	resp, err := c.httpGet(rawURL)
 	if err != nil {
 		return nil, err
 	}
