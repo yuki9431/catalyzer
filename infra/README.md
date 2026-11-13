@@ -60,8 +60,8 @@ make pulumi-shared-preview
 STACK=prod make pulumi-app-preview
 STACK=stg make pulumi-app-preview
 
-# 変更適用はシェルに入って対話的に実行
-make pulumi-shared-shell    # → pulumi up
+# 変更適用: shared は make で、app はシェルに入って対話的に実行
+make tofu-shared-apply      # shared は OpenTofu で反映(pulumi up は禁止)
 STACK=prod make pulumi-app-shell   # → pulumi up
 STACK=stg make pulumi-app-shell    # → pulumi up
 ```

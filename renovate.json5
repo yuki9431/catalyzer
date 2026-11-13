@@ -7,11 +7,43 @@
   // develop にブランチ保護が無いため、GitHub ネイティブの auto-merge だと CI 失敗でもマージされうる
   platformAutomerge: false,
   postUpdateOptions: ['gomodTidy'],
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)\\.opentofu-version$/'],
+      matchStrings: ['^(?<currentValue>\\S+)'],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'opentofu/opentofu',
+      extractVersionTemplate: '^v(?<version>.+)$',
+    },
+  ],
   packageRules: [
     {
       // major は破壊的変更があるため手動。digest は通常発生せず、タグ付け替え時に3日待ちを素通りするため対象外
       matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
+    },
+    // 以下は上の automerge より後ろに置く(後勝ち)
+    {
+      // registry.terraform.io ではなく OpenTofu の registry を見る
+      matchDatasources: ['terraform-provider'],
+      registryUrls: ['https://registry.opentofu.org'],
+      // この registry は公開日時を返さず、3日待ちのままだと更新が止まる
+      minimumReleaseAgeBehaviour: 'timestamp-optional',
+      // 3日待ちが効かない分は人のマージで止める
+      automerge: false,
+    },
+    {
+      // required_version は範囲指定のまま。OpenTofu の版は .opentofu-version で追う
+      matchManagers: ['terraform'],
+      matchDepTypes: ['required_version'],
+      enabled: false,
+    },
+    {
+      // state の形式と required_version の更新を人が揃える
+      matchDepNames: ['opentofu/opentofu'],
+      matchUpdateTypes: ['minor', 'major'],
+      automerge: false,
     },
   ],
   vulnerabilityAlerts: {
