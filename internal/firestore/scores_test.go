@@ -89,7 +89,7 @@ func TestBuildMatchDoc_KeepsMatchMode(t *testing.T) {
 }
 
 func TestBuildMatchDoc_KeepsWinStreak(t *testing.T) {
-	ds := scoresFor(time.Date(2026, 11, 13, 23, 46, 0, 0, time.UTC), "mid")
+	ds := scoresFor(time.Date(2026, 6, 20, 21, 46, 0, 0, time.UTC), "mid")
 	for i := range ds {
 		ds[i].WinStreak = 3
 	}

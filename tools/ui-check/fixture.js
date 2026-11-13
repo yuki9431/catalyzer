@@ -53,6 +53,17 @@ function opponent(r, m, prefix, name, ms) {
   m[prefix + '_score_ranking'] = r.int(1, 4);
 }
 
+// 新しい2日分だけ公式の連勝数を持たせる。それより前は取得前の試合として画面側の推定に任せる
+function officialStreaks(matches) {
+  var from = DAYS[DAYS.length - 2];
+  var prev = 0;
+  matches.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) {
+    if (m.date < from) return;
+    prev = m.win ? (prev > 0 && prev < 10 ? prev + 1 : 1) : 0;
+    if (m.win) m.win_streak = prev;
+  });
+}
+
 export function generateMatches() {
   var r = rng(20260601);
   var matches = [];
@@ -81,8 +92,6 @@ export function generateMatches() {
       arcade: 'テスト店舗',
       // 乱数を消費せず試合番号で決める。7試合に1つは形式不明(取得前のデータ)
       mode: i % 7 === 6 ? undefined : i % 3 === 0 ? 'fixed' : 'shuffle',
-      // 公式の連勝数。乱数を消費せず試合番号で決め、無い勝ちは画面側の推定に任せる
-      win_streak: win && i % 4 === 1 ? 2 + i % 5 : undefined,
       game_end_sec: end,
       match_id: ('0000000' + Math.floor(r() * 4294967296).toString(16)).slice(-8) + ('0000000' + i.toString(16)).slice(-8),
     };
@@ -99,6 +108,7 @@ export function generateMatches() {
     overlimit(m.opponent1_actions, Math.floor(i / 3) % 3, end, oppFire, oppFire - 25);
     matches.push(m);
   }
+  officialStreaks(matches);
   return matches;
 }
 

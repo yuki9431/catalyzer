@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { winStreaks, streakKey, streakLabel, STREAK_MAX } from '../lib/match.js';
 
 function m(time, win, extra) {
-  return Object.assign({ date: '2026-11-13 ' + time, win: win, partner_name: '相方A', mode: 'fixed' }, extra);
+  return Object.assign({ date: '2026-06-20 ' + time, win: win, partner_name: '相方A', mode: 'fixed' }, extra);
 }
 
 function streaksOf(matches) {
@@ -48,7 +48,7 @@ describe('winStreaks', function () {
   });
 
   it('日付を跨いでも間隔で判断する', function () {
-    var ms = [m('23:58', true), { date: '2026-11-14 00:02', win: true, partner_name: '相方A', mode: 'fixed' }];
+    var ms = [m('23:58', true), { date: '2026-06-21 00:02', win: true, partner_name: '相方A', mode: 'fixed' }];
     assert.deepEqual(streaksOf(ms), [1, 2]);
   });
 

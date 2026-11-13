@@ -201,7 +201,7 @@ func TestBuildMatchData_PopulatesMode(t *testing.T) {
 }
 
 func TestBuildMatchData_PopulatesWinStreak(t *testing.T) {
-	base := time.Date(2026, 11, 13, 23, 46, 0, 0, time.UTC)
+	base := time.Date(2026, 6, 20, 21, 46, 0, 0, time.UTC)
 	won := match(base, true)
 	for i := range won {
 		won[i].WinStreak = 3

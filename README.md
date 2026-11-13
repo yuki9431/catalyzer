@@ -113,6 +113,7 @@
 │   │   ├── stats.test.js          # stats.js テスト
 │   │   ├── coach.test.js          # coach.js テスト
 │   │   ├── patterns.test.js       # patterns.js テスト
+│   │   ├── streak.test.js         # 連勝数（match.js の winStreaks）テスト
 │   │   ├── today.test.js          # today.js テスト
 │   │   ├── tabseen.test.js        # tabseen.js テスト
 │   │   ├── format.test.js         # format.js テスト
