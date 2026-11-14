@@ -68,6 +68,15 @@ read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-passw
 | `GH_PAT` | MS リスト更新の PR 作成・マージ用トークン(update-mslist.yml) |
 | `WIF_PR_SERVICE_ACCOUNT` | PR の plan 用 SA(`gha-pr`)。repo の secret |
 | `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)、`mslist` は `gha-mslist`(MSリスト更新の Cloud Build 起動)。environment `prod` は main、`mslist` は develop のみ |
+| `RENOVATE_APP_PRIVATE_KEY` | environment `renovate`(develop のみ)の secret。Renovate 用 GitHub App の秘密鍵。Client ID は同じ environment の変数 `RENOVATE_APP_CLIENT_ID` |
+
+### Renovate 用 GitHub App
+
+`renovate.yml` が使う。作り直すときの手順:
+
+1. Settings → Developer settings → GitHub Apps → New。Webhook は無効。Repository permissions: Contents・Pull requests・Issues・Workflows・Commit statuses を Read and write、Checks・Dependabot alerts を Read
+2. この repo だけにインストールし、秘密鍵を発行する
+3. `gh secret set RENOVATE_APP_PRIVATE_KEY --env renovate < <秘密鍵.pem>` と `gh variable set RENOVATE_APP_CLIENT_ID --env renovate --body <Client ID>`
 
 ## 鍵と権限
 
