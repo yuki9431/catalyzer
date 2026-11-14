@@ -1,6 +1,6 @@
 # 設計: infra を Pulumi(TypeScript) から OpenTofu(HCL) へ移行
 
-- ステータス: draft
+- ステータス: implemented(PR #613・#615・#618・#627)
 - 日付: 2026-11-14
 - 関連: issue #598(合言葉ハッシュの Secret Manager 化。本移行ではやらない)・#599(管理外の整理)・PR #610(マージ済み。deploy を refresh 付きにし、`ciDeployRefreshViewer` を追加)
 - 前提: 実装は #610 を含む origin/develop の上で行う(feat-opentofu-migration は 6ca913b に rebase 済み)

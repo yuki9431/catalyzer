@@ -2,8 +2,6 @@ IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
 .PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
-	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
-	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell \
 	tofu-shared-plan tofu-shared-apply tofu-app-plan tofu-app-apply
 
 ## Docker イメージをビルド（キャッシュなし）
@@ -57,87 +55,12 @@ extract-grades:
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		golang:1.26-alpine go run ./cmd/extract-grades
 
-# CI(pulumi/actions)と同じく常に最新の CLI を使う。latest は手元にキャッシュされるので毎回取り直す
-PULUMI_IMAGE := pulumi/pulumi:latest
-PULUMI_STATE_BUCKET ?= exvs2ib-analyzer-pulumi-state
-STACK ?= prod
-
-# shared用（スタック固定: dev）
-PULUMI_SHARED_LOGIN = pulumi login gs://$(PULUMI_STATE_BUCKET) && pulumi stack select shared
-PULUMI_SHARED_RUN = docker run --rm --pull=always --entrypoint "" \
-	-v "$(CURDIR)/infra/shared":/infra \
-	-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
-	-w /infra \
-	-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
-	-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
-	$(PULUMI_IMAGE)
-
-# app用（STACK変数で環境切り替え: prod / stg）
-PULUMI_APP_LOGIN = pulumi login gs://$(PULUMI_STATE_BUCKET) && pulumi stack select $(STACK)
-PULUMI_APP_RUN = docker run --rm --pull=always --entrypoint "" \
-	-v "$(CURDIR)/infra/app":/infra \
-	-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
-	-w /infra \
-	-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
-	-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
-	$(PULUMI_IMAGE)
-
-## === shared（環境非依存リソース） ===
-
-## shared: 依存パッケージをインストール
-pulumi-shared-install:
-	$(PULUMI_SHARED_RUN) npm install
-
-## shared: バックエンドにログイン＆スタック初期化
-pulumi-shared-init:
-	$(PULUMI_SHARED_RUN) sh -c "pulumi login gs://$(PULUMI_STATE_BUCKET) && pulumi stack init shared || pulumi stack select shared"
-
-## shared: インフラ変更のプレビュー
-pulumi-shared-preview:
-	$(PULUMI_SHARED_RUN) sh -c "$(PULUMI_SHARED_LOGIN) && pulumi preview"
-
-## shared: シェルで入る（pulumi up はここで実行）
-pulumi-shared-shell:
-	docker run --rm -it --pull=always --entrypoint "" \
-		-v "$(CURDIR)/infra/shared":/infra \
-		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
-		-w /infra \
-		-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
-		$(PULUMI_IMAGE) \
-		sh -c "$(PULUMI_SHARED_LOGIN) && sh"
-
-## === app（環境ごとにデプロイ: STACK=prod|stg） ===
-
-## app: 依存パッケージをインストール
-pulumi-app-install:
-	$(PULUMI_APP_RUN) npm install
-
-## app: バックエンドにログイン＆スタック初期化
-pulumi-app-init:
-	$(PULUMI_APP_RUN) sh -c "pulumi login gs://$(PULUMI_STATE_BUCKET) && pulumi stack init $(STACK) || pulumi stack select $(STACK)"
-
-## app: インフラ変更のプレビュー（STACK=prod|stg）
-pulumi-app-preview:
-	$(PULUMI_APP_RUN) sh -c "$(PULUMI_APP_LOGIN) && pulumi preview"
-
-## app: シェルで入る（pulumi up はここで実行。STACK=prod|stg）
-pulumi-app-shell:
-	docker run --rm -it --pull=always --entrypoint "" \
-		-v "$(CURDIR)/infra/app":/infra \
-		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
-		-w /infra \
-		-e CLOUDSDK_CORE_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
-		$(PULUMI_IMAGE) \
-		sh -c "$(PULUMI_APP_LOGIN) && sh"
-
 # OpenTofu。state_bucket と image_uri は TF_VAR_* で渡す(手元は infra/.envrc)。project は gcloud の設定から入れる
 TOFU_ENV = TF_VAR_project=$${TF_VAR_project:-$$(gcloud config get-value project 2>/dev/null)}
 TOFU_SHARED = $(TOFU_ENV) tofu -chdir=infra/shared
 TOFU_APP = $(TOFU_ENV) tofu -chdir=infra/app
-# STACK は明示必須(上の Pulumi 用の既定値 prod を使わない)
-APP_VARS = -var-file=$(if $(and $(filter prod stg,$(STACK)),$(filter-out file,$(origin STACK))),$(STACK),$(error STACK=prod か STACK=stg を指定する)).tfvars
+# STACK は明示必須(既定値で prod に当てない)
+APP_VARS = -var-file=$(if $(filter prod stg,$(STACK)),$(STACK),$(error STACK=prod か STACK=stg を指定する)).tfvars
 
 ## shared: plan（refresh 付き）
 tofu-shared-plan:

@@ -38,6 +38,20 @@ describe('winStreaks', function () {
     assert.deepEqual(streaksOf([m('23:26', true), m('23:29', true, { partner_name: '相方B' })]), [1, 1]);
   });
 
+  it('シャッフルは毎試合相方が変わるので相方を見ずに数える', function () {
+    var ms = [
+      m('23:26', true, { mode: 'shuffle', partner_name: '相方B' }),
+      m('23:29', true, { mode: 'shuffle', partner_name: '相方C' }),
+      m('23:32', true, { mode: 'shuffle', partner_name: '相方D' }),
+    ];
+    assert.deepEqual(streaksOf(ms), [1, 2, 3]);
+  });
+
+  it('形式不明が混ざるシャッフルは相方で判断する', function () {
+    var ms = [m('23:26', true, { mode: 'shuffle', partner_name: '相方B' }), m('23:29', true, { mode: undefined, partner_name: '相方C' })];
+    assert.deepEqual(streaksOf(ms), [1, 1]);
+  });
+
   it('対戦形式が変わったら数え直す。形式不明なら相方と間隔だけで判断する', function () {
     assert.deepEqual(streaksOf([m('23:26', true), m('23:29', true, { mode: 'shuffle' })]), [1, 1]);
     assert.deepEqual(streaksOf([m('23:26', true), m('23:29', true, { mode: undefined })]), [1, 2]);

@@ -9,7 +9,7 @@ on:
       - ".github/scripts/**"
 
 jobs:
-  preview:
+  plan:
     runs-on: ubuntu-latest
     permissions:
       contents: read
