@@ -1,10 +1,10 @@
 import { html } from '../../htm-preact-standalone.js';
 import { colorDE, colorPct } from '../../lib/format.js';
 import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
-import { DailyTrendChart, DayOfWeekChart, TimeOfDayChart } from '../charts.js';
+import { DailyTrendChart, DayOfWeekChart, SeasonChart, TimeOfDayChart } from '../charts.js';
 
 export function TimePane({ pd }) {
-  var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend;
+  var time = pd.time_of_day, dow = pd.day_of_week, daily = pd.daily_trend, seasons = pd.season || [];
   var timeRows = time && time.hours ? time.hours.map(function (h) {
     return [{ sortValue: h.hour, display: h.hour + '時' }, h.matches, colorPct(h.win_rate), colorDE(h.dmg_efficiency, 3)];
   }) : [];
@@ -40,6 +40,18 @@ export function TimePane({ pd }) {
       <${SubSection} title="表で見る">
         <${SortableTable} headers=${['日付', '試合', '勝率', '与被ダメ比']} rows=${dailyRows} />
       <//>
+    <//>`}
+    ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
+      ${seasons.length > 1 && html`<${SeasonChart} seasons=${seasons} />`}
+      ${seasons.map(function (s) {
+        var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
+        if (s.first_half) rows.push(['前半', s.first_half.matches, colorPct(s.first_half.win_rate), colorDE(s.first_half.dmg_efficiency, 3)]);
+        if (s.second_half) rows.push(['後半', s.second_half.matches, colorPct(s.second_half.win_rate), colorDE(s.second_half.dmg_efficiency, 3)]);
+        return html`<${SubSection} title=${s.name}>
+          <${Table} headers=${['期間', '試合', '勝率', '与被ダメ比']} rows=${rows} />
+          <${Tips} tips=${s.tips} />
+        <//>`;
+      })}
     <//>`}
   </div>`;
 }
