@@ -59,6 +59,7 @@ make pulumi-shared-preview
 # app プレビュー（STACK で環境指定）
 STACK=prod make pulumi-app-preview
 STACK=stg make pulumi-app-preview
+STACK=prod make tofu-app-plan   # 移行中: app は OpenTofu にも import 済み。deploy は PR-3 まで Pulumi なので image の差分は正常で、tofu では apply しない
 
 # 変更適用: shared は make で、app はシェルに入って対話的に実行
 make tofu-shared-apply      # shared は OpenTofu で反映(pulumi up は禁止)
@@ -77,7 +78,7 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 
 | タイミング | ワークフロー | 内容 |
 |-----------|-------------|------|
-| PR作成/更新 | `infra-ci.yml` | shared + app (prod/staging) の `pulumi preview` |
+| PR作成/更新 | `infra-ci.yml` | `tofu fmt -check` と shared + app (prod/stg) の `tofu plan`（refresh なし） |
 | mainマージ | `cd.yml` | ビルド → staging に自動デプロイ |
 | 手動実行 | `cd.yml` | 指定環境（prod/staging）にデプロイ |
 
@@ -108,11 +109,12 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | Secret | 説明 |
 |--------|------|
 | `PULUMI_STATE_BUCKET` | Pulumiステート保存用GCSバケット名 |
-| `IMAGE_URI` | コンテナイメージURIベース |
+| `TF_STATE_BUCKET` | OpenTofu の state を置く GCS バケット名（値は `PULUMI_STATE_BUCKET` と同じ） |
+| `IMAGE_URI` | コンテナイメージURIベース（Infra CI は environment を使わないので repo の secret に置く） |
 | `WIF_PROVIDER` | Workload Identity Provider |
 | `WIF_PR_SERVICE_ACCOUNT` | PR の preview 用 SA(`gha-pr`)。repo の secret |
 | `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)、`mslist` は `gha-mslist`(MSリスト更新の Cloud Build 起動)。environment `prod` は main、`mslist` は develop のみ |
 
 ## シークレットの暗号化
 
-Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した SA（PR の preview は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`）が KMS 鍵（`pulumi-secrets/pulumi-state`）で復号する。
+Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した SA（PR の preview は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`）が KMS 鍵（`pulumi-secrets/pulumi-state`）で復号する。OpenTofu の state 暗号化は plan でも Encrypt を呼ぶので、`gha-pr` にも暗号化の権限がある。
