@@ -27,7 +27,6 @@
   --surface-sub: var(--panel-2);
   --text-subtle: var(--muted);
   --spinner-track: var(--line);
-  --bg-a82: rgba(14,20,27,.82);
   --accent-a10: rgba(94,198,242,.1);
   --accent-a18: rgba(94,198,242,.18);
   --accent-a05: rgba(94,198,242,.05);
@@ -124,7 +123,6 @@
   --shadow-modal: 0 16px 48px rgba(0,0,0,.2);
   --bg-glow: #e6eef2;
   --on-accent: #ffffff;
-  --bg-a82: rgba(244,246,248,.82);
   --accent-a10: rgba(10,108,153,.1);
   --accent-a18: rgba(10,108,153,.18);
   --accent-a05: rgba(10,108,153,.05);
