@@ -57,7 +57,7 @@
 ### PR-4: 後始末(prod が tofu で動くのを確認してから)
 - 削除: `infra/**/*.ts`・`package*.json`・`tsconfig.json`・`Pulumi*.yaml`・`infra/.gitignore` の `node_modules/` と `bin/`
 - `Makefile`: `pulumi-*` ターゲットと、直書きされていた state バケット名を削除する
-- `CLAUDE.md` / `README.md` / `infra/README.md` を tofu 版に書き直す(infra/README.md の既に古くなっている記述もここで直す)。`docs/design/` の過去分は履歴なので触らない
+- `CLAUDE.md` / `README.md` / `infra/README.md` を tofu 版に書き直す(infra/README.md の既に古くなっている記述と、README.md のプロジェクト構成の infra 欄(.tf が未記載)もここで直す)。`docs/design/` の過去分は履歴なので触らない
 
 ## 3. インターフェース
 
@@ -215,7 +215,7 @@ resource "google_project_iam_member" "sa" {
 - secret `PULUMI_STATE_BUCKET` を削除する
 
 **ロールバック**
-- PR-3 より前なら、PR を revert して `tofu state rm` するだけで済む(cloud のリソースは消さない)
+- PR-3 より前なら、PR を revert して `tofu state rm` するだけで済む(cloud のリソースは消さない)。PR-2 を revert するときは、続けて `make tofu-shared-apply` で gha-pr の lock 用付与と Decrypter を戻す(Pulumi の preview は `.pulumi/locks/` に書く)。`tofu state rm` の対象は `tofu/app/<env>` だけで、shared の state は残す
 - stack rm の後なら、`pulumi stack import --file <backup>` で戻して workflow を revert する
 
 ## 7. 完了条件
