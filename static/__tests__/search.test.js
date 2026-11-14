@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
-  appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels, removeFilter,
+  appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels, removeFilter, isTimedRange,
 } from '../analysis/search.js';
 import { computeActionPlan, evaluateGoal } from '../analysis/coach.js';
 
@@ -116,6 +116,10 @@ describe('filterMatches', function () {
 
   it('returns all with empty filters', function () {
     assert.equal(filterMatches(matches, emptyFilters()).length, 3);
+  });
+  it('レポートの時刻つき日付指定(rangeStart/rangeEnd)は時刻まで絞る', function () {
+    var f = emptyFilters(); f.dateFrom = '2025-06-15'; f.dateTo = '2025-06-20'; f.rangeStart = '2025-06-15 12:30'; f.rangeEnd = '2025-06-20 23:59';
+    assert.deepEqual(filterMatches(matches, f).map(function (m) { return m.date; }), ['2025-06-20 20:00']);
   });
   it('filters by date range (inclusive, date-only)', function () {
     var f = emptyFilters(); f.dateFrom = '2025-06-15'; f.dateTo = '2025-06-20';
@@ -356,6 +360,16 @@ describe('appliedFilterLabels', function () {
     assert.deepEqual(appliedFilterLabels(f), [
       '期間: 直近30日', '自機: A ほか2', '僚機: P', 'プレイヤー名: abc', '勝敗: 勝利', '日付: 2025-06-01以降',
     ]);
+  });
+  it('時刻を指定した日付指定は時刻まで出し、終日なら日単位のまま', function () {
+    var f = emptyFilters(); f.dateFrom = '2025-06-01'; f.dateTo = '2025-06-02';
+    f.rangeStart = '2025-06-01 18:00'; f.rangeEnd = '2025-06-02 23:59';
+    assert.deepEqual(appliedFilterLabels(f), ['日付: 2025-06-01 18:00〜2025-06-02 23:59']);
+    f.rangeStart = '2025-06-01 00:00';
+    assert.deepEqual(appliedFilterLabels(f), ['日付: 2025-06-01〜2025-06-02']);
+    assert.equal(isTimedRange(f), false);
+    f.rangeEnd = '2025-06-02 22:00';
+    assert.equal(isTimedRange(f), true);
   });
   it('shows enemy mode only for 2+ enemies', function () {
     var f = emptyFilters();

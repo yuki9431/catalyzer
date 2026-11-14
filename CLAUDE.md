@@ -42,9 +42,8 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認（基準画像の比較と更新は PR の CI。更新は ui-baseline ラベル）/ CI が撮った基準の取り込み
+# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ CI が撮った基準の取り込み（画面確認 make ui-check はローカルで回さず PR の CI に任せる。基準の更新は ui-baseline ラベル）
 make ui-preview
-make ui-check
 make ui-baseline RUN=<run-id>
 
 # ポート変更
@@ -114,7 +113,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・再読み込みでの再分析（`shouldReanalyzeOnReload`。ホーム画面アプリ判定 `STANDALONE`）・自動更新の差分取り込み（`pullAutoRefresh`）・通知（`showNotice`。`#error` に Notice を描く）・分析中の進捗表示と速報の自動描画（`showProgress`/`takePrelim`）・`window.renderReport` のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
 - `static/components/report/` — レポート画面（9ファイル）。`report.js`（Report・Skeleton・タブ定義・状態管理）/ `controls.js`（TimeSelector/PeriodSelector/MsSelector(シート先頭で対戦形式も選ぶ)/LensToggle）/ `summary.js`（ReportSummary・タブごとの要約）/ `action-plan.js`（ActionPlanPanel）/ `overview.js`（総合: BasicLensSection/OverviewPane）/ `playstyle.js`（立ち回り）/ `burst.js`（覚醒）/ `matchup.js`（相性: 敵機・相手の階級・僚機・固定相方 FixedPartnerPanel・編成）/ `time.js`（時間帯: 時間帯・曜日・日別・シーズン）（各タブの Pane）。720px より広い画面では絞り込み行の右端(試合検索・総合戦歴は上部バーの右端 `.topbar-trailing`)に再分析ボタン。standalone の引っ張り再分析はホーム・レポート・試合検索・総合戦歴で有効
 - `static/components/shell.js` — 外枠 AppShell（トップバー・本文・下部タブバー TabBar）、その他画面 MoreView（共有タイル・データ・アカウント）、画面状態 `useView`（`catalyzer_view` の読み書き）、下部タブの更新の点 `useTabBadges`（`catalyzer_tab_seen`）、下スクロールで絞り込み行を隠す `useCollapsingBar`、ホーム画面アプリだけの引っ張り再分析 `PullToRefresh`、その他画面のロゴと「再分析」行、設定のテーマ選択（`ThemeSettings`・`THEME_OPTIONS`）と自動更新セクション（`AutoRefreshSettings`。操作は `autoRefresh` props で app.js から注入）。トップバー定義はここだけ（絞り込みもタブも無い画面は高さ0）
-- `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）
+- `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。期間では絞らず、対戦形式はレポートと共有して効かせる。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）
 - `static/components/popover.js` — 共通ポップオーバー（`usePopover`/`useDismiss`/`Popover`/`popoverStyle`）。外側クリック・Esc の document リスナーはここだけ。ドロップダウン5種が載る
 - `static/components/chart-canvas.js` — `ChartCanvas`（`new Chart(` の唯一の生成箇所。テーマ切替で描き直す）・`useThemeName`（`data-theme` を購読。`themeReader` で色を解決する描画が呼ぶ）と軸・凡例・色ヘルパ（`winRateComboConfig` 等）
 - `static/components/parts.js` — 段階B向けの共通部品5種（Chip/ToggleGroup/Summary(主指標付き)/RowList(バー付き)/Notice）。Chip は `onRemove` で×ボタン付きになる。スタイルは `static/styles/parts.css`。Notice は `action={label,onClick}` で二次ボタン（`.ui-action`）を添えられる。RowList はその他画面（MoreView）が使う（部品一覧は ui-check の `parts`・`parts-sheet` 画面）
@@ -126,7 +125,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/components/ui.js` — 汎用UIコンポーネント（Panel/Tips(事実の箇条書き)/SortableTable/Table/SubSection/Dropdown/MultiSelect/Autocomplete）
 - `static/analysis/classrecord.js` — 通算戦績の整形純粋関数（分析カバー率・通算K/D）
 - `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）
-- `static/components/search.js` — 試合検索ビュー（SearchView。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。対戦形式と連勝数の表示・機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
+- `static/components/search.js` — 試合検索ビュー（SearchView。シートの期間・日付・対戦形式はレポートと共有する値（`scope`/`onScope`）。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。対戦形式と連勝数の表示・機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（WinRateRowList/EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得・ログアウト時の全消去 `clearAllMatches`）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）

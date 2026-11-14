@@ -3,7 +3,7 @@ import { themeReader } from '../lib/theme.js';
 import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
-  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
+  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel, isTimedRange,
   activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
@@ -199,9 +199,9 @@ function FilterFields({ filters, options, onField }) {
             <label class="search-label">期間（日付を指定）</label>
             <button type="button" data-ui="date-trigger" class=${'panel-select-trigger search-date-trigger' + (dateOpen ? ' open' : '')}
               onClick=${function () { setDateOpen(!dateOpen); }} aria-expanded=${dateOpen}>
-              <span class="panel-select-label">${filters.dateFrom
-                ? filters.dateFrom + ' 〜 ' + (filters.dateTo || '…')
-                : '-'}</span>
+              <span class="panel-select-label">${isTimedRange(filters)
+                ? (filters.rangeStart || '…') + ' 〜 ' + (filters.rangeEnd || '…')
+                : filters.dateFrom ? filters.dateFrom + ' 〜 ' + (filters.dateTo || '…') : '-'}</span>
               <span class="period-arrow">${dateOpen ? '▲' : '▼'}</span>
             </button>
             ${dateOpen && html`<${RangeCalendar} startDate=${filters.dateFrom} endDate=${filters.dateTo}
