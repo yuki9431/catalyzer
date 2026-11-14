@@ -1,5 +1,5 @@
 import { html, useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../htm-preact-standalone.js';
-import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
+import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOpponentGrade, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
@@ -181,6 +181,7 @@ export function Report({ data, userKey, actions }) {
       basic_stats: computeBasicStats(filtered),
       win_loss_pattern: computeWinLossPattern(filtered),
       enemy_matchup: computeEnemyMatchup(filtered),
+      opponent_grade: computeOpponentGrade(filtered),
       partner: computePartner(filtered),
       cost_pair: computeCostPair(filtered),
       ms_pair: computeMsPair(filtered),

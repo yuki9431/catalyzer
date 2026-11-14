@@ -178,6 +178,11 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 	msMap := mslist.BuildMSNameMap(msList)
 	costsMap := mslist.BuildMSCostMap(msList)
+	gradeList, gradeErr := gradelist.LoadGradeList(DefaultGradeListPath)
+	if gradeErr != nil {
+		log.Printf("[WARN] Grade list not found: %v", gradeErr)
+	}
+	gradeRanks := gradelist.BuildRankMap(gradeList)
 
 	// Firestoreから既存scoresを読み取り
 	var since time.Time
@@ -225,7 +230,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			mslist.FillMsNames(batchScores, msMap)
 			merged := mergeScores(existingScores, batchScores)
 
-			matches := buildMatchesJSON(merged, costsMap)
+			matches := buildMatchesJSON(merged, costsMap, gradeRanks)
 			if matches != "" {
 				jobsMu.Lock()
 				j.PreliminaryReport = matches
@@ -245,7 +250,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 		OnLoginSuccess: func() {
 			prelimMatches := ""
 			if exists {
-				prelimMatches = buildMatchesJSON(existingScores, costsMap)
+				prelimMatches = buildMatchesJSON(existingScores, costsMap, gradeRanks)
 			}
 			jobsMu.Lock()
 			j.LoggedIn = true
@@ -317,7 +322,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 			log.Printf("[INFO] Found %d tag partners (no new data path)", len(tagPartners))
 			fs.SaveTagPartners(j.UserKey, tagPartners)
 		}
-		matchesJSON := buildMatchesJSON(existingScores, costsMap)
+		matchesJSON := buildMatchesJSON(existingScores, costsMap, gradeRanks)
 		if matchesJSON == "" {
 			matchesJSON = j.PreliminaryReport
 		}
@@ -335,12 +340,8 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	mslist.CheckUnknownMS(datedScores)
 
 	// グレードリストから未知のグレード画像URLを検出
-	gradeList, err := gradelist.LoadGradeList(DefaultGradeListPath)
-	if err != nil {
-		log.Printf("[WARN] Grade list not found: %v", err)
-	} else {
-		gradeMap := gradelist.BuildGradeMap(gradeList)
-		gradelist.CheckUnknownGrades(datedScores, gradeMap)
+	if gradeErr == nil {
+		gradelist.CheckUnknownGrades(datedScores, gradelist.BuildGradeMap(gradeList))
 	}
 
 	// Firestoreにscoresを書き込み
@@ -359,7 +360,7 @@ func Run(j *Job, username, password string, on403 ...On403Func) {
 	}
 
 	// マッチデータJSON生成
-	matchesJSON := buildMatchesJSON(allScores, costsMap)
+	matchesJSON := buildMatchesJSON(allScores, costsMap, gradeRanks)
 	if matchesJSON == "" {
 		setError(j, "分析処理に失敗しました", "failed to build matches JSON")
 		return
@@ -385,8 +386,8 @@ func shouldDeleteSession(usingSession bool, token string, err error) bool {
 
 // buildMatchesJSON はDatedScoresをフロントエンド向けのMatchData JSONに変換する。
 // 失敗時は空文字を返す。
-func buildMatchesJSON(scores model.DatedScores, costsMap map[string]int) string {
-	matches := BuildMatchData(scores, costsMap, time.Time{})
+func buildMatchesJSON(scores model.DatedScores, costsMap, gradeRanks map[string]int) string {
+	matches := BuildMatchData(scores, costsMap, gradeRanks, time.Time{})
 	data, err := json.Marshal(matches)
 	if err != nil {
 		log.Printf("[WARN] Failed to marshal matches: %v", err)

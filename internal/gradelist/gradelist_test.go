@@ -154,6 +154,67 @@ func TestFindUnknownGrades_EmptyInput(t *testing.T) {
 	}
 }
 
+func TestRank_Order(t *testing.T) {
+	tests := []struct {
+		g    GradeInfo
+		want int
+	}{
+		{GradeInfo{Class: "Pilot", Grade: 10}, 1},
+		{GradeInfo{Class: "Pilot", Grade: 1}, 10},
+		{GradeInfo{Class: "Valiant", Grade: 10}, 11},
+		{GradeInfo{Class: "Ace", Grade: 1}, 30},
+		{GradeInfo{Class: "Extreme", Grade: 10}, 31},
+		{GradeInfo{Class: "Extreme", Grade: 1}, 40},
+		{GradeInfo{Class: "Extreme", Grade: 0}, 41},
+		{GradeInfo{Class: "Ace", Grade: 0}, 0},
+		{GradeInfo{Class: "Unknown", Grade: 1}, 0},
+		{GradeInfo{Class: "Pilot", Grade: 11}, 0},
+	}
+	for _, tt := range tests {
+		if got := tt.g.rank(); got != tt.want {
+			t.Errorf("%s %d: rank() = %d, want %d", tt.g.Class, tt.g.Grade, got, tt.want)
+		}
+	}
+}
+
+func TestRankOf(t *testing.T) {
+	ranks := BuildRankMap([]GradeInfo{
+		{ImageURL: "https://example.com/inf.png", Class: "Extreme", Grade: 0},
+		{ImageURL: "https://example.com/bad.png", Class: "Ace", Grade: 0},
+	})
+	if got := RankOf(ranks, "https://example.com/inf.png?v=1"); got != 41 {
+		t.Errorf("query付きURL: got %d, want 41", got)
+	}
+	if got := RankOf(ranks, "https://example.com/bad.png"); got != 0 {
+		t.Errorf("不正な階級は登録しない: got %d, want 0", got)
+	}
+	if got := RankOf(ranks, ""); got != 0 {
+		t.Errorf("空URL: got %d, want 0", got)
+	}
+	if got := RankOf(ranks, "https://example.com/unknown.png"); got != 0 {
+		t.Errorf("未登録URL: got %d, want 0", got)
+	}
+}
+
+// 実データに全41種(4クラス×10段+∞)がそろい、すべて通し番号を持ち重複しないこと
+func TestRank_RealGradeList(t *testing.T) {
+	list, err := LoadGradeList("../../data/grade_list.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 41 {
+		t.Errorf("grade_list.json は %d 件、want 41", len(list))
+	}
+	seen := map[int]bool{}
+	for _, g := range list {
+		r := g.rank()
+		if r == 0 || seen[r] {
+			t.Errorf("%s %d: rank %d が不正か重複", g.Class, g.Grade, r)
+		}
+		seen[r] = true
+	}
+}
+
 func TestCheckUnknownGrades_NoPanic(t *testing.T) {
 	gradeMap := map[string]GradeInfo{
 		"https://example.com/known.png": {Class: "Ace", Grade: 1},
