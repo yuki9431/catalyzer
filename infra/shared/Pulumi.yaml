@@ -1,5 +1,0 @@
-name: exvs-shared
-runtime: nodejs
-description: catalyzer 共有インフラ（環境非依存）
-options:
-  refresh: always

@@ -143,18 +143,15 @@
 │   ├── ms_list.json               # 機体名・コストマッピング
 │   └── grade_list.json            # 階級画像URL→階級名・グレードマッピング
 ├── infra/
-│   ├── shared/                    # 共有リソース（環境非依存）
-│   │   ├── index.ts               # エントリポイント
-│   │   ├── apis.ts                # Google API有効化
-│   │   ├── artifact-registry.ts   # Artifact Registry定義
-│   │   ├── storage.ts             # Cloud Storageバケット定義
-│   │   ├── firestore.ts           # Firestore定義
-│   │   ├── dns.ts                 # Cloud DNS定義
-│   │   ├── iam.ts                 # サービスアカウント・Workload Identity
-│   │   ├── secrets.ts             # セッション鍵・公式サイトのログイン情報の Secret Manager（版は手作業）
-│   │   └── budget.ts              # 予算アラート定義
-│   └── app/                       # 環境別リソース（prod/stg）
-│       └── index.ts               # Cloud Run・ドメインマッピング
+│   ├── .opentofu-version          # OpenTofu の版
+│   ├── shared/                    # 共有リソース（手動 apply）
+│   │   ├── main.tf                # backend・state 暗号化・API
+│   │   ├── iam.tf                 # サービスアカウント・Workload Identity・IAM
+│   │   └── resources.tf           # Artifact Registry・GCS・DNS・Firestore・Secret Manager（版は手作業）
+│   └── app/                       # 環境別リソース（prod/stg。deploy.yml が apply）
+│       ├── main.tf                # 環境差（locals.envs）・自動更新の設定
+│       ├── run.tf                 # Cloud Run・ドメインマッピング・自動更新の Job と Scheduler
+│       └── prod.tfvars, stg.tfvars # env と image_tag
 ├── .github/
 │   ├── scripts/
 │   │   ├── tofu-plan-summary.sh   # tofu planの要約（PRコメント用。識別子を出さない）
@@ -198,7 +195,7 @@
 | `static/components/` | UIコンポーネント（`report/` にレポート画面、`shell.js`・`popover.js`・`chart-canvas.js`・`parts.js` に共通部品） |
 | `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー |
 | `data/` | 静的データファイル（MSリスト等） |
-| `infra/` | Pulumi IaC（GCPリソース管理） |
+| `infra/` | OpenTofu IaC（GCPリソース管理） |
 
 ## 使い方
 
@@ -251,7 +248,7 @@ http://localhost:8080 にアクセスしてログインすると分析レポー�
 ## 技術スタック
 
 - **バックエンド**: Go 1.26（標準 `net/http`）
-- **インフラ**: Cloud Run (GCP)、Pulumi (TypeScript) でIaC管理
+- **インフラ**: Cloud Run (GCP)、OpenTofu (HCL) でIaC管理
 - **ストレージ**: Cloud Storage (GCP)
 - **CI/CD**: GitHub Actions（ラベルでCI/CDを制御）
 - **コンテナ**: Docker（マルチステージビルド）
