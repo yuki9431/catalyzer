@@ -170,7 +170,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 - **PRのマージは絶対に勝手に行わない。** 必ずユーザーの明示的な指示を待つ
 - 作業ブランチのPRは `develop` 向けに作る。本番リリースは `develop` → `main` のPR
-- PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）。止めるのは build（イメージ更新）だけで、`infra/app/**` の変更はラベルに関係なくマージで apply される
+- PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）。止めるのは build（イメージ更新）だけで、`infra/app/**` の変更はラベルに関係なくマージで apply される。新しいイメージが前提の設定変更(Job の command・ポート等)は、イメージの PR と分けて後から入れる(同じマージだと push の deploy が先に古いイメージで当たる)
 - Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける（Renovate の PR には付けない。skipped のチェックも緑とみなして自動マージされる）
 - **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `no-deploy` なしでPRをマージ、または `gh workflow run build.yml --ref <branch>` で手動実行（main は prod、それ以外は stg）
