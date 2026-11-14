@@ -2,10 +2,12 @@ package pipeline
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
 	fs "github.com/yuki9431/catalyzer/internal/firestore"
+	"github.com/yuki9431/catalyzer/internal/gradelist"
 	"github.com/yuki9431/catalyzer/internal/model"
 	"github.com/yuki9431/catalyzer/internal/mslist"
 )
@@ -20,7 +22,7 @@ type ActionJSON struct {
 // MatchDataSchemaVersion はMatchDataの構造バージョン。
 // MatchDataにフィールドを追加/変更しクライアントの全件キャッシュ再構築が
 // 必要になったら +1 する（フロントは /schema-version 経由で自動追従する）。
-const MatchDataSchemaVersion = 2
+const MatchDataSchemaVersion = 3
 
 // MatchData はフロントエンド向けの試合データ（プレイヤー視点）
 type MatchData struct {
@@ -87,6 +89,11 @@ type MatchData struct {
 	MatchID              string       `json:"match_id,omitempty"`
 	Mode                 string       `json:"mode,omitempty"`       // shuffle / fixed。判別できなかった試合は省略(不明)
 	WinStreak            int          `json:"win_streak,omitempty"` // 公式の連勝数。負け・不明・取得前の試合は省略(フロントが推定)
+	// 試合の形式の階級の通し番号(gradelist.BuildRankMap。固定=チーム階級、シャッフル=シャッフル階級)。不明は省略
+	Grade          int `json:"grade,omitempty"`
+	PartnerGrade   int `json:"partner_grade,omitempty"`
+	Opponent1Grade int `json:"opponent1_grade,omitempty"`
+	Opponent2Grade int `json:"opponent2_grade,omitempty"`
 }
 
 // countBursts はタイムラインから指定グループの覚醒回数を数える。
@@ -129,9 +136,30 @@ func buildActions(timeline *model.MatchTimeline, group string) []ActionJSON {
 	return actions
 }
 
+// modeGrade は対戦形式に対応する階級の通し番号を返す。形式不明は0
+func modeGrade(ranks map[string]int, p model.PlayerScore, mode string) int {
+	switch mode {
+	case model.MatchModeFixed:
+		return gradelist.RankOf(ranks, p.TeamGradeURL)
+	case model.MatchModeShuffle:
+		return gradelist.RankOf(ranks, p.ShuffleGradeURL)
+	}
+	return 0
+}
+
+// loadGradeRanks は階級画像URL→通し番号のマップを読む。読めなければ階級なしで続ける
+func loadGradeRanks() map[string]int {
+	list, err := gradelist.LoadGradeList(DefaultGradeListPath)
+	if err != nil {
+		log.Printf("[WARN] Grade list not found: %v", err)
+		return nil
+	}
+	return gradelist.BuildRankMap(list)
+}
+
 // BuildMatchData はDatedScoresをフロントエンド向けの試合データに変換する。
-// costsMap は画像URL→コストのマッピング。afterが非ゼロの場合、その日時より後の試合のみ返す。
-func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Time) []MatchData {
+// costsMap は画像URL→コスト、gradeRanks は階級画像URL→通し番号のマッピング。afterが非ゼロの場合、その日時より後の試合のみ返す。
+func BuildMatchData(ds model.DatedScores, costsMap, gradeRanks map[string]int, after time.Time) []MatchData {
 	groups := make(map[string][]model.DatedScore)
 	for _, d := range ds {
 		// afterフィルタ。GetMatchData経由ではLoadScoresAfterがFirestore側で
@@ -248,6 +276,10 @@ func BuildMatchData(ds model.DatedScores, costsMap map[string]int, after time.Ti
 			MatchID:              entries[0].MatchID,
 			Mode:                 entries[0].MatchMode,
 			WinStreak:            entries[0].WinStreak,
+			Grade:                modeGrade(gradeRanks, me, entries[0].MatchMode),
+			PartnerGrade:         modeGrade(gradeRanks, partner, entries[0].MatchMode),
+			Opponent1Grade:       modeGrade(gradeRanks, opp1, entries[0].MatchMode),
+			Opponent2Grade:       modeGrade(gradeRanks, opp2, entries[0].MatchMode),
 		})
 	}
 
@@ -277,5 +309,5 @@ func GetMatchData(userKey string, after time.Time) ([]MatchData, error) {
 	mslist.FillMsNames(scores, msMap)
 
 	costsMap := mslist.BuildMSCostMap(msList)
-	return BuildMatchData(scores, costsMap, after), nil
+	return BuildMatchData(scores, costsMap, loadGradeRanks(), after), nil
 }

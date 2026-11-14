@@ -182,7 +182,7 @@
 | `internal/` | プライベートパッケージ。外部から参照不可 |
 | `internal/model/` | データ型の定義・UserKey生成 |
 | `internal/mslist/` | MSリストの読み書き・マージ |
-| `internal/gradelist/` | グレードリストの読み込み・未知URL検出 |
+| `internal/gradelist/` | グレードリストの読み込み・未知URL検出・階級の通し番号 |
 | `internal/scraper/` | スクレイピング・ログイン処理 |
 | `internal/geoip/` | 国別アクセス判定（CC0のIP許可リストを二分探索） |
 | `internal/session/` | セッション暗号化（AES-256-GCM）・CookieJarシリアライズ |

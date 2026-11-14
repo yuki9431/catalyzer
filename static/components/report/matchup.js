@@ -1,8 +1,29 @@
-import { html } from '../../htm-preact-standalone.js';
+import { html, useState } from '../../htm-preact-standalone.js';
 import { Panel, SubSection, Tips } from '../ui.js';
+import { ToggleGroup } from '../parts.js';
 import { CostPairSubSection, EnemyMatchupSection, MsPairSubSection, PartnerSection, WinRateRowList } from '../charts.js';
 
 function entry(name, e) { return { name: name, winRate: e.win_rate, matches: e.matches }; }
+
+var FEW_MATCHES = 10;
+
+function OpponentGradePanel({ data }) {
+  var state = useState('all');
+  // 絞り込みを変えて選んだ相方の段が消えたら選択も全部に戻す
+  var partner = data.by_partner[state[0]] ? state[0] : 'all';
+  if (partner !== state[0]) state[1](partner);
+  var entries = data.by_partner[partner].map(function (r) {
+    return { name: r.label, winRate: r.win_rate, sub: r.matches + '試合' + (r.matches < FEW_MATCHES ? '（少ない）' : '') };
+  });
+  var options = [{ value: 'all', label: '全部' }].concat(data.partners.map(function (p) { return { value: p.key, label: p.label }; }));
+  var tips = ['相手2人の階級の平均で分けています（固定はチーム階級、シャッフルはシャッフル階級）'];
+  if (data.unknown > 0) tips.push('階級が分からない' + data.unknown + '試合は含めていません');
+  return html`<${Panel} title="相手の階級別勝率">
+    ${data.partners.length > 0 && html`<h3>相方の階級</h3><${ToggleGroup} options=${options} value=${partner} onChange=${state[1]} label="相方の階級" ui="grade-partner" />`}
+    <${WinRateRowList} entries=${entries} />
+    <${Tips} tips=${tips} />
+  <//>`;
+}
 
 export function MatchupPane({ frontendData }) {
   var enemyMatchup = frontendData.enemy_matchup;
@@ -23,6 +44,8 @@ export function MatchupPane({ frontendData }) {
       <${SubSection} title="表で見る"><${EnemyMatchupSection} matchup=${enemyMatchup} /><//>
       <${Tips} tips=${enemyMatchup.tips} />
     <//>`}
+
+    ${frontendData.opponent_grade && html`<${OpponentGradePanel} data=${frontendData.opponent_grade} />`}
 
     ${partnerData && partnerData.length > 0 && html`<${Panel} title="僚機との相性">
       <${WinRateRowList} entries=${partnerEntries} />
