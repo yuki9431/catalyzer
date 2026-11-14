@@ -21,8 +21,7 @@ jobs:
     environment: renovate
     timeout-minutes: 30
     env:
-      # renovate: datasource=github-releases depName=renovatebot/renovate
-      RENOVATE_VERSION: 44.227.4
+      RENOVATE_IMAGE: renovate/renovate:44.227.4
     steps:
       - id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -45,7 +44,7 @@ jobs:
       - uses: renovatebot/github-action@266fef21329c44765ad42f9dea1f01f5d2d91084 # v46.3.13
         with:
           token: ${{ steps.app-token.outputs.token }}
-          renovate-version: ${{ env.RENOVATE_VERSION }}
+          renovate-image: ${{ env.RENOVATE_IMAGE }}
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_ONBOARDING: "false"
