@@ -27,7 +27,7 @@ stop:
 
 ## Go テストを実行
 test:
-	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.26-alpine go test ./internal/...
+	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.27-alpine go test ./internal/...
 
 ## JS テストを実行（フロントエンド・ui-check・CI スクリプト。CI スクリプトのテストは bash と jq が要る）
 test-js:
@@ -55,7 +55,7 @@ extract-grades:
 		-e GCP_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
 		-e FIRESTORE_DATABASE \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
-		golang:1.26-alpine go run ./cmd/extract-grades
+		golang:1.27-alpine go run ./cmd/extract-grades
 
 # CI(pulumi/actions)と同じく常に最新の CLI を使う。latest は手元にキャッシュされるので毎回取り直す
 PULUMI_IMAGE := pulumi/pulumi:latest
