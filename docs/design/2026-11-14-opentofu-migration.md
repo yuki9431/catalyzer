@@ -39,7 +39,7 @@
 - CLAUDE.md の oracle に `tofu fmt -check -recursive infra` を追記
 
 ### PR-2: app を import し、Infra CI を tofu に切り替える(build と deploy はまだ Pulumi)
-- `infra/app/main.tf`: terraform ブロック、provider、変数(`project`・`state_bucket`・`image_uri`・`env`・`image_tag`・`auto_refresh_paused`=false・`auto_refresh_open`=false)、`locals.envs`、命名規則
+- `infra/app/main.tf`: terraform ブロック、provider、変数(`project`・`state_bucket`・`image_uri`・`env`・`image_tag`)、`locals.envs`、命名規則。自動更新の paused/open は変数にせず `local.auto_refresh` に置く(`-var` で変えても次の deploy で戻るため、変えるときはコードで変える)
 - `infra/app/run.tf`: Service・公開 IAM(`allUsers` の binding)・DomainMapping(`ignore_changes = [metadata]`)・CNAME・Job と Scheduler(`count = local.e.auto_refresh ? 1 : 0`)。Service と Job は `ignore_changes = [client, client_version]`
 - `infra/app/{prod,stg}.tfvars`(新規): `env` と `image_tag`。`image_tag` は空行で区切った最終行に置く(`tofu fmt` の揃えに巻き込まれないようにする)
 - `infra/app/imports.tf`(一時)・`infra/app/.terraform.lock.hcl`
@@ -47,11 +47,12 @@
 - `.github/scripts/tofu-plan-summary.sh`(新規)。`pulumi-preview-summary.sh` は削除する
 - `.github/scripts/scripts.test.js`: 偽の `tofu` を使うテストに置き換える
 - `.github/workflows/infra-ci.yml`: §4 の内容に書き換える
-- `Makefile`: `tofu-app-plan` と `tofu-app-apply` を追加
+- `Makefile`: `tofu-app-plan` を追加(`tofu-app-apply` は tfvars の image_tag が CI で更新されるようになる PR-3 で足す)
 
 ### PR-3: build と deploy を tofu に切り替える
 - `build.yml`: `pulumi/actions` と Pulumi config の更新手順を削除し、`infra/app/${STACK}.tfvars` の `image_tag` を sed で書き換える。`paths-ignore` を `infra/app/**` と deploy.yml にする。sync-develop の除外を `':!infra/app' ':!.github/workflows/deploy.yml'` にする
 - `deploy.yml`: push の `paths` を `infra/app/**` にする。detect は「main なら prod、それ以外は stg」だけにする(HEAD~1 との比較はやめる)。steps は setup-opentofu → mask → auth → `init` → `apply -auto-approve -input=false -var-file`(refresh は既定のまま。`-refresh=false` を付けない)
+- `Makefile`: `tofu-app-apply` を追加する
 
 ### PR-4: 後始末(prod が tofu で動くのを確認してから)
 - 削除: `infra/**/*.ts`・`package*.json`・`tsconfig.json`・`Pulumi*.yaml`・`infra/.gitignore` の `node_modules/` と `bin/`
@@ -134,8 +135,7 @@ resource "google_project_iam_member" "sa" {
 
 その他:
 - SA 10個は `local.service_accounts = { id => display_name }` の `for_each` で作る
-- app の Service は `env` の並びを現行(Pulumi の順)と同じにする。並びが変わるとリビジョンが作り直され、0 change にならない
-- env の値は `plain_env` と `secret_env` の map、並びは `env_order` の list で持ち、`dynamic "env"` で展開する
+- Cloud Run の `env` は provider 上 set ブロックなので、並びは差分にならない(Pulumi の定義順に合わせる必要はない)。平文の env は map(`local.service_env`)で持ち `dynamic "env"` で展開し、Secret 参照の `SESSION_ENCRYPTION_KEY` は別の `env` ブロックで書く
 
 **`.github/scripts/tofu-plan-summary.sh <label> <dir> [plan引数...]`**
 - 実行するコマンド: `tofu -chdir=<dir> plan -json -input=false -lock=false -refresh=false -detailed-exitcode`
@@ -155,7 +155,7 @@ resource "google_project_iam_member" "sa" {
 
 ## 4. CI
 
-- 3つの workflow で共通: `opentofu/setup-opentofu` v2(v2.0.2 のタグを SHA で固定。SHA は実装時に `gh api` で解決する)に `tofu_version_file: infra/.opentofu-version` と `tofu_wrapper: false` を渡す。`TF_PLUGIN_CACHE_DIR` は `$HOME/.cache/tofu-plugins` を mkdir して `$GITHUB_ENV` に入れる。これを `actions/cache` で `hashFiles('infra/**/.terraform.lock.hcl')` をキーにキャッシュする(actions/cache の最新メジャーはリリースページで確認し、SHA で固定する)
+- 3つの workflow で共通: `opentofu/setup-opentofu` v2(v2.0.2 のタグを SHA で固定。SHA は実装時に `gh api` で解決する)に `tofu_version_file: infra/.opentofu-version` と `tofu_wrapper: false` を渡す。`TF_PLUGIN_CACHE_DIR` は `$RUNNER_TEMP/tofu-plugins` を mkdir して `$GITHUB_ENV` に入れ、同じジョブの init 間で provider を共有する。actions/cache は使わない(pull_request だけの workflow では base 側にキャッシュが作られず効かない)。CI の init には `-lockfile=readonly` を付け、lock の更新漏れを失敗にする
 - infra-ci: secret 確認(`TF_STATE_BUCKET`)→ checkout → setup → mask → auth(gha-pr)→ `tofu fmt -check -recursive infra` → shared の init と要約 → app の prod と stg をそれぞれ `init -reconfigure -var-file` してから要約(要約は `-refresh=false`)→ `always()` で PR コメント(見出しは `## OpenTofu Plan`)
 - deploy: refresh 付きの apply。読み取り権限は、#610 の `ciDeployRefreshViewer` と run.developer で足りる。PR-3 で stg を dispatch して確かめる
 - WIF の subject・environment・`mask-gcp-ids.sh` はそのまま使う。shared は今後も手動で apply する(CI は apply しない)
@@ -179,7 +179,7 @@ resource "google_project_iam_member" "sa" {
 
 **事前準備**
 - (1) worktree を origin/develop(#610 を含む)に rebase する
-- (2) 合言葉ハッシュは Pulumi の prod config から取り出し、`locals.envs.prod.passphrase_hash` に平文で書く(決定#12)
+- (2) 合言葉ハッシュは Pulumi の prod config から取り出し、`local.auto_refresh.passphrase_hash` に平文で書く(決定#12)
 - (3) `pulumi preview --expect-no-changes` が shared・prod・stg の3つとも exit 0 になること(#610 以降は refresh 付き)。#610 の shared apply(カスタムロール1・付与2)が済んでいなければ、ここで差分として出る。差分があれば先に解消する
 - (4) `pulumi stack export --show-secrets` で3スタックをリポジトリ外(`~/catalyzer-pulumi-backup/`)に保存する
 - (5) secret `TF_STATE_BUCKET` を登録する。`IMAGE_URI` が environment にだけ登録されているなら、repo にも登録する

@@ -54,7 +54,7 @@ locals {
   { for r in roles : "${b} ${sa} ${r}" => { bucket = b, sa = sa, role = r } }]])...)
 
   ar_roles  = { github-actions = "roles/artifactregistry.reader", catalyzer-build = "roles/artifactregistry.writer", gha-stg = "roles/artifactregistry.writer" }
-  kms_roles = { gha-pr = "roles/cloudkms.cryptoKeyDecrypter", gha-stg = "roles/cloudkms.cryptoKeyEncrypterDecrypter" }
+  kms_roles = { gha-pr = "roles/cloudkms.cryptoKeyEncrypterDecrypter", gha-stg = "roles/cloudkms.cryptoKeyEncrypterDecrypter" }
 
   wif_subjects = { github-actions = "environment:prod", gha-stg = "environment:stg", gha-pr = "pull_request", gha-mslist = "environment:mslist" }
   sa_users = { # actAs される SA => actAs する SA
@@ -136,18 +136,6 @@ resource "google_storage_bucket_iam_member" "sa" {
   bucket   = local.bucket_names[each.value.bucket]
   role     = each.value.role
   member   = google_service_account.sa[each.value.sa].member
-}
-
-# PR-2 で削除する(tofu の lock は .pulumi/locks/ 配下に書かれない)
-resource "google_storage_bucket_iam_member" "gha_pr_state_lock" {
-  bucket = var.state_bucket
-  role   = "roles/storage.objectUser"
-  member = google_service_account.sa["gha-pr"].member
-
-  condition {
-    title      = "pulumi-locks-only"
-    expression = "resource.name.startsWith(\"projects/_/buckets/${var.state_bucket}/objects/.pulumi/locks/\")"
-  }
 }
 
 resource "google_artifact_registry_repository_iam_member" "sa" {

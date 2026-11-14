@@ -40,6 +40,12 @@
       enabled: false,
     },
     {
+      // OpenTofu 移行中は Infra CI が Pulumi を実行せず検証されない。PR-4 で Pulumi ごと消す
+      matchFileNames: ['infra/**'],
+      matchManagers: ['npm'],
+      automerge: false,
+    },
+    {
       // state の形式と required_version の更新を人が揃える
       matchDepNames: ['opentofu/opentofu'],
       matchUpdateTypes: ['minor', 'major'],
