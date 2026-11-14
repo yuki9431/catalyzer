@@ -26,11 +26,12 @@ function timeOf(date) {
   return isNaN(t) ? null : t;
 }
 
-// 直前の勝ちから連勝が続いているか。相方・対戦形式が変わるか間が空けば途中で降りたとみなす。
+// 直前の勝ちから連勝が続いているか。相方(シャッフルは毎試合変わるので見ない)・対戦形式が変わるか間が空けば途中で降りたとみなす。
 function continuesStreak(prev, prevStreak, m) {
   if (!prev || prevStreak < 1 || prevStreak >= STREAK_MAX) return false;
-  if ((prev.partner_name || '') !== (m.partner_name || '')) return false;
   if (prev.mode && m.mode && prev.mode !== m.mode) return false;
+  var shuffle = prev.mode === 'shuffle' && m.mode === 'shuffle';
+  if (!shuffle && (prev.partner_name || '') !== (m.partner_name || '')) return false;
   var a = timeOf(prev.date), b = timeOf(m.date);
   return a != null && b != null && b >= a && b - a <= STREAK_GAP_MS;
 }
