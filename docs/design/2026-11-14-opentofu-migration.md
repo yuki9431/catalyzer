@@ -239,7 +239,7 @@ resource "google_project_iam_member" "sa" {
 | PR のコメント | `gh pr view <n> --comments` | `## OpenTofu Plan` があり、3つの節がどれも「変更なし」 |
 | build と deploy の切り替え | PR-3 ブランチで `gh workflow run deploy.yml --ref <branch> -f environment=stg` を実行し、その run を `gh run view` で見る | conclusion success、ログに `0 added, 0 changed, 0 destroyed` |
 | stg の更新経路 | PR-3 マージ後に最初にイメージが変わる develop の deploy run を `gh run view --log` | success、ログに `Apply complete!`、Cloud Run の image タグが develop の stg.tfvars と一致 |
-| prod の更新経路 | リリース後の `gh run list --workflow=deploy.yml --branch main -L1` | success |
+| prod の更新経路 | リリース後に作られた main の deploy run をすべて `gh run view --log` で見て、Cloud Run のサービスと Job の image タグを照合 | どの run も success でログに `Apply complete!`、タグが main の prod.tfvars と一致 |
 | Pulumi のファイルが残っていない | `git ls-files infra \| grep -E '\.ts$\|package.*\.json$\|tsconfig\|Pulumi'` | 0行 |
 | Pulumi への言及が残っていない | `grep -rniI pulumi .github Makefile infra CLAUDE.md README.md renovate.json5 \| grep -v 'keyRings/pulumi-secrets'` | 0行 |
 | 識別子をコミットしていない | `git grep -nE '[0-9]{12}\|iam\.gserviceaccount\.com' -- infra .github Makefile \| grep -v '\${'` | 0行 |
