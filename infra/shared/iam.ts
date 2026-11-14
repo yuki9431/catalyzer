@@ -86,6 +86,18 @@ export const projectBindings = projectRoles.map(
     )
 );
 
+// Cloud Run はデプロイ時にデプロイ元の権限で image のタグを解決するため、prod デプロイにも読み取りが要る
+export const githubActionsArtifactRegistryReader = new gcp.artifactregistry.RepositoryIamMember(
+  "github-actions-artifact-registry-reader",
+  {
+    project: repository.project,
+    location: repository.location,
+    repository: repository.name,
+    role: "roles/artifactregistry.reader",
+    member: githubActionsSa.member,
+  }
+);
+
 // --- Storage権限 ---
 
 // Pulumiステートバケットへの管理権限（GitHub Actions SA）
@@ -269,6 +281,30 @@ export const ciRunOperationsRole = new gcp.projects.IAMCustomRole("ci-run-operat
   title: "CI Cloud Run operations viewer",
   permissions: ["run.operations.get"],
 });
+
+// deploy は refresh(Pulumi.yaml)で app スタックの全リソースを読むため、run.developer に無い読み取りを足す
+export const ciDeployRefreshRole = new gcp.projects.IAMCustomRole("ci-deploy-refresh", {
+  roleId: "ciDeployRefreshViewer",
+  title: "CI deploy refresh viewer",
+  permissions: [
+    "run.domainmappings.get",
+    "dns.resourceRecordSets.get",
+    "dns.resourceRecordSets.list",
+    "cloudscheduler.jobs.get",
+  ],
+});
+
+export const ciDeployRefreshBindings = [
+  { name: "gha-stg", sa: ghaStgSa },
+  { name: "github-actions", sa: githubActionsSa },
+].map(
+  ({ name, sa }) =>
+    new gcp.projects.IAMMember(
+      `${name}-deploy-refresh`,
+      { project: gcp.config.project!, role: ciDeployRefreshRole.name, member: sa.member },
+      { dependsOn: services }
+    )
+);
 
 export const ghaStgRunOperationsBinding = new gcp.projects.IAMMember(
   "gha-stg-run-operations",

@@ -11,7 +11,8 @@ fi
 json=$(mktemp)
 trap 'rm -f "$json"' EXIT
 status=0
-pulumi preview --json >"$json" || status=$?
+# PR 用の身元は全リソースを読めないので refresh しない(Pulumi.yaml の refresh: always を打ち消す)
+pulumi preview --json --refresh=false >"$json" || status=$?
 
 # digest は config と全リソースの state を含むので、解析できなくても中身は出さない
 shape='type == "object"

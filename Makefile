@@ -56,13 +56,14 @@ extract-grades:
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		golang:1.26-alpine go run ./cmd/extract-grades
 
+# CI(pulumi/actions)と同じく常に最新の CLI を使う。latest は手元にキャッシュされるので毎回取り直す
 PULUMI_IMAGE := pulumi/pulumi:latest
 PULUMI_STATE_BUCKET ?= exvs2ib-analyzer-pulumi-state
 STACK ?= prod
 
 # shared用（スタック固定: dev）
 PULUMI_SHARED_LOGIN = pulumi login gs://$(PULUMI_STATE_BUCKET) && pulumi stack select shared
-PULUMI_SHARED_RUN = docker run --rm --entrypoint "" \
+PULUMI_SHARED_RUN = docker run --rm --pull=always --entrypoint "" \
 	-v "$(CURDIR)/infra/shared":/infra \
 	-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 	-w /infra \
@@ -72,7 +73,7 @@ PULUMI_SHARED_RUN = docker run --rm --entrypoint "" \
 
 # app用（STACK変数で環境切り替え: prod / stg）
 PULUMI_APP_LOGIN = pulumi login gs://$(PULUMI_STATE_BUCKET) && pulumi stack select $(STACK)
-PULUMI_APP_RUN = docker run --rm --entrypoint "" \
+PULUMI_APP_RUN = docker run --rm --pull=always --entrypoint "" \
 	-v "$(CURDIR)/infra/app":/infra \
 	-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 	-w /infra \
@@ -96,7 +97,7 @@ pulumi-shared-preview:
 
 ## shared: シェルで入る（pulumi up はここで実行）
 pulumi-shared-shell:
-	docker run --rm -it --entrypoint "" \
+	docker run --rm -it --pull=always --entrypoint "" \
 		-v "$(CURDIR)/infra/shared":/infra \
 		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 		-w /infra \
@@ -121,7 +122,7 @@ pulumi-app-preview:
 
 ## app: シェルで入る（pulumi up はここで実行。STACK=prod|stg）
 pulumi-app-shell:
-	docker run --rm -it --entrypoint "" \
+	docker run --rm -it --pull=always --entrypoint "" \
 		-v "$(CURDIR)/infra/app":/infra \
 		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
 		-w /infra \

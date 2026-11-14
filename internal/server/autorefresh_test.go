@@ -306,3 +306,34 @@ func TestLazyLauncherRetriesAfterClientFailure(t *testing.T) {
 		t.Errorf("newClient=%d launch=%d, want 2/2(成功後はキャッシュ)", calls, launched)
 	}
 }
+
+func TestAnalyzeGate(t *testing.T) {
+	orig := refreshLeases
+	t.Cleanup(func() { refreshLeases = orig })
+	released := 0
+	refreshLeases.release = func(context.Context, string, string) error { released++; return nil }
+	acquire := func(ok bool) {
+		refreshLeases.acquire = func(context.Context, string, string, time.Time, time.Duration) (bool, error) { return ok, nil }
+	}
+
+	acquire(true)
+	release, msg := analyzeGate("gate-ok")
+	if msg != "" || release == nil {
+		t.Fatalf("通るはず: msg=%q", msg)
+	}
+	release()
+	if released != 1 {
+		t.Errorf("release で lease を解放する: released=%d", released)
+	}
+
+	acquire(false)
+	if _, msg := analyzeGate("gate-busy"); msg != manualLeaseBusyMessage {
+		t.Errorf("自動更新が取得中なら案内を返す: %q", msg)
+	}
+
+	forbidden403.Block("gate-blocked")
+	t.Cleanup(func() { forbidden403.mu.Lock(); delete(forbidden403.blocked, "gate-blocked"); forbidden403.mu.Unlock() })
+	if _, msg := analyzeGate("gate-blocked"); msg != blocked403Message {
+		t.Errorf("403 ブロック中なら拒否する: %q", msg)
+	}
+}
