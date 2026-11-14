@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -18,6 +18,7 @@ var SHEET = '[data-ui="search-filter-sheet"]';
 var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
 var COLLAPSED = ['[data-ui="topbar"][data-collapsed="true"]'];
 var EXPANDED = ['[data-ui="topbar"][data-collapsed="false"]'];
+var FILTER_ROW = '[data-ui="filter-bar"]';
 var FILTERS = [['[data-ui="period-trigger"]'], ['[data-ui="ms-trigger"]'], ['[data-ui="lens-toggle"] button', '全体']];
 var ACTIVE_TAB = ['[data-ui="tab"][aria-selected="true"]', '総合'];
 var REANALYZE_BTN = ['[data-ui="reanalyze-button"]', '再分析'];
@@ -31,6 +32,10 @@ var AUTO_SUBMIT = '[data-ui="auto-refresh"] button';
 // 日付指定(2026-06-03 だけの1日)で期間内を0件にする。この日は fixture に試合が無い
 var EMPTY_OPS = [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="period-trigger"]'] }, { click: ['[data-ui="period-item"]', '日付指定'] },
   { click: ['[data-ui="cal-day"]', '3'] }, { click: ['[data-ui="cal-day"]', '3'] }, { click: ['[data-ui="period-apply"]'] }, { wait: ['[data-ui="empty-state"]'] }];
+
+var SHARED_SCOPE_OPS = [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="period-trigger"]'] }, { click: ['[data-ui="period-item"]', '7日'] },
+  { click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', 'シャッフル'] }, { click: ['[data-ui="sheet-close"]'] },
+  goTab('試合検索'), { wait: ['[data-ui="search-applied"]'] }];
 
 function analyzeOps(username) { return [{ type: ['#username', username] }, { type: ['#password', 'preview-pass'] }, { click: ['#analyzeBtn'] }]; }
 
@@ -191,6 +196,28 @@ var SCREEN_DEFS = [
     ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', '固定'] }, { click: ['[data-ui="sheet-close"]'] }, { wait: ['[data-ui="empty-state"]'] }],
     required: [['[data-ui="empty-state"] b', 'この対戦形式の試合はありません'], ['[data-ui="empty-action"]', '全形式に戻す'], ['[data-ui="ms-trigger"]', '固定']], inview: FILTERS,
     tap: ['[data-ui="empty-action"]'] },
+  // レポートで選んだ期間・対戦形式が試合検索に適用中タグで出て、試合検索でクリアするとレポートも戻る
+  { id: 'mobile-search-shared-scope', viewport: M, full: false, start: 'report', ops: SHARED_SCOPE_OPS,
+    required: [['[data-ui="search-applied"]', '期間: 直近7日'], ['[data-ui="search-applied"]', '対戦形式: シャッフル'], ['[data-ui="search-clear"]', '条件をクリア']] },
+  { id: 'mobile-report-shared-scope-cleared', viewport: M, full: false, start: 'report',
+    ops: SHARED_SCOPE_OPS.concat([{ click: ['[data-ui="search-clear"]'] }, REPORT_TAB, { wait: SCOPE }]),
+    required: [SCOPE, ['[data-ui="period-trigger"]', '全期間'], ['[data-ui="ms-trigger"]', '機体・形式']], oneRow: [FILTER_ROW] },
+  // 試合検索のカレンダーで選んだ日付がレポートの期間に入る(1クリックで開始・終了の2更新が続いても消えない)
+  { id: 'mobile-report-shared-dates', viewport: M, full: false, start: 'report', clock: '2026-06-20T12:00:00+09:00',
+    ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-adv-toggle"]'] }, { click: ['[data-ui="date-trigger"]'] },
+      { click: ['[data-ui="cal-day"]', '1'] }, { click: ['[data-ui="cal-day"]', '5'] }, { click: ['[data-ui="search-filter-apply"]'] },
+      { wait: ['[data-ui="search-applied"]', '日付: 2026-06-01〜2026-06-05'] }, REPORT_TAB, { wait: ['[data-ui="report-scope"]', '6/1~6/5'] }]),
+    required: [['[data-ui="period-trigger"]', '6/1~6/5'], ['[data-ui="report-scope"]', '6/1~6/5・']], oneRow: [FILTER_ROW] },
+  { id: 'mobile-home-mode', home: true, viewport: M, full: false, start: 'report', clock: HOME_CLOCK,
+    ops: [{ wait: ['[data-ui="today-compare"]'] }, { click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', 'シャッフル'] }, { click: ['[data-ui="sheet-close"]'] }],
+    required: [['[data-ui="ms-trigger"]', 'シャフ'], ['[data-ui="today-card"]', '4戦 2勝 2敗'], ['[data-ui="home"]', '35戦 勝率']], absent: [['[data-ui="ms-panel"]']] },
+  { id: 'mobile-home-empty-mode', home: true, viewport: M, full: false, start: 'report-legacy', clock: HOME_CLOCK,
+    ops: [{ wait: ['[data-ui="today-card"]'] }, { click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', '固定'] }, { click: ['[data-ui="sheet-close"]'] }, { wait: ['[data-ui="empty-state"]'] }],
+    required: [['[data-ui="empty-state"] b', 'この対戦形式の試合はありません'], ['[data-ui="empty-action"]', '全形式に戻す']], absent: [['[data-ui="today-card"]']], tap: ['[data-ui="empty-action"]'] },
+  // 機体と形式の両方を選ぶとチップに両方出る(絞り込み行は1段のまま)
+  { id: 'mobile-ms-mode-chip', viewport: M, full: false, start: 'report',
+    ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="ms-trigger"]'] }, { click: ['[data-ui="mode-toggle"] button', 'シャッフル'] }, { click: ['[data-ui="ms-item"]', '戦)'] }, { wait: ['[data-ui="ms-trigger"]', '1機・シャフ'] }],
+    required: [['[data-ui="ms-trigger"]', '1機・シャフ']], inview: FILTERS, absent: [['[data-ui="ms-panel"]']], oneRow: [FILTER_ROW] },
   { id: 'mobile-dropdown-ms', viewport: M, full: false, start: 'report', ops: [{ click: ['[data-ui="ms-trigger"]'] }],
     required: [['[data-ui="ms-panel"] h3', '機体'], ['[data-ui="ms-item"]', null, 2]],
     tap: ['[data-ui="ms-item"]', '[data-ui="sheet-close"]'] },
@@ -217,10 +244,10 @@ var SCREEN_DEFS = [
   { id: 'mobile-theme-os-switch', viewport: M, full: true, start: 'report', ops: [{ wait: SCOPE }, { click: ['[data-ui="tab"]', TABS.time] }, { wait: ['[data-ui="tab"][aria-selected="true"]', TABS.time] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [800] }, { scrollBy: [-3200] }, { colorScheme: ['light'] }, { wait: ['html[data-theme="light"]'] }],
     required: [['html[data-theme="light"]'], ['[data-ui="tab"][aria-selected="true"]', TABS.time], SCOPE] },
   { id: 'report-empty-period', viewport: M, full: false, start: 'report', clock: '2026-06-20T12:00:00+09:00', ops: EMPTY_OPS,
-    required: [['[data-ui="empty-state"]', 'この期間の試合はありません'], ['[data-ui="empty-action"]', '期間を変更'], ['[data-ui="period-trigger"]', '06-03 ~ 06-03']],
+    required: [['[data-ui="empty-state"]', 'この期間の試合はありません'], ['[data-ui="empty-action"]', '期間を変更'], ['[data-ui="period-trigger"]', '6/3~6/3']],
     absent: [['[data-ui="skeleton"]']], tap: ['[data-ui="empty-action"]'] },
   { id: 'report-empty-period-back', viewport: M, full: false, start: 'report', clock: '2026-06-20T12:00:00+09:00',
-    ops: EMPTY_OPS.concat([{ click: ['[data-ui="empty-action"]'] }, { wait: ['[data-ui="period-panel"]'] }, { click: ['[data-ui="period-item"]', '全データ'] }, { wait: ['[data-ui="report-scope"]'] },
+    ops: EMPTY_OPS.concat([{ click: ['[data-ui="empty-action"]'] }, { wait: ['[data-ui="period-panel"]'] }, { click: ['[data-ui="period-item"]', '全期間'] }, { wait: ['[data-ui="report-scope"]'] },
       goTab('その他'), { wait: ['[data-ui="more"]'] }, goTab('レポート'), { wait: ['[data-ui="report-scope"]'] }]),
     required: [['[data-ui="report-scope"]', '全期間・60試合']], absent: [['[data-ui="empty-state"]'], ['[data-ui="skeleton"]'], ['[data-ui="period-panel"]']] },
   { id: 'parts', viewport: D, full: true, start: 'parts', ops: [],
