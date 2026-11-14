@@ -59,7 +59,7 @@ var SCREEN_DEFS = [
   { id: 'notice-session-expired', viewport: D, full: true, start: 'report-session-valid', ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: REANALYZE_BTN }], expectConsole: ['status of 401'],
     required: [['#loginForm'], ['#error [data-ui="notice"][role="alert"]', 'セッションが見つかりません'], ['#error [data-ui="notice-action"]', 'ログイン']] },
   { id: 'report-overview', viewport: D, full: true, start: 'report', ops: [],
-    required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体'], REANALYZE_BTN].concat(SUMMARY('overview')) },
+    required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体'], REANALYZE_BTN].concat(SUMMARY('overview')), absent: [['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="panel"] h2', '固定相方']] },
   { id: 'mobile-home-few', home: true, viewport: M, full: true, start: 'report-today-3', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-card"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="today-card"]', '今日 10/8'], ['[data-ui="today-compare"] tbody tr', null, 7]] },
   { id: 'mobile-home', home: true, viewport: M, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
