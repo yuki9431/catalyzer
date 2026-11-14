@@ -8,7 +8,7 @@ import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
 import { BurstPane } from './burst.js';
-import { LensToggle, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
+import { LensToggle, MS_CHIP_DEFAULT, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
 import { MatchupPane } from './matchup.js';
 import { OverviewPane } from './overview.js';
 import { PlaystylePane } from './playstyle.js';
@@ -16,6 +16,7 @@ import { ReportSummary } from './summary.js';
 import { TimePane } from './time.js';
 import { HomeView } from '../home.js';
 import { modeLabel } from '../../lib/match.js';
+import { applyScope, customRangeLabel, inCustomRange, searchScope } from '../../lib/scope.js';
 
 var TAB_DEFS = [
   ['overview', '総合'],
@@ -43,18 +44,19 @@ function reanalyzeButton(actions) {
 function pullAction(actions) { return actions.pullEnabled ? actions.onReanalyze : null; }
 
 export function Report({ data, userKey, actions }) {
-  var periodRef = useState('all');
-  var selectedPeriod = periodRef[0], setSelectedPeriod = periodRef[1];
-  var customRangeRef = useState(null);
-  var customRange = customRangeRef[0], setCustomRange = customRangeRef[1];
+  // 期間・日付指定・対戦形式は試合検索と共有する1つの状態。連続で更新されても合成されるよう関数形で更新する
+  var scopeRef = useState({ period: 'all', customRange: null, mode: 'all' });
+  var scope = scopeRef[0], setScope = scopeRef[1];
+  var selectedPeriod = scope.period, customRange = scope.customRange, mode = scope.mode;
+  function patchScope(patch) { setScope(function (prev) { return Object.assign({}, prev, patch); }); }
+  function setSelectedPeriod(k) { patchScope({ period: k }); }
+  function setMode(m) { patchScope({ mode: m }); }
   var tabRef = useState('overview');
   var activeTab = tabRef[0], setActiveTab = tabRef[1];
   var msRef = useState(null);
   var selectedMs = msRef[0], setSelectedMs = msRef[1];
   var lensRef = useState('all');
   var lens = lensRef[0], setLens = lensRef[1];
-  var modeRef = useState('all');
-  var mode = modeRef[0], setMode = modeRef[1];
   var periodOpenRef = useState(0);
   var periodOpen = periodOpenRef[0], setPeriodOpen = periodOpenRef[1];
   var nav = useView();
@@ -144,10 +146,10 @@ export function Report({ data, userKey, actions }) {
     window.scrollTo(0, 0);
   }, [view]);
 
-  var PERIOD_LABELS = { all: '全データ', '90d': '90日', '60d': '60日', '30d': '30日', '14d': '14日', '7d': '7日', '3d': '3日', '1d': '1日' };
+  var PERIOD_LABELS = { all: '全期間', '90d': '90日', '60d': '60日', '30d': '30日', '14d': '14日', '7d': '7日', '3d': '3日', '1d': '1日' };
   var periods = {};
   PERIOD_KEYS.forEach(function (k) { periods[k] = { label: PERIOD_LABELS[k] }; });
-  if (customRange) periods.custom = { label: customRange.start.substring(5, 10) + ' ~ ' + customRange.end.substring(5, 10) };
+  if (customRange) periods.custom = { label: customRangeLabel(customRange) };
 
   var frontendData = useMemo(function () {
     if (!allMatches || !allMatches.length) return null;
@@ -155,9 +157,7 @@ export function Report({ data, userKey, actions }) {
     var days = PERIOD_DAYS[selectedPeriod];
     if (days) periodFiltered = filterByPlayDays(allMatches, days);
     if (selectedPeriod === 'custom' && customRange) {
-      periodFiltered = allMatches.filter(function (m) {
-        return m.date >= customRange.start && m.date <= customRange.end;
-      });
+      periodFiltered = allMatches.filter(function (m) { return inCustomRange(m.date, customRange); });
     }
     if (!periodFiltered.length) return { empty: true };
     // 対戦形式は期間と同じく母集団を絞る(機体一覧の件数・機体別比較も形式で揃える)
@@ -211,17 +211,22 @@ export function Report({ data, userKey, actions }) {
   }, [msStats, view]);
 
   var shareData = (frontendData && frontendData.share_data) || [];
-  // ホームは期間で絞らないので、機体の候補も全期間から作る
+  // ホームは期間で絞らないが、対戦形式はレポート・試合検索と同じく効かせる
+  var homeMatches = useMemo(function () { return filterByMode(allMatches || [], mode); }, [allMatches, mode]);
   var homeMsEntries = useMemo(function () {
     var counts = {};
-    (allMatches || []).forEach(function (m) { if (m.ms) counts[m.ms] = (counts[m.ms] || 0) + 1; });
+    homeMatches.forEach(function (m) { if (m.ms) counts[m.ms] = (counts[m.ms] || 0) + 1; });
     return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).map(function (name) { return { name: name, matches: counts[name] }; });
-  }, [allMatches]);
+  }, [homeMatches]);
   // ホーム画面のミッションは期間に依らず全期間で診断する
   var homePlan = useMemo(function () {
-    var ms = allMatches || [];
-    return computeActionPlan(selectedMs ? ms.filter(function (m) { return m.ms === selectedMs; }) : ms);
-  }, [allMatches, selectedMs]);
+    return computeActionPlan(selectedMs ? homeMatches.filter(function (m) { return m.ms === selectedMs; }) : homeMatches);
+  }, [homeMatches, selectedMs]);
+  // ホームで選んだ形式に無い機体は外す(レポートの解除と同じ。チップが「1機選択」のまま空にならないように)
+  useEffect(function () {
+    if (view !== 'home' || !selectedMs || !homeMatches.length) return;
+    if (!homeMsEntries.some(function (e) { return e.name === selectedMs; })) setSelectedMs(null);
+  }, [homeMsEntries, view]);
 
   function showMatches(link) {
     var f = emptyFilters();
@@ -229,12 +234,16 @@ export function Report({ data, userKey, actions }) {
     f.goal = link.goal;
     if (link.focusRange) f.focusRange = link.focusRange;
     searchState.current = { filters: f };
+    // ミッションは全期間・挑戦中の枠は全形式で数えているので、試合検索の件数と揃うよう外す
+    patchScope(link.focusRange ? { period: 'all', mode: 'all' } : { period: 'all' });
     nav.onNavigate('search');
   }
 
+  var searchScopeValue = useMemo(function () { return searchScope(selectedPeriod, customRange, mode); }, [selectedPeriod, customRange, mode]);
+  function onSearchScope(key, value) { setScope(function (prev) { return applyScope(key, value, prev); }); }
+
   function handleCustomReport(range) {
-    setCustomRange(range);
-    setSelectedPeriod('custom');
+    patchScope({ period: 'custom', customRange: range });
   }
 
   var fePd = useMemo(function () {
@@ -244,22 +253,23 @@ export function Report({ data, userKey, actions }) {
     return { basic_stats: null, win_loss_pattern: null };
   }, [frontendData]);
 
-  // 試合検索ビュー: ダッシュボードのフィルタ群とは独立した専用画面。
-  // allMatches（IndexedDBキャッシュ）を共有し、フロントエンドで絞り込む。
+  // 試合検索ビュー: allMatches（IndexedDBキャッシュ）をフロントエンドで絞り込む。期間・対戦形式だけ共有する
   var count = allMatches ? allMatches.length : null;
   nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
   if (view === 'home') {
     var msOnly = html`<div class="controls-row" data-ui="filter-bar">
-        <${MsSelector} entries=${homeMsEntries} selected=${selectedMs} onSelect=${setSelectedMs} />
+        <${MsSelector} entries=${homeMsEntries} selected=${selectedMs} onSelect=${setSelectedMs} mode=${mode} onMode=${setMode} />
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${HomeView} matches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} onShowMatches=${showMatches} />
+      ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
+        ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
+        : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} onShowMatches=${showMatches} />`}
     </${AppShell}>`;
   }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} onChange=${function (st) { searchState.current = st; }} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} scope=${searchScopeValue} onScope=${onSearchScope} onChange=${function (st) { searchState.current = st; }} />
     </${AppShell}>`;
   }
 
@@ -342,8 +352,8 @@ export function Skeleton({ actions, nav }) {
     return html`<div class="skel" data-ui="skeleton" style=${{ width: w, height: h + 'px', marginBottom: (mb || 0) + 'px' }}></div>`;
   }
   var filters = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
-        <${Chip} expanded=${false}><span class="ui-chip-text">全データ</span></${Chip}>
-        <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
+        <${Chip} expanded=${false}><span class="ui-chip-text">全期間</span></${Chip}>
+        <${Chip} expanded=${false}><span class="ui-chip-text">${MS_CHIP_DEFAULT}</span></${Chip}>
         <${LensToggle} lens=${'all'} onSelect=${function () {}} />
       </div>`;
   var tabs = html`<div class="tabs" role="tablist" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
@@ -353,7 +363,7 @@ export function Skeleton({ actions, nav }) {
       </div>`;
   if (n.view === 'home') {
     var msOnly = html`<div class="controls-row" style=${{ opacity: 0.5, pointerEvents: 'none' }}>
-        <${Chip} expanded=${false}><span class="ui-chip-text">全機体</span></${Chip}>
+        <${Chip} expanded=${false}><span class="ui-chip-text">${MS_CHIP_DEFAULT}</span></${Chip}>
       </div>`;
     return html`<${AppShell} filters=${msOnly} nav=${n}>
       <div class="panel">${bar('40%', 16, 14)}${[0, 1, 2].map(function () { return bar('100%', 14, 10); })}</div>

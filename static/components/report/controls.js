@@ -76,7 +76,7 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
 
   var currentLabel = selected === 'custom'
     ? (periods.custom ? periods.custom.label : '日付指定')
-    : (periods[selected] ? periods[selected].label : '全データ');
+    : (periods[selected] ? periods[selected].label : '全期間');
 
   function selectPreset(k) {
     onSelect(k);
@@ -144,14 +144,20 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
 
 var MODE_OPTIONS = [{ value: 'all', label: '全形式' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
 
-// チップは絞り込み行を1段に収めるため略称にし、機体も選んだら機体を優先する(形式は範囲表示に出る)
+// 未選択はシートの中身を名乗り、選んだら選んだものを出す。絞り込み行を1段に収めるため形式は略称(ui-check の oneRow で検査)
 var CHIP_MODE_LABELS = { shuffle: 'シャフ', fixed: '固定' };
+function msChipLabel(selected, mode) {
+  var m = modeLabel(mode) ? CHIP_MODE_LABELS[mode] : '';
+  if (selected) return m ? '1機・' + m : '1機選択';
+  return m || MS_CHIP_DEFAULT;
+}
+export var MS_CHIP_DEFAULT = '機体・形式';
 
 // onMode を渡すとシートの先頭で対戦形式も選べる(絞り込み行を1段に収めるため同居させる)
 export function MsSelector({ entries, selected, onSelect, mode, onMode }) {
   var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
-  var label = selected ? '1機選択' : modeLabel(mode) ? CHIP_MODE_LABELS[mode] : '全機体';
+  var label = msChipLabel(selected, mode);
   var isSelected = !!selected || !!modeLabel(mode);
   return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
     <${Chip} ui="ms-trigger" expanded=${isOpen} active=${isSelected} onClick=${pop.toggle}><span class="ui-chip-text">${label}</span></${Chip}>

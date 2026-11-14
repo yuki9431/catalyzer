@@ -20,7 +20,7 @@ export var SORT_OPTIONS = [
 // フィルタの初期値。UI側はこれを複製して状態の初期値に使う。
 export function emptyFilters() {
   return {
-    playDays: '',            // 期間プリセット（''=全データ / '1d','3d'... レポートと同じ直近プレイ日数）
+    playDays: '',            // 期間プリセット（''=全期間 / '1d','3d'... レポートと同じ直近プレイ日数）
     dateFrom: '', dateTo: '',
     myMsList: [],            // 自機（複数選択・OR）
     partnerMsList: [],       // 僚機（複数選択・OR）

@@ -42,6 +42,13 @@ function inviewExpr(sel, text) {
     'return !!top&&(top===e||e.contains(top))})(' + JSON.stringify(sel) + ',' + JSON.stringify(text || null) + ')';
 }
 
+// 行の可視の子が1段に並ぶか。over は子の幅+gap の合計が行の幅を超えた px(負なら余り)
+function oneRowExpr(sel) {
+  return '(function(s){var e=document.querySelector(s);if(!e)return{};var cs=Array.from(e.children).filter(function(c){return c.getClientRects().length>0});' +
+    'var lo=1e9,hi=-1e9,w=0;cs.forEach(function(c){var r=c.getBoundingClientRect();lo=Math.min(lo,r.top);hi=Math.max(hi,r.top);w+=r.width});var g=parseFloat(getComputedStyle(e).columnGap)||0;' +
+    'return{rows:hi-lo>8?2:1,over:Math.round(w+g*Math.max(0,cs.length-1)-e.clientWidth)}})(' + JSON.stringify(sel) + ')';
+}
+
 // 上部バーの下端+下部タブバーの高さ(fixed)と、タブ行の上に残る帯の高さ(band)を返す式。対象が無ければ fixed=-1
 var FIXED_EXPR = '(function(){var bar=document.querySelector(\'[data-ui="topbar"]\'),tab=document.querySelector(\'[data-ui="tabbar"]\');' +
   'if(!bar||!tab)return{fixed:-1,band:0};var H=innerHeight,cl=function(v){return Math.min(Math.max(v,0),H)};' +
@@ -234,6 +241,12 @@ async function runScreen(conn, origin, screen, theme, update) {
     var absent = screen.absent || [];
     for (var ai = 0; ai < absent.length; ai++) {
       if (await evalJs(countExpr(absent[ai][0], absent[ai][1]))) return fail('在ってはいけない要素 ' + absent[ai][0] + (absent[ai][1] ? ' (' + absent[ai][1] + ')' : ''));
+    }
+    var oneRow = screen.oneRow || [];
+    for (var ri = 0; ri < oneRow.length; ri++) {
+      var row = await evalJs(oneRowExpr(oneRow[ri]));
+      if (row.over == null) return fail('oneRow の対象なし ' + oneRow[ri]);
+      if (row.rows > 1) return fail('1段に収まらない ' + oneRow[ri] + ' (はみ出し ' + row.over + 'px)');
     }
     var note = '';
     if (screen.fixedMax != null) {
