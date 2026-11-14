@@ -4,7 +4,7 @@ PORT ?= 8080
 .PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
 	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell \
-	tofu-shared-plan tofu-shared-apply tofu-app-plan
+	tofu-shared-plan tofu-shared-apply tofu-app-plan tofu-app-apply
 
 ## Docker イメージをビルド（キャッシュなし）
 build:
@@ -149,7 +149,12 @@ tofu-shared-apply:
 	$(TOFU_SHARED) init -input=false -reconfigure
 	$(TOFU_SHARED) apply
 
-## app: plan（refresh 付き。STACK=prod|stg が必須。PR-3 までは image の差分が出るのが正常で、apply しない）
+## app: plan（refresh 付き。STACK=prod|stg が必須）
 tofu-app-plan:
 	$(TOFU_APP) init -input=false -reconfigure $(APP_VARS)
 	$(TOFU_APP) plan -input=false $(APP_VARS)
+
+## app: apply（通常は deploy が行う。手元で当てるときだけ使う）
+tofu-app-apply:
+	$(TOFU_APP) init -input=false -reconfigure $(APP_VARS)
+	$(TOFU_APP) apply $(APP_VARS)

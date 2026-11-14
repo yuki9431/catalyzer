@@ -4,8 +4,7 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - "infra/app/Pulumi.prod.yaml"
-      - "infra/app/Pulumi.stg.yaml"
+      - "infra/app/**"
   workflow_dispatch:
     inputs:
       environment:
@@ -20,85 +19,50 @@ on:
 jobs:
   detect-environment:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
     outputs:
-      environments: ${{ steps.detect.outputs.environments }}
+      stack: ${{ steps.detect.outputs.stack }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-
-      - name: Detect changed environments
-        id: detect
+      # develop は stg、main は prod だけを出す(develop→main のマージに含まれる stg の差分で stg を巻き戻さない)
+      - id: detect
         env:
           REF: ${{ github.ref }}
+          INPUT: ${{ inputs.environment }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ inputs.environment }}" = "prod" ] && [ "$REF" != "refs/heads/main" ]; then
-              echo "::error::prod へのデプロイは main からのみ"
-              exit 1
-            fi
-            echo 'environments=["${{ inputs.environment }}"]' >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ -n "$INPUT" ]; then stack=$INPUT; elif [ "$REF" = refs/heads/main ]; then stack=prod; else stack=stg; fi
+          if [ "$stack" = prod ] && [ "$REF" != refs/heads/main ]; then
+            echo "::error::prod へのデプロイは main からのみ"
+            exit 1
           fi
-
-          ENVS="[]"
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- infra/app/Pulumi.*.yaml || echo "")
-
-          # develop は stg、main は prod だけを出す（develop→main のマージに含まれる stg の差分で stg を巻き戻さない）
-          if [ "$REF" = "refs/heads/main" ]; then
-            TARGET=prod
-          else
-            TARGET=stg
-          fi
-          if echo "$CHANGED" | grep -q "Pulumi.${TARGET}.yaml"; then
-            ENVS=$(echo "$ENVS" | jq -c --arg t "$TARGET" '. + [$t]')
-          fi
-
-          echo "environments=$ENVS" >> "$GITHUB_OUTPUT"
-          echo "Detected environments: $ENVS"
+          echo "stack=$stack" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: detect-environment
-    if: needs.detect-environment.outputs.environments != '[]'
     runs-on: ubuntu-latest
     # environment ごとに GitHub が branch 制限をかけ、WIF の身元(SA)も分かれる
-    environment: ${{ matrix.environment }}
-    # 同一スタックへの pulumi up が重なると state lock で失敗する
+    environment: ${{ needs.detect-environment.outputs.stack }}
+    # 同じ環境への apply を重ねない(state の lock 待ちで失敗させない)
     concurrency:
-      group: deploy-${{ matrix.environment }}
+      group: deploy-${{ needs.detect-environment.outputs.stack }}
       cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
-    strategy:
-      matrix:
-        environment: ${{ fromJson(needs.detect-environment.outputs.environments) }}
-      max-parallel: 1
     env:
-      # 起動時のバージョン確認HTTPリクエストを省略（CIでは通知不要）
-      PULUMI_SKIP_UPDATE_CHECK: "true"
-      # 中間state checkpointの書き込みを省き最終stateのみ書く（v3.104.0以降は
-      # PULUMI_EXPERIMENTAL不要）。速度と引き換えに、up途中でプロセスが異常終了
-      # すると中間stateが未書き込みになる耐久性トレードオフあり
-      PULUMI_SKIP_CHECKPOINTS: "true"
+      STACK: ${{ needs.detect-environment.outputs.stack }}
+      TF_VAR_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
+      TF_VAR_image_uri: ${{ secrets.IMAGE_URI }}
+      TF_IN_AUTOMATION: "true"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
-          node-version: "22"
-
-      # ubuntu-26.04 のランナーには Pulumi CLI が入っていないため明示的に入れる
-      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
-
-      - name: Install dependencies
-        working-directory: infra/app
-        run: npm ci --ignore-scripts
+          tofu_version_file: infra/.opentofu-version
+          tofu_wrapper: false
 
       # 公開 repo のジョブログにプロジェクト ID・番号を出さない。auth が環境変数に書き出す前に登録する
       - name: Mask GCP identifiers
@@ -113,9 +77,10 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
-      - name: Deploy with Pulumi
-        working-directory: infra/app
+      # refresh で実物を読み直してから当てる(失敗した更新で state がずれても次の deploy で拾う。#608)
+      - name: Deploy with OpenTofu
+        env:
+          TF_VAR_project: ${{ steps.auth.outputs.project_id }}
         run: |
-          pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
-          pulumi stack select "${{ matrix.environment }}"
-          pulumi up --yes --skip-preview
+          tofu -chdir=infra/app init -input=false -lockfile=readonly -var-file="${STACK}.tfvars"
+          tofu -chdir=infra/app apply -auto-approve -input=false -var-file="${STACK}.tfvars"

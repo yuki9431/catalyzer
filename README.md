@@ -163,7 +163,7 @@
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
-│       ├── deploy.yml             # デプロイ（Pulumi up）
+│       ├── deploy.yml             # デプロイ（tofu apply）
 │       ├── infra-ci.yml           # インフラCI（tofu fmt・tofu plan）
 │       └── update-mslist.yml      # MSリスト自動更新
 ├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
