@@ -16,6 +16,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **画面確認（UI oracle）**: `make ui-check`（68画面をダーク・ライトの2テーマで計136枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
+- **HCL フォーマット**: `tofu fmt -check -recursive infra`（exit 0 が正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
 
 完了条件の既定値: 上記が全て成功していること。Go の変更は build+test+vet/lint、JS の変更は test-js を最低限通す。
@@ -61,9 +62,9 @@ FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 make pulumi-shared-preview            # shared プレビュー
 STACK=prod make pulumi-app-preview    # app(本番) プレビュー
 STACK=stg make pulumi-app-preview     # app(検証) プレビュー
-make pulumi-shared-shell              # shared シェル（pulumi upはここで）
-STACK=prod make pulumi-app-shell      # app(本番) シェル
-STACK=stg make pulumi-app-shell       # app(検証) シェル
+make pulumi-shared-shell              # shared シェル（pulumi up は禁止。shared は make tofu-shared-apply で反映）
+STACK=prod make pulumi-app-shell      # app(本番) シェル（pulumi up は禁止。image が古く巻き戻る。app は deploy.yml が tofu で当てる）
+STACK=stg make pulumi-app-shell       # app(検証) シェル（同上）
 ```
 
 http://localhost:8080 でアクセス可能。
@@ -150,26 +151,26 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
 - `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
-- `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`）
-- `infra/app/` — Pulumi IaC 環境別リソース（自動更新の Cloud Run Job と Scheduler は config `autoRefreshEnabled` が true の環境（prod のみ）に作る。`index.ts` — Cloud Run, ドメインマッピング, CNAME）
+- `infra/shared/` — 共有リソース。OpenTofu(`main.tf`/`iam.tf`/`resources.tf`。`make tofu-shared-plan`/`apply`)へ移行中。Pulumi 版（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`） も PR-4 まで残す
+- `infra/app/` — 環境別リソース（Cloud Run, ドメインマッピング, CNAME。自動更新の Cloud Run Job と Scheduler は prod のみ）。OpenTofu(`main.tf`（環境差は `locals.envs`）/`run.tf`/`{prod,stg}.tfvars`。`make tofu-app-plan STACK=prod|stg`)で管理し、build・deploy も tofu。Pulumi 版（`index.ts`）は PR-4 で消すまで残るが使わない
 
 ## GitHub Actions
 
-- **ブランチ運用**（既定ブランチは `develop`）: 作業ブランチ → `develop`（マージで stg に自動デプロイ）→ `main`（マージで prod に自動デプロイ）。develop→main はマージコミットで行う（squash・rebase しない）。緊急修正は main 向けPRも可（マージ後 build.yml が main を develop に自動マージ。衝突時は手動解消）。ただし build.yml の paths-ignore（`infra/app/Pulumi.*.yaml`・`deploy.yml`）だけを main で変えた場合は同期されないので develop に手動で反映する
+- **ブランチ運用**（既定ブランチは `develop`）: 作業ブランチ → `develop`（マージで stg に自動デプロイ）→ `main`（マージで prod に自動デプロイ）。develop→main はマージコミットで行う（squash・rebase しない）。緊急修正は main 向けPRも可（マージ後 build.yml が main を develop に自動マージ。衝突時は手動解消）。ただし build.yml の paths-ignore（`infra/app/**`・`deploy.yml`）だけを main で変えた場合は同期されないので develop に手動で反映する
 - CI: `ci.yml`（main/develop 向けPRのみ。Docker build, golangci-lint, go test -race + coverage, JS test。ラベル `skip-ci` でスキップ）
-- Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の Pulumi yaml の image 更新 → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
-- Deploy: `deploy.yml`（develop の `Pulumi.stg.yaml`・main の `Pulumi.prod.yaml` の変更トリガー or build.yml からの `workflow_dispatch` → `pulumi up`。Pulumi.yaml の `options.refresh: always` で実物を読み直してから適用する（手元の preview・up も同じ）。prod の手動実行は main からのみ）
+- Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の `infra/app/<env>.tfvars` の `image_tag` を書き換え → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
+- Deploy: `deploy.yml`（`infra/app/**` の変更の push（develop→stg、main→prod）or build.yml からの `workflow_dispatch` → `tofu apply -var-file=<env>.tfvars`。refresh 付きで実物を読み直してから適用する（手元の plan・apply も同じ）。prod の手動実行は main からのみ）
 - UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
-- Infra CI: `infra-ci.yml`（infra/配下・`.github/scripts/`・自身の変更時にshared + app(prod/staging)のPulumi preview（PR 用の身元は全リソースを読めないので `--refresh=false`）。PR コメントは `.github/scripts/pulumi-preview-summary.sh` が出す変更件数とリソースの型・論理名だけ（公開 repo に識別子を出さない）。infra-ci・build・deploy のジョブログは `.github/scripts/mask-gcp-ids.sh` でプロジェクト ID・番号をマスク。両スクリプトのテストは `.github/scripts/scripts.test.js`）
+- Infra CI: `infra-ci.yml`（infra/配下・`.github/scripts/`・自身の変更時に `tofu fmt -check` と shared + app(prod/stg)の `tofu plan`（PR 用の身元は全リソースを読めないので `-refresh=false`、state に書けないので `-lock=false`）。PR コメントは `.github/scripts/tofu-plan-summary.sh` が出す変更件数とリソースのアドレスだけ（公開 repo に識別子を出さない）。infra-ci・build・deploy のジョブログは `.github/scripts/mask-gcp-ids.sh` でプロジェクト ID・番号をマスク。両スクリプトのテストは `.github/scripts/scripts.test.js`）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。公式サイトは日本以外の IP を拒否するため、取得は東京の Cloud Build（実行 SA `mslist-build`、ログイン情報は Secret Manager）で行い、結果をバケット経由で受け取る。変更時に main 向けPRを自動作成・マージし prod に反映）
-- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch は CI 緑で Renovate 自身が develop に自動マージし、major は手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
+- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch は CI 緑で Renovate 自身が develop に自動マージし、major と OpenTofu の provider・infra の npm(移行中)は手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
 - **サードパーティアクションを追加・変更する際は、GitHubリポジトリのリリースページで最新メジャーバージョンを確認すること。** 古いバージョンを指定するとNode.js非推奨警告やエラーが発生する（過去に複数回発生）。
 
 ## PR運用ルール
 
 - **PRのマージは絶対に勝手に行わない。** 必ずユーザーの明示的な指示を待つ
 - 作業ブランチのPRは `develop` 向けに作る。本番リリースは `develop` → `main` のPR
-- PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）
+- PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）。止めるのは build（イメージ更新）だけで、`infra/app/**` の変更はラベルに関係なくマージで apply される。新しいイメージが前提の設定変更(Job の command・ポート等)は、イメージの PR と分けて後から入れる(同じマージだと push の deploy が先に古いイメージで当たる)
 - Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける（Renovate の PR には付けない。skipped のチェックも緑とみなして自動マージされる）
 - **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `no-deploy` なしでPRをマージ、または `gh workflow run build.yml --ref <branch>` で手動実行（main は prod、それ以外は stg）
@@ -189,8 +190,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   - `SCRAPER_MAX_DETAIL`: 詳細取得件数の上限（古い順の先頭N件）。0または未設定で無制限（既定 0）
   - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
-- 自動更新(#288): prod のみ有効。サービスの env `AUTO_REFRESH_JOB`/`AUTO_REFRESH_AUDIENCE`/`AUTO_REFRESH_INVOKER`/`AUTO_REFRESH_PASSPHRASE_HASH`/`AUTO_REFRESH_OPEN` は infra/app が設定（未設定の環境は有効化 POST が503・tick が404・状態取得 GET が200で available:false・touch が200で status:"off"）。合言葉は `go run ./cmd/hash-passphrase` でハッシュを作り `STACK=prod make pulumi-app-shell` で `pulumi config set --secret autoRefreshPassphraseHash <hash>`。設計は `docs/design/2026-10-05-auto-refresh.md`
-- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/secrets.ts`）に置き、infra/app の config `sessionKeyVersion` で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→`sessionKeyVersion` を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
+- 自動更新(#288): prod のみ有効。サービスの env `AUTO_REFRESH_JOB`/`AUTO_REFRESH_AUDIENCE`/`AUTO_REFRESH_INVOKER`/`AUTO_REFRESH_PASSPHRASE_HASH`/`AUTO_REFRESH_OPEN` は infra/app が設定（未設定の環境は有効化 POST が503・tick が404・状態取得 GET が200で available:false・touch が200で status:"off"）。合言葉は `go run ./cmd/hash-passphrase` でハッシュを作り `infra/app/main.tf` の `local.auto_refresh.passphrase_hash` に書く PR を出す（平文で置く判断。一般ユーザーを除けるだけでよい）。設計は `docs/design/2026-10-05-auto-refresh.md`
+- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/resources.tf`）に置き、infra/app の `local.session_key.version`（`main.tf`）で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→その版を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
 - 試合の一意キーは詳細ページURL由来の `MatchID`（`model.DatedScore.GroupKey()` に一元化）。MatchID未設定のlegacyデータは分精度日時にフォールバックする（#358。実データでは同じ分に試合は1つで、同一分の区別は保険）。詳細URLの param は日を跨ぐと変わるため、保存済みの試合を MatchID で照合しない（差分取得の since は保存済みの最新日時ちょうど。#522）
 
 ## Goコーディング規約
@@ -210,5 +211,5 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **GCPプロジェクトID、バケット名、サービスアカウント等のインフラ識別子をコードやCLAUDE.mdにハードコードしない。** 環境変数またはGitHub Secrets/Variablesを使うこと。
 - **IAM権限は最小権限の原則を徹底する。** プロジェクトレベルの広範なロール（例: `roles/storage.admin`）ではなく、バケット単位・リソース単位で必要最低限のロール（例: `roles/storage.objectUser`）を付与すること。
 - 公開リポジトリのため、コミット履歴にも残ることを意識する。
-- マルチステージDockerfile: `golang:1.26-alpine` でビルド、`alpine:3.22` で実行
+- マルチステージDockerfile: `golang:<Go の版>-alpine` でビルド、`alpine` で実行(版は Dockerfile が正。Renovate が更新する)
 - CSP: `script-src 'self'`（インラインスクリプト禁止）、`style-src 'self' 'unsafe-inline'`

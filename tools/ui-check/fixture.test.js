@@ -18,6 +18,13 @@ describe('fixture', function () {
     assert.ok(count('ov_solo') >= 1);
     assert.ok(count('last_cost_burst') > 20);
   });
+  it('ends every OL activation after it starts, like the real timeline', function () {
+    generateMatches().forEach(function (m) {
+      [m.actions, m.opponent1_actions].forEach(function (list) {
+        list.filter(function (a) { return a.action === 'exbst-ov'; }).forEach(function (a) { assert.ok(a.action_end_sec > a.action_start_sec); });
+      });
+    });
+  });
   it('uses local image URLs for every machine', function () {
     msList().forEach(function (m) { assert.match(m.ImageURL, /^\/__preview\/ms\/\d+\.svg$/); });
   });

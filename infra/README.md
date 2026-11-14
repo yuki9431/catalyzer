@@ -21,7 +21,7 @@ infra/
 ## 初期セットアップ
 
 ```bash
-# 1. shared スタック初期化
+# 1. shared スタック初期化(移行中: shared は OpenTofu 管理。下の Pulumi 手順は PR-4 で書き換える)
 make pulumi-shared-install
 make pulumi-shared-init
 
@@ -31,7 +31,7 @@ pulumi config set gcp:project <PROJECT_ID> --secret
 pulumi config set exvs-shared:artifactRegistryRepo <REPO_NAME> --secret
 # ... 他の secret も同様
 
-# 3. app スタック初期化（prod / staging）
+# 3. app スタック初期化（prod / staging。移行後は app も OpenTofu 管理で、pulumi up は禁止。PR-4 で書き換える）
 make pulumi-app-install
 STACK=prod make pulumi-app-init
 STACK=stg make pulumi-app-init
@@ -57,13 +57,11 @@ read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-passw
 make pulumi-shared-preview
 
 # app プレビュー（STACK で環境指定）
-STACK=prod make pulumi-app-preview
-STACK=stg make pulumi-app-preview
+STACK=prod make tofu-app-plan   # app は OpenTofu で管理(Pulumi の app は使わない)
 
-# 変更適用はシェルに入って対話的に実行
-make pulumi-shared-shell    # → pulumi up
-STACK=prod make pulumi-app-shell   # → pulumi up
-STACK=stg make pulumi-app-shell    # → pulumi up
+# 変更適用(shared・app とも make で)
+make tofu-shared-apply      # shared は OpenTofu で反映(pulumi up は禁止)
+STACK=stg make tofu-app-apply     # app は通常 deploy.yml が当てる。手元で当てるときだけ
 ```
 
 ## デプロイフロー
@@ -77,7 +75,7 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 
 | タイミング | ワークフロー | 内容 |
 |-----------|-------------|------|
-| PR作成/更新 | `infra-ci.yml` | shared + app (prod/staging) の `pulumi preview` |
+| PR作成/更新 | `infra-ci.yml` | `tofu fmt -check` と shared + app (prod/stg) の `tofu plan`（refresh なし） |
 | mainマージ | `cd.yml` | ビルド → staging に自動デプロイ |
 | 手動実行 | `cd.yml` | 指定環境（prod/staging）にデプロイ |
 
@@ -108,11 +106,12 @@ STACK=stg make pulumi-app-shell    # → pulumi up
 | Secret | 説明 |
 |--------|------|
 | `PULUMI_STATE_BUCKET` | Pulumiステート保存用GCSバケット名 |
-| `IMAGE_URI` | コンテナイメージURIベース |
+| `TF_STATE_BUCKET` | OpenTofu の state を置く GCS バケット名（値は `PULUMI_STATE_BUCKET` と同じ） |
+| `IMAGE_URI` | コンテナイメージURIベース（Infra CI は environment を使わないので repo の secret に置く） |
 | `WIF_PROVIDER` | Workload Identity Provider |
 | `WIF_PR_SERVICE_ACCOUNT` | PR の preview 用 SA(`gha-pr`)。repo の secret |
 | `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)、`mslist` は `gha-mslist`(MSリスト更新の Cloud Build 起動)。environment `prod` は main、`mslist` は develop のみ |
 
 ## シークレットの暗号化
 
-Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した SA（PR の preview は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`）が KMS 鍵（`pulumi-secrets/pulumi-state`）で復号する。
+Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した SA（PR の preview は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`）が KMS 鍵（`pulumi-secrets/pulumi-state`）で復号する。OpenTofu の state 暗号化は plan でも Encrypt を呼ぶので、`gha-pr` にも暗号化の権限がある。

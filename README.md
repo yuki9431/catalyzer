@@ -157,14 +157,14 @@
 │       └── index.ts               # Cloud Run・ドメインマッピング
 ├── .github/
 │   ├── scripts/
-│   │   ├── pulumi-preview-summary.sh  # Pulumi previewの要約（PRコメント用。識別子を出さない）
+│   │   ├── tofu-plan-summary.sh   # tofu planの要約（PRコメント用。識別子を出さない）
 │   │   ├── mask-gcp-ids.sh        # ジョブログのプロジェクトID・番号をマスク
 │   │   └── scripts.test.js        # 上記2スクリプトのテスト
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
-│       ├── deploy.yml             # デプロイ（Pulumi up）
-│       ├── infra-ci.yml           # インフラCI（Pulumi preview）
+│       ├── deploy.yml             # デプロイ（tofu apply）
+│       ├── infra-ci.yml           # インフラCI（tofu fmt・tofu plan）
 │       └── update-mslist.yml      # MSリスト自動更新
 ├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
 ├── .golangci.yml                  # golangci-lint設定

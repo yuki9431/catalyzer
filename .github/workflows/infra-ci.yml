@@ -16,16 +16,17 @@ jobs:
       id-token: write
       pull-requests: write
     env:
-      # 起動時のバージョン確認HTTPリクエストを省略（CIでは通知不要）
-      PULUMI_SKIP_UPDATE_CHECK: "true"
+      TF_VAR_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
+      TF_VAR_image_uri: ${{ secrets.IMAGE_URI }}
+      TF_IN_AUTOMATION: "true"
 
     steps:
       - name: Check required secrets
         id: check-secrets
         run: |
-          if [ -z "${{ secrets.PULUMI_STATE_BUCKET }}" ]; then
+          if [ -z "$TF_VAR_state_bucket" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::PULUMI_STATE_BUCKET is not set. Skipping preview."
+            echo "::warning::TF_STATE_BUCKET is not set. Skipping plan."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -33,17 +34,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.check-secrets.outputs.skip != 'true'
         with:
-          # 依存コードが .git/config のトークンを読めないようにする
+          # PR のコードが .git/config のトークンを読めないようにする
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         if: steps.check-secrets.outputs.skip != 'true'
         with:
-          node-version: "22"
+          tofu_version_file: infra/.opentofu-version
+          tofu_wrapper: false
 
-      # ubuntu-26.04 のランナーには Pulumi CLI が入っていないため明示的に入れる
-      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
+      # 3つの init で provider の取得を1回にする
+      - name: Prepare plugin cache
         if: steps.check-secrets.outputs.skip != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/tofu-plugins"
+          echo "TF_PLUGIN_CACHE_DIR=$RUNNER_TEMP/tofu-plugins" >> "$GITHUB_ENV"
 
       # 公開 repo のジョブログにプロジェクト ID・番号を出さない。auth が環境変数に書き出す前に登録する
       - name: Mask GCP identifiers
@@ -60,38 +65,39 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_PR_SERVICE_ACCOUNT }}
 
-      - name: Install shared dependencies
+      - name: Check format
         if: steps.check-secrets.outputs.skip != 'true'
-        working-directory: infra/shared
-        run: npm ci --ignore-scripts
+        run: tofu fmt -check -recursive infra
 
-      - name: Install app dependencies
-        if: steps.check-secrets.outputs.skip != 'true'
-        working-directory: infra/app
-        run: npm ci --ignore-scripts
-
-      - name: Pulumi preview (shared)
-        if: steps.check-secrets.outputs.skip != 'true'
-        working-directory: infra/shared
+      - name: Plan (shared)
+        if: steps.check-secrets.outputs.skip != 'true' && !cancelled()
+        env:
+          TF_VAR_project: ${{ steps.auth.outputs.project_id }}
         run: |
-          pulumi login gs://${{ secrets.PULUMI_STATE_BUCKET }}
-          "$GITHUB_WORKSPACE/.github/scripts/pulumi-preview-summary.sh" "shared" shared
+          tofu -chdir=infra/shared init -input=false -lockfile=readonly
+          .github/scripts/tofu-plan-summary.sh "shared" infra/shared
 
-      - name: Pulumi preview (app/prod)
-        if: steps.check-secrets.outputs.skip != 'true'
-        working-directory: infra/app
-        run: '"$GITHUB_WORKSPACE/.github/scripts/pulumi-preview-summary.sh" "app (prod)" prod'
+      - name: Plan (app/prod)
+        if: steps.check-secrets.outputs.skip != 'true' && !cancelled()
+        env:
+          TF_VAR_project: ${{ steps.auth.outputs.project_id }}
+        run: |
+          tofu -chdir=infra/app init -input=false -lockfile=readonly -reconfigure -var-file=prod.tfvars
+          .github/scripts/tofu-plan-summary.sh "app (prod)" infra/app -var-file=prod.tfvars
 
-      - name: Pulumi preview (app/stg)
-        if: steps.check-secrets.outputs.skip != 'true'
-        working-directory: infra/app
-        run: '"$GITHUB_WORKSPACE/.github/scripts/pulumi-preview-summary.sh" "app (stg)" stg'
+      - name: Plan (app/stg)
+        if: steps.check-secrets.outputs.skip != 'true' && !cancelled()
+        env:
+          TF_VAR_project: ${{ steps.auth.outputs.project_id }}
+        run: |
+          tofu -chdir=infra/app init -input=false -lockfile=readonly -reconfigure -var-file=stg.tfvars
+          .github/scripts/tofu-plan-summary.sh "app (stg)" infra/app -var-file=stg.tfvars
 
-      - name: Comment preview on PR
+      - name: Comment plan on PR
         if: steps.check-secrets.outputs.skip != 'true' && always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PREVIEW=$(cat /tmp/pulumi-preview.txt 2>/dev/null || echo "Preview output not available")
-          gh pr comment "${{ github.event.pull_request.number }}" --body "## Pulumi Preview
-          ${PREVIEW}"
+          PLAN=$(cat /tmp/tofu-plan.txt 2>/dev/null || echo "Plan output not available")
+          gh pr comment "${{ github.event.pull_request.number }}" --body "## OpenTofu Plan
+          ${PLAN}"

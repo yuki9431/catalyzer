@@ -3,7 +3,8 @@ PORT ?= 8080
 
 .PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
 	pulumi-shared-install pulumi-shared-init pulumi-shared-preview pulumi-shared-shell \
-	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell
+	pulumi-app-install pulumi-app-init pulumi-app-preview pulumi-app-shell \
+	tofu-shared-plan tofu-shared-apply tofu-app-plan tofu-app-apply
 
 ## Docker イメージをビルド（キャッシュなし）
 build:
@@ -130,3 +131,30 @@ pulumi-app-shell:
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		$(PULUMI_IMAGE) \
 		sh -c "$(PULUMI_APP_LOGIN) && sh"
+
+# OpenTofu。state_bucket と image_uri は TF_VAR_* で渡す(手元は infra/.envrc)。project は gcloud の設定から入れる
+TOFU_ENV = TF_VAR_project=$${TF_VAR_project:-$$(gcloud config get-value project 2>/dev/null)}
+TOFU_SHARED = $(TOFU_ENV) tofu -chdir=infra/shared
+TOFU_APP = $(TOFU_ENV) tofu -chdir=infra/app
+# STACK は明示必須(上の Pulumi 用の既定値 prod を使わない)
+APP_VARS = -var-file=$(if $(and $(filter prod stg,$(STACK)),$(filter-out file,$(origin STACK))),$(STACK),$(error STACK=prod か STACK=stg を指定する)).tfvars
+
+## shared: plan（refresh 付き）
+tofu-shared-plan:
+	$(TOFU_SHARED) init -input=false -reconfigure
+	$(TOFU_SHARED) plan -input=false
+
+## shared: apply（手動で実行する）
+tofu-shared-apply:
+	$(TOFU_SHARED) init -input=false -reconfigure
+	$(TOFU_SHARED) apply
+
+## app: plan（refresh 付き。STACK=prod|stg が必須）
+tofu-app-plan:
+	$(TOFU_APP) init -input=false -reconfigure $(APP_VARS)
+	$(TOFU_APP) plan -input=false $(APP_VARS)
+
+## app: apply（通常は deploy が行う。手元で当てるときは最新を pull してから。古い tfvars だと image が戻る）
+tofu-app-apply:
+	$(TOFU_APP) init -input=false -reconfigure $(APP_VARS)
+	$(TOFU_APP) apply $(APP_VARS)
