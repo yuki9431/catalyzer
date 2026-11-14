@@ -16,6 +16,14 @@
       depNameTemplate: 'opentofu/opentofu',
       extractVersionTemplate: '^v(?<version>.+)$',
     },
+    {
+      // Dockerfile 以外で使う Go のイメージ(テストの docker run と Cloud Build の定義)も Go の版と一緒に上げる
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)Makefile$/', '/(^|/)\\.github/workflows/update-mslist\\.yml$/'],
+      matchStrings: ['golang:(?<currentValue>\\d+\\.\\d+-alpine)'],
+      depNameTemplate: 'golang',
+      datasourceTemplate: 'docker',
+    },
   ],
   packageRules: [
     {
@@ -43,6 +51,16 @@
       // OpenTofu 移行中は Infra CI が Pulumi を実行せず検証されない。PR-4 で Pulumi ごと消す
       matchFileNames: ['infra/**'],
       matchManagers: ['npm'],
+      automerge: false,
+    },
+    {
+      // go.mod・Dockerfile・CI・Makefile・Cloud Build の Go の版を1本の PR で揃える。minor 以上は CLAUDE.md・README の版も直すので手動
+      matchDepNames: ['go', 'golang'],
+      groupName: 'Go',
+    },
+    {
+      matchDepNames: ['go', 'golang'],
+      matchUpdateTypes: ['minor', 'major'],
       automerge: false,
     },
     {
