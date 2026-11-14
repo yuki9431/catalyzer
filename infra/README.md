@@ -21,7 +21,7 @@ infra/
 ## 初期セットアップ
 
 ```bash
-# 1. shared スタック初期化
+# 1. shared スタック初期化(移行中: shared は OpenTofu 管理。下の Pulumi 手順は PR-4 で書き換える)
 make pulumi-shared-install
 make pulumi-shared-init
 
@@ -60,8 +60,8 @@ make pulumi-shared-preview
 STACK=prod make pulumi-app-preview
 STACK=stg make pulumi-app-preview
 
-# 変更適用はシェルに入って対話的に実行
-make pulumi-shared-shell    # → pulumi up
+# 変更適用: shared は make で、app はシェルに入って対話的に実行
+make tofu-shared-apply      # shared は OpenTofu で反映(pulumi up は禁止)
 STACK=prod make pulumi-app-shell   # → pulumi up
 STACK=stg make pulumi-app-shell    # → pulumi up
 ```

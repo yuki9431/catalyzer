@@ -16,6 +16,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **画面確認（UI oracle）**: `make ui-check`（68画面をダーク・ライトの2テーマで計136枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
+- **HCL フォーマット**: `tofu fmt -check -recursive infra`（exit 0 が正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
 
 完了条件の既定値: 上記が全て成功していること。Go の変更は build+test+vet/lint、JS の変更は test-js を最低限通す。
@@ -61,7 +62,7 @@ FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 make pulumi-shared-preview            # shared プレビュー
 STACK=prod make pulumi-app-preview    # app(本番) プレビュー
 STACK=stg make pulumi-app-preview     # app(検証) プレビュー
-make pulumi-shared-shell              # shared シェル（pulumi upはここで）
+make pulumi-shared-shell              # shared シェル（pulumi up は禁止。shared は make tofu-shared-apply で反映）
 STACK=prod make pulumi-app-shell      # app(本番) シェル
 STACK=stg make pulumi-app-shell       # app(検証) シェル
 ```
@@ -150,7 +151,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
 - `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
-- `infra/shared/` — Pulumi IaC 共有リソース（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`）
+- `infra/shared/` — 共有リソース。OpenTofu(`main.tf`/`iam.tf`/`resources.tf`。`make tofu-shared-plan`/`apply`)へ移行中。Pulumi 版（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`） も PR-4 まで残す
 - `infra/app/` — Pulumi IaC 環境別リソース（自動更新の Cloud Run Job と Scheduler は config `autoRefreshEnabled` が true の環境（prod のみ）に作る。`index.ts` — Cloud Run, ドメインマッピング, CNAME）
 
 ## GitHub Actions
