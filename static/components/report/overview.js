@@ -1,11 +1,10 @@
-import { html, useState } from '../../htm-preact-standalone.js';
+import { html } from '../../htm-preact-standalone.js';
 import { themeReader } from '../../lib/theme.js';
 import { clampMetric } from '../../analysis/stats.js';
-import { cellDisplay, colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, signed } from '../../lib/format.js';
+import { colorBursts, colorDE, colorDeaths, colorDmgGiven, colorDmgTaken, colorExDmg, colorKD, colorKills, colorPct, signed } from '../../lib/format.js';
 import { Panel, SortableTable, SubSection, Table, Tips } from '../ui.js';
-import { Popover, usePopover } from '../popover.js';
 import { useThemeName } from '../chart-canvas.js';
-import { CompareRadar, SeasonChart, WinRateRowList } from '../charts.js';
+import { CompareRadar, WinRateRowList } from '../charts.js';
 
 // 2系列を重ねたレーダー（series: [{label, color, bg, data[]}]）
 // 全体・勝利時・敗北時を下のボタンで単一選択し、レーダーとテーブルを連動して切り替える
@@ -70,102 +69,10 @@ function BasicLensSection({ basic, pattern, lens }) {
   </div>`;
 }
 
-function PartnerDropdown({ items, idx, onSelect }) {
-  var pop = usePopover({});
-  var isOpen = pop.isOpen;
-  var current = items[idx];
-  var label = current.partner_name + (current.team_name ? ' 【' + current.team_name + '】' : '');
-  return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
-    <button class="panel-select-trigger" data-ui="select-trigger" ref=${pop.triggerRef} onClick=${pop.toggle}>
-      ${label} <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
-    </button>
-    <${Popover} pop=${pop} panelClass="panel-select-dropdown" ui="select-panel">
-      ${items.map(function (item, i) {
-        var itemLabel = item.partner_name + (item.team_name ? ' 【' + item.team_name + '】' : '');
-        return html`<button data-ui="select-item" class=${'panel-select-item' + (i === idx ? ' active' : '')}
-          onClick=${function () { onSelect(i); pop.close(); }}>${itemLabel}</button>`;
-      })}
-    </${Popover}>
-  </div>`;
-}
-
-function FixedPartnerPanel({ fp, fpItems, lens }) {
-  var idxRef = useState(0);
-  var idx = idxRef[0], setIdx = idxRef[1];
-  useThemeName();
-  var p = fpItems[idx];
-  if (!p) return null;
-  if (!lens) lens = 'all';
-  var cssVar = themeReader();
-
-  var myWl = (p.my_win_loss_pattern && p.my_win_loss_pattern.metrics) || [];
-  var partnerWl = (p.partner_win_loss_pattern && p.partner_win_loss_pattern.metrics) || [];
-  function valFor(metrics, label, allVal) {
-    if (lens === 'all') return allVal;
-    var m = metrics.find(function (m) { return m.label === label; });
-    if (!m) return null;
-    return lens === 'win' ? m.win_avg : m.loss_avg;
-  }
-
-  var specs = [
-    ['平均与ダメージ', p.my_stats.avg_dmg_given, p.partner_stats.avg_dmg_given, colorDmgGiven],
-    ['平均被ダメージ', p.my_stats.avg_dmg_taken, p.partner_stats.avg_dmg_taken, colorDmgTaken],
-    ['与被ダメ比', p.my_stats.dmg_efficiency, p.partner_stats.dmg_efficiency, function (n) { return colorDE(n, 3); }],
-    ['平均撃墜', p.my_stats.avg_kills, p.partner_stats.avg_kills, colorKills],
-    ['平均被撃墜', p.my_stats.avg_deaths, p.partner_stats.avg_deaths, colorDeaths],
-    ['K/D比', p.my_stats.kd_ratio, p.partner_stats.kd_ratio, colorKD],
-    ['平均EXダメージ', p.my_stats.avg_ex_dmg, p.partner_stats.avg_ex_dmg, colorExDmg],
-    ['平均覚醒回数', p.my_stats.avg_bursts, p.partner_stats.avg_bursts, colorBursts],
-  ];
-  var statsRows = specs.map(function (s) {
-    return [s[0], s[3](valFor(myWl, s[0], s[1])), s[3](valFor(partnerWl, s[0], s[2]))];
-  });
-
-  function pVec(stats, wlMetrics) {
-    function v(label, allVal) { return valFor(wlMetrics, label, allVal); }
-    return [
-      clampMetric(v('平均与ダメージ', stats.avg_dmg_given), 'dmgGiven'),
-      clampMetric(v('平均撃墜', stats.avg_kills), 'kills'),
-      clampMetric(v('平均覚醒回数', stats.avg_bursts), 'bursts'),
-      clampMetric(v('平均被ダメージ', stats.avg_dmg_taken), 'dmgTaken'),
-      clampMetric(v('平均被撃墜', stats.avg_deaths), 'deaths'),
-      clampMetric(v('平均EXダメージ', stats.avg_ex_dmg), 'exDmg'),
-    ];
-  }
-
-  var matchesLabel = lens === 'all' ? '試合数' : lens === 'win' ? '勝利数' : '敗北数';
-  var matchesVal = lens === 'all' ? (p.matches + '戦')
-    : lens === 'win' ? (p.wins + '戦') : (p.losses + '戦');
-  var lensLabel = lens === 'all' ? '全体' : lens === 'win' ? '勝利時' : '敗北時';
-
-  var headerRows = [
-    [matchesLabel, matchesVal, '-'],
-    ['勝率', lens === 'all' ? colorPct(p.win_rate) : '-', '-'],
-  ];
-
-  var msRows = (p.partner_ms_breakdown || []).map(function (m) { return [m.ms, m.matches, colorPct(m.win_rate)]; });
-
-  return html`<${Panel} title="固定相方">
-    ${fp.notice && html`<p style="margin-bottom: 12px; color: var(--muted); font-size: 0.875rem;">${fp.notice}</p>`}
-    ${fpItems.length > 1 ? html`<${PartnerDropdown} items=${fpItems} idx=${idx} onSelect=${setIdx} />` : html`<div class="ms-head">
-      <span class="name">${p.partner_name}${p.team_name ? html` <span class="meta">【${p.team_name}】</span>` : ''}</span>
-      <span>${p.matches}戦 ${cellDisplay(colorPct(p.win_rate))}</span>
-    </div>`}
-    <${CompareRadar} labels=${['与ダメ', '撃墜', '覚醒回数', '被ダメ', '被撃墜', 'EXダメ']} series=${[
-      { label: '自機 (' + lensLabel + ')', color: cssVar('--accent'), bg: cssVar('--accent-a20'), data: pVec(p.my_stats, myWl) },
-      { label: '僚機 (' + lensLabel + ')', color: cssVar('--bad'), bg: cssVar('--bad-a18'), data: pVec(p.partner_stats, partnerWl) },
-    ]} />
-    <${Table} headers=${['項目 (' + lensLabel + ')', '自機', '僚機']} rows=${headerRows.concat(statsRows)} />
-    ${msRows.length > 0 && html`<p><strong>僚機の内訳:</strong></p><${Table} headers=${['機体', '試合', '勝率']} rows=${msRows} />`}
-    <${Tips} tips=${p.tips} />
-  <//>`;
-}
-
 // 機体別の勝率比較に並べる最低試合数
 var msCompareMinMatches = 10;
 
 export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational }) {
-  var seasons = (frontendData && frontendData.season) || [];
   var msSummary = (frontendData && frontendData.ms_summary) || {};
   var natl = msNational || {};
   var msEntries = Object.keys(msSummary).sort(function (a, b) { return msSummary[b].matches - msSummary[a].matches; });
@@ -190,10 +97,6 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational })
     return [name, s.matches, s.basic_stats ? colorPct(s.basic_stats.win_rate) : '-', nw];
   });
 
-  var fp = (frontendData && frontendData.fixed_partners) || {};
-  var fpList = fp ? (fp.partners || fp) : [];
-  var fpItems = Array.isArray(fpList) ? fpList : [];
-
   return html`<div class="tabpane">
     ${pd.basic_stats && html`<${Panel} title="基本データ">
       <${BasicLensSection} basic=${pd.basic_stats} pattern=${pd.win_loss_pattern} lens=${lens} />
@@ -203,30 +106,11 @@ export function OverviewPane({ pd, selectedMs, lens, frontendData, msNational })
       <${Table} headers=${['機体名', '勝率', '全国平均', '差']} rows=${[[selectedMs, colorPct(pd.basic_stats.win_rate), colorPct(selNatl.win_rate), signed(pd.basic_stats.win_rate - selNatl.win_rate)]]} />
     <//>`}
 
-    ${seasons.length > 0 && html`<${Panel} title="シーズン別分析">
-      ${seasons.length > 1 && html`<${SeasonChart} seasons=${seasons} />`}
-      ${seasons.map(function (s) {
-        var rows = [['全体', s.matches, colorPct(s.win_rate), colorDE(s.dmg_efficiency, 3)]];
-        if (s.first_half) rows.push(['前半', s.first_half.matches, colorPct(s.first_half.win_rate), colorDE(s.first_half.dmg_efficiency, 3)]);
-        if (s.second_half) rows.push(['後半', s.second_half.matches, colorPct(s.second_half.win_rate), colorDE(s.second_half.dmg_efficiency, 3)]);
-        return html`<${SubSection} title=${s.name}>
-          <${Table} headers=${['期間', '試合', '勝率', '与被ダメ比']} rows=${rows} />
-          <${Tips} tips=${s.tips} />
-        <//>`;
-      })}
-    <//>`}
-
     ${!selectedMs && compareEntries.length > 1 && html`<${Panel} title=${compareEntries.some(function (e) { return typeof e.national === 'number'; }) ? '機体別の勝率比較（全国平均と比較）' : '機体別の勝率比較'}>
       <${WinRateRowList} entries=${compareEntries} />
       <${SubSection} title="表で見る">
         <${SortableTable} headers=${['機体名', '試合', '勝率', '全国平均']} rows=${msTableRows} defaultLimit=${10} />
       <//>
-    <//>`}
-
-    ${fpItems.length > 0 && html`<${FixedPartnerPanel} fp=${fp} fpItems=${fpItems} lens=${lens} />`}
-
-    ${!fpItems.length && fp && fp.notice && html`<${Panel} title="固定相方">
-      <p>${fp.notice}</p>
     <//>`}
   </div>`;
 }

@@ -1074,7 +1074,7 @@ describe('bestWorstHour', function () {
   });
 });
 
-// --- partnerKpi (タブ別KPI: 機体相性) ---
+// --- partnerKpi (タブ別KPI: 相性) ---
 
 describe('partnerKpi', function () {
   it('returns zero/nulls for null / empty', function () {

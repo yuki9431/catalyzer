@@ -4,7 +4,7 @@ var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
 var HERO = { overview: '勝率', playstyle: '先落ち率', burst: '平均覚醒回数', matchup: '得意な敵機', time: '最も勝率が高い時間帯' };
 var SUMMARY = function (tab) { return [['[data-ui="summary-hero"]', HERO[tab]], ['[data-ui="summary"] dt', null, 4], ['[data-ui="report-scope"]', '全期間・60試合']]; };
-var TABS = { playstyle: '立ち回り', burst: '覚醒', matchup: '機体相性', time: '時間帯' };
+var TABS = { playstyle: '立ち回り', burst: '覚醒', matchup: '相性', time: '時間帯' };
 var TABBAR_ITEM = '[data-ui="tabbar-item"]';
 var CURRENT = TABBAR_ITEM + '[aria-current="page"]';
 function goTab(label) { return { click: [TABBAR_ITEM, label] }; }
@@ -59,7 +59,7 @@ var SCREEN_DEFS = [
   { id: 'notice-session-expired', viewport: D, full: true, start: 'report-session-valid', ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: REANALYZE_BTN }], expectConsole: ['status of 401'],
     required: [['#loginForm'], ['#error [data-ui="notice"][role="alert"]', 'セッションが見つかりません'], ['#error [data-ui="notice-action"]', 'ログイン']] },
   { id: 'report-overview', viewport: D, full: true, start: 'report', ops: [],
-    required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="panel"] h2', 'シーズン別分析'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体'], REANALYZE_BTN].concat(SUMMARY('overview')) },
+    required: [[CURRENT, 'レポート'], ['[data-ui="tab"][aria-selected="true"]', '総合'], ['[data-ui="panel"] h2', '基本データ'], ['[data-ui="lens-toggle"] button[aria-pressed="true"]', '全体'], REANALYZE_BTN].concat(SUMMARY('overview')) },
   { id: 'mobile-home-few', home: true, viewport: M, full: true, start: 'report-today-3', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-card"]'] }],
     required: [[CURRENT, 'ホーム'], ['[data-ui="today-card"]', '今日 10/8'], ['[data-ui="today-compare"] tbody tr', null, 7]] },
   { id: 'mobile-home', home: true, viewport: M, full: true, start: 'report-today-12', clock: '2026-10-08T22:00:00+09:00', ops: [goTab('ホーム'), { wait: ['[data-ui="today-compare"]'] }],
@@ -75,12 +75,12 @@ var SCREEN_DEFS = [
     required: [[CURRENT, 'ホーム'], ['[data-ui="tabbar-dot"]', null, 3]] },
   report('report-playstyle', 'playstyle', ['被撃墜と勝率', 'ダメージ貢献率', '試合時間と勝率']),
   report('report-burst', 'burst', ['覚醒回数と勝率', '覚醒タイミング', 'OLスタンバイの順番と勝率']),
-  report('report-matchup', 'matchup', ['敵機との相性', '相手の階級別勝率', '僚機との相性'], [['details[open] table'], ['[data-ui="panel"] [data-ui="row-list"]', null, 3]], [{ click: ['summary', '表で見る'] }]),
+  report('report-matchup', 'matchup', ['敵機との相性', '相手の階級別勝率', '僚機との相性', '固定相方'], [['details[open] table'], ['[data-ui="panel"] [data-ui="row-list"]', null, 3]], [{ click: ['summary', '表で見る'] }]),
   { id: 'mobile-report-grade', viewport: M, full: false, start: 'report',
     ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="tab"]', TABS.matchup] }, { scroll: ['[data-ui="grade-partner"]'] }, { click: ['[data-ui="grade-partner"] button', '∞'] }],
     required: [['[data-ui="panel"] h2', '相手の階級別勝率'], ['[data-ui="grade-partner"] button', null, 5], ['[data-ui="grade-partner"] button[aria-pressed="true"]', '∞'], ['[data-ui="facts"]', '階級が分からない']],
     inview: [['[data-ui="grade-partner"]']], tap: ['[data-ui="grade-partner"] button'] },
-  report('report-time', 'time', ['時間帯別の勝率', '曜日別の勝率'], [['canvas']]),
+  report('report-time', 'time', ['時間帯別の勝率', '曜日別の勝率', 'シーズン別分析'], [['canvas']]),
   { id: 'dropdown-period', viewport: D, full: false, start: 'report', ops: [{ click: ['[data-ui="period-trigger"]'] }],
     required: [['[data-ui="period-panel"]'], ['[data-ui="period-item"]', null, 2]] },
   { id: 'dropdown-ms', viewport: D, full: false, start: 'report', ops: [{ click: ['[data-ui="ms-trigger"]'] }],
