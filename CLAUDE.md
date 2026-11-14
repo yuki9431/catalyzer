@@ -58,18 +58,16 @@ python3 -m http.server 8888 --directory static
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
-# Pulumiコマンド（Docker経由。secretはGCP KMSで暗号化するためパスフレーズ不要、ADCで復号）
-make pulumi-shared-preview            # shared プレビュー
-STACK=prod make pulumi-app-preview    # app(本番) プレビュー
-STACK=stg make pulumi-app-preview     # app(検証) プレビュー
-make pulumi-shared-shell              # shared シェル（pulumi up は禁止。shared は make tofu-shared-apply で反映）
-STACK=prod make pulumi-app-shell      # app(本番) シェル（pulumi up は禁止。image が古く巻き戻る。app は deploy.yml が tofu で当てる）
-STACK=stg make pulumi-app-shell       # app(検証) シェル（同上）
+# OpenTofu（state_bucket・image_uri は infra/.envrc の TF_VAR_*。project は gcloud の設定から入る）
+make tofu-shared-plan                 # shared の plan（refresh 付き）
+make tofu-shared-apply                # shared の apply（CI は shared を apply しない）
+STACK=prod make tofu-app-plan         # app の plan（STACK=prod|stg は必須）
+STACK=stg make tofu-app-apply         # app の apply（通常は deploy.yml。手元は最新を pull してから）
 ```
 
 http://localhost:8080 でアクセス可能。
 
-**ローカル環境にGoはインストール済み。Pulumiはインストールされていない。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。Pulumi のsecretは GCP KMS で暗号化しており（各スタックの `secretsprovider: gcpkms://...`）、`gcloud auth application-default login` 済みのADCで復号する。パスフレーズは不要。
+**ローカル環境にGoと OpenTofu（`brew install opentofu`）はインストール済み。** テストやビルドはDocker経由（Makefile）でも直接でも実行可能。tofu の state と plan は GCP KMS で暗号化しており、`gcloud auth application-default login` 済みのADCで復号する。
 
 CIでは `golangci-lint`、`go test -race`（カバレッジ計測付き）、`go build`、`node --test`（JSテスト）を実行。ラベル `skip-ci` でスキップ可能。
 
@@ -151,8 +149,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
 - `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
-- `infra/shared/` — 共有リソース。OpenTofu(`main.tf`/`iam.tf`/`resources.tf`。`make tofu-shared-plan`/`apply`)へ移行中。Pulumi 版（`apis.ts`, `artifact-registry.ts`, `storage.ts`, `firestore.ts`, `dns.ts`, `iam.ts`, `secrets.ts`（セッション鍵と公式サイトのログイン情報の Secret。値の版は gcloud で手作業で足し Pulumi に入れない）, `budget.ts`） も PR-4 まで残す
-- `infra/app/` — 環境別リソース（Cloud Run, ドメインマッピング, CNAME。自動更新の Cloud Run Job と Scheduler は prod のみ）。OpenTofu(`main.tf`（環境差は `locals.envs`）/`run.tf`/`{prod,stg}.tfvars`。`make tofu-app-plan STACK=prod|stg`)で管理し、build・deploy も tofu。Pulumi 版（`index.ts`）は PR-4 で消すまで残るが使わない
+- `infra/shared/` — OpenTofu の共有リソース（`main.tf`（backend・state 暗号化・API）/`iam.tf`（SA・WIF・IAM）/`resources.tf`（Artifact Registry・GCS・DNS・Firestore・Secret。Secret の値の版は gcloud で手作業で足し tofu に入れない））。手元から `make tofu-shared-apply` で反映する
+- `infra/app/` — 環境別リソース（Cloud Run, ドメインマッピング, CNAME。自動更新の Cloud Run Job と Scheduler は prod のみ）。OpenTofu(`main.tf`（環境差は `locals.envs`）/`run.tf`/`{prod,stg}.tfvars`。`make tofu-app-plan STACK=prod|stg`)で管理し、build.yml が tfvars の `image_tag` を書き換え、deploy.yml が apply する
 
 ## GitHub Actions
 
@@ -179,7 +177,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 ## 主要な技術情報
 
 - **Go 1.26**、Webフレームワーク不使用（標準 `net/http`）
-- **Pulumi (TypeScript)** でインフラ管理
+- **OpenTofu (HCL)** でインフラ管理（`infra/README.md`）
 - ストレージはFirestore（環境変数 `FIRESTORE_DATABASE` で指定）、ユーザーキーは SHA256(email)[:8] の16進数
 - Cloud Runデプロイ、`PORT` 環境変数（デフォルト 8080）
 - 戦績は**古い順**に取得する（日別一覧・日内の試合とも）。403 で途中終了したときは古い側から途切れず取れた分だけを保存し、次回はその続きから取る（#456）

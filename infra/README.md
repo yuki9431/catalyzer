@@ -1,117 +1,71 @@
-# インフラ管理 (Pulumi)
+# インフラ管理 (OpenTofu)
 
-GCPリソースをPulumi (TypeScript) で管理する。2プロジェクト構成で環境を分離。
+GCP リソースを OpenTofu (HCL) で管理する。1つの GCP プロジェクトに、共有リソースと環境ごと(prod / stg)のリソースを置く。
 
 ## ディレクトリ構成
 
 ```
 infra/
-├── shared/    ← 共有リソース（API, IAM, DNS, GCS, Artifact Registry, Secret Manager）
-│   └── スタック: shared（固定）
-└── app/       ← 環境ごとにデプロイするリソース（Cloud Run, ドメインマッピング）
-    ├── スタック: prod
-    └── スタック: stg
+├── .opentofu-version  ← CI と手元で使う OpenTofu の版
+├── shared/            ← 共有リソース。手元から手動で apply する
+│   ├── main.tf        ← backend・state 暗号化・変数・API
+│   ├── iam.tf         ← SA・WIF・カスタムロール・IAM の付与
+│   └── resources.tf   ← Artifact Registry・GCS・DNS・Firestore・Secret Manager
+└── app/               ← 環境ごとのリソース。deploy.yml が apply する
+    ├── main.tf        ← backend・変数・環境差(locals.envs)・自動更新の設定
+    ├── run.tf         ← Cloud Run サービス・公開 IAM・ドメインマッピング・CNAME・自動更新の Job と Scheduler
+    └── {prod,stg}.tfvars ← env と image_tag(image_tag は build.yml が書き換える)
 ```
+
+state は GCS バケットの `tofu/shared`・`tofu/app/<env>` に置き、KMS 鍵(`keyRings/pulumi-secrets/cryptoKeys/pulumi-state`)で state と plan を暗号化する。
 
 ## 前提条件
 
-- Docker（ローカル実行はMakefile経由）
-- GCP認証 (`gcloud auth application-default login`)
-
-## 初期セットアップ
-
-```bash
-# 1. shared スタック初期化(移行中: shared は OpenTofu 管理。下の Pulumi 手順は PR-4 で書き換える)
-make pulumi-shared-install
-make pulumi-shared-init
-
-# 2. shared の設定値をセット
-make pulumi-shared-shell
-pulumi config set gcp:project <PROJECT_ID> --secret
-pulumi config set exvs-shared:artifactRegistryRepo <REPO_NAME> --secret
-# ... 他の secret も同様
-
-# 3. app スタック初期化（prod / staging。移行後は app も OpenTofu 管理で、pulumi up は禁止。PR-4 で書き換える）
-make pulumi-app-install
-STACK=prod make pulumi-app-init
-STACK=stg make pulumi-app-init
-
-# 4. app の設定値をセット
-STACK=prod make pulumi-app-shell
-pulumi config set gcp:project <PROJECT_ID> --secret
-pulumi config set exvs-app:image <IMAGE_URI> --secret
-pulumi config set exvs-app:sessionKeyVersion <版番号>
-
-# 5. セッション鍵の版を追加（環境ごとに別の鍵。末尾に改行が入ると鍵が不正になり暗号化が黙って無効になる）
-openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add <Secret ID> --data-file=-
-
-# 6. 公式サイトのログイン情報の版を追加（MSリスト更新用。履歴に残さないよう read で受け、末尾に改行を入れない）
-read -r U && printf '%s' "$U" | gcloud secrets versions add official-site-username --data-file=-
-read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-password --data-file=-; unset U P
-```
+- OpenTofu(`brew install opentofu`。版は `infra/.opentofu-version`)
+- GCP 認証(`gcloud auth application-default login`)と `gcloud config set project <PROJECT_ID>`
+- `infra/.envrc`(gitignore 済み)で `TF_VAR_state_bucket` と `TF_VAR_image_uri` を export する。`TF_VAR_project` は Makefile が gcloud の設定から入れる
 
 ## 日常操作
 
 ```bash
-# shared プレビュー
-make pulumi-shared-preview
-
-# app プレビュー（STACK で環境指定）
-STACK=prod make tofu-app-plan   # app は OpenTofu で管理(Pulumi の app は使わない)
-
-# 変更適用(shared・app とも make で)
-make tofu-shared-apply      # shared は OpenTofu で反映(pulumi up は禁止)
-STACK=stg make tofu-app-apply     # app は通常 deploy.yml が当てる。手元で当てるときだけ
+make tofu-shared-plan          # shared の plan(refresh 付き)
+make tofu-shared-apply         # shared の apply(CI は shared を apply しない)
+STACK=prod make tofu-app-plan  # app の plan(STACK=prod|stg は必須)
+STACK=stg make tofu-app-apply  # app は通常 deploy.yml が当てる。手元で当てるときは最新を pull してから
 ```
 
-## デプロイフロー
+差分が無いかをスクリプトで判定するときは `-detailed-exitcode` を付ける(付けないと差分があっても exit 0)。
 
-```
-コード変更 → mainマージ → staging に自動デプロイ
-確認OK → gh workflow run cd.yml (environment=prod) → 本番デプロイ
+## 手作業で入れる値
+
+```bash
+# セッション鍵の版を追加（環境ごとに別の鍵。末尾に改行が入ると鍵が不正になり暗号化が黙って無効になる）
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add <Secret ID> --data-file=-
+# 使う版は infra/app/main.tf の local.session_key.version で変える(PR → deploy 後に旧版を destroy)
+
+# 公式サイトのログイン情報の版を追加（MSリスト更新用。履歴に残さないよう read で受け、末尾に改行を入れない）
+read -r U && printf '%s' "$U" | gcloud secrets versions add official-site-username --data-file=-
+read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-password --data-file=-; unset U P
 ```
 
 ## GitOps
 
 | タイミング | ワークフロー | 内容 |
 |-----------|-------------|------|
-| PR作成/更新 | `infra-ci.yml` | `tofu fmt -check` と shared + app (prod/stg) の `tofu plan`（refresh なし） |
-| mainマージ | `cd.yml` | ビルド → staging に自動デプロイ |
-| 手動実行 | `cd.yml` | 指定環境（prod/staging）にデプロイ |
-
-## 管理対象リソース
-
-### shared
-
-| リソース | ファイル |
-|---------|---------|
-| 有効化API | `apis.ts` |
-| Artifact Registry | `artifact-registry.ts` |
-| GCSバケット | `storage.ts` |
-| Cloud DNS ゾーン | `dns.ts` |
-| IAM / WIF | `iam.ts` |
-| セッション鍵・公式サイトのログイン情報の Secret(版は手作業で追加) | `secrets.ts` |
-| 予算アラート | `budget.ts` |
-
-### app
-
-| リソース | ファイル |
-|---------|---------|
-| Cloud Run サービス | `index.ts` |
-| ドメインマッピング | `index.ts` |
-| CNAME レコード | `index.ts` |
+| PR作成/更新 | `infra-ci.yml` | `tofu fmt -check` と shared + app (prod/stg) の `tofu plan`（refresh・lock なし）。PR コメントは件数とアドレスだけ |
+| develop / main への push | `build.yml` | イメージをビルドし、`infra/app/<env>.tfvars` の `image_tag` を書き換えて deploy を呼ぶ |
+| `infra/app/**` の push・dispatch | `deploy.yml` | `tofu apply`(refresh 付き)。develop → stg、main → prod |
 
 ## GitHub Secrets
 
 | Secret | 説明 |
 |--------|------|
-| `PULUMI_STATE_BUCKET` | Pulumiステート保存用GCSバケット名 |
-| `TF_STATE_BUCKET` | OpenTofu の state を置く GCS バケット名（値は `PULUMI_STATE_BUCKET` と同じ） |
+| `TF_STATE_BUCKET` | OpenTofu の state を置く GCS バケット名 |
 | `IMAGE_URI` | コンテナイメージURIベース（Infra CI は environment を使わないので repo の secret に置く） |
 | `WIF_PROVIDER` | Workload Identity Provider |
-| `WIF_PR_SERVICE_ACCOUNT` | PR の preview 用 SA(`gha-pr`)。repo の secret |
+| `WIF_PR_SERVICE_ACCOUNT` | PR の plan 用 SA(`gha-pr`)。repo の secret |
 | `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)、`mslist` は `gha-mslist`(MSリスト更新の Cloud Build 起動)。environment `prod` は main、`mslist` は develop のみ |
 
-## シークレットの暗号化
+## 鍵と権限
 
-Pulumi config の secret 値は **GCP KMS** で暗号化する（各スタックの `secretsprovider: gcpkms://...`）。パスフレーズは不要。ローカルは ADC、CI は WIF で連合した SA（PR の preview は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`）が KMS 鍵（`pulumi-secrets/pulumi-state`）で復号する。OpenTofu の state 暗号化は plan でも Encrypt を呼ぶので、`gha-pr` にも暗号化の権限がある。
+ローカルは ADC、CI は WIF で連合した SA(PR の plan は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`)が KMS 鍵で state を復号・暗号化する。OpenTofu の state 暗号化は plan でも Encrypt を呼ぶので、`gha-pr` にも暗号化の権限がある。KMS 鍵・cloudbuild バケット・`github-actions` の KMS 付与は tofu の管理外(#599)。

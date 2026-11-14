@@ -48,12 +48,6 @@
       enabled: false,
     },
     {
-      // OpenTofu 移行中は Infra CI が Pulumi を実行せず検証されない。PR-4 で Pulumi ごと消す
-      matchFileNames: ['infra/**'],
-      matchManagers: ['npm'],
-      automerge: false,
-    },
-    {
       // go.mod・Dockerfile・CI・Makefile・Cloud Build の Go の版を1本の PR で揃える。minor 以上は CLAUDE.md・README の版も直すので手動
       matchDepNames: ['go', 'golang'],
       groupName: 'Go',
