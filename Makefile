@@ -25,7 +25,7 @@ stop:
 
 ## Go テストを実行
 test:
-	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.27-alpine go test ./internal/...
+	docker run --rm -v "$(CURDIR)":/app -w /app golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 go test ./internal/...
 
 ## JS テストを実行（フロントエンド・ui-check・CI スクリプト。CI スクリプトのテストは bash と jq が要る）
 test-js:
@@ -53,7 +53,7 @@ extract-grades:
 		-e GCP_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
 		-e FIRESTORE_DATABASE \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
-		golang:1.27-alpine go run ./cmd/extract-grades
+		golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 go run ./cmd/extract-grades
 
 # OpenTofu。state_bucket と image_uri は TF_VAR_* で渡す(手元は infra/.envrc)。project は gcloud の設定から入れる
 TOFU_ENV = TF_VAR_project=$${TF_VAR_project:-$$(gcloud config get-value project 2>/dev/null)}
