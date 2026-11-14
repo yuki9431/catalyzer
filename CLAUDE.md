@@ -63,8 +63,8 @@ make pulumi-shared-preview            # shared プレビュー
 STACK=prod make pulumi-app-preview    # app(本番) プレビュー
 STACK=stg make pulumi-app-preview     # app(検証) プレビュー
 make pulumi-shared-shell              # shared シェル（pulumi up は禁止。shared は make tofu-shared-apply で反映）
-STACK=prod make pulumi-app-shell      # app(本番) シェル
-STACK=stg make pulumi-app-shell       # app(検証) シェル
+STACK=prod make pulumi-app-shell      # app(本番) シェル（pulumi up は禁止。image が古く巻き戻る。app は deploy.yml が tofu で当てる）
+STACK=stg make pulumi-app-shell       # app(検証) シェル（同上）
 ```
 
 http://localhost:8080 でアクセス可能。
@@ -170,7 +170,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 
 - **PRのマージは絶対に勝手に行わない。** 必ずユーザーの明示的な指示を待つ
 - 作業ブランチのPRは `develop` 向けに作る。本番リリースは `develop` → `main` のPR
-- PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）
+- PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）。止めるのは build（イメージ更新）だけで、`infra/app/**` の変更はラベルに関係なくマージで apply される
 - Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける（Renovate の PR には付けない。skipped のチェックも緑とみなして自動マージされる）
 - **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `no-deploy` なしでPRをマージ、または `gh workflow run build.yml --ref <branch>` で手動実行（main は prod、それ以外は stg）
@@ -191,7 +191,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
 - 自動更新(#288): prod のみ有効。サービスの env `AUTO_REFRESH_JOB`/`AUTO_REFRESH_AUDIENCE`/`AUTO_REFRESH_INVOKER`/`AUTO_REFRESH_PASSPHRASE_HASH`/`AUTO_REFRESH_OPEN` は infra/app が設定（未設定の環境は有効化 POST が503・tick が404・状態取得 GET が200で available:false・touch が200で status:"off"）。合言葉は `go run ./cmd/hash-passphrase` でハッシュを作り `infra/app/main.tf` の `local.auto_refresh.passphrase_hash` に書く PR を出す（平文で置く判断。一般ユーザーを除けるだけでよい）。設計は `docs/design/2026-10-05-auto-refresh.md`
-- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/secrets.ts`）に置き、infra/app の `local.session_key.version`（`main.tf`）で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→その版を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
+- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/resources.tf`）に置き、infra/app の `local.session_key.version`（`main.tf`）で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→その版を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
 - 試合の一意キーは詳細ページURL由来の `MatchID`（`model.DatedScore.GroupKey()` に一元化）。MatchID未設定のlegacyデータは分精度日時にフォールバックする（#358。実データでは同じ分に試合は1つで、同一分の区別は保険）。詳細URLの param は日を跨ぐと変わるため、保存済みの試合を MatchID で照合しない（差分取得の since は保存済みの最新日時ちょうど。#522）
 
 ## Goコーディング規約

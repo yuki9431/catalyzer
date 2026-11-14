@@ -55,8 +55,10 @@ jobs:
       TF_IN_AUTOMATION: "true"
 
     steps:
+      # 起動時のコミットではなくブランチの先端を当てる。再実行や実行順の逆転で古いタグに戻さない
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.ref }}
           persist-credentials: false
 
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
@@ -83,4 +85,4 @@ jobs:
           TF_VAR_project: ${{ steps.auth.outputs.project_id }}
         run: |
           tofu -chdir=infra/app init -input=false -lockfile=readonly -var-file="${STACK}.tfvars"
-          tofu -chdir=infra/app apply -auto-approve -input=false -var-file="${STACK}.tfvars"
+          tofu -chdir=infra/app apply -auto-approve -input=false -lock-timeout=5m -var-file="${STACK}.tfvars"

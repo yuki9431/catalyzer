@@ -154,7 +154,7 @@ tofu-app-plan:
 	$(TOFU_APP) init -input=false -reconfigure $(APP_VARS)
 	$(TOFU_APP) plan -input=false $(APP_VARS)
 
-## app: apply（通常は deploy が行う。手元で当てるときだけ使う）
+## app: apply（通常は deploy が行う。手元で当てるときは最新を pull してから。古い tfvars だと image が戻る）
 tofu-app-apply:
 	$(TOFU_APP) init -input=false -reconfigure $(APP_VARS)
 	$(TOFU_APP) apply $(APP_VARS)

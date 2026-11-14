@@ -31,7 +31,7 @@ pulumi config set gcp:project <PROJECT_ID> --secret
 pulumi config set exvs-shared:artifactRegistryRepo <REPO_NAME> --secret
 # ... 他の secret も同様
 
-# 3. app スタック初期化（prod / staging）
+# 3. app スタック初期化（prod / staging。移行後は app も OpenTofu 管理で、pulumi up は禁止。PR-4 で書き換える）
 make pulumi-app-install
 STACK=prod make pulumi-app-init
 STACK=stg make pulumi-app-init
@@ -57,8 +57,6 @@ read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-passw
 make pulumi-shared-preview
 
 # app プレビュー（STACK で環境指定）
-STACK=prod make pulumi-app-preview
-STACK=stg make pulumi-app-preview
 STACK=prod make tofu-app-plan   # app は OpenTofu で管理(Pulumi の app は使わない)
 
 # 変更適用(shared・app とも make で)

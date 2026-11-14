@@ -202,12 +202,13 @@ resource "google_project_iam_member" "sa" {
 
 **PR-3**
 - マージの前に、PR ブランチで `deploy.yml`(stg)を dispatch し、成功して `0 added, 0 changed, 0 destroyed` と出ることを確かめる(refresh の権限確認を兼ねる)
-- develop にマージすると build が新しいタグを書き、stg に tofu で出す
+- PR-3 は COPY 対象に触れず content key が変わらないので、develop マージでは build がコミットせず deploy も起きない。build→tfvars のコミット→dispatch の経路は、次にイメージが変わる PR(develop で stg、リリースで prod と sync-develop)で確かめる
 - prod へのリリースの直前に次のゲートを通す:
-  - `gh workflow disable update-mslist.yml` で MS リスト更新を止める
-  - `make tofu-app-plan STACK=prod` が exit 0 であること
+  - `gh workflow disable update-mslist.yml` で MS リスト更新を止め、`gh run list --workflow=update-mslist.yml` に in_progress・queued の run が無く、mslist の PR も開いていないこと
+  - `git merge-base --is-ancestor origin/main origin/develop` が成功し、main で build・deploy が実行中でないこと
+  - 最新の develop で `make tofu-app-plan STACK=prod` が exit 0 であること(image 以外の差分も無いこと)
   - exit 0 にならず image_tag の差なら、develop の prod.tfvars を今の prod のタグに更新する PR を先に入れる。古いタグのまま deploy が push で走り、巻き戻るのを防ぐため
-- リリースして prod の build と deploy が成功したら、update-mslist を有効に戻す
+- リリース後、main の deploy run がすべて success で、Cloud Run(サービスと Job)の image タグが main の prod.tfvars と一致したら、update-mslist を有効に戻す
 
 **PR-4 の前**
 - `pulumi stack rm --force -y` を shared・prod・stg の3つで実行する
@@ -215,6 +216,7 @@ resource "google_project_iam_member" "sa" {
 - secret `PULUMI_STATE_BUCKET` を削除する
 
 **ロールバック**
+- PR-3 の後・stack rm の前なら、PR-3 を revert すれば Pulumi の build が config を今のタグに書き直してから deploy するので戻れる
 - PR-3 より前なら、PR を revert して `tofu state rm` するだけで済む(cloud のリソースは消さない)。PR-2 を revert するときは、続けて `make tofu-shared-apply` で gha-pr の lock 用付与と Decrypter を戻す(Pulumi の preview は `.pulumi/locks/` に書く)。`tofu state rm` の対象は `tofu/app/<env>` だけで、shared の state は残す
 - stack rm の後なら、`pulumi stack import --file <backup>` で戻して workflow を revert する
 
@@ -236,7 +238,7 @@ resource "google_project_iam_member" "sa" {
 | PR の plan | 該当 PR の `gh pr checks` | Infra CI が pass |
 | PR のコメント | `gh pr view <n> --comments` | `## OpenTofu Plan` があり、3つの節がどれも「変更なし」 |
 | build と deploy の切り替え | PR-3 ブランチで `gh workflow run deploy.yml --ref <branch> -f environment=stg` を実行し、その run を `gh run view` で見る | conclusion success、ログに `0 added, 0 changed, 0 destroyed` |
-| stg の更新経路 | develop マージ後の `gh run list --workflow=deploy.yml --branch develop -L1` | success |
+| stg の更新経路 | PR-3 マージ後に最初にイメージが変わる develop の deploy run を `gh run view --log` | success、ログに `Apply complete!`、Cloud Run の image タグが develop の stg.tfvars と一致 |
 | prod の更新経路 | リリース後の `gh run list --workflow=deploy.yml --branch main -L1` | success |
 | Pulumi のファイルが残っていない | `git ls-files infra \| grep -E '\.ts$\|package.*\.json$\|tsconfig\|Pulumi'` | 0行 |
 | Pulumi への言及が残っていない | `grep -rniI pulumi .github Makefile infra CLAUDE.md README.md renovate.json5 \| grep -v 'keyRings/pulumi-secrets'` | 0行 |
