@@ -3,7 +3,7 @@ module github.com/yuki9431/catalyzer
 go 1.26.0
 
 require (
-	cloud.google.com/go/compute/metadata v0.9.0
+	cloud.google.com/go/compute/metadata v0.10.0
 	cloud.google.com/go/firestore v1.21.0
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/gocolly/colly/v2 v2.1.0
