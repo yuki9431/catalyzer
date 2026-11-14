@@ -35,7 +35,7 @@ function actions(r, deaths, bursts, end) {
 function overlimit(list, k, end, fire, standby) {
   if (k === 0) return;
   list.push({ action: 'ov', action_start_sec: standby, action_end_sec: k === 2 ? fire : end });
-  if (k === 2) list.push({ action: 'exbst-ov', action_start_sec: fire, action_end_sec: 0 });
+  if (k === 2) list.push({ action: 'exbst-ov', action_start_sec: fire, action_end_sec: Math.min(fire + 10, end) });
   list.sort(function (a, b) { return a.action_start_sec - b.action_start_sec; });
 }
 
