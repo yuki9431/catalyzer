@@ -288,9 +288,9 @@ function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, onOpen
   return html`<button type="button" class=${'search-item ' + (match.win ? 'win' : 'lose')} data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
       <span class=${'badge ' + (match.win ? 'win' : 'lose')}>${match.win ? 'WIN' : 'LOSE'}</span>
+      ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       ${streakLabel(streak) && html`<span class="search-item-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
-      ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
@@ -483,7 +483,7 @@ function MatchDetail({ match, msImages, conds, streak, onClose }) {
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
     <span class="search-layer-date">${match.date}</span>`;
   return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
-    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${streakLabel(streak) && html`<span class="search-detail-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}</p>
+    <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}${streakLabel(streak) && html`<span class="search-detail-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
 
