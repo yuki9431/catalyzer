@@ -50,7 +50,7 @@ func TestBuildMatchData_AfterBoundaryIsStrict(t *testing.T) {
 	// after より前 — 除外されるべき
 	scores = append(scores, match(base.Add(-time.Minute), true)...)
 
-	got := BuildMatchData(scores, nil, base)
+	got := BuildMatchData(scores, nil, nil, base)
 
 	if len(got) != 1 {
 		t.Fatalf("境界(=after)と過去は除外し、after超のみ返すはず: want 1 match, got %d", len(got))
@@ -64,7 +64,7 @@ func TestBuildMatchData_AfterBoundaryIsStrict(t *testing.T) {
 func TestBuildMatchData_PopulatesTeamNames(t *testing.T) {
 	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
 
-	got := BuildMatchData(match(base, true), nil, time.Time{})
+	got := BuildMatchData(match(base, true), nil, nil, time.Time{})
 	if len(got) != 1 {
 		t.Fatalf("want 1 match, got %d", len(got))
 	}
@@ -80,7 +80,7 @@ func TestBuildMatchData_PopulatesTeamNames(t *testing.T) {
 func TestBuildMatchData_PopulatesPlayerNames(t *testing.T) {
 	base := time.Date(2026, 7, 4, 21, 30, 0, 0, time.UTC)
 
-	got := BuildMatchData(match(base, true), nil, time.Time{})
+	got := BuildMatchData(match(base, true), nil, nil, time.Time{})
 	if len(got) != 1 {
 		t.Fatalf("want 1 match, got %d", len(got))
 	}
@@ -114,7 +114,7 @@ func TestBuildMatchData_PopulatesOpponentScores(t *testing.T) {
 		}},
 	}
 
-	got := BuildMatchData(ds, nil, time.Time{})
+	got := BuildMatchData(ds, nil, nil, time.Time{})
 	if len(got) != 1 {
 		t.Fatalf("want 1 match, got %d", len(got))
 	}
@@ -136,7 +136,7 @@ func TestBuildMatchData_ZeroAfterReturnsAll(t *testing.T) {
 	scores = append(scores, match(base, true)...)
 	scores = append(scores, match(base.Add(time.Hour), false)...)
 
-	got := BuildMatchData(scores, nil, time.Time{})
+	got := BuildMatchData(scores, nil, nil, time.Time{})
 
 	if len(got) != 2 {
 		t.Fatalf("afterゼロ値なら全試合を返すはず: want 2 matches, got %d", len(got))
@@ -153,7 +153,7 @@ func TestBuildMatchData_IncompleteMatchDropped(t *testing.T) {
 	// 3人しかいない試合はスキップされる（4人揃わないと集計できない）
 	scores := match(base, true)[:3]
 
-	got := BuildMatchData(scores, nil, time.Time{})
+	got := BuildMatchData(scores, nil, nil, time.Time{})
 
 	if len(got) != 0 {
 		t.Fatalf("4人揃わない試合はスキップされるはず: want 0, got %d", len(got))
@@ -169,7 +169,7 @@ func TestBuildMatchData_SameMinuteTwoMatches(t *testing.T) {
 	scores = append(scores, matchWithID(base, true, "match-a")...)
 	scores = append(scores, matchWithID(base, false, "match-b")...)
 
-	got := BuildMatchData(scores, nil, time.Time{})
+	got := BuildMatchData(scores, nil, nil, time.Time{})
 
 	if len(got) != 2 {
 		t.Fatalf("同一分でもMatchIDが異なれば両試合とも集計に含まれるはず(#358): want 2 matches, got %d", len(got))
@@ -187,7 +187,7 @@ func TestBuildMatchData_PopulatesMode(t *testing.T) {
 	}
 	legacy := match(base.Add(time.Minute), true)
 
-	got := BuildMatchData(append(shuffle, legacy...), nil, time.Time{})
+	got := BuildMatchData(append(shuffle, legacy...), nil, nil, time.Time{})
 	modes := map[string]string{}
 	for _, m := range got {
 		modes[m.Date] = m.Mode
@@ -208,7 +208,7 @@ func TestBuildMatchData_PopulatesWinStreak(t *testing.T) {
 	}
 	legacy := match(base.Add(time.Minute), true)
 
-	got := BuildMatchData(append(won, legacy...), nil, time.Time{})
+	got := BuildMatchData(append(won, legacy...), nil, nil, time.Time{})
 	streaks := map[string]int{}
 	for _, m := range got {
 		streaks[m.Date] = m.WinStreak
@@ -218,5 +218,37 @@ func TestBuildMatchData_PopulatesWinStreak(t *testing.T) {
 	}
 	if s := streaks[base.Add(time.Minute).Format("2006-01-02 15:04")]; s != 0 {
 		t.Errorf("取得前の試合の連勝数は0(省略)のはず: got %d", s)
+	}
+}
+
+// 階級は形式に合う方(固定=チーム、シャッフル=シャッフル)を通し番号で返し、未登録・形式不明は0
+func TestBuildMatchData_GradeByMode(t *testing.T) {
+	ranks := map[string]int{"https://x/team.png": 41, "https://x/shuffle.png": 35}
+	withGrades := func(dt time.Time, mode string) model.DatedScores {
+		ds := match(dt, true)
+		for i := range ds {
+			ds[i].MatchMode = mode
+			ds[i].PlayerScore.TeamGradeURL = "https://x/team.png?v=1"
+			ds[i].PlayerScore.ShuffleGradeURL = "https://x/shuffle.png"
+		}
+		ds[3].PlayerScore.TeamGradeURL = "https://x/unknown.png"
+		return ds
+	}
+	base := time.Date(2026, 7, 4, 21, 0, 0, 0, time.UTC)
+	var scores model.DatedScores
+	scores = append(scores, withGrades(base, model.MatchModeFixed)...)
+	scores = append(scores, withGrades(base.Add(time.Minute), model.MatchModeShuffle)...)
+	scores = append(scores, withGrades(base.Add(2*time.Minute), "")...)
+
+	got := BuildMatchData(scores, nil, ranks, time.Time{})
+	if len(got) != 3 {
+		t.Fatalf("got %d matches, want 3", len(got))
+	}
+	want := [][4]int{{41, 41, 41, 0}, {35, 35, 35, 35}, {0, 0, 0, 0}}
+	for i, m := range got {
+		g := [4]int{m.Grade, m.PartnerGrade, m.Opponent1Grade, m.Opponent2Grade}
+		if g != want[i] {
+			t.Errorf("match %d (%q): grades = %v, want %v", i, m.Mode, g, want[i])
+		}
 	}
 }

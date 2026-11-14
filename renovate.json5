@@ -1,11 +1,14 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  extends: ['config:recommended'],
+  // pinDigests: イメージのタグに digest を付けて固定する PR を Renovate が出す
+  extends: ['config:recommended', 'docker:pinDigests'],
   // サプライチェーン攻撃対策。公開から3日経つまで PR を作らない
   minimumReleaseAge: '3 days',
   internalChecksFilter: 'strict',
   // develop にブランチ保護が無いため、GitHub ネイティブの auto-merge だと CI 失敗でもマージされうる
   platformAutomerge: false,
+  // 実行が毎時なので時間あたりの上限は要らない。同時に開く PR の上限(既定 10)は残す
+  prHourlyLimit: 0,
   postUpdateOptions: ['gomodTidy'],
   customManagers: [
     {
@@ -17,21 +20,43 @@
       extractVersionTemplate: '^v(?<version>.+)$',
     },
     {
-      // Dockerfile 以外で使う Go のイメージ(テストの docker run と Cloud Build の定義)も Go の版と一緒に上げる
+      // Dockerfile 以外のイメージ(docker run・Cloud Build・Renovate 本体)。digest が無ければ付ける
       customType: 'regex',
-      managerFilePatterns: ['/(^|/)Makefile$/', '/(^|/)\\.github/workflows/update-mslist\\.yml$/'],
-      matchStrings: ['golang:(?<currentValue>\\d+\\.\\d+-alpine)'],
-      depNameTemplate: 'golang',
+      managerFilePatterns: ['/(^|/)Makefile$/', '/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/'],
+      matchStrings: ['(?<depName>golang|renovate/renovate):(?<currentValue>[\\w.-]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?'],
+      autoReplaceStringTemplate: '{{depName}}:{{newValue}}{{#if newDigest}}@{{newDigest}}{{/if}}',
       datasourceTemplate: 'docker',
     },
   ],
   packageRules: [
     {
-      // major は破壊的変更があるため手動。digest は通常発生せず、タグ付け替え時に3日待ちを素通りするため対象外
+      // major は破壊的変更があるため手動。アクションの digest はタグ付け替え時に3日待ちを素通りするため対象外
       matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
     },
     // 以下は上の automerge より後ろに置く(後勝ち)
+    {
+      // イメージの digest 更新はタグの中身の差し替え。固定前は浮いたタグで待たずに入っていたので同じく自動で取り込む
+      matchDatasources: ['docker'],
+      matchUpdateTypes: ['digest'],
+      automerge: true,
+    },
+    {
+      // 自動マージする更新を1本の PR にまとめる。手動の更新が混ざると全体が手動になるので、手動のものは下で別のグループに分ける
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'non-major',
+    },
+    {
+      matchDatasources: ['docker'],
+      matchUpdateTypes: ['digest'],
+      groupName: 'non-major',
+    },
+    {
+      // Docker Hub・GCR がこれらのタグの公開日時を返さず、3日待ちのままだと版も digest も更新が止まる
+      matchDatasources: ['docker'],
+      matchDepNames: ['golang', 'renovate/renovate', 'gcr.io/cloud-builders/docker'],
+      minimumReleaseAgeBehaviour: 'timestamp-optional',
+    },
     {
       // registry.terraform.io ではなく OpenTofu の registry を見る
       matchDatasources: ['terraform-provider'],
@@ -40,6 +65,7 @@
       minimumReleaseAgeBehaviour: 'timestamp-optional',
       // 3日待ちが効かない分は人のマージで止める
       automerge: false,
+      groupName: 'OpenTofu provider',
     },
     {
       // required_version は範囲指定のまま。OpenTofu の版は .opentofu-version で追う
@@ -58,10 +84,22 @@
       automerge: false,
     },
     {
+      // Renovate 本体とアクションはほぼ毎日版が出るので、週1回にまとめる(timezone 未設定で UTC。月曜 0-2時 = JST 9-11時)
+      matchDepNames: ['renovate/renovate', 'renovatebot/github-action'],
+      groupName: 'Renovate',
+      schedule: ['* 0-2 * * 1'],
+    },
+    {
+      // App のトークンを持って動く本体は、3日待ちが効かない分を人のマージで止める
+      matchDepNames: ['renovate/renovate'],
+      automerge: false,
+    },
+    {
       // state の形式と required_version の更新を人が揃える
       matchDepNames: ['opentofu/opentofu'],
       matchUpdateTypes: ['minor', 'major'],
       automerge: false,
+      groupName: 'OpenTofu',
     },
   ],
   vulnerabilityAlerts: {

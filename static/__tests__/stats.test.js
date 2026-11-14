@@ -24,6 +24,8 @@ import {
   computeOverlimit,
   computeGameDuration,
   computeFixedPartners,
+  computeOpponentGrade,
+  opponentGradeBand,
   burstKpi,
   enemyKpi,
   bestWorstHour,
@@ -254,6 +256,69 @@ describe('computeWinLossPattern', function () {
     var result = computeWinLossPattern(matches);
     assert.ok(result.cost_patterns.length > 0);
     assert.equal(result.cost_patterns[0].cost, 3000);
+  });
+});
+
+// --- opponentGradeBand / computeOpponentGrade ---
+
+describe('opponentGradeBand', function () {
+  function band(a, b) { return opponentGradeBand(makeMatch({ opponent1_grade: a, opponent2_grade: b })); }
+  it('∞ は2人とも∞のときだけ', function () {
+    assert.equal(band(41, 41), 'inf');
+    assert.equal(band(41, 40), 'e1');
+  });
+  it('2人の平均(切り捨て)で分ける', function () {
+    assert.equal(band(41, 35), 'e1'); // 38
+    assert.equal(band(41, 30), 'e4'); // 35.5
+    assert.equal(band(31, 31), 'e7');
+    assert.equal(band(30, 21), 'ace');
+    assert.equal(band(20, 11), 'valiant');
+    assert.equal(band(10, 1), 'pilot');
+  });
+  it('段の境界(クラスの変わり目と切り捨て)', function () {
+    assert.equal(band(31, 30), 'ace'); // 30.5 → 30
+    assert.equal(band(30, 30), 'ace');
+    assert.equal(band(21, 21), 'ace');
+    assert.equal(band(20, 20), 'valiant');
+    assert.equal(band(11, 11), 'valiant');
+    assert.equal(band(10, 10), 'pilot');
+    assert.equal(band(1, 1), 'pilot');
+  });
+  it('どちらかが不明なら null', function () {
+    assert.equal(band(41, undefined), null);
+    assert.equal(band(0, 41), null);
+  });
+});
+
+describe('computeOpponentGrade', function () {
+  it('段ごとの勝率と、相方の階級での絞り込み・不明の件数を返す', function () {
+    var matches = [
+      makeMatch({ win: true, opponent1_grade: 41, opponent2_grade: 41, partner_grade: 41 }),
+      makeMatch({ win: false, opponent1_grade: 41, opponent2_grade: 41, partner_grade: 35 }),
+      makeMatch({ win: true, opponent1_grade: 33, opponent2_grade: 31, partner_grade: 35 }),
+      makeMatch({ win: true, opponent1_grade: 33, opponent2_grade: 31 }),
+      makeMatch({ win: false }),
+    ];
+    var r = computeOpponentGrade(matches);
+    assert.equal(r.unknown, 1);
+    assert.deepEqual(r.by_partner.all, [
+      { key: 'inf', label: '∞', matches: 2, win_rate: 50 },
+      { key: 'e7', label: 'Extreme 7〜10', matches: 2, win_rate: 100 },
+    ]);
+    assert.deepEqual(r.partners, [
+      { key: 'inf', label: '∞', matches: 1 },
+      { key: 'e4', label: 'E4〜10', matches: 2 },
+    ]);
+    assert.deepEqual(r.by_partner.e4.map(function (x) { return [x.key, x.win_rate]; }), [['inf', 0], ['e7', 100]]);
+  });
+  it('相方の段の境界', function () {
+    var r = computeOpponentGrade([40, 38, 37, 31, 30, 1].map(function (p) {
+      return makeMatch({ opponent1_grade: 41, opponent2_grade: 41, partner_grade: p });
+    }));
+    assert.deepEqual(r.partners.map(function (x) { return [x.key, x.matches]; }), [['e1', 2], ['e4', 2], ['low', 2]]);
+  });
+  it('相手の階級が分かる試合が無ければ null', function () {
+    assert.equal(computeOpponentGrade([makeMatch({})]), null);
   });
 });
 
@@ -1009,7 +1074,7 @@ describe('bestWorstHour', function () {
   });
 });
 
-// --- partnerKpi (タブ別KPI: 機体相性) ---
+// --- partnerKpi (タブ別KPI: 相性) ---
 
 describe('partnerKpi', function () {
   it('returns zero/nulls for null / empty', function () {

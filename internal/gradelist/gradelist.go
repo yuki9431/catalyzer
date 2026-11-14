@@ -48,6 +48,42 @@ func BuildGradeMap(list []GradeInfo) map[string]GradeInfo {
 	return m
 }
 
+var classBase = map[string]int{"Pilot": 0, "Valiant": 10, "Ace": 20, "Extreme": 30}
+
+// rank は階級の通し番号を返す(Pilot 10=1 … Extreme 1=40、Extreme ∞=41)。段位は10が下で1が上。不正な値は0
+func (g GradeInfo) rank() int {
+	base, ok := classBase[g.Class]
+	if !ok || g.Grade < 0 || g.Grade > 10 {
+		return 0
+	}
+	if g.Grade == 0 {
+		if g.Class == "Extreme" {
+			return 41
+		}
+		return 0
+	}
+	return base + 11 - g.Grade
+}
+
+// BuildRankMap はグレードリストからURL→通し番号(Pilot 10=1 … Extreme 1=40、∞=41)のマップを構築する
+func BuildRankMap(list []GradeInfo) map[string]int {
+	m := make(map[string]int, len(list))
+	for _, g := range list {
+		if r := g.rank(); r > 0 {
+			m[stripQuery(g.ImageURL)] = r
+		}
+	}
+	return m
+}
+
+// RankOf は階級画像URLの通し番号を返す。空・未登録は0
+func RankOf(ranks map[string]int, rawURL string) int {
+	if rawURL == "" {
+		return 0
+	}
+	return ranks[stripQuery(rawURL)]
+}
+
 // FindUnknownGrades はgrade_list.jsonに未登録のグレード画像URLを返す。
 // キーはクエリパラメータ除去済みのURL、値は出現回数。
 func FindUnknownGrades(ds model.DatedScores, gradeMap map[string]GradeInfo) map[string]int {

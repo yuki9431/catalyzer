@@ -1,5 +1,5 @@
 import { html, useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../htm-preact-standalone.js';
-import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
+import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOpponentGrade, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
 import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
@@ -21,7 +21,7 @@ var TAB_DEFS = [
   ['overview', '総合'],
   ['playstyle', '立ち回り'],
   ['burst', '覚醒'],
-  ['matchup', '機体相性'],
+  ['matchup', '相性'],
   ['time', '時間帯'],
 ];
 
@@ -181,6 +181,7 @@ export function Report({ data, userKey, actions }) {
       basic_stats: computeBasicStats(filtered),
       win_loss_pattern: computeWinLossPattern(filtered),
       enemy_matchup: computeEnemyMatchup(filtered),
+      opponent_grade: computeOpponentGrade(filtered),
       partner: computePartner(filtered),
       cost_pair: computeCostPair(filtered),
       ms_pair: computeMsPair(filtered),
@@ -288,9 +289,9 @@ export function Report({ data, userKey, actions }) {
   } else if (activeTab === 'burst') {
     pane = html`<${BurstPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'matchup') {
-    pane = html`<${MatchupPane} frontendData=${frontendData} />`;
+    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} />`;
   } else if (activeTab === 'time') {
-    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend };
+    var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
     pane = html`<${TimePane} pd=${timePd} />`;
   } else {
     pane = html`<${OverviewPane} pd=${fePd} selectedMs=${selectedMs} lens=${lens} frontendData=${frontendData} msNational=${msNational || {}} />`;

@@ -336,6 +336,58 @@ export function computeEnemyMatchup(matches, minMatches) {
   return { strong: strong, weak: weak, even: even, tips: tips };
 }
 
+// 階級の段。通し番号はサーバーの gradelist.BuildRankMap(Pilot 10=1 … Extreme 1=40、∞=41)
+var OPPONENT_GRADE_BANDS = [
+  { key: 'inf', label: '∞', min: 41 },
+  { key: 'e1', label: 'Extreme 1〜3', min: 38 },
+  { key: 'e4', label: 'Extreme 4〜6', min: 35 },
+  { key: 'e7', label: 'Extreme 7〜10', min: 31 },
+  { key: 'ace', label: 'Ace', min: 21 },
+  { key: 'valiant', label: 'Valiant', min: 11 },
+  { key: 'pilot', label: 'Pilot', min: 1 },
+];
+// 相方は切り替えボタンが画面幅に収まるよう粗く分ける
+var PARTNER_GRADE_BANDS = [
+  { key: 'inf', label: '∞', min: 41 },
+  { key: 'e1', label: 'E1〜3', min: 38 },
+  { key: 'e4', label: 'E4〜10', min: 31 },
+  { key: 'low', label: 'Ace以下', min: 1 },
+];
+
+function gradeBand(bands, rank) {
+  if (!rank) return null;
+  for (var i = 0; i < bands.length; i++) { if (rank >= bands[i].min) return bands[i].key; }
+  return null;
+}
+
+// 相手2人の平均(切り捨て)の段。∞は2人とも∞のときだけになる。どちらかが不明なら null
+export function opponentGradeBand(m) {
+  if (!m.opponent1_grade || !m.opponent2_grade) return null;
+  return gradeBand(OPPONENT_GRADE_BANDS, Math.floor((m.opponent1_grade + m.opponent2_grade) / 2));
+}
+
+function gradeRows(matches) {
+  return OPPONENT_GRADE_BANDS.map(function (b) {
+    var ms = matches.filter(function (m) { return opponentGradeBand(m) === b.key; });
+    return { key: b.key, label: b.label, matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+  }).filter(function (r) { return r.matches > 0; });
+}
+
+// 相手の階級別の勝率。by_partner.all は相方の階級を問わない。相手の階級が不明な試合は unknown に数えるだけ
+export function computeOpponentGrade(matches) {
+  var known = matches.filter(function (m) { return opponentGradeBand(m) !== null; });
+  if (!known.length) return null;
+  var byPartner = { all: gradeRows(known) };
+  var partners = [];
+  PARTNER_GRADE_BANDS.forEach(function (b) {
+    var ms = known.filter(function (m) { return gradeBand(PARTNER_GRADE_BANDS, m.partner_grade) === b.key; });
+    if (!ms.length) return;
+    byPartner[b.key] = gradeRows(ms);
+    partners.push({ key: b.key, label: b.label, matches: ms.length });
+  });
+  return { by_partner: byPartner, partners: partners, unknown: matches.length - known.length };
+}
+
 export function computePartner(matches, minMatches) {
   if (minMatches === undefined) minMatches = 3;
   var partnerStats = {};

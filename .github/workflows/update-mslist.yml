@@ -67,7 +67,7 @@ jobs:
           cp -r go.mod go.sum cmd internal data "$SRC/"
           cat > "$RUNNER_TEMP/cloudbuild.yaml" <<EOF
           steps:
-          - name: golang:1.26-alpine
+          - name: golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523
             entrypoint: go
             args: [run, ./cmd/update-mslist]
             env: [GOTOOLCHAIN=local]

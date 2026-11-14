@@ -53,6 +53,18 @@ function opponent(r, m, prefix, name, ms) {
   m[prefix + '_score_ranking'] = r.int(1, 4);
 }
 
+// 階級(通し番号。∞=41)は乱数を消費せず試合番号で決める。形式不明と11試合に1つは階級なし
+var OPP_GRADES = [[41, 41], [41, 39], [39, 38], [37, 35], [34, 31], [28, 24], [41, 41], [15, 12], [8, 5]];
+var PARTNER_GRADES = [41, 41, 39, 36, 33, 25];
+function grades(m, i) {
+  if (!m.mode || i % 11 === 10) return;
+  var o = OPP_GRADES[Math.floor(i / 2) % OPP_GRADES.length];
+  m.grade = 41;
+  m.partner_grade = PARTNER_GRADES[i % PARTNER_GRADES.length];
+  m.opponent1_grade = o[0];
+  m.opponent2_grade = o[1];
+}
+
 // 新しい2日分だけ公式の連勝数を持たせる。それより前は取得前の試合として画面側の推定に任せる
 function officialStreaks(matches) {
   var from = DAYS[DAYS.length - 2];
@@ -106,6 +118,7 @@ export function generateMatches() {
     m.opponent2_actions = actions(r, m.opponent2_deaths, m.opponent2_bursts, end);
     var oppFire = end - 10 - Math.floor(i / 9) % 2 * 20;
     overlimit(m.opponent1_actions, Math.floor(i / 3) % 3, end, oppFire, oppFire - 25);
+    grades(m, i);
     matches.push(m);
   }
   officialStreaks(matches);
