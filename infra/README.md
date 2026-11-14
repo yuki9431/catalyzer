@@ -7,6 +7,7 @@ GCP リソースを OpenTofu (HCL) で管理する。1つの GCP プロジェク
 ```
 infra/
 ├── .opentofu-version  ← CI と手元で使う OpenTofu の版
+├── */.terraform.lock.hcl ← provider のハッシュ(CI は -lockfile=readonly。provider を上げたら更新してコミット)
 ├── shared/            ← 共有リソース。手元から手動で apply する
 │   ├── main.tf        ← backend・state 暗号化・変数・API
 │   ├── iam.tf         ← SA・WIF・カスタムロール・IAM の付与
@@ -23,7 +24,7 @@ state は GCS バケットの `tofu/shared`・`tofu/app/<env>` に置き、KMS �
 
 - OpenTofu(`brew install opentofu`。版は `infra/.opentofu-version`)
 - GCP 認証(`gcloud auth application-default login`)と `gcloud config set project <PROJECT_ID>`
-- `infra/.envrc`(gitignore 済み)で `TF_VAR_state_bucket` と `TF_VAR_image_uri` を export する。`TF_VAR_project` は Makefile が gcloud の設定から入れる
+- `infra/.envrc`(gitignore 済み)で `TF_VAR_state_bucket` と `TF_VAR_image_uri` を export し、make の前に `source infra/.envrc` する(Makefile はリポジトリのルートで動く)。`TF_VAR_project` は Makefile が gcloud の設定から入れる
 
 ## 日常操作
 
@@ -63,6 +64,8 @@ read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-passw
 | `TF_STATE_BUCKET` | OpenTofu の state を置く GCS バケット名 |
 | `IMAGE_URI` | コンテナイメージURIベース（Infra CI は environment を使わないので repo の secret に置く） |
 | `WIF_PROVIDER` | Workload Identity Provider |
+| `BUILD_SERVICE_ACCOUNT` | Cloud Build の実行 SA(`catalyzer-build`。build.yml) |
+| `GH_PAT` | MS リスト更新の PR 作成・マージ用トークン(update-mslist.yml) |
 | `WIF_PR_SERVICE_ACCOUNT` | PR の plan 用 SA(`gha-pr`)。repo の secret |
 | `WIF_SERVICE_ACCOUNT` | environment の secret。`stg` は `gha-stg`(ビルドと stg デプロイ)、`prod` は `github-actions`(prod デプロイ)、`mslist` は `gha-mslist`(MSリスト更新の Cloud Build 起動)。environment `prod` は main、`mslist` は develop のみ |
 

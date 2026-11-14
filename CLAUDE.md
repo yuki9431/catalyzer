@@ -58,7 +58,7 @@ python3 -m http.server 8888 --directory static
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
-# OpenTofu（state_bucket・image_uri は infra/.envrc の TF_VAR_*。project は gcloud の設定から入る）
+# OpenTofu（先に `source infra/.envrc` で TF_VAR_state_bucket・TF_VAR_image_uri を入れる。project は gcloud の設定から入る）
 make tofu-shared-plan                 # shared の plan（refresh 付き）
 make tofu-shared-apply                # shared の apply（CI は shared を apply しない）
 STACK=prod make tofu-app-plan         # app の plan（STACK=prod|stg は必須）
@@ -161,7 +161,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
 - Infra CI: `infra-ci.yml`（infra/配下・`.github/scripts/`・自身の変更時に `tofu fmt -check` と shared + app(prod/stg)の `tofu plan`（PR 用の身元は全リソースを読めないので `-refresh=false`、state に書けないので `-lock=false`）。PR コメントは `.github/scripts/tofu-plan-summary.sh` が出す変更件数とリソースのアドレスだけ（公開 repo に識別子を出さない）。infra-ci・build・deploy のジョブログは `.github/scripts/mask-gcp-ids.sh` でプロジェクト ID・番号をマスク。両スクリプトのテストは `.github/scripts/scripts.test.js`）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。公式サイトは日本以外の IP を拒否するため、取得は東京の Cloud Build（実行 SA `mslist-build`、ログイン情報は Secret Manager）で行い、結果をバケット経由で受け取る。変更時に main 向けPRを自動作成・マージし prod に反映）
-- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch は CI 緑で Renovate 自身が develop に自動マージし、major と OpenTofu の provider・infra の npm(移行中)は手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
+- 依存更新: Renovate（`renovate.json5`）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch は CI 緑で Renovate 自身が develop に自動マージし、major と OpenTofu の provider は手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
 - **サードパーティアクションを追加・変更する際は、GitHubリポジトリのリリースページで最新メジャーバージョンを確認すること。** 古いバージョンを指定するとNode.js非推奨警告やエラーが発生する（過去に複数回発生）。
 
 ## PR運用ルール
@@ -189,7 +189,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
   - 例（バースト無効・全件低レート）: `SCRAPER_BURST_COUNT=0 SCRAPER_THROTTLE_DELAY_MS=1200`
 - 速報レポートは初回 `prelimFirstBatchSize`(5)試合、以降 `prelimBatchSize`(20)試合ごとに段階更新される（`onBatchReady`→`PreliminaryVersion++`、フロントがポーリングで再描画）
 - 自動更新(#288): prod のみ有効。サービスの env `AUTO_REFRESH_JOB`/`AUTO_REFRESH_AUDIENCE`/`AUTO_REFRESH_INVOKER`/`AUTO_REFRESH_PASSPHRASE_HASH`/`AUTO_REFRESH_OPEN` は infra/app が設定（未設定の環境は有効化 POST が503・tick が404・状態取得 GET が200で available:false・touch が200で status:"off"）。合言葉は `go run ./cmd/hash-passphrase` でハッシュを作り `infra/app/main.tf` の `local.auto_refresh.passphrase_hash` に書く PR を出す（平文で置く判断。一般ユーザーを除けるだけでよい）。設計は `docs/design/2026-10-05-auto-refresh.md`
-- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/resources.tf`）に置き、infra/app の `local.session_key.version`（`main.tf`）で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→その版を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/firestore.ts`）で自動削除され、Cookie失効後に浮いたセッションが残らない
+- セッション保持機能: `SESSION_ENCRYPTION_KEY`（64文字hex、AES-256-GCM鍵）設定時に有効化。鍵は Secret Manager（prod/stg で別の Secret。`infra/shared/resources.tf`）に置き、infra/app の `local.session_key.version`（`main.tf`）で版を固定して参照する（ローテーションは版を追加（手順は infra/README.md）→その版を変える PR→デプロイ後に旧版を destroy）。バンナムCookieJarを暗号化してFirestoreに保存し、次回アクセス時にパスワード不要で再分析。catalyzer_session Cookie（HttpOnly/Secure/SameSite=Strict、30日有効）でセッション識別。試合データはIndexedDBにキャッシュし即時表示。Firestoreのセッションドキュメントは `expire_at`（保存時+30日）フィールドのTTLポリシー（`infra/shared/resources.tf`）で自動削除され、Cookie失効後に浮いたセッションが残らない
 - 試合の一意キーは詳細ページURL由来の `MatchID`（`model.DatedScore.GroupKey()` に一元化）。MatchID未設定のlegacyデータは分精度日時にフォールバックする（#358。実データでは同じ分に試合は1つで、同一分の区別は保険）。詳細URLの param は日を跨ぐと変わるため、保存済みの試合を MatchID で照合しない（差分取得の since は保存済みの最新日時ちょうど。#522）
 
 ## Goコーディング規約

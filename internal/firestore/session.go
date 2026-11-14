@@ -15,7 +15,7 @@ import (
 
 // sessionTTL はセッションドキュメントの有効期間。Cookie の MaxAge（server.sessionMaxAge = 30日）
 // と揃える。SaveSession が expire_at に now+sessionTTL を書き、Firestore の TTL ポリシー
-// （infra/shared/firestore.ts の sessions.expire_at）が期限到来後に浮いたドキュメントを
+// （infra/shared/resources.tf の sessions.expire_at）が期限到来後に浮いたドキュメントを
 // 自動削除する。TTL の削除時刻はフィールド値そのものなので ServerTimestamp は使えない。
 const sessionTTL = 30 * 24 * time.Hour
 
