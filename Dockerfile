@@ -9,7 +9,7 @@ COPY internal/ internal/
 COPY cmd/ cmd/
 RUN go build -o server ./cmd/server && go build -o auto-refresh ./cmd/auto-refresh
 
-FROM alpine:3.22
+FROM alpine:3.24
 
 WORKDIR /app
 
