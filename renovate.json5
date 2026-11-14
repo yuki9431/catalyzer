@@ -1,6 +1,7 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  extends: ['config:recommended'],
+  // githubActionsVersions: workflow の `# renovate:` コメント付き `*_VERSION`(renovate.yml の Renovate 本体の版)を追う
+  extends: ['config:recommended', 'customManagers:githubActionsVersions'],
   // サプライチェーン攻撃対策。公開から3日経つまで PR を作らない
   minimumReleaseAge: '3 days',
   internalChecksFilter: 'strict',
@@ -56,6 +57,12 @@
       matchDepNames: ['go', 'golang'],
       matchUpdateTypes: ['minor', 'major'],
       automerge: false,
+    },
+    {
+      // Renovate 本体とアクションはほぼ毎日版が出るので、週1回にまとめる(timezone 未設定で UTC。月曜 0-2時 = JST 9-11時)
+      matchDepNames: ['renovatebot/renovate', 'renovatebot/github-action'],
+      groupName: 'Renovate',
+      schedule: ['* 0-2 * * 1'],
     },
     {
       // state の形式と required_version の更新を人が揃える

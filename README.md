@@ -162,6 +162,7 @@
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
 │       ├── deploy.yml             # デプロイ（tofu apply）
 │       ├── infra-ci.yml           # インフラCI（tofu fmt・tofu plan）
+│       ├── renovate.yml           # Renovate（毎時。自前の GitHub App で実行）
 │       └── update-mslist.yml      # MSリスト自動更新
 ├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
 ├── .golangci.yml                  # golangci-lint設定
