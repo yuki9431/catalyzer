@@ -59,7 +59,7 @@
       automerge: false,
     },
     {
-      // Renovate 本体とアクションはほぼ毎日版が出るので、週1回(月曜の朝 JST)にまとめる
+      // Renovate 本体とアクションはほぼ毎日版が出るので、週1回にまとめる(timezone 未設定で UTC。月曜 0-2時 = JST 9-11時)
       matchDepNames: ['renovatebot/renovate', 'renovatebot/github-action'],
       groupName: 'Renovate',
       schedule: ['* 0-2 * * 1'],

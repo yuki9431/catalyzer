@@ -72,7 +72,7 @@ read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-passw
 
 ### Renovate 用 GitHub App
 
-`renovate.yml` が使う。作り直すときの手順:
+`renovate.yml` が使う。Mend の Renovate アプリはこの repo から外してある(入れたままだと2つの bot が同じ `renovate/*` ブランチを互いに「他人の編集」とみなし更新を止める)。作り直すときの手順:
 
 1. Settings → Developer settings → GitHub Apps → New。Webhook は無効。Repository permissions: Contents・Pull requests・Issues・Workflows・Commit statuses を Read and write、Checks・Dependabot alerts を Read
 2. この repo だけにインストールし、秘密鍵を発行する
