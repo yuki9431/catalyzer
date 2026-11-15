@@ -116,7 +116,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/analysis/patterns.js` — 試合の展開（負け筋）の定義一覧 `PATTERNS`（15件）と判定の純粋関数（`testPattern`/`goalPattern`/`patternHits` 等）。ミッション判定・試合検索・詳細の強調が同じ定義を使う。新しい展開は定義1件+テスト1本。stats.js のみ import
 - `static/analysis/coach.js` — 勝率アップミッションの純粋関数（判定は patterns.js から導き、各ミッションを達成できなかった（負け筋に当てはまった）試合数 `unachieved` を持つ）。試合を負け筋の状態（被撃墜回数・先落ち/後落ち・1機目覚醒・覚醒中の被撃墜・覚醒回数・順落ち・OL を覚醒と重ねず使用・最後のコストで覚醒なし・被ダメ/与ダメ/EXダメ）とそれ以外に二分し、勝率差×頻度で影響度と見込み勝率を算出（`computeActionPlan`）。選択したミッションの試合ごとの達成判定（`evaluateGoal`）、苦手機体・3連敗直後の勝率（参考情報）、直近20戦の悪化指標も算出。ホーム画面の ActionPlanPanel が全期間（機体・対戦形式で絞り込み可。挑戦中の枠は全形式で数える）の試合で表示
 - `static/analysis/today.js` — 今日（試合が無ければ最後に遊んだ日）を前回プレイした日と比べる純粋関数（`compareToday`。日付は朝5時で切り替え `playDay`）。勝率・与ダメ・被ダメ・与被ダメ比・EXダメ・被撃墜
-- `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え・適用中の条件と並べ替えの表示文言 `appliedFilterLabels`/`sortLabel`）。試合の展開（複数選択・すべて/どれかに当てはまる）・負け筋（ホームのミッションから渡る条件）・挑戦中の範囲による絞り込み（`activeConditions`/`removableFilterLabels`）も持つ。対戦形式の条件も持つ。自機の熟練度（`proficiencyLabel`）・自分/相手の階級・スコア順位の複数選択条件も持つ。IndexedDBの全試合をフロントエンドでフィルタ
+- `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え・適用中の条件と並べ替えの表示文言 `appliedFilterLabels`/`sortLabel`）。試合の展開（複数選択・すべて/どれかに当てはまる）・負け筋（ホームのミッションから渡る条件）・挑戦中の範囲による絞り込み（`activeConditions`/`removableFilterLabels`）も持つ。対戦形式の条件も持つ。熟練度（自機・僚機。`proficiencyLabel`）・自分/相方/相手の階級・自分/相方のスコア順位の複数選択条件も持つ。IndexedDBの全試合をフロントエンドでフィルタ
 - `static/components/ui.js` — 汎用UIコンポーネント（Panel/Tips(事実の箇条書き)/SortableTable/Table/SubSection/Dropdown/MultiSelect/Autocomplete）
 - `static/analysis/classrecord.js` — 通算戦績の整形純粋関数（分析カバー率・通算K/D）
 - `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）

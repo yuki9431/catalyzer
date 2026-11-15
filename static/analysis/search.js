@@ -40,6 +40,9 @@ export function emptyFilters() {
     myGradeList: [],         // 自分の階級の段 key（複数選択・OR）
     enemyGradeList: [],      // 相手の階級の段 key（2人平均。複数選択・OR）
     scoreRankList: [],       // 自分のスコア順位 '1'〜'4'（複数選択・OR）
+    partnerProficiencyList: [], // 僚機の熟練度（MatchData.partner_proficiency の生値。複数選択・OR）
+    partnerGradeList: [],    // 相方の階級の段 key（複数選択・OR）
+    partnerScoreRankList: [], // 相方のスコア順位 '1'〜'4'（複数選択・OR）
     dmgGivenMin: '', dmgGivenMax: '',
     dmgTakenMin: '', dmgTakenMax: '',
     killsMin: '', killsMax: '',
@@ -101,7 +104,8 @@ export function hasActiveFilters(filters) {
   if (f.result && f.result !== 'all') return true;
   if (modeLabel(f.mode)) return true;
   var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList',
-    'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'];
+    'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList',
+    'partnerProficiencyList', 'partnerGradeList', 'partnerScoreRankList'];
   for (var j = 0; j < listKeys.length; j++) {
     if (f[listKeys[j]] && f[listKeys[j]].length) return true;
   }
@@ -166,7 +170,20 @@ export function proficiencyLabel(p) {
   return r === 22 ? 'Legend' : r === 21 ? 'Master' : '⭐' + r;
 }
 
-// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成／自機の熟練度）を
+// 熟練度の選択肢。序列順（高い方が先、未知は末尾で名前順）
+function proficiencyOptions(ms, get) {
+  var opts = tally(ms, [function (m) { return [get(m)]; }]).map(function (o) {
+    return { name: o.name, matches: o.matches, label: proficiencyLabel(o.name) };
+  });
+  return opts.sort(function (a, b) {
+    var ra = proficiencyRank(a.name), rb = proficiencyRank(b.name);
+    if (ra != null && rb != null) return rb - ra;
+    if (ra != null || rb != null) return ra != null ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成／自機・僚機の熟練度）を
 // 出現頻度順（熟練度は序列順）で返す。
 export function collectMsOptions(matches) {
   var ms = matches || [];
@@ -176,18 +193,9 @@ export function collectMsOptions(matches) {
     var pa = a.name.split(' + '), pb = b.name.split(' + ');
     return (Number(pb[0]) - Number(pa[0])) || (Number(pb[1]) - Number(pa[1]));
   });
-  // 熟練度は序列順（高い方が先、未知は末尾で名前順）
-  var profs = tally(ms, [function (m) { return [m.proficiency]; }]).map(function (o) {
-    return { name: o.name, matches: o.matches, label: proficiencyLabel(o.name) };
-  });
-  profs.sort(function (a, b) {
-    var ra = proficiencyRank(a.name), rb = proficiencyRank(b.name);
-    if (ra != null && rb != null) return rb - ra;
-    if (ra != null || rb != null) return ra != null ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
   return {
-    proficiencies: profs,
+    proficiencies: proficiencyOptions(ms, function (m) { return m.proficiency; }),
+    partnerProficiencies: proficiencyOptions(ms, function (m) { return m.partner_proficiency; }),
     mine: tally(ms, [function (m) { return [m.ms]; }]),
     partners: tally(ms, [function (m) { return [m.partner_ms]; }]),
     enemies: tally(ms, [function (m) { return [m.opponent1_ms, m.opponent2_ms]; }]),
@@ -255,6 +263,9 @@ export function filterMatches(matches, filters) {
   var myGradeList = f.myGradeList || [];
   var enemyGradeList = f.enemyGradeList || [];
   var scoreRankList = (f.scoreRankList || []).map(Number);
+  var partnerProficiencyList = f.partnerProficiencyList || [];
+  var partnerGradeList = f.partnerGradeList || [];
+  var partnerScoreRankList = (f.partnerScoreRankList || []).map(Number);
   var dgMin = toNum(f.dmgGivenMin), dgMax = toNum(f.dmgGivenMax);
   var dtMin = toNum(f.dmgTakenMin), dtMax = toNum(f.dmgTakenMax);
   var kMin = toNum(f.killsMin), kMax = toNum(f.killsMax);
@@ -295,6 +306,9 @@ export function filterMatches(matches, filters) {
     if (myGradeList.length && myGradeList.indexOf(gradeBand(OPPONENT_GRADE_BANDS, m.grade)) < 0) return false;
     if (enemyGradeList.length && enemyGradeList.indexOf(opponentGradeBand(m)) < 0) return false;
     if (scoreRankList.length && scoreRankList.indexOf(m.score_ranking) < 0) return false;
+    if (partnerProficiencyList.length && partnerProficiencyList.indexOf(m.partner_proficiency) < 0) return false;
+    if (partnerGradeList.length && partnerGradeList.indexOf(gradeBand(OPPONENT_GRADE_BANDS, m.partner_grade)) < 0) return false;
+    if (partnerScoreRankList.length && partnerScoreRankList.indexOf(m.partner_score_ranking) < 0) return false;
     if (!inRange(m.dmg_given, dgMin, dgMax)) return false;
     if (!inRange(m.dmg_taken, dtMin, dtMax)) return false;
     if (!inRange(m.kills, kMin, kMax)) return false;
@@ -394,10 +408,15 @@ export function appliedFilterLabels(filters) {
       return b ? b.label : key;
     });
   };
-  if (list('myProficiencyList').length) out.push('自機の熟練度: ' + listLabel(list('myProficiencyList').map(function (p) { return proficiencyLabel(p); })));
+  var profLabels = function (k) { return list(k).map(function (p) { return proficiencyLabel(p); }); };
+  var rankLabels = function (k) { return list(k).map(function (r) { return r + '位'; }); };
+  if (list('myProficiencyList').length) out.push('自機熟練度: ' + listLabel(profLabels('myProficiencyList')));
+  if (list('partnerProficiencyList').length) out.push('僚機熟練度: ' + listLabel(profLabels('partnerProficiencyList')));
+  if (list('scoreRankList').length) out.push('自分の順位: ' + listLabel(rankLabels('scoreRankList')));
+  if (list('partnerScoreRankList').length) out.push('相方の順位: ' + listLabel(rankLabels('partnerScoreRankList')));
   if (list('myGradeList').length) out.push('自分の階級: ' + listLabel(gradeLabels('myGradeList')));
+  if (list('partnerGradeList').length) out.push('相方の階級: ' + listLabel(gradeLabels('partnerGradeList')));
   if (list('enemyGradeList').length) out.push('相手の階級: ' + listLabel(gradeLabels('enemyGradeList')));
-  if (list('scoreRankList').length) out.push('スコア順位: ' + listLabel(list('scoreRankList').map(function (r) { return r + '位'; })));
   RANGE_LABELS.forEach(function (r) {
     var min = toNum(f[r[0] + 'Min']), max = toNum(f[r[0] + 'Max']);
     if (min != null && max != null) out.push(r[1] + ': ' + min + '〜' + max);

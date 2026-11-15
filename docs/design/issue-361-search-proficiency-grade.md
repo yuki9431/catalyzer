@@ -1,4 +1,4 @@
-# 設計: 試合検索に自機の熟練度・階級・スコア順位の絞り込みを追加
+# 設計: 試合検索に熟練度・階級・スコア順位の絞り込みを追加(自分・相方)
 
 - ステータス: implemented
 - 日付: 2026-11-16
@@ -21,7 +21,7 @@
 - 弱点: 自分の階級にも名前が OPPONENT_ の定義を使う(改名は影響が広いので見送り)
 
 ### 階級の対象・段
-- 対象は 自分 と 相手(2人平均。既存 opponentGradeBand と同じ Math.floor、片方不明なら null)。相方は見送り(起票候補)
+- 対象は 自分・相方・相手(相手は2人平均。既存 opponentGradeBand と同じ Math.floor、片方不明なら null)。相方の段は自分と同じ7段
 - 段は 7 段(OPPONENT_GRADE_BANDS)。選択肢は固定(COST_OPTIONS と同じ作り)
 
 ### スコア順位
@@ -31,7 +31,7 @@
 - 条件未指定なら除外しない。指定時は除外(grade 欠落→gradeBand null、順位 0、熟練度 空は indexOf で不一致)。テストで固定
 
 ### 置き場所
-- 4項目とも「詳細な条件」内の「相手コスト編成」直後(半幅)。既存画面は詳細条件を開いた状態を撮っておらず、既存の基準画像は変わらない。条件が入っていれば ADV_LIST_FIELDS により枠が開き「適用中」バッジが出る
+- 7欄とも「詳細な条件」内の「相手コスト編成」直後(半幅): 自機熟練度|僚機熟練度 / 自分の順位|相方の順位 / 自分の階級|相方の階級 / 相手の階級(全幅。2列 grid で後ろの範囲入力の対をずらさない)。ラベルは半幅で折り返さない12字以内。熟練度は機体の属性なので既存の自機/僚機コストに合わせ「自機/僚機」、順位・階級は人の属性なので「自分/相方」。既存画面は詳細条件を開いた状態を撮っておらず、既存の基準画像は変わらない。条件が入っていれば ADV_LIST_FIELDS により枠が開き「適用中」バッジが出る
 
 ### ui-check(運転者による修正)
 - 新画面 mobile-search-proficiency を足す(詳細条件と熟練度のドロップダウンを開いた状態)。基準画像は PR の ui-baseline ラベルで CI が撮り、取り込むまで screens.test.js の基準一致1件は既知の失敗
@@ -43,11 +43,12 @@
   - import に OPPONENT_GRADE_BANDS, gradeBand, opponentGradeBand を追加
   - 新規 proficiencyRank(非 export: bronze/silver/gold 1-5 → 6..20、master=21、legend=22、他 null)、proficiencyLabel(export)
   - emptyFilters に myProficiencyList / myGradeList / enemyGradeList / scoreRankList(各 [])
-  - hasActiveFilters の listKeys に 4 キー追加
+  - hasActiveFilters の listKeys に 7 キー追加
   - collectMsOptions に proficiencies: tally 結果に label を付け序列順(rank 大が先、片方のみ有るなら有る方が先、双方 null は localeCompare)
   - filterMatches: 熟練度は indexOf(m.proficiency)、自分階級は gradeBand(OPPONENT_GRADE_BANDS, m.grade)、相手階級は opponentGradeBand(m)、順位は Number 化して m.score_ranking
-  - appliedFilterLabels: 相手コスト編成の後・RANGE_LABELS の前に `自機の熟練度:` `自分の階級:` `相手の階級:`(段の label)`スコア順位: N位`(listLabel 形式)
-- static/components/search.js: MsMulti の表示を o.label || o.name に、ADV_LIST_FIELDS に 4 キー追加、GRADE_OPTIONS / RANK_OPTIONS 定数、FilterFields に半幅 4 欄(熟練度|順位 / 自分の階級|相手の階級。data-ui: search-proficiency / search-rank / search-my-grade / search-enemy-grade)
+  - appliedFilterLabels: 相手コスト編成の後・RANGE_LABELS の前に `自機熟練度:` `僚機熟練度:` `自分の順位:` `相方の順位:` `自分の階級:` `相方の階級:` `相手の階級:`(listLabel 形式)
+  - 相方: partnerProficiencyList / partnerGradeList / partnerScoreRankList を同じ形で追加。collectMsOptions に partnerProficiencies
+- static/components/search.js: MsMulti の表示を o.label || o.name に、ADV_LIST_FIELDS に 7 キー追加、GRADE_OPTIONS / RANK_OPTIONS 定数、FilterFields に半幅 7 欄(data-ui: search-proficiency / search-partner-proficiency / search-rank / search-partner-rank / search-my-grade / search-partner-grade / search-enemy-grade)
 - static/__tests__/search.test.js: テスト追加、既存 empty ケース(:81)の deepEqual に proficiencies: [] を足す
 - CLAUDE.md: static/analysis/search.js の説明に熟練度(proficiencyLabel)・階級・スコア順位を追記。画面数を 76画面・152枚に更新
 - tools/ui-check/screens.js: 画面 mobile-search-proficiency を追加 / fixture.js: 自機 proficiency を i%5 で5値ローテーション
@@ -60,9 +61,9 @@
 5. myGradeList: 41→inf、39→e1、38→e1/37→e4 境界、25→ace
 6. enemyGradeList: 平均 floor、片方欠落は除外
 7. scoreRankList ['1','2']: 1,2 が残り 0/undefined は除外
-8. 欠落: 旧キャッシュ試合は 4 条件のどれか指定で除外、全て空なら含まれる
-9. appliedFilterLabels に 4 ラベル(`自機の熟練度: ⭐17 ほか1` 等)
-10. 4 キー空ならラベル無し
+8. 欠落: 旧キャッシュ試合は 7 条件のどれか指定で除外、全て空なら含まれる
+9. appliedFilterLabels に 7 ラベル(`自機熟練度: ⭐17 ほか1` 等)。相方3条件の絞り込みと、自機の条件が相方の値を見ないこと
+10. 7 キー空ならラベル無し
 11. hasActiveFilters: 各キー 1 件で true
 
 ## 4. 完了条件
@@ -78,4 +79,4 @@
 
 ## 5. エスカレーション
 該当なし。
-起票候補: 相方の階級フィルタ / 試合詳細への熟練度表示
+起票候補: 試合詳細への熟練度表示

@@ -95,7 +95,8 @@ var ADV_FIELDS = ['dateFrom', 'dateTo', 'enemyTagName',
   'scoreMin', 'scoreMax', 'exDmgMin', 'exDmgMax', 'burstsMin', 'burstsMax'];
 // 詳細な条件内の複数選択（配列）フィルタ。
 var ADV_LIST_FIELDS = ['myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList',
-  'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'];
+  'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList',
+  'partnerProficiencyList', 'partnerGradeList', 'partnerScoreRankList'];
 
 // 自機コストの選択肢（固定4種）。
 var COST_OPTIONS = [
@@ -240,21 +241,36 @@ function FilterFields({ filters, options, onField }) {
               onChange=${function (vs) { onField('enemyCostPairList', vs); }} />
           </div>
           <div class="search-field" data-ui="search-proficiency">
-            <label class="search-label">熟練度（複数選択可）</label>
+            <label class="search-label">自機熟練度（複数選択可）</label>
             <${MsMulti} values=${filters.myProficiencyList} options=${options.proficiencies}
               onChange=${function (vs) { onField('myProficiencyList', vs); }} />
           </div>
+          <div class="search-field" data-ui="search-partner-proficiency">
+            <label class="search-label">僚機熟練度（複数選択可）</label>
+            <${MsMulti} values=${filters.partnerProficiencyList} options=${options.partnerProficiencies}
+              onChange=${function (vs) { onField('partnerProficiencyList', vs); }} />
+          </div>
           <div class="search-field" data-ui="search-rank">
-            <label class="search-label">スコア順位（複数選択可）</label>
+            <label class="search-label">自分の順位（複数選択可）</label>
             <${MultiSelect} values=${filters.scoreRankList} placeholder="-" options=${RANK_OPTIONS}
               onChange=${function (vs) { onField('scoreRankList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-partner-rank">
+            <label class="search-label">相方の順位（複数選択可）</label>
+            <${MultiSelect} values=${filters.partnerScoreRankList} placeholder="-" options=${RANK_OPTIONS}
+              onChange=${function (vs) { onField('partnerScoreRankList', vs); }} />
           </div>
           <div class="search-field" data-ui="search-my-grade">
             <label class="search-label">自分の階級（複数選択可）</label>
             <${MultiSelect} values=${filters.myGradeList} placeholder="-" options=${GRADE_OPTIONS}
               onChange=${function (vs) { onField('myGradeList', vs); }} />
           </div>
-          <div class="search-field" data-ui="search-enemy-grade">
+          <div class="search-field" data-ui="search-partner-grade">
+            <label class="search-label">相方の階級（複数選択可）</label>
+            <${MultiSelect} values=${filters.partnerGradeList} placeholder="-" options=${GRADE_OPTIONS}
+              onChange=${function (vs) { onField('partnerGradeList', vs); }} />
+          </div>
+          <div class="search-field search-field-wide" data-ui="search-enemy-grade">
             <label class="search-label">相手の階級（複数選択可）</label>
             <${MultiSelect} values=${filters.enemyGradeList} placeholder="-" options=${GRADE_OPTIONS}
               onChange=${function (vs) { onField('enemyGradeList', vs); }} />

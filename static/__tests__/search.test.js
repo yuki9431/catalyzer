@@ -78,7 +78,7 @@ describe('collectMsOptions', function () {
   });
   it('handles empty input', function () {
     var opts = collectMsOptions([]);
-    assert.deepEqual(opts, { proficiencies: [], mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [], playerNames: [], enemyTags: [] });
+    assert.deepEqual(opts, { proficiencies: [], partnerProficiencies: [], mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [], playerNames: [], enemyTags: [] });
   });
   it('orders enemyCostPairs by cost descending (not by match count)', function () {
     var matches = [
@@ -670,11 +670,26 @@ describe('熟練度・階級・スコア順位の絞り込み', function () {
     assert.deepStrictEqual(run(ms, { scoreRankList: ['1', '2'] }).map(function (m) { return m.score_ranking; }), [1, 2]);
   });
 
+  it('相方の熟練度・階級・順位で絞る', function () {
+    var ms = [
+      makeMatch({ partner_proficiency: 'gold2', partner_grade: 41, partner_score_ranking: 1 }),
+      makeMatch({ partner_proficiency: 'blue3', partner_grade: 25, partner_score_ranking: 4 }),
+      makeMatch({ partner_proficiency: 'master', partner_grade: 39, partner_score_ranking: 2 }),
+    ];
+    var pp = function (patch) { return run(ms, patch).map(function (m) { return m.partner_proficiency; }); };
+    assert.deepStrictEqual(pp({ partnerProficiencyList: ['gold2', 'blue3'] }), ['gold2', 'blue3']);
+    assert.deepStrictEqual(pp({ partnerGradeList: ['inf', 'e1'] }), ['gold2', 'master']);
+    assert.deepStrictEqual(pp({ partnerScoreRankList: ['4'] }), ['blue3']);
+    assert.deepStrictEqual(pp({ myProficiencyList: ['gold2'] }), [], '自機の条件は相方の値を見ない');
+    var opts = collectMsOptions(ms).partnerProficiencies;
+    assert.deepStrictEqual(opts.map(function (o) { return o.label; }), ['Master', '⭐17', '⭐3']);
+  });
+
   it('欠落した旧試合は条件指定で除外され、未指定なら残る', function () {
     var ms = [makeMatch({})];
     assert.strictEqual(run(ms, {}).length, 1);
-    ['myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'].forEach(function (k) {
-      var p = {}; p[k] = [k === 'myProficiencyList' ? 'gold2' : k === 'scoreRankList' ? '1' : 'inf'];
+    ['myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList', 'partnerProficiencyList', 'partnerGradeList', 'partnerScoreRankList'].forEach(function (k) {
+      var p = {}; p[k] = [/Proficiency/.test(k) ? 'gold2' : /rank/i.test(k) ? '1' : 'inf'];
       assert.strictEqual(run(ms, p).length, 0, k);
     });
   });
@@ -682,10 +697,12 @@ describe('熟練度・階級・スコア順位の絞り込み', function () {
   it('適用中の条件ラベルと hasActiveFilters', function () {
     var f = Object.assign(emptyFilters(), {
       myProficiencyList: ['gold2', 'master'], myGradeList: ['inf'], enemyGradeList: ['e1', 'ace'], scoreRankList: ['1', '2'],
+      partnerProficiencyList: ['blue0'], partnerGradeList: ['ace'], partnerScoreRankList: ['3'],
     });
-    assert.deepStrictEqual(appliedFilterLabels(f), ['自機の熟練度: ⭐17 ほか1', '自分の階級: ∞', '相手の階級: Extreme 1〜3 ほか1', 'スコア順位: 1位 ほか1']);
+    assert.deepStrictEqual(appliedFilterLabels(f), ['自機熟練度: ⭐17 ほか1', '僚機熟練度: ⭐0', '自分の順位: 1位 ほか1', '相方の順位: 3位',
+      '自分の階級: ∞', '相方の階級: Ace', '相手の階級: Extreme 1〜3 ほか1']);
     assert.deepStrictEqual(appliedFilterLabels(emptyFilters()), []);
-    ['myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'].forEach(function (k) {
+    ['myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList', 'partnerProficiencyList', 'partnerGradeList', 'partnerScoreRankList'].forEach(function (k) {
       var g = {}; g[k] = ['1'];
       assert.strictEqual(hasActiveFilters(Object.assign(emptyFilters(), g)), true, k);
     });
