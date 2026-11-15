@@ -287,7 +287,8 @@ export function Report({ data, userKey, actions }) {
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} notes=${notes} />
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }
 

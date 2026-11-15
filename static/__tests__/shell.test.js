@@ -44,4 +44,12 @@ describe('shell ソース', () => {
     const apply = src.slice(src.indexOf('function apply()'), src.indexOf('function schedule()'));
     assert.ok(/scrollLocked\(\)\) return;/.test(apply));
   });
+
+  it('MoreView のメモ行は on/error だけタップでき、notes が無ければパネルを出さない', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../components/shell.js', import.meta.url), 'utf8');
+    assert.match(src, /\$\{notes && html`<\$\{Panel\} title="メモ">/);
+    assert.match(src, /notes\.status === 'on' \|\| notes\.status === 'error' \? function[^:]+: undefined/);
+    assert.match(src, /import \{ NoteList \} from '\.\/notes\.js';/);
+  });
 });

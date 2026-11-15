@@ -26,3 +26,7 @@
 .note-foot-left { display: flex; gap: 8px; margin-right: auto; }
 .note-save { margin-left: auto; }
 .note-danger { border-color: var(--bad); color: var(--bad); }
+
+.note-list { display: flex; flex-direction: column; gap: 16px; }
+.search-layer-head .note-list-write { justify-self: end; }
+.note-group-head span { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
