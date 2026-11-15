@@ -12,7 +12,6 @@ function validDate(s) {
 
 function str(v) { return typeof v === 'string' ? v : ''; }
 
-// GET 応答の検証。id・text が文字列で kind が既知の項目だけ残す。他の文字列項目の欠けは '' にする
 // 取得を始めるか。'off'=使えない / 'skip'=取得済みか同じユーザーを取得中 / 'load'
 export function loadDecision(userKey, available, settledKey, loadingKey) {
   if (!userKey || !available) return 'off';
@@ -28,6 +27,7 @@ export function responseOutcome(requestedKey, currentKey, res) {
   return res.status === 200 && b && b.user_key === requestedKey ? 'on' : 'error';
 }
 
+// GET 応答の検証。id・text が文字列で kind が既知の項目だけ残す。他の文字列項目の欠けは '' にする
 export function sanitizeNotes(list) {
   if (!Array.isArray(list)) return [];
   return list.filter(function (n) {
