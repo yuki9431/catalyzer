@@ -731,6 +731,3 @@ document.addEventListener('visibilitychange', function () {
   periodicPull.sync();
   if (document.visibilityState === 'visible') pullAutoRefresh();
 });
-
-// preview.html用: windowにrenderReportを公開
-window.renderReport = renderReport;
