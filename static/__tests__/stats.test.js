@@ -1183,3 +1183,74 @@ describe('computeGameDuration', function () {
     assert.equal(computeGameDuration([makeMatch({ game_end_sec: 0 }), makeMatch({})]), null);
   });
 });
+
+// --- アドバイス文言(#427) ---
+
+describe('アドバイス文言', function () {
+  function falls(n, my, partner, win) {
+    return makeMatches(n, {
+      win: win,
+      actions: [{ action: 'death', action_start_sec: my }],
+      partner_actions: partner == null ? [] : [{ action: 'death', action_start_sec: partner }],
+    });
+  }
+  function noFalls(n, win) {
+    return makeMatches(n, { win: win, actions: [{ action: 'ex', action_start_sec: 10 }] });
+  }
+  function bursted(n, type, win) {
+    return makeMatches(n, { win: win, actions: [{ action: type, action_start_sec: 30 }] });
+  }
+
+  it('computeBurstCount: 2回覚醒が3試合以上で勝率が高いときだけ出る', function () {
+    var two = makeMatches(3, { bursts: 2, win: true, actions: [{ action: 'ex' }] });
+    var one = [makeMatch({ bursts: 1, win: false, actions: [{ action: 'ex' }] })];
+    assert.deepEqual(computeBurstCount(two.concat(one)).tips, ['2回覚醒できた試合の勝率は、覚醒1回以下の試合より **100%** 高い']);
+    assert.deepEqual(computeBurstCount(two.slice(1).concat(one)).tips, []);
+    var oneWin = [makeMatch({ bursts: 1, win: true, actions: [{ action: 'ex' }] })];
+    assert.deepEqual(computeBurstCount(two.concat(oneWin)).tips, []);
+  });
+
+  it('computeFallOrder: 先落ちと後落ちの差・先落ちの割合(60%以上)', function () {
+    var result = computeFallOrder(falls(3, 30, 60, false).concat(falls(2, 60, 30, true)));
+    assert.deepEqual(result.tips, [
+      '**後落ち**の試合の勝率は先落ちの試合より **100%** 高い',
+      '自機が撃墜された試合のうち、先落ちは **60%**',
+    ]);
+  });
+
+  it('computeFallOrder: 差が無く先落ちが50%なら0落ちとの比較だけ出る', function () {
+    var result = computeFallOrder(falls(2, 30, 60, false).concat(falls(2, 60, 30, false), noFalls(1, true)));
+    assert.deepEqual(result.tips, ['0落ちの試合の勝率は先落ちの試合より **100%** 高い']);
+  });
+
+  it('computeBurstType: 5試合以上の型が2つ以上あるときだけ出る', function () {
+    var f = bursted(5, 'exbst-f', true);
+    assert.deepEqual(computeBurstType(f.concat(bursted(5, 'exbst-s', false))).tips,
+      ['5試合以上で使った覚醒タイプのうち、勝率が最も高いのは **F覚醒**（100%）、最も低いのは **S覚醒**（0%）']);
+    assert.deepEqual(computeBurstType(f.concat(bursted(4, 'exbst-s', false))).tips, []);
+  });
+
+  it('computeBurstTiming: 1機目に覚醒した試合を初覚醒が2機目以降の試合と比べる', function () {
+    var pre = makeMatches(3, { win: true, actions: [{ action: 'exbst-f', action_start_sec: 20 }, { action: 'death', action_start_sec: 40 }] });
+    var late = makeMatches(3, { win: false, actions: [{ action: 'death', action_start_sec: 20 }, { action: 'exbst-f', action_start_sec: 40 }] });
+    assert.deepEqual(computeBurstTiming(pre.concat(late)).tips, ['1機目に覚醒できた試合の勝率は、初覚醒が2機目以降の試合より **100%** 高い']);
+  });
+
+  it('computeBurstTiming: 1機目と2機目の両方で覚醒した試合は比較相手に入れない', function () {
+    var both = makeMatches(3, { win: true, actions: [
+      { action: 'exbst-f', action_start_sec: 20 }, { action: 'death', action_start_sec: 40 }, { action: 'exbst-f', action_start_sec: 60 },
+    ] });
+    var late = makeMatches(2, { win: false, actions: [{ action: 'death', action_start_sec: 20 }, { action: 'exbst-f', action_start_sec: 40 }] });
+    assert.deepEqual(computeBurstTiming(both.concat(late)).tips, []);
+  });
+
+  it('computeDailyTrend: 日別表の不調の印はアドバイスと同じ勝率40%以下', function () {
+    function day(date, n, wins) {
+      return makeMatches(n, function (i) { return { date: date + ' 14:' + String(10 + i), win: i < wins }; });
+    }
+    var result = computeDailyTrend(day('2025-06-10', 5, 2).concat(day('2025-06-11', 9, 4)));
+    var marks = result.days.map(function (d) { return d.win_rate + ':' + d.mark; }).sort();
+    assert.deepEqual(marks, ['40:bad', '44.4:']);
+    assert.equal(result.tips.length, 1);
+  });
+});
