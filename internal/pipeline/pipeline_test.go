@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -94,6 +95,42 @@ func TestScrapeErrorMessage(t *testing.T) {
 	}
 	if !strings.Contains(expired, "セッション") {
 		t.Errorf("失効の文言: %q", expired)
+	}
+}
+
+func TestFailScrapeOn403(t *testing.T) {
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	tests := []struct {
+		name         string
+		ctx          context.Context
+		err          error
+		usingSession bool
+		wantBlocked  bool
+		wantStatus   model.JobStatus
+	}{
+		{"セッション使用中の 403 はブロック", context.Background(), fmt.Errorf("x: %w", scraper.ErrAccessDenied), true, true, model.StatusError},
+		{"パスワードでの 403 はブロック", context.Background(), scraper.ErrAccessDenied, false, true, model.StatusError},
+		{"ログイン失敗はブロックしない", context.Background(), scraper.ErrLoginFailed, false, false, model.StatusError},
+		{"5xx はブロックしない", context.Background(), scraper.ErrServerError, true, false, model.StatusError},
+		{"キャンセル済みの 403 はブロックしない", canceled, scraper.ErrAccessDenied, true, false, model.StatusCancelled},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := &Job{ID: "t", UserKey: "user1", ctx: tt.ctx}
+			var blocked []string
+			failScrape(j, tt.err, tt.usingSession, []On403Func{func(k string) { blocked = append(blocked, k) }})
+			if tt.wantBlocked {
+				if len(blocked) != 1 || blocked[0] != "user1" {
+					t.Errorf("on403 = %v, want [user1]", blocked)
+				}
+			} else if len(blocked) != 0 {
+				t.Errorf("on403 が呼ばれた: %v", blocked)
+			}
+			if j.Status != tt.wantStatus {
+				t.Errorf("Status = %v, want %v", j.Status, tt.wantStatus)
+			}
+		})
 	}
 }
 
