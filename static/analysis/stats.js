@@ -173,7 +173,7 @@ export function computeDailyTrend(matches) {
     var wr = jsWinRate(ms);
     var d = new Date(ms[0].date.replace(' ', 'T'));
     var dow = (d.getDay() + 6) % 7;
-    return { date: label(dayKey), sort_key: Number(dayKey.replace(/-/g, '')), dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 45 ? 'bad' : '' };
+    return { date: label(dayKey), sort_key: Number(dayKey.replace(/-/g, '')), dow_name: DOW_NAMES[dow], matches: ms.length, win_rate: round1(wr), dmg_efficiency: round3(jsDmgEfficiency(ms)), mark: wr >= 70 ? 'good' : wr <= 40 ? 'bad' : '' };
   });
   var tips = [];
   var badDays = sortedKeys.filter(function (ds) { return jsWinRate(daily[ds]) <= 40 && daily[ds].length >= 5; }).map(label);
@@ -923,6 +923,7 @@ export function computeConsecutiveFall(matches) {
 export function computeBurstTiming(matches) {
   var categories = {};
   var total = 0;
+  var late = [];
   matches.forEach(function (d) {
     if (!d.actions || !d.actions.length) return;
     var bursts = jsGetBurstEvents(d.actions).slice()
@@ -946,6 +947,7 @@ export function computeBurstTiming(matches) {
         categories[label].push(d);
       }
     });
+    if (!seen['1機目']) late.push(d);
   });
   if (total === 0) return null;
   var order = ['1機目', '2機目', '3機目'];
@@ -959,12 +961,12 @@ export function computeBurstTiming(matches) {
     };
   });
   var tips = [];
+  // 表の各段は1試合が複数段に入るので、助言は初覚醒の時期で重ならない2群に分けて比べる
   var pre = categories['1機目'];
-  var post = categories['2機目'];
-  if (pre && post && pre.length >= 3 && post.length >= 3) {
-    var diff = jsWinRate(pre) - jsWinRate(post);
+  if (pre && pre.length >= 3 && late.length >= 3) {
+    var diff = jsWinRate(pre) - jsWinRate(late);
     if (diff >= 5) {
-      tips.push('1機目に覚醒できた試合の勝率は、2機目に覚醒した試合より **' + Math.round(diff) + '%** 高い');
+      tips.push('1機目に覚醒できた試合の勝率は、初覚醒が2機目以降の試合より **' + Math.round(diff) + '%** 高い');
     }
   }
   return {
