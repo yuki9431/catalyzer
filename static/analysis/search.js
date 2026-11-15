@@ -3,7 +3,7 @@
 // UI から切り離すことで単体テスト可能にしている。
 
 import { modeLabel } from '../lib/match.js';
-import { PERIOD_DAYS } from './stats.js';
+import { PERIOD_DAYS, OPPONENT_GRADE_BANDS, gradeBand, opponentGradeBand } from './stats.js';
 import { findPattern, goalPattern, testPattern, patternLabel } from './patterns.js';
 
 // 並べ替えの選択肢。key はソート対象のフィールド。並び順（昇順/降順）はUI側のトグルで制御する。
@@ -36,6 +36,10 @@ export function emptyFilters() {
     myCostList: [],          // 自機コスト（複数選択・OR）
     partnerCostList: [],     // 僚機コスト（複数選択・OR）
     enemyCostPairList: [],   // 相手コスト編成（複数選択・OR）
+    myProficiencyList: [],   // 自機の熟練度（MatchData.proficiency の生値。複数選択・OR）
+    myGradeList: [],         // 自分の階級の段 key（複数選択・OR）
+    enemyGradeList: [],      // 相手の階級の段 key（2人平均。複数選択・OR）
+    scoreRankList: [],       // 自分のスコア順位 '1'〜'4'（複数選択・OR）
     dmgGivenMin: '', dmgGivenMax: '',
     dmgTakenMin: '', dmgTakenMax: '',
     killsMin: '', killsMax: '',
@@ -96,7 +100,8 @@ export function hasActiveFilters(filters) {
   if (activeConditions(f).length || validRange(f.focusRange)) return true;
   if (f.result && f.result !== 'all') return true;
   if (modeLabel(f.mode)) return true;
-  var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
+  var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList',
+    'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'];
   for (var j = 0; j < listKeys.length; j++) {
     if (f[listKeys[j]] && f[listKeys[j]].length) return true;
   }
@@ -144,8 +149,24 @@ export function enemyCostPairKey(a, b) {
   return Math.max(x, y) + ' + ' + Math.min(x, y);
 }
 
-// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成）を
-// 出現頻度順で返す。
+// 熟練度 class 名の序列。bronze/silver/goldN は⭐(5/10/15+N)、master=21、legend=22、他は null（前提は設計書 issue-361）
+function proficiencyRank(p) {
+  if (p === 'legend') return 22;
+  if (p === 'master') return 21;
+  var mt = /^(bronze|silver|gold)([1-5])$/.exec(p || '');
+  if (!mt) return null;
+  return { bronze: 5, silver: 10, gold: 15 }[mt[1]] + Number(mt[2]);
+}
+
+// 熟練度の表示名。未知の値は生値、空は ''
+export function proficiencyLabel(p) {
+  var r = proficiencyRank(p);
+  if (r == null) return p || '';
+  return r === 22 ? 'Legend' : r === 21 ? 'Master' : '⭐' + r;
+}
+
+// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成／自機の熟練度）を
+// 出現頻度順（熟練度は序列順）で返す。
 export function collectMsOptions(matches) {
   var ms = matches || [];
   // 相手コスト編成は出現数順ではなくコスト降順（3000+3000 → 3000+2500 → …）で並べる。
@@ -154,7 +175,18 @@ export function collectMsOptions(matches) {
     var pa = a.name.split(' + '), pb = b.name.split(' + ');
     return (Number(pb[0]) - Number(pa[0])) || (Number(pb[1]) - Number(pa[1]));
   });
+  // 熟練度は序列順（高い方が先、未知は末尾で名前順）
+  var profs = tally(ms, [function (m) { return [m.proficiency]; }]).map(function (o) {
+    return { name: o.name, matches: o.matches, label: proficiencyLabel(o.name) };
+  });
+  profs.sort(function (a, b) {
+    var ra = proficiencyRank(a.name), rb = proficiencyRank(b.name);
+    if (ra != null && rb != null) return rb - ra;
+    if (ra != null || rb != null) return ra != null ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
   return {
+    proficiencies: profs,
     mine: tally(ms, [function (m) { return [m.ms]; }]),
     partners: tally(ms, [function (m) { return [m.partner_ms]; }]),
     enemies: tally(ms, [function (m) { return [m.opponent1_ms, m.opponent2_ms]; }]),
@@ -218,6 +250,10 @@ export function filterMatches(matches, filters) {
   var myCostList = (f.myCostList || []).map(Number);
   var partnerCostList = (f.partnerCostList || []).map(Number);
   var enemyCostPairList = f.enemyCostPairList || [];
+  var myProficiencyList = f.myProficiencyList || [];
+  var myGradeList = f.myGradeList || [];
+  var enemyGradeList = f.enemyGradeList || [];
+  var scoreRankList = (f.scoreRankList || []).map(Number);
   var dgMin = toNum(f.dmgGivenMin), dgMax = toNum(f.dmgGivenMax);
   var dtMin = toNum(f.dmgTakenMin), dtMax = toNum(f.dmgTakenMax);
   var kMin = toNum(f.killsMin), kMax = toNum(f.killsMax);
@@ -254,6 +290,10 @@ export function filterMatches(matches, filters) {
     if (myCostList.length && myCostList.indexOf(m.ms_cost) < 0) return false;
     if (partnerCostList.length && partnerCostList.indexOf(m.partner_cost) < 0) return false;
     if (enemyCostPairList.length && enemyCostPairList.indexOf(enemyCostPairKey(m.opponent1_cost, m.opponent2_cost)) < 0) return false;
+    if (myProficiencyList.length && myProficiencyList.indexOf(m.proficiency) < 0) return false;
+    if (myGradeList.length && myGradeList.indexOf(gradeBand(OPPONENT_GRADE_BANDS, m.grade)) < 0) return false;
+    if (enemyGradeList.length && enemyGradeList.indexOf(opponentGradeBand(m)) < 0) return false;
+    if (scoreRankList.length && scoreRankList.indexOf(m.score_ranking) < 0) return false;
     if (!inRange(m.dmg_given, dgMin, dgMax)) return false;
     if (!inRange(m.dmg_taken, dtMin, dtMax)) return false;
     if (!inRange(m.kills, kMin, kMax)) return false;
@@ -347,6 +387,16 @@ export function appliedFilterLabels(filters) {
   if (list('myCostList').length) out.push('自機コスト: ' + listLabel(list('myCostList')));
   if (list('partnerCostList').length) out.push('僚機コスト: ' + listLabel(list('partnerCostList')));
   if (list('enemyCostPairList').length) out.push('相手コスト編成: ' + listLabel(list('enemyCostPairList')));
+  var gradeLabels = function (k) {
+    return list(k).map(function (key) {
+      var b = OPPONENT_GRADE_BANDS.filter(function (x) { return x.key === key; })[0];
+      return b ? b.label : key;
+    });
+  };
+  if (list('myProficiencyList').length) out.push('自機の熟練度: ' + listLabel(list('myProficiencyList').map(function (p) { return proficiencyLabel(p); })));
+  if (list('myGradeList').length) out.push('自分の階級: ' + listLabel(gradeLabels('myGradeList')));
+  if (list('enemyGradeList').length) out.push('相手の階級: ' + listLabel(gradeLabels('enemyGradeList')));
+  if (list('scoreRankList').length) out.push('スコア順位: ' + listLabel(list('scoreRankList').map(function (r) { return r + '位'; })));
   RANGE_LABELS.forEach(function (r) {
     var min = toNum(f[r[0] + 'Min']), max = toNum(f[r[0] + 'Max']);
     if (min != null && max != null) out.push(r[1] + ': ' + min + '〜' + max);

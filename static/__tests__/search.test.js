@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS,
-  appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels, removeFilter, isTimedRange,
+  proficiencyLabel, appliedFilterLabels, sortDirLabel, sortLabel, activeConditions, removableFilterLabels, removeFilter, isTimedRange,
 } from '../analysis/search.js';
 import { computeActionPlan, evaluateGoal } from '../analysis/coach.js';
 
@@ -78,7 +78,7 @@ describe('collectMsOptions', function () {
   });
   it('handles empty input', function () {
     var opts = collectMsOptions([]);
-    assert.deepEqual(opts, { mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [], playerNames: [], enemyTags: [] });
+    assert.deepEqual(opts, { proficiencies: [], mine: [], partners: [], enemies: [], myTags: [], enemyCostPairs: [], playerNames: [], enemyTags: [] });
   });
   it('orders enemyCostPairs by cost descending (not by match count)', function () {
     var matches = [
@@ -615,5 +615,77 @@ describe('対戦形式の絞り込み', function () {
     var f = Object.assign(emptyFilters(), { mode: 'solo' });
     assert.strictEqual(filterMatches(matches, f).length, 3);
     assert.strictEqual(hasActiveFilters(f), false);
+  });
+});
+
+describe('熟練度・階級・スコア順位の絞り込み', function () {
+  var run = function (m, patch) { return filterMatches(m, Object.assign(emptyFilters(), patch)); };
+
+  it('proficiencyLabel は⭐/Master/Legendに変換し、未知は生値・空は空', function () {
+    var cases = [['bronze1', '⭐6'], ['bronze5', '⭐10'], ['silver5', '⭐15'], ['gold2', '⭐17'], ['gold5', '⭐20'], ['master', 'Master'], ['legend', 'Legend']];
+    cases.forEach(function (c) { assert.strictEqual(proficiencyLabel(c[0]), c[1]); });
+    assert.strictEqual(proficiencyLabel('foo'), 'foo');
+    assert.strictEqual(proficiencyLabel('gold6'), 'gold6');
+    assert.strictEqual(proficiencyLabel(''), '');
+    assert.strictEqual(proficiencyLabel(undefined), '');
+  });
+
+  it('collectMsOptions.proficiencies は序列順で空を出さない', function () {
+    var ms = ['zzz', 'silver3', 'legend', 'aaa', 'gold1', '', 'gold1', 'master', 'bronze2'].map(function (p) { return makeMatch({ proficiency: p }); });
+    var ps = collectMsOptions(ms).proficiencies;
+    assert.deepStrictEqual(ps.map(function (o) { return o.name; }), ['legend', 'master', 'gold1', 'silver3', 'bronze2', 'aaa', 'zzz']);
+    assert.deepStrictEqual(ps.map(function (o) { return o.label; }), ['Legend', 'Master', '⭐16', '⭐13', '⭐7', 'aaa', 'zzz']);
+    assert.strictEqual(ps[2].matches, 2);
+  });
+
+  it('myProficiencyList は OR で絞る', function () {
+    var ms = ['gold2', 'master', 'silver1'].map(function (p) { return makeMatch({ proficiency: p }); });
+    assert.deepStrictEqual(run(ms, { myProficiencyList: ['gold2', 'silver1'] }).map(function (m) { return m.proficiency; }), ['gold2', 'silver1']);
+  });
+
+  it('myGradeList は段の境界で絞る', function () {
+    var ms = [41, 40, 39, 38, 37, 25].map(function (g) { return makeMatch({ grade: g }); });
+    var got = function (keys) { return run(ms, { myGradeList: keys }).map(function (m) { return m.grade; }); };
+    assert.deepStrictEqual(got(['inf']), [41]);
+    assert.deepStrictEqual(got(['e1']), [40, 39, 38]);
+    assert.deepStrictEqual(got(['e4']), [37]);
+    assert.deepStrictEqual(got(['ace']), [25]);
+  });
+
+  it('enemyGradeList は2人平均(切り捨て)で、片方欠落は除外', function () {
+    var ms = [
+      makeMatch({ opponent1_grade: 41, opponent2_grade: 36 }), // 38 → e1
+      makeMatch({ opponent1_grade: 41, opponent2_grade: 35 }), // 38
+      makeMatch({ opponent1_grade: 41, opponent2_grade: 34 }), // 37 → e4
+      makeMatch({ opponent1_grade: 41 }),
+    ];
+    assert.strictEqual(run(ms, { enemyGradeList: ['e1'] }).length, 2);
+    assert.strictEqual(run(ms, { enemyGradeList: ['e4'] }).length, 1);
+  });
+
+  it('scoreRankList は数値化して比較し、0/未定義は除外', function () {
+    var ms = [1, 2, 3, 0, undefined].map(function (r) { return makeMatch({ score_ranking: r }); });
+    assert.deepStrictEqual(run(ms, { scoreRankList: ['1', '2'] }).map(function (m) { return m.score_ranking; }), [1, 2]);
+  });
+
+  it('欠落した旧試合は条件指定で除外され、未指定なら残る', function () {
+    var ms = [makeMatch({})];
+    assert.strictEqual(run(ms, {}).length, 1);
+    ['myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'].forEach(function (k) {
+      var p = {}; p[k] = [k === 'myProficiencyList' ? 'gold2' : k === 'scoreRankList' ? '1' : 'inf'];
+      assert.strictEqual(run(ms, p).length, 0, k);
+    });
+  });
+
+  it('適用中の条件ラベルと hasActiveFilters', function () {
+    var f = Object.assign(emptyFilters(), {
+      myProficiencyList: ['gold2', 'master'], myGradeList: ['inf'], enemyGradeList: ['e1', 'ace'], scoreRankList: ['1', '2'],
+    });
+    assert.deepStrictEqual(appliedFilterLabels(f), ['自機の熟練度: ⭐17 ほか1', '自分の階級: ∞', '相手の階級: Extreme 1〜3 ほか1', 'スコア順位: 1位 ほか1']);
+    assert.deepStrictEqual(appliedFilterLabels(emptyFilters()), []);
+    ['myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'].forEach(function (k) {
+      var g = {}; g[k] = ['1'];
+      assert.strictEqual(hasActiveFilters(Object.assign(emptyFilters(), g)), true, k);
+    });
   });
 });

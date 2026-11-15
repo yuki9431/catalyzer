@@ -16,7 +16,7 @@ import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
 import { useDismiss, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
-import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
+import { PERIOD_DAYS, OPPONENT_GRADE_BANDS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 import { SCOPE_KEYS } from '../lib/scope.js';
 
 var PAGE_SIZE = 20;
@@ -41,7 +41,7 @@ var GANTT_LEGEND = [
 // 機体/タッグ/コスト編成用の複数選択（OR）。集計結果 [{name, matches}] を渡す。
 // 選択後のトリガーは名前のみ（chip）、ドロップダウン内は「名前（N戦）」を出す。
 function MsMulti({ values, onChange, options }) {
-  var opts = options.map(function (o) { return { value: o.name, label: o.name + '（' + o.matches + '戦）', chip: o.name }; });
+  var opts = options.map(function (o) { var t = o.label || o.name; return { value: o.name, label: t + '（' + o.matches + '戦）', chip: t }; });
   return html`<${MultiSelect} values=${values} options=${opts} onChange=${onChange} placeholder="-" />`;
 }
 
@@ -94,13 +94,18 @@ var ADV_FIELDS = ['dateFrom', 'dateTo', 'enemyTagName',
   'dmgGivenMin', 'dmgGivenMax', 'dmgTakenMin', 'dmgTakenMax', 'killsMin', 'killsMax', 'deathsMin', 'deathsMax',
   'scoreMin', 'scoreMax', 'exDmgMin', 'exDmgMax', 'burstsMin', 'burstsMax'];
 // 詳細な条件内の複数選択（配列）フィルタ。
-var ADV_LIST_FIELDS = ['myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
+var ADV_LIST_FIELDS = ['myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList',
+  'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList'];
 
 // 自機コストの選択肢（固定4種）。
 var COST_OPTIONS = [
   { value: '3000', label: '3000' }, { value: '2500', label: '2500' },
   { value: '2000', label: '2000' }, { value: '1500', label: '1500' },
 ];
+
+// 階級の段・スコア順位の選択肢（固定）。
+var GRADE_OPTIONS = OPPONENT_GRADE_BANDS.map(function (b) { return { value: b.key, label: b.label }; });
+var RANK_OPTIONS = [1, 2, 3, 4].map(function (n) { return { value: String(n), label: n + '位' }; });
 
 var ENEMY_MODE_OPTIONS = [{ value: 'and', label: 'すべて含む' }, { value: 'or', label: 'どれかを含む' }];
 var NAME_SCOPE_OPTIONS = [{ value: 'both', label: '両方' }, { value: 'ally', label: '相方' }, { value: 'enemy', label: '相手' }];
@@ -233,6 +238,26 @@ function FilterFields({ filters, options, onField }) {
             <label class="search-label">相手コスト編成（複数選択可）</label>
             <${MsMulti} values=${filters.enemyCostPairList} options=${options.enemyCostPairs}
               onChange=${function (vs) { onField('enemyCostPairList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-proficiency">
+            <label class="search-label">熟練度（複数選択可）</label>
+            <${MsMulti} values=${filters.myProficiencyList} options=${options.proficiencies}
+              onChange=${function (vs) { onField('myProficiencyList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-rank">
+            <label class="search-label">スコア順位（複数選択可）</label>
+            <${MultiSelect} values=${filters.scoreRankList} placeholder="-" options=${RANK_OPTIONS}
+              onChange=${function (vs) { onField('scoreRankList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-my-grade">
+            <label class="search-label">自分の階級（複数選択可）</label>
+            <${MultiSelect} values=${filters.myGradeList} placeholder="-" options=${GRADE_OPTIONS}
+              onChange=${function (vs) { onField('myGradeList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-enemy-grade">
+            <label class="search-label">相手の階級（複数選択可）</label>
+            <${MultiSelect} values=${filters.enemyGradeList} placeholder="-" options=${GRADE_OPTIONS}
+              onChange=${function (vs) { onField('enemyGradeList', vs); }} />
           </div>
           <${RangeInput} label="与ダメージ" minVal=${filters.dmgGivenMin} maxVal=${filters.dmgGivenMax}
             onMin=${function (v) { onField('dmgGivenMin', v); }} onMax=${function (v) { onField('dmgGivenMax', v); }} />
