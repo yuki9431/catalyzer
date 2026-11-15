@@ -1,0 +1,28 @@
+/* ===== 敵機のメモ(components/notes.js)。色は tokens.css の定義だけを使う ===== */
+.note-match { display: flex; flex-direction: column; gap: 16px; }
+.note-group { display: flex; flex-direction: column; gap: 8px; }
+.note-group-head { margin: 0; color: var(--text); font-size: 0.9375rem; }
+.note-empty { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.note-write { align-self: flex-start; }
+
+.note-item { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font-size: 0.9375rem; font-weight: normal; text-align: left; cursor: pointer; transition: none; }
+.note-item:hover { background: var(--accent-a10); }
+.note-item-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 0.875rem; }
+.note-item-meta b { color: var(--accent-2); }
+.note-item-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+
+.note-mark { display: inline-flex; align-items: center; color: var(--accent-2); vertical-align: middle; }
+
+.note-form { display: flex; flex-direction: column; gap: 16px; }
+.note-text { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; line-height: 1.5; resize: vertical; }
+.note-text:focus, .note-date:focus { outline: none; border-color: var(--accent); }
+.note-count { margin: 0; color: var(--muted); font-size: 0.875rem; text-align: right; }
+.note-count-over { color: var(--bad); font-weight: bold; }
+.note-date { box-sizing: border-box; align-self: flex-start; min-height: 44px; padding: 0 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+.note-pin { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; margin: 0; padding: 8px 0; color: var(--text); font-size: 0.9375rem; cursor: pointer; }
+.note-pin input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--accent); }
+.note-pin small { display: block; color: var(--muted); font-size: 0.875rem; }
+
+.note-foot-left { display: flex; gap: 8px; margin-right: auto; }
+.note-save { margin-left: auto; }
+.note-danger { border-color: var(--bad); color: var(--bad); }

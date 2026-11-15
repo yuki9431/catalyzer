@@ -1,0 +1,200 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import {
+  NOTE_KINDS, sanitizeNotes, notesForEnemy, notesForMatch, hasNoteForMatch, groupByEnemy, notesByTab, tabCounts,
+  noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, pinnedCount,
+  upsertNote, removeNoteById, msChoices,
+} from '../lib/notes.js';
+
+function note(over) {
+  return Object.assign({ id: 'n1', kind: 'enemy', text: 'メモ', enemy_ms: 'A', my_ms: '', date: '', pinned: false, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z' }, over);
+}
+var LIMITS = { text_max: 500, count_max: 2000, pinned_max: 3 };
+
+describe('sanitizeNotes', () => {
+  it('壊れた項目を落とし、欠けた文字列項目は空にする', () => {
+    var out = sanitizeNotes([
+      { id: 'a', kind: 'enemy', text: 'x', enemy_ms: 'A' },
+      { id: 1, kind: 'enemy', text: 'x' },
+      { id: 'b', kind: 'other', text: 'x' },
+      { id: 'c', kind: 'free' },
+      null,
+    ]);
+    assert.deepStrictEqual(out.map(function (n) { return n.id; }), ['a']);
+    assert.deepStrictEqual([out[0].my_ms, out[0].date, out[0].pinned, out[0].updated_at], ['', '', false, '']);
+  });
+  it('配列でなければ空', () => {
+    assert.deepStrictEqual(sanitizeNotes(null), []);
+    assert.deepStrictEqual(sanitizeNotes({}), []);
+  });
+  it('kind は enemy・date・free', () => {
+    assert.deepStrictEqual(NOTE_KINDS, ['enemy', 'date', 'free']);
+  });
+});
+
+describe('notesForEnemy', () => {
+  var list = [note({ id: '1' }), note({ id: '2', my_ms: 'X' }), note({ id: '3', enemy_ms: 'B' }), note({ id: '4', kind: 'free', enemy_ms: '' })];
+  it('自機を問わない(null)なら敵機が一致するものを全部', () => {
+    assert.deepStrictEqual(notesForEnemy(list, 'A', null).map(function (n) { return n.id; }), ['1', '2']);
+  });
+  it('自機を指定すると、指定なしと同じ自機のメモだけ', () => {
+    assert.deepStrictEqual(notesForEnemy(list, 'A', 'X').map(function (n) { return n.id; }), ['1', '2']);
+    assert.deepStrictEqual(notesForEnemy(list, 'A', 'Y').map(function (n) { return n.id; }), ['1']);
+  });
+});
+
+describe('notesForMatch', () => {
+  var list = [note({ id: '1', enemy_ms: 'A' }), note({ id: '2', enemy_ms: 'B', my_ms: 'M' }), note({ id: '3', enemy_ms: 'B', my_ms: 'Z' })];
+  it('敵機ごとに opponent1・2 の順でまとめ、自機で絞る', () => {
+    var g = notesForMatch(list, { ms: 'M', opponent1_ms: 'B', opponent2_ms: 'A' });
+    assert.deepStrictEqual(g.map(function (x) { return x.enemy; }), ['B', 'A']);
+    assert.deepStrictEqual(g[0].notes.map(function (n) { return n.id; }), ['2']);
+  });
+  it('相手2機が同じ機体なら1つにまとめる', () => {
+    assert.strictEqual(notesForMatch(list, { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'A' }).length, 1);
+  });
+  it('メモが無い敵機も返し、hasNoteForMatch は1件以上で真', () => {
+    assert.strictEqual(notesForMatch([], { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'B' }).length, 2);
+    assert.strictEqual(hasNoteForMatch(list, { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'C' }), true);
+    assert.strictEqual(hasNoteForMatch(list, { ms: 'M', opponent1_ms: 'C', opponent2_ms: 'D' }), false);
+    assert.strictEqual(hasNoteForMatch(list, { ms: 'Q', opponent1_ms: 'B', opponent2_ms: 'C' }), false);
+  });
+});
+
+describe('groupByEnemy・notesByTab・tabCounts', () => {
+  var list = [
+    note({ id: '1', enemy_ms: 'B', updated_at: '2026-06-01T00:00:00Z' }),
+    note({ id: '2', enemy_ms: 'A', updated_at: '2026-06-03T00:00:00Z', pinned: true }),
+    note({ id: '3', enemy_ms: 'B', updated_at: '2026-06-02T00:00:00Z' }),
+    note({ id: '4', kind: 'date', enemy_ms: '', date: '2026-06-10', updated_at: '2026-06-04T00:00:00Z' }),
+    note({ id: '5', kind: 'date', enemy_ms: '', date: '2026-06-12', updated_at: '2026-06-01T00:00:00Z' }),
+    note({ id: '6', kind: 'free', enemy_ms: '', updated_at: '2026-06-05T00:00:00Z' }),
+  ];
+  it('groupByEnemy は件数の多い順、同数は五十音順', () => {
+    var g = groupByEnemy(list);
+    assert.deepStrictEqual(g.map(function (x) { return [x.enemy, x.count]; }), [['B', 2], ['A', 1]]);
+  });
+  it('all は更新の新しい順', () => {
+    assert.deepStrictEqual(notesByTab(list, 'all').map(function (n) { return n.id; }), ['6', '4', '2', '3', '1', '5']);
+  });
+  it('enemy・date・pin に絞る。date は日付の新しい順', () => {
+    assert.deepStrictEqual(notesByTab(list, 'enemy').map(function (n) { return n.id; }), ['2', '3', '1']);
+    assert.deepStrictEqual(notesByTab(list, 'date').map(function (n) { return n.id; }), ['5', '4']);
+    assert.deepStrictEqual(notesByTab(list, 'pin').map(function (n) { return n.id; }), ['2']);
+  });
+  it('tabCounts', () => {
+    assert.deepStrictEqual(tabCounts(list), { all: 6, enemy: 3, date: 2, pin: 1 });
+  });
+  it('更新が同じなら id の昇順', () => {
+    var same = [note({ id: 'b' }), note({ id: 'a' })];
+    assert.deepStrictEqual(notesByTab(same, 'all').map(function (n) { return n.id; }), ['a', 'b']);
+  });
+});
+
+describe('noteTargetLabel', () => {
+  it('敵機名・M/D・メモ', () => {
+    assert.strictEqual(noteTargetLabel(note({ enemy_ms: 'ガルーダ零' })), 'ガルーダ零');
+    assert.strictEqual(noteTargetLabel(note({ kind: 'date', date: '2026-06-05' })), '6/5');
+    assert.strictEqual(noteTargetLabel(note({ kind: 'free' })), 'メモ');
+  });
+});
+
+describe('draft', () => {
+  it('defaultDraft は敵機があれば enemy で、自機は指定しない', () => {
+    assert.deepStrictEqual(defaultDraft({ enemy_ms: 'A' }), { id: null, kind: 'enemy', text: '', enemy_ms: 'A', my_ms: '', date: '', pinned: false });
+    assert.strictEqual(defaultDraft({ kind: 'free' }).kind, 'free');
+    assert.strictEqual(defaultDraft().kind, 'enemy');
+  });
+  it('draftFromNote は編集できる項目と id だけ', () => {
+    var d = draftFromNote(note({ my_ms: 'X', pinned: true }));
+    assert.deepStrictEqual(d, { id: 'n1', kind: 'enemy', text: 'メモ', enemy_ms: 'A', my_ms: 'X', date: '', pinned: true });
+  });
+  it('draftToRequest は CRLF を LF にし前後の空白を除く', () => {
+    assert.strictEqual(draftToRequest(Object.assign(defaultDraft({ enemy_ms: 'A' }), { text: '  a\r\nb \n' })).text, 'a\nb');
+  });
+  it('draftToRequest は kind で使わない項目を空にする', () => {
+    var d = { id: 'x', kind: 'enemy', text: 't', enemy_ms: 'A', my_ms: 'M', date: '2026-06-01', pinned: true };
+    assert.deepStrictEqual(draftToRequest(d), { kind: 'enemy', text: 't', enemy_ms: 'A', my_ms: 'M', date: '', pinned: true });
+    assert.deepStrictEqual(draftToRequest(Object.assign({}, d, { kind: 'date' })), { kind: 'date', text: 't', enemy_ms: '', my_ms: '', date: '2026-06-01', pinned: true });
+    assert.deepStrictEqual(draftToRequest(Object.assign({}, d, { kind: 'free' })), { kind: 'free', text: 't', enemy_ms: '', my_ms: '', date: '', pinned: true });
+  });
+});
+
+describe('textLength・validateDraft', () => {
+  it('絵文字は1文字、CRLF は1文字として数える', () => {
+    assert.strictEqual(textLength('😀😀'), 2);
+    assert.strictEqual(textLength('a\r\nb'), 3);
+    assert.strictEqual(textLength('  '), 0);
+  });
+  var ok = function (over) { return Object.assign(defaultDraft({ enemy_ms: 'A' }), { text: 'x' }, over); };
+  it('保存できるなら空文字', () => {
+    assert.strictEqual(validateDraft(ok(), LIMITS, 0), '');
+  });
+  it('本文が空・長すぎる', () => {
+    assert.strictEqual(validateDraft(ok({ text: ' ' }), LIMITS, 0), 'メモの本文を入力してください');
+    assert.strictEqual(validateDraft(ok({ text: 'あ'.repeat(500) }), LIMITS, 0), '');
+    assert.strictEqual(validateDraft(ok({ text: 'あ'.repeat(501) }), LIMITS, 0), 'メモは500文字までです');
+    assert.strictEqual(validateDraft(ok({ text: '😀'.repeat(500) }), LIMITS, 0), '');
+  });
+  it('上限は limits の値に従う', () => {
+    assert.strictEqual(validateDraft(ok({ text: 'abc' }), { text_max: 2, pinned_max: 3 }, 0), 'メモは2文字までです');
+  });
+  it('敵機・日付が無い', () => {
+    assert.strictEqual(validateDraft(ok({ enemy_ms: '' }), LIMITS, 0), '敵機を選んでください');
+    assert.strictEqual(validateDraft(ok({ kind: 'date', date: '' }), LIMITS, 0), '日付の形式が正しくありません');
+    assert.strictEqual(validateDraft(ok({ kind: 'date', date: '2026-13-01' }), LIMITS, 0), '日付の形式が正しくありません');
+    assert.strictEqual(validateDraft(ok({ kind: 'date', date: '2026-02-30' }), LIMITS, 0), '日付の形式が正しくありません');
+    assert.strictEqual(validateDraft(ok({ kind: 'date', date: '2026-06-15' }), LIMITS, 0), '');
+    assert.strictEqual(validateDraft(ok({ kind: 'free', enemy_ms: '' }), LIMITS, 0), '');
+  });
+  it('他のピンが上限に達しているとピン留めできない', () => {
+    assert.strictEqual(validateDraft(ok({ pinned: true }), LIMITS, 3), 'ピン留めは3件までです');
+    assert.strictEqual(validateDraft(ok({ pinned: true }), LIMITS, 2), '');
+    assert.strictEqual(validateDraft(ok({ pinned: false }), LIMITS, 3), '');
+  });
+});
+
+describe('一覧の更新', () => {
+  it('pinnedCount は自分を除く', () => {
+    var list = [note({ id: '1', pinned: true }), note({ id: '2', pinned: true }), note({ id: '3' })];
+    assert.strictEqual(pinnedCount(list, null), 2);
+    assert.strictEqual(pinnedCount(list, '1'), 1);
+  });
+  it('upsertNote は同じ id を置き換え、無ければ先頭に足す', () => {
+    var list = [note({ id: '1' }), note({ id: '2' })];
+    assert.deepStrictEqual(upsertNote(list, note({ id: '2', text: '新' })).map(function (n) { return n.text; }), ['メモ', '新']);
+    assert.deepStrictEqual(upsertNote(list, note({ id: '3' })).map(function (n) { return n.id; }), ['3', '1', '2']);
+  });
+  it('removeNoteById', () => {
+    assert.deepStrictEqual(removeNoteById([note({ id: '1' }), note({ id: '2' })], '1').map(function (n) { return n.id; }), ['2']);
+  });
+});
+
+describe('msChoices', () => {
+  var matches = [
+    { ms: 'M1', opponent1_ms: 'B', opponent2_ms: 'A' },
+    { ms: 'M2', opponent1_ms: 'B', opponent2_ms: 'C' },
+    { ms: 'M2', opponent1_ms: 'B', opponent2_ms: 'A' },
+  ];
+  it('対戦した機体を試合数の多い順、続けて画像だけにある機体を五十音順', () => {
+    var c = msChoices({ Z: 'z', A: 'a', Y: 'y' }, matches);
+    assert.deepStrictEqual(c.enemies.map(function (o) { return o.value; }), ['B', 'A', 'C', 'Y', 'Z']);
+    assert.deepStrictEqual(c.mine.map(function (o) { return o.value; }), ['M2', 'M1', 'A', 'Y', 'Z']);
+  });
+  it('msImages・matches が無くても動く', () => {
+    assert.deepStrictEqual(msChoices(null, null), { enemies: [], mine: [] });
+  });
+});
+
+describe('静的検査', () => {
+  ['../components/notes.js', '../lib/notes.js'].forEach(function (f) {
+    var src = fs.readFileSync(new URL(f, import.meta.url), 'utf8');
+    it(f + ' は innerHTML・dangerouslySetInnerHTML・localStorage を使わない', () => {
+      ['dangerouslySetInnerHTML', 'innerHTML', 'localStorage'].forEach(function (w) { assert.ok(!src.includes(w), w); });
+    });
+  });
+  it('lib/notes.js は import を持たない', () => {
+    assert.ok(!/^\s*import\s/m.test(fs.readFileSync(new URL('../lib/notes.js', import.meta.url), 'utf8')));
+  });
+});

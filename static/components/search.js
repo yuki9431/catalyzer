@@ -14,8 +14,9 @@ import {
 import { CompareRadar } from './charts.js';
 import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
-import { useDismiss, usePopover, Popover } from './popover.js';
+import { Layer, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
+import { MatchNotes } from './notes.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 import { SCOPE_KEYS } from '../lib/scope.js';
 
@@ -56,36 +57,6 @@ function RangeInput({ label, minVal, maxVal, onMin, onMax }) {
       <input type="number" class="search-num" inputmode="numeric" aria-label=${label + ' 最大'}
         value=${maxVal} onInput=${function (e) { onMax(e.target.value); }} />
     </div>
-  </div>`;
-}
-
-// 全画面の層。一覧はマウントしたまま背面に残し、背面スクロールは body・html の overflow で止める。
-function Layer({ ui, label, head, foot, footUi, onClose, children }) {
-  var ref = useRef(null);
-  useDismiss(true, null, onClose);
-  useEffect(function () {
-    var y = window.scrollY, back = document.activeElement;
-    var b = document.body.style.overflow, h = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden'; document.documentElement.style.overflow = 'hidden';
-    // 背面（祖先ごとの兄弟）を inert にして Tab・クリックを層の外に出さない。
-    var dimmed = [];
-    for (var n = ref.current; n && n.parentNode && n !== document.documentElement; n = n.parentNode) {
-      Array.prototype.forEach.call(n.parentNode.children, function (sib) {
-        if (sib !== n && !sib.inert && sib.tagName !== 'SCRIPT') { sib.inert = true; dimmed.push(sib); }
-      });
-    }
-    if (ref.current) ref.current.focus({ preventScroll: true });
-    return function () {
-      dimmed.forEach(function (d) { d.inert = false; });
-      document.body.style.overflow = b; document.documentElement.style.overflow = h;
-      if (window.scrollY !== y) window.scrollTo(0, y);
-      if (back && back.focus) back.focus({ preventScroll: true });
-    };
-  }, []);
-  return html`<div class="search-layer" data-ui=${ui} role="dialog" aria-modal="true" aria-label=${label} tabindex="-1" ref=${ref}>
-    <div class="search-layer-head">${head}</div>
-    <div class="search-layer-body">${children}</div>
-    ${foot && html`<div class="search-layer-foot" data-ui=${footUi}>${foot}</div>`}
   </div>`;
 }
 
@@ -444,7 +415,7 @@ function DetailThumb({ name, msImages }) {
 }
 
 // 試合詳細の全画面。試合経過は常に出す。
-function MatchDetail({ match, msImages, conds, streak, onClose }) {
+function MatchDetail({ match, msImages, conds, streak, notes, onClose }) {
   // 当てはまった条件の原因になった撃墜・OL発動（ガントで強調）と注意の一文
   var hits = [], note = '';
   (conds || []).forEach(function (c) {
@@ -487,6 +458,8 @@ function MatchDetail({ match, msImages, conds, streak, onClose }) {
     <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}${streakLabel(streak) && html`<span class="search-detail-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
+
+    ${notes && notes.status === 'on' && html`<${Panel} title="敵機のメモ"><${MatchNotes} notes=${notes} match=${match} /></${Panel}>`}
 
     <${Panel} title="4人の比較">
       <div class="search-radar-toggles">
@@ -555,7 +528,7 @@ function SortSheet({ sortKey, desc, pageSize, onSortKey, onDir, onPageSize }) {
 
 // 試合検索ビュー本体。matches はIndexedDBから読み込んだ全試合。
 // initial は前回 onChange で渡した状態(画面を切り替えても条件を残すため)。期間・対戦形式は scope(必須)で受け取り onScope(必須)で親に返す(レポートと共有)
-export function SearchView({ matches, msImages, initial, onChange, scope, onScope }) {
+export function SearchView({ matches, msImages, initial, onChange, scope, onScope, notes }) {
   var init = initial || {};
   var filtersRef = useState(function () { return Object.assign(emptyFilters(), init.filters); });
   var own = filtersRef[0], setFilters = filtersRef[1];
@@ -679,6 +652,6 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
       </div>`}
     </section>
 
-    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} streak=${streaks.get(streakKey(detail))} onClose=${function () { setDetail(null); }} />`}
+    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} streak=${streaks.get(streakKey(detail))} notes=${notes} onClose=${function () { setDetail(null); }} />`}
   </div>`;
 }

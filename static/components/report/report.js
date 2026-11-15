@@ -7,6 +7,8 @@ import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
+import { NoteSheet, useNotes } from '../notes.js';
+import { msChoices } from '../../lib/notes.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MS_CHIP_DEFAULT, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
 import { MatchupPane } from './matchup.js';
@@ -255,6 +257,9 @@ export function Report({ data, userKey, actions }) {
 
   // 試合検索ビュー: allMatches（IndexedDBキャッシュ）をフロントエンドで絞り込む。期間・対戦形式だけ共有する
   var count = allMatches ? allMatches.length : null;
+  // メモは Report が持つ。書くシートはどの画面からも同じものを開く
+  var notes = useNotes(userKey, actions.notes, data);
+  var noteChoices = useMemo(function () { return msChoices(msImages, allMatches); }, [msImages, allMatches]);
   nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
   if (view === 'home') {
     var msOnly = html`<div class="controls-row" data-ui="filter-bar">
@@ -269,7 +274,8 @@ export function Report({ data, userKey, actions }) {
   }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} scope=${searchScopeValue} onScope=${onSearchScope} onChange=${function (st) { searchState.current = st; }} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} scope=${searchScopeValue} onScope=${onSearchScope} notes=${notes} onChange=${function (st) { searchState.current = st; }} />
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }
 

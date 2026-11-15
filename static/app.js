@@ -293,10 +293,10 @@ async function logout() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 自動更新の設定 API。通信失敗は status 0。合言葉は本文だけで送り、URL・ログ・storage に載せない
-async function autoRefreshCall(method, body) {
+// 設定・メモ API の共通呼び出し。通信失敗は status 0。本文(合言葉・メモ)は body だけで送り、URL・ログ・storage に載せない
+async function apiCall(method, path, body) {
   try {
-    var res = await fetch('/auto-refresh', {
+    var res = await fetch(path, {
       method: method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -311,12 +311,21 @@ async function autoRefreshCall(method, body) {
 
 var AUTO_REFRESH_ACTIONS = {
   lastImportedAt: function () { return lastImportedAt; },
-  load: function () { return autoRefreshCall('GET'); },
-  set: function (enabled, passphrase) { return autoRefreshCall('POST', enabled ? { enabled: true, passphrase: passphrase } : { enabled: false }); },
+  load: function () { return apiCall('GET', '/auto-refresh'); },
+  set: function (enabled, passphrase) { return apiCall('POST', '/auto-refresh', enabled ? { enabled: true, passphrase: passphrase } : { enabled: false }); },
+};
+
+// メモ API はセッション Cookie で本人を特定するので、ログイン状態を保持していないと使えない
+var NOTES_ACTIONS = {
+  available: function () { try { return !!localStorage.getItem('catalyzer_has_session'); } catch (e) { return false; } },
+  list: function () { return apiCall('GET', '/notes'); },
+  create: function (req) { return apiCall('POST', '/notes', req); },
+  update: function (id, req) { return apiCall('PUT', '/notes/' + encodeURIComponent(id), req); },
+  remove: function (id) { return apiCall('DELETE', '/notes/' + encodeURIComponent(id)); },
 };
 
 // report/ は app.js を import できない(循環)ため、操作は props で渡す
-var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, pullEnabled: STANDALONE, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS };
+var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, pullEnabled: STANDALONE, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS, notes: NOTES_ACTIONS };
 
 function showSkeleton() {
   var reportEl = document.getElementById('report');

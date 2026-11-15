@@ -15,6 +15,12 @@ var TABBAR = '[data-ui="tabbar"]';
 var HOME_CLOCK = '2026-10-08T22:00:00+09:00';
 var SORT_TRIGGER = '[data-ui="search-sort-trigger"]';
 var SHEET = '[data-ui="search-filter-sheet"]';
+var OPEN_DETAIL = OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]);
+var OPEN_NOTE_SHEET = OPEN_DETAIL.concat([{ click: ['[data-ui="note-write"]'] }]);
+var NOTE_TEXT = 'ui-check で書いたメモ';
+var WRITE_NOTE = [{ type: ['[data-ui="note-sheet"] textarea', NOTE_TEXT] }];
+var NOTE_SHEET_REQUIRED = [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-kind"] button[aria-pressed="true"]', '敵機'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'],
+  ['[data-ui="note-save"]'], ['[data-ui="match-detail"][inert], [inert] [data-ui="match-detail"]']];
 var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
 var COLLAPSED = ['[data-ui="topbar"][data-collapsed="true"]'];
 var EXPANDED = ['[data-ui="topbar"][data-collapsed="false"]'];
@@ -122,6 +128,17 @@ var SCREEN_DEFS = [
   // 連勝中の勝ちは詳細にも連勝数を出す。負けの詳細には出さない(mobile-match-detail)
   { id: 'mobile-match-detail-streak', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]', '2連勝'] }]),
     required: [['[data-ui="match-result"]', '勝利'], ['[data-ui="match-result"] [data-ui="win-streak"]', '2連勝']], outview: [[TABBAR]] },
+  // メモ(#389)。ログイン状態を保持した端末(report-session-valid)で、先頭の試合(ストームレイダー・ヴァルキュリア戦)の詳細から書く
+  { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
+    required: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]']],
+    inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="note-item"]', '[data-ui="note-write"]'] },
+  { id: 'mobile-note-sheet', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED,
+    tap: ['[data-ui="note-save"]', '[data-ui="note-kind"] button'] },
+  { id: 'note-sheet', viewport: D, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED },
+  { id: 'mobile-note-saved', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET.concat(WRITE_NOTE, [{ click: ['[data-ui="note-save"]'] }]),
+    required: [['[data-ui="match-notes"] [data-ui="note-item"]', NOTE_TEXT]], absent: [['[data-ui="note-sheet"]']] },
+  { id: 'mobile-note-sheet-error', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET.concat([{ type: ['[data-ui="note-sheet"] textarea', '保存エラー'] }, { click: ['[data-ui="note-save"]'] }]), expectConsole: ['status of 500'],
+    required: [['[data-ui="note-sheet"] [data-ui="notice"][role="alert"]', 'メモを保存できませんでした'], ['[data-ui="note-save"]:not([disabled])']] },
   { id: 'mobile-mission-search', viewport: M, full: false, start: 'report', home: true, clock: HOME_CLOCK,
     ops: [goTab('ホーム'), { wait: ['[data-ui="mission-matches"]'] }, { click: ['[data-ui="mission-matches"]'] }, { wait: ['[data-ui="search-goal"]'] }],
     required: [['[data-ui="search-goal"]', '負け筋: '], ['[data-ui="search-goal-remove"][aria-label$="を外す"]'], ['[data-ui="search-reason"]'], ['[data-ui="search-total"]', '39試合'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）']],
