@@ -9,7 +9,7 @@
 ## 1. 方針
 
 ### 熟練度
-- class 名の数字は帯内の段。blueN(0〜5)=⭐N、bronzeN=⭐(5+N)、silverN=⭐(10+N)、goldN=⭐(15+N)。その上が master、最上位が legend。本番 DB 全体の集計(`make extract-proficiencies`、2026-11-16)で値はこの24種と空のみと確認
+- class 名の数字は帯内の段。blueN(0〜5)=⭐N、bronzeN=⭐(5+N)、silverN=⭐(10+N)、goldN=⭐(15+N)。その上が master、最上位が legend。本番 DB 全体の集計(一時スクリプト、2026-11-16)で値はこの24種と空のみと確認
 - 想定外の値は生値のまま表示し、ランク順の末尾(名前順)に置く。落とさない・壊さない
 - 表示: ⭐6〜20 は `⭐N`、master は `Master`、legend は `Legend`、空/undefined は `''`
 - 並び: legend → master → ⭐大きい順 → 未知。出現頻度順にしない
