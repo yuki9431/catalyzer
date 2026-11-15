@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
+.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades extract-proficiencies \
 	tofu-shared-plan tofu-shared-apply tofu-app-plan tofu-app-apply
 
 ## Docker イメージをビルド（キャッシュなし）
@@ -54,6 +54,15 @@ extract-grades:
 		-e FIRESTORE_DATABASE \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 go run ./cmd/extract-grades
+
+## Firestoreの全試合から機体熟練度の値の出現数を集計
+extract-proficiencies:
+	docker run --rm -v "$(CURDIR)":/app -w /app \
+		-v "$(HOME)/.config/gcloud":/root/.config/gcloud \
+		-e GCP_PROJECT=$$(gcloud config get-value project 2>/dev/null) \
+		-e FIRESTORE_DATABASE \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
+		golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 go run ./cmd/extract-proficiencies
 
 # OpenTofu。state_bucket と image_uri は TF_VAR_* で渡す(手元は infra/.envrc)。project は gcloud の設定から入れる
 TOFU_ENV = TF_VAR_project=$${TF_VAR_project:-$$(gcloud config get-value project 2>/dev/null)}

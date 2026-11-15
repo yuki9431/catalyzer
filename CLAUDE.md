@@ -52,6 +52,9 @@ PORT=3000 make run
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
+# Firestoreの全試合から機体熟練度の値の出現数を集計（同上）
+FIRESTORE_DATABASE=exvs-analyzer make extract-proficiencies
+
 # OpenTofu（先に `source infra/.envrc` で TF_VAR_state_bucket・TF_VAR_image_uri を入れる。project は gcloud の設定から入る）
 make tofu-shared-plan                 # shared の plan（refresh 付き）
 make tofu-shared-apply                # shared の apply（CI は shared を apply しない）

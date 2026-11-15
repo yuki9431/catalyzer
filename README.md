@@ -51,6 +51,8 @@
 │   │   └── main.go                # 指定ユーザーの最新N日間の戦績削除CLI
 │   ├── extract-grades/
 │   │   └── main.go                # Firestoreから未登録グレードURL抽出CLI
+│   ├── extract-proficiencies/
+│   │   └── main.go                # Firestoreから機体熟練度の値の出現数を集計するCLI
 │   ├── auto-refresh/
 │   │   └── main.go                # 自動更新の Cloud Run Job
 │   └── hash-passphrase/
@@ -234,6 +236,9 @@ make ui-preview
 
 # Firestoreから未登録グレードURLを抽出
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
+
+# Firestoreの全試合から機体熟練度の値の出現数を集計
+FIRESTORE_DATABASE=exvs-analyzer make extract-proficiencies
 ```
 
 http://localhost:8080 にアクセスしてログインすると分析レポートが表示されます。
