@@ -622,19 +622,21 @@ describe('熟練度・階級・スコア順位の絞り込み', function () {
   var run = function (m, patch) { return filterMatches(m, Object.assign(emptyFilters(), patch)); };
 
   it('proficiencyLabel は⭐/Master/Legendに変換し、未知は生値・空は空', function () {
-    var cases = [['bronze1', '⭐6'], ['bronze5', '⭐10'], ['silver5', '⭐15'], ['gold2', '⭐17'], ['gold5', '⭐20'], ['master', 'Master'], ['legend', 'Legend']];
+    var cases = [['blue0', '⭐0'], ['blue5', '⭐5'], ['bronze1', '⭐6'], ['bronze5', '⭐10'], ['silver5', '⭐15'], ['gold2', '⭐17'], ['gold5', '⭐20'], ['master', 'Master'], ['legend', 'Legend']];
     cases.forEach(function (c) { assert.strictEqual(proficiencyLabel(c[0]), c[1]); });
     assert.strictEqual(proficiencyLabel('foo'), 'foo');
     assert.strictEqual(proficiencyLabel('gold6'), 'gold6');
+    assert.strictEqual(proficiencyLabel('blue6'), 'blue6');
+    assert.strictEqual(proficiencyLabel('bronze0'), 'bronze0');
     assert.strictEqual(proficiencyLabel(''), '');
     assert.strictEqual(proficiencyLabel(undefined), '');
   });
 
   it('collectMsOptions.proficiencies は序列順で空を出さない', function () {
-    var ms = ['zzz', 'silver3', 'legend', 'aaa', 'gold1', '', 'gold1', 'master', 'bronze2'].map(function (p) { return makeMatch({ proficiency: p }); });
+    var ms = ['zzz', 'blue0', 'silver3', 'legend', 'aaa', 'gold1', '', 'gold1', 'master', 'blue4', 'bronze2'].map(function (p) { return makeMatch({ proficiency: p }); });
     var ps = collectMsOptions(ms).proficiencies;
-    assert.deepStrictEqual(ps.map(function (o) { return o.name; }), ['legend', 'master', 'gold1', 'silver3', 'bronze2', 'aaa', 'zzz']);
-    assert.deepStrictEqual(ps.map(function (o) { return o.label; }), ['Legend', 'Master', '⭐16', '⭐13', '⭐7', 'aaa', 'zzz']);
+    assert.deepStrictEqual(ps.map(function (o) { return o.name; }), ['legend', 'master', 'gold1', 'silver3', 'bronze2', 'blue4', 'blue0', 'aaa', 'zzz']);
+    assert.deepStrictEqual(ps.map(function (o) { return o.label; }), ['Legend', 'Master', '⭐16', '⭐13', '⭐7', '⭐4', '⭐0', 'aaa', 'zzz']);
     assert.strictEqual(ps[2].matches, 2);
   });
 

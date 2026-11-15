@@ -149,13 +149,14 @@ export function enemyCostPairKey(a, b) {
   return Math.max(x, y) + ' + ' + Math.min(x, y);
 }
 
-// 熟練度 class 名の序列。bronze/silver/goldN は⭐(5/10/15+N)、master=21、legend=22、他は null（前提は設計書 issue-361）
+// 熟練度 class 名の序列。blueN(0-5)は⭐N、bronze/silver/goldN(1-5)は⭐(5/10/15+N)、master=21、legend=22、他は null
 function proficiencyRank(p) {
   if (p === 'legend') return 22;
   if (p === 'master') return 21;
-  var mt = /^(bronze|silver|gold)([1-5])$/.exec(p || '');
+  var mt = /^blue([0-5])$|^(bronze|silver|gold)([1-5])$/.exec(p || '');
   if (!mt) return null;
-  return { bronze: 5, silver: 10, gold: 15 }[mt[1]] + Number(mt[2]);
+  if (mt[1] != null) return Number(mt[1]);
+  return { bronze: 5, silver: 10, gold: 15 }[mt[2]] + Number(mt[3]);
 }
 
 // 熟練度の表示名。未知の値は生値、空は ''
