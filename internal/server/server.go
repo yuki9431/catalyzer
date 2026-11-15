@@ -258,6 +258,9 @@ func StartServer() {
 	// 自動更新（GET/POST /auto-refresh, POST /auto-refresh/touch, POST /internal/auto-refresh/tick）
 	registerAutoRefresh(http.DefaultServeMux, autorefresh.ConfigFromEnv())
 
+	// メモ（GET/POST /notes, PUT/DELETE /notes/{id}）
+	registerNotes(http.DefaultServeMux)
+
 	// 静的ファイル（フロントエンド）
 	// .webmanifest はGo組み込みのMIMEテーブルに無く、実行環境(alpine)に
 	// /etc/mime.types も無いため、PWA仕様が要求するContent-Typeを明示登録する
