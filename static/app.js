@@ -715,6 +715,3 @@ async function pullAutoRefresh() {
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'visible') pullAutoRefresh();
 });
-
-// preview.html用: windowにrenderReportを公開
-window.renderReport = renderReport;

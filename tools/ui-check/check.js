@@ -22,6 +22,7 @@ var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__previ
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');
+  if (i < 0) throw new Error('UI_CHECK_INJECT は「画面id:JS」の形で書く: ' + s);
   INJECT[s.slice(0, i)] = s.slice(i + 1);
 });
 
@@ -97,7 +98,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     } else if (method === 'Page.loadEventFired') loadWaiters.splice(0).forEach(function (f) { f(); });
     else if (method === 'Fetch.requestPaused') {
       var u = p.request.url;
-      if (u.indexOf(origin) === 0) send('Fetch.continueRequest', { requestId: p.requestId }).catch(function () {});
+      if (u === origin || u.indexOf(origin + '/') === 0) send('Fetch.continueRequest', { requestId: p.requestId }).catch(function () {});
       else if (p.resourceType === 'Image') {
         send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'image/png' }],
           body: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }).catch(function () {});
@@ -214,7 +215,7 @@ async function runScreen(conn, origin, screen, theme, update) {
       }
       if (kind === 'wait') continue;
       if (kind === 'scroll') {
-        await evalJs('document.querySelector(' + JSON.stringify(a[0]) + ').scrollIntoView({block:"center"})');
+        await evalJs('Array.from(document.querySelectorAll(' + JSON.stringify(a[0]) + ')).filter(function(e){return e.getClientRects().length>0})[0].scrollIntoView({block:"center"})');
       } else if (kind === 'click') {
         await evalJs('(function(s,t){var e=Array.from(document.querySelectorAll(s)).filter(function(e){return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)})[0];e.click()})(' + JSON.stringify(a[0]) + ',' + JSON.stringify(a[1] || null) + ')');
       } else {

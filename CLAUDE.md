@@ -49,11 +49,6 @@ make ui-baseline RUN=<run-id>
 # ポート変更
 PORT=3000 make run
 
-# フロントエンド確認（サーバー不要）
-# static/preview.html をローカルHTTPサーバーで開く
-python3 -m http.server 8888 --directory static
-# → http://localhost:8888/preview.html
-
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
@@ -110,7 +105,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
 - `static/styles/` — CSS（ダーク既定・ライトは選択可(端末に合わせる/ダーク/ライト)、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `:root[data-theme="light"]` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/theme-init.js` — テーマの初期適用と切替（`window.catalyzerTheme`。`<head>` の同期クラシックスクリプト。`catalyzer_theme` を読み `<html data-theme>` と theme-color meta を付け、端末に合わせる中は OS 変更を購読）。import を持たない
-- `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・再読み込みでの再分析（`shouldReanalyzeOnReload`。ホーム画面アプリ判定 `STANDALONE`）・自動更新の差分取り込み（`pullAutoRefresh`）・通知（`showNotice`。`#error` に Notice を描く）・分析中の進捗表示と速報の自動描画（`showProgress`/`takePrelim`）・`window.renderReport` のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
+- `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・再読み込みでの再分析（`shouldReanalyzeOnReload`。ホーム画面アプリ判定 `STANDALONE`）・自動更新の差分取り込み（`pullAutoRefresh`）・通知（`showNotice`。`#error` に Notice を描く）・分析中の進捗表示と速報の自動描画（`showProgress`/`takePrelim`）のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
 - `static/components/report/` — レポート画面（9ファイル）。`report.js`（Report・Skeleton・タブ定義・状態管理）/ `controls.js`（TimeSelector/PeriodSelector/MsSelector(シート先頭で対戦形式も選ぶ)/LensToggle）/ `summary.js`（ReportSummary・タブごとの要約）/ `action-plan.js`（ActionPlanPanel）/ `overview.js`（総合: BasicLensSection/OverviewPane）/ `playstyle.js`（立ち回り）/ `burst.js`（覚醒）/ `matchup.js`（相性: 敵機・相手の階級・僚機・固定相方 FixedPartnerPanel・編成）/ `time.js`（時間帯: 時間帯・曜日・日別・シーズン）（各タブの Pane）。720px より広い画面では絞り込み行の右端(試合検索・総合戦歴は上部バーの右端 `.topbar-trailing`)に再分析ボタン。standalone の引っ張り再分析はホーム・レポート・試合検索・総合戦歴で有効
 - `static/components/shell.js` — 外枠 AppShell（トップバー・本文・下部タブバー TabBar）、その他画面 MoreView（共有タイル・データ・アカウント）、画面状態 `useView`（`catalyzer_view` の読み書き）、下部タブの更新の点 `useTabBadges`（`catalyzer_tab_seen`）、下スクロールで絞り込み行を隠す `useCollapsingBar`、ホーム画面アプリだけの引っ張り再分析 `PullToRefresh`、その他画面のロゴと「再分析」行、設定のテーマ選択（`ThemeSettings`・`THEME_OPTIONS`）と自動更新セクション（`AutoRefreshSettings`。操作は `autoRefresh` props で app.js から注入）。トップバー定義はここだけ（絞り込みもタブも無い画面は高さ0）
 - `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。期間では絞らず、対戦形式はレポートと共有して効かせる。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）
@@ -144,7 +139,6 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/patterns/today/tabseen/format/search/classrecord/theme/theme-init（初期適用・FOUC 構造）/topbar/runlock/launch/userkey/progress/gantt/streak/scopeの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、user-state（ログアウトとセッション失効で消す画面状態のキーが揃っているかを app.js の静的検査で確認）、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
-- `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
 - `data/ms_list.json` — MS画像URL→名前・コストのマッピング（コスト: 3000/2500/2000/1500）
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
