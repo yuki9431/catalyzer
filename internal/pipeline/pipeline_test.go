@@ -76,6 +76,27 @@ func TestShouldDeleteSession(t *testing.T) {
 	}
 }
 
+func TestScrapeErrorMessage(t *testing.T) {
+	expired := scrapeErrorMessage(scraper.ErrLoginFailed, true)
+	denied := scrapeErrorMessage(fmt.Errorf("x: %w", scraper.ErrAccessDenied), true)
+	if denied == expired {
+		t.Fatalf("セッション使用中の 403 が失効と同じ文言: %q", denied)
+	}
+	// app.js は「セッション」を含むエラーでログイン画面に戻す
+	if strings.Contains(denied, "セッション") {
+		t.Errorf("403 の文言に「セッション」を含む: %q", denied)
+	}
+	if !strings.Contains(denied, "時間をおいて") {
+		t.Errorf("403 の文言が再試行を促していない: %q", denied)
+	}
+	if got := scrapeErrorMessage(scraper.ErrAccessDenied, false); got != denied {
+		t.Errorf("403 の文言がセッション有無で違う: %q / %q", got, denied)
+	}
+	if !strings.Contains(expired, "セッション") {
+		t.Errorf("失効の文言: %q", expired)
+	}
+}
+
 func TestRunStopsWhenRejectedAfterLogin(t *testing.T) {
 	jar, _ := cookiejar.New(nil)
 	j := NewJob()
