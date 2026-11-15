@@ -16,7 +16,8 @@ import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
 import { Layer, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
-import { MatchNotes } from './notes.js';
+import { MatchNotes, NoteMark } from './notes.js';
+import { hasNoteForMatch } from '../lib/notes.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 import { SCOPE_KEYS } from '../lib/scope.js';
 
@@ -82,7 +83,7 @@ var PATTERN_OPTIONS = PATTERNS.filter(function (p) { return p.sheet; }).map(func
 var PATTERN_MODE_OPTIONS = [{ value: 'and', label: 'すべて当てはまる' }, { value: 'or', label: 'どれかに当てはまる' }];
 
 // 絞り込みの入力欄。条件はその場で filters に反映する。
-function FilterFields({ filters, options, onField }) {
+function FilterFields({ filters, options, onField, noteOn }) {
   // 詳細な条件に条件が入っていれば初期表示は開く。
   var advActive = ADV_FIELDS.some(function (k) { return filters[k] !== '' && filters[k] != null; })
     || ADV_LIST_FIELDS.some(function (k) { return filters[k] && filters[k].length; });
@@ -120,6 +121,9 @@ function FilterFields({ filters, options, onField }) {
         <${MsMulti} values=${filters.enemyMsList} options=${options.enemies}
           onChange=${function (vs) { onField('enemyMsList', vs); }} />
       </div>
+      ${noteOn && html`<div class="search-field search-field-wide search-note-field">
+        <${Chip} ui="search-note-filter" active=${filters.noteEnemies === true} onClick=${function () { onField('noteEnemies', filters.noteEnemies !== true); }}>メモがある敵機との試合</${Chip}>
+      </div>`}
 
       <div class="search-field search-field-wide">
         <div class="search-label search-label-row">
@@ -225,14 +229,14 @@ function FilterFields({ filters, options, onField }) {
 }
 
 // 絞り込みの全画面シート。条件はその場で一覧に反映し、「結果を見る」で閉じる。
-function FilterSheet({ filters, options, total, onField, onReset, onClose }) {
+function FilterSheet({ filters, options, total, onField, onReset, onClose, noteOn }) {
   var head = html`<button type="button" class="search-link" data-ui="search-filter-clear" onClick=${onReset}>クリア</button>
     <h2>絞り込み</h2>
     <button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${onClose}>閉じる</button>`;
   var foot = html`<span class="search-foot-count">${total}試合が該当</span>
     <button type="button" class="search-apply" data-ui="search-filter-apply" onClick=${onClose}>結果を見る</button>`;
   return html`<${Layer} ui="search-filter-sheet" footUi="search-filter-foot" label="絞り込み" head=${head} foot=${foot} onClose=${onClose}>
-    <${FilterFields} filters=${filters} options=${options} onField=${onField} />
+    <${FilterFields} filters=${filters} options=${options} onField=${onField} noteOn=${noteOn} />
   </${Layer}>`;
 }
 
@@ -255,7 +259,7 @@ function MsThumb({ name, msImages }) {
 }
 
 // 1試合分のサマリーカード。機体は画像で並べ、クリックで詳細を開く。
-function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, onOpen }) {
+function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, marked, onOpen }) {
   var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
   return html`<button type="button" class=${'search-item ' + (match.win ? 'win' : 'lose')} data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
@@ -263,6 +267,7 @@ function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, onOpen
       ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       ${streakLabel(streak) && html`<span class="search-item-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
+      ${marked && html`<${NoteMark} />`}
       <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
@@ -532,7 +537,9 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
   var init = initial || {};
   var filtersRef = useState(function () { return Object.assign(emptyFilters(), init.filters); });
   var own = filtersRef[0], setFilters = filtersRef[1];
-  var filters = useMemo(function () { return Object.assign({}, own, scope); }, [own, scope]);
+  var noteOn = !!notes && notes.status === 'on';
+  var noteList = noteOn ? notes.list : null;
+  var filters = useMemo(function () { return withNoteAvailability(Object.assign({}, own, scope), noteOn); }, [own, scope, noteOn]);
   var sortRef = useState(init.sortKey || 'date');
   var sortKey = sortRef[0], setSortKey = sortRef[1];
   var descRef = useState(init.desc !== undefined ? init.desc : true);
@@ -558,8 +565,8 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
     var base = filters.playDays && PERIOD_DAYS[filters.playDays]
       ? filterByPlayDays(matches, PERIOD_DAYS[filters.playDays])
       : matches;
-    return sortMatches(filterMatches(base, filters), sortKey, desc);
-  }, [matches, filters, sortKey, desc]);
+    return sortMatches(filterMatches(base, filters, noteList), sortKey, desc);
+  }, [matches, filters, sortKey, desc, noteList]);
 
   // 条件・並び順の変更時は1ページ目に戻す（各操作ハンドラで明示的にリセット）。
   function onField(key, value) {
@@ -622,7 +629,7 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
         ${labels.map(function (l) { return html`<${Chip} ui="search-applied">${l}</${Chip}>`; })}
       </div>`}
     </div>
-    ${sheetOpen && html`<${FilterSheet} filters=${filters} options=${options} total=${total}
+    ${sheetOpen && html`<${FilterSheet} filters=${filters} options=${options} total=${total} noteOn=${noteOn}
       onField=${onField} onReset=${onReset} onClose=${function () { setSheetOpen(false); }} />`}
 
     <section class="search-results">
@@ -639,7 +646,7 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
               var day = (m.date || '').slice(0, 10);
               var sep = byDate && (i === 0 || day !== (pageItems[i - 1].date || '').slice(0, 10))
                 ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
-              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} streak=${streaks.get(streakKey(m))} onOpen=${openDetail} />`;
+              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} streak=${streaks.get(streakKey(m))} marked=${noteOn && hasNoteForMatch(noteList, m)} onOpen=${openDetail} />`;
             })}
           </div>`}
 

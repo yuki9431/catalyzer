@@ -305,7 +305,7 @@ export function Report({ data, userKey, actions }) {
   } else if (activeTab === 'burst') {
     pane = html`<${BurstPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'matchup') {
-    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} />`;
+    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} notes=${notes} selectedMs=${selectedMs} />`;
   } else if (activeTab === 'time') {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
     pane = html`<${TimePane} pd=${timePd} />`;
@@ -329,6 +329,7 @@ export function Report({ data, userKey, actions }) {
     ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens, mode)} />`}
 
     ${pane}
+    <${NoteSheet} notes=${notes} choices=${noteChoices} />
   </${AppShell}>`;
 }
 

@@ -3,6 +3,7 @@
 // UI から切り離すことで単体テスト可能にしている。
 
 import { modeLabel } from '../lib/match.js';
+import { hasNoteForMatch } from '../lib/notes.js';
 import { PERIOD_DAYS } from './stats.js';
 import { findPattern, goalPattern, testPattern, patternLabel } from './patterns.js';
 
@@ -47,6 +48,7 @@ export function emptyFilters() {
     patternMode: 'and',      // 'and'=選んだ展開にすべて当てはまる / 'or'=どれかに当てはまる
     goal: null,              // ホームのミッションから渡る負け筋 {key, line?, avoid?}
     focusRange: null,        // 挑戦中カードから渡る範囲 {after, until}（until ''=上限なし）
+    noteEnemies: false,      // メモがある敵機との試合だけ
   };
 }
 
@@ -90,12 +92,17 @@ export function removeFilter(filters, field) {
   return next;
 }
 
+// メモが使えない間は noteEnemies を無効にする(0件のまま抜けられなくなるため)
+export function withNoteAvailability(filters, noteOn) {
+  return noteOn || !filters.noteEnemies ? filters : Object.assign({}, filters, { noteEnemies: false });
+}
+
 // 何らかの絞り込みが指定されているか（デフォルト状態でないか）を判定する。
 export function hasActiveFilters(filters) {
   var f = filters || {};
   if (activeConditions(f).length || validRange(f.focusRange)) return true;
   if (f.result && f.result !== 'all') return true;
-  if (modeLabel(f.mode)) return true;
+  if (modeLabel(f.mode) || f.noteEnemies === true) return true;
   var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
   for (var j = 0; j < listKeys.length; j++) {
     if (f[listKeys[j]] && f[listKeys[j]].length) return true;
@@ -195,7 +202,8 @@ function nameMatches(m, needle, scope) {
 
 
 // 試合配列を filters で絞り込む。元配列は変更しない。
-export function filterMatches(matches, filters) {
+// notes はメモの一覧。noteEnemies のとき、渡さなければ空として0件になる
+export function filterMatches(matches, filters, notes) {
   var f = filters || {};
   var dateFrom = f.dateFrom || '';
   var dateTo = f.dateTo || '';
@@ -229,6 +237,7 @@ export function filterMatches(matches, filters) {
   var sheet = sheetConditions(f);
   var patternMode = f.patternMode === 'or' ? 'or' : 'and';
   var range = validRange(f.focusRange) ? f.focusRange : null;
+  var noteEnemies = f.noteEnemies === true;
 
   return (matches || []).filter(function (m) {
     var day = (m.date || '').substring(0, 10);
@@ -261,6 +270,7 @@ export function filterMatches(matches, filters) {
     if (!inRange(m.score, scMin, scMax)) return false;
     if (!inRange(m.ex_dmg, exMin, exMax)) return false;
     if (!inRange(m.bursts, buMin, buMax)) return false;
+    if (noteEnemies && !hasNoteForMatch(notes || [], m)) return false;
     if (range && !(m.date > range.after && (range.until === '' || m.date <= range.until))) return false;
     if (goal && testPattern(goal, m) !== true) return false;
     if (sheet.length) {
@@ -331,6 +341,7 @@ export function appliedFilterLabels(filters) {
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
   if (modeLabel(f.mode)) out.push('対戦形式: ' + modeLabel(f.mode));
+  if (f.noteEnemies === true) out.push('メモがある敵機との試合');
   // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
   var sheet = sheetConditions(f);
   if (sheet.length) {

@@ -1,6 +1,6 @@
 # 設計書: 敵機ごとの対策メモ(段階1) — issue #389
 
-- ステータス: 単位1・2 実装完了、単位3・4 未着手
+- ステータス: 単位1・2・3 実装完了、単位4 未着手
 - 日付: 2026-11-16
 - 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671)
 - 対象: catalyzer(既定ブランチ develop。調査は origin/develop d23aaec)
@@ -137,7 +137,7 @@ NoteDoc
 - テスト: `static/__tests__/notes.test.js`(新規)、`popover.test.js`・`search.test.js`・`skeleton-actions.test.js` に追記。
 
 ### 4.3 ui-check
-- `tools/ui-check/fixture.js`: `notes()` を足す。架空の5件(kind enemy 3件=同じ敵機に2件+別の敵機に1件で、うち1件は `my_ms` 付き、date 1件 `2026-06-15`、free 1件。ピンは1件。日時は固定の ISO 文字列)。敵機は fixture の機体名から、§7 の fixture テストを満たすものを選ぶ。
+- `tools/ui-check/fixture.js`: `notes()` を足す。架空の6件(kind enemy 4件=ストームレイダー2件・ヴァルキュリア1件・ガルーダ零1件(単位3で足した。`computeEnemyMatchup` の苦手に入る敵機)で、うち1件は `my_ms` 付き、date 1件 `2026-06-15`、free 1件。ピンは1件。日時は固定の ISO 文字列)。敵機は fixture の機体名から、§7 の fixture テストを満たすものを選ぶ。
 - `tools/ui-check/server.js`: `/notes` のモック(状態は持たない)
   - `GET /notes`: Cookie `preview_session=valid` があれば `fixture.notes()`、無ければ `notes: []`。**どちらも 200**。401 を返すと、`?session=1` で始まる既存画面(session-expired)で Report の取得が console エラーになり、その画面が落ちるため。`limits` は `{text_max:500,count_max:2000,pinned_max:3}`
   - `POST /notes`: 本文の text に `保存エラー` を含めば 500 `{error:'メモを保存できませんでした'}`。それ以外は 201 で、本文に `id:'preview-note-new'` と固定の日時を足して返す
@@ -330,10 +330,10 @@ export function NoteList({ notes, onClose })              // 単位4
 | 2 | `mobile-note-saved` | M | ↑ + textarea に `ui-check で書いたメモ` を入力 → 保存 | `[data-ui="match-notes"] [data-ui="note-item"]` に入力した文字列。absent: `[data-ui="note-sheet"]` |
 | 2 | `mobile-note-sheet-error` | M | ↑ + `保存エラー` を入力 → 保存。expectConsole `status of 500` | `[data-ui="note-sheet"] [data-ui="notice"][role="alert"]`「メモを保存できませんでした」、`[data-ui="note-save"]:not([disabled])` |
 | 3 | `mobile-search-notes` | M | 試合検索 | `[data-ui="search-result"] [data-ui="note-mark"]` 1件以上 |
-| 3 | `mobile-search-filter-notes` | M | 絞り込み → `search-note-filter` → 結果を見る | `[data-ui="search-applied"]`「メモがある敵機との試合」、印付きの結果が1件以上。absent: `[data-ui="search-result"]:not(:has([data-ui="note-mark"]))` |
+| 3 | `mobile-search-filter-notes` | M | 絞り込み → `search-note-filter`(シートを開いたまま撮る。tap 検査の対象がシートの中にあるため) | `[data-ui="search-applied"]`「メモがある敵機との試合」、印付きの結果が1件以上。absent: `[data-ui="search-result"]:not(:has([data-ui="note-mark"]))` |
 | 3 | `mobile-report-matchup-notes` | M | 相性タブ → 印付きの敵機の行をタップ | `[data-ui="note-mark"]` 1件以上、`[data-ui="enemy-notes"] [data-ui="note-item"]` 1件以上、`[data-ui="enemy-notes"] [data-ui="note-write"]` |
-| 4 | `mobile-more-notes` | M | その他 → メモの行 | `[data-ui="note-tabs"] button` 4件、`[data-ui="note-tabs"] button[aria-pressed="true"]`「すべて」、`[data-ui="note-list"] [data-ui="note-item"]` 5件。tap: note-tabs button・note-item・note-list-back |
-| 4 | `mobile-more-notes-enemy` | M | ↑ + タブ「敵機」 | `[data-ui="note-group"]` が fixture の敵機の種類数、2件ある敵機の見出しに `2件` |
+| 4 | `mobile-more-notes` | M | その他 → メモの行 | `[data-ui="note-tabs"] button` 4件、`[data-ui="note-tabs"] button[aria-pressed="true"]`「すべて」、`[data-ui="note-list"] [data-ui="note-item"]` 6件。tap: note-tabs button・note-item・note-list-back |
+| 4 | `mobile-more-notes-enemy` | M | ↑ + タブ「敵機」 | `[data-ui="note-group"]` が3件(ストームレイダー・ヴァルキュリア・ガルーダ零)、2件ある敵機の見出しに `2件` |
 
 基準画像が変わる既存画面: 単位4の `more`・`mobile-more`・`mobile-more-confirm`・`mobile-more-auto-refresh`・`mobile-more-auto-refresh-error`(メモの行が増えるため)。単位2・3では既存画面の画像は変わらない想定。CI が差分を出したら artifact で原因を確かめる。
 画面数は 75 → 80(単位2)→ 83(単位3)→ 85(単位4)、画像は 150 → 160 → 166 → 170 枚。
@@ -351,7 +351,7 @@ export function NoteList({ notes, onClose })              // 単位4
 | popover.js | `popover.test.js` に `createLayerStack`(push 2つ → 上だけ isTop、上を remove → 下が isTop、途中を remove しても順序が保たれる) | `node --test static/__tests__/popover.test.js` |
 | props の渡し忘れ | `skeleton-actions.test.js` に「全ての `<${SearchView}` に `notes=`」(単位2)、「全ての `<${MatchupPane}` に `notes=`」(単位3) | `node --test static/__tests__/skeleton-actions.test.js` |
 | analysis/search.js | `search.test.js`(単位3): noteEnemies で印のある試合だけ残る / my_ms 付きのメモは自機が違う試合では残らない / notes を渡さないと0件 / hasActiveFilters が真 / appliedFilterLabels に文言が出る | `node --test static/__tests__/search.test.js` |
-| ui-check | `server.test.js`: Cookie 付きの GET は fixture の件数、Cookie 無しは 200 で空、POST `保存エラー` は500、通常の POST は201で id がある。`fixture.test.js`: fixture のメモの敵機が日付の新しい順で先頭の試合の相手にいる(単位2)、`computeEnemyMatchup(全試合)` の strong ∪ weak に入っている(単位3) | `node --test tools/ui-check/server.test.js tools/ui-check/fixture.test.js` |
+| ui-check | `server.test.js`: Cookie 付きの GET は fixture の件数、Cookie 無しは 200 で空、POST `保存エラー` は500、通常の POST は201で id がある。`fixture.test.js`: fixture のメモの敵機は、日付の新しい順で先頭の試合の相手(単位2)か `computeEnemyMatchup(全試合)` の strong ∪ weak(単位3)のどちらかに入り、それぞれに当てはまるメモが1件以上ある | `node --test tools/ui-check/server.test.js tools/ui-check/fixture.test.js` |
 | 画面 | §6.6。CI の UI Check で撮影・比較する(ローカルでは回さない) | PR の `ui-check` ジョブ |
 
 手元の node が使えないとき(Intel Mac)は catalyzer-oracle イメージで test-js を回す(メモリ reference_docker-js-oracle)。

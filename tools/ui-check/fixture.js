@@ -152,7 +152,7 @@ export function classRecord() {
   };
 }
 
-// 架空のメモ5件。敵機は日付の新しい順で先頭の試合の相手(ストームレイダー・ヴァルキュリア)。日時は固定
+// 架空のメモ6件。敵機は先頭の試合の相手(ストームレイダー・ヴァルキュリア)と、相性タブの苦手な敵機(ガルーダ零)。日時は固定
 export function notes() {
   return [
     { id: 'preview-note-1', kind: 'enemy', text: '着地を見てから射撃を合わせる。', enemy_ms: 'ストームレイダー', my_ms: '', date: '', pinned: true, created_at: '2026-06-14T12:00:00Z', updated_at: '2026-06-15T12:00:00Z' },
@@ -160,6 +160,7 @@ export function notes() {
     { id: 'preview-note-3', kind: 'enemy', text: '格闘の間合いに入らない。', enemy_ms: 'ヴァルキュリア', my_ms: '', date: '', pinned: false, created_at: '2026-06-12T12:00:00Z', updated_at: '2026-06-13T12:00:00Z' },
     { id: 'preview-note-4', kind: 'date', text: '夜は連敗しやすい。早めに切り上げる。', enemy_ms: '', my_ms: '', date: '2026-06-15', pinned: false, created_at: '2026-06-11T12:00:00Z', updated_at: '2026-06-12T12:00:00Z' },
     { id: 'preview-note-5', kind: 'free', text: '開幕は前に出すぎない。', enemy_ms: '', my_ms: '', date: '', pinned: false, created_at: '2026-06-10T12:00:00Z', updated_at: '2026-06-11T12:00:00Z' },
+    { id: 'preview-note-6', kind: 'enemy', text: '距離を詰められたら無理に追わない。', enemy_ms: 'ガルーダ零', my_ms: '', date: '', pinned: false, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-10T12:00:00Z' },
   ];
 }
 
