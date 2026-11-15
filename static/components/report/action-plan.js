@@ -83,7 +83,7 @@ function FocusCard({ focus, matches, selectedMs, onClear, onContinue, onShowMatc
   </div>`;
 }
 
-export function ActionPlanPanel({ plan, selectedMs, matches, userKey, onShowMatches }) {
+export function ActionPlanPanel({ plan, selectedMs, modeFiltered, matches, userKey, onShowMatches }) {
   var scope = userKey + '|' + (selectedMs || '');
   var focusRef = useState(function () { return { scope: scope, value: loadFocus(userKey, selectedMs) }; });
   var focusState = focusRef[0], setFocusState = focusRef[1];
@@ -112,7 +112,7 @@ export function ActionPlanPanel({ plan, selectedMs, matches, userKey, onShowMatc
   }
   if (plan.insufficient) {
     return html`<${Panel} title=${title}>
-      <p class="action-empty">診断には${plan.min_matches}試合以上が必要です（現在${plan.matches}試合）。期間を広げてください。</p>
+      <p class="action-empty">診断には${plan.min_matches}試合以上が必要です（現在${plan.matches}試合）。${selectedMs ? '機体の選択を外すと試合が増えます。' : modeFiltered ? '対戦形式を全形式に戻すと試合が増えます。' : '試合を取り込むと診断できます。'}</p>
     <//>`;
   }
   var recent = plan.recent;

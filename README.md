@@ -108,6 +108,7 @@
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
 │   │   ├── runlock.js             # 分析の多重起動ロック
+│   │   ├── scope.js               # 期間・対戦形式を全画面で共有するための変換
 │   │   ├── tabseen.js             # 下部タブの更新の点（最後に見たときの値との比較）
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
@@ -131,6 +132,7 @@
 │   │   ├── autorefresh.test.js    # autorefresh.js テスト
 │   │   ├── topbar.test.js         # topbar.js テスト
 │   │   ├── runlock.test.js        # runlock.js テスト
+│   │   ├── scope.test.js          # scope.js テスト
 │   │   ├── launch.test.js         # launch.js テスト
 │   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
@@ -223,10 +225,9 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）/ 全画面の画面確認
+# UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）
 make ui-preview
-make ui-check
-# 基準画像の比較と更新は PR の CI で行う(更新は PR に ui-baseline ラベルを付け、make ui-baseline RUN=<run-id> で取り込む)。ローカルは画像比較を省く
+# 画面確認(make ui-check)はローカルで回さず PR の CI で行う(基準の更新は PR に ui-baseline ラベルを付け、make ui-baseline RUN=<run-id> で取り込む)
 # Chrome が既定パス(macOS の Google Chrome)に無い場合は CHROME_PATH で指定する
 
 # Firestoreから未登録グレードURLを抽出

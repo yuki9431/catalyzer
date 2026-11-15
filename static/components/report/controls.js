@@ -29,7 +29,7 @@ function TimeSelector({ hour, minute, onChangeHour, onChangeMinute, isEnd }) {
 
 // --- Period selector (GCP/AWS style dropdown) ---
 
-export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport, openSignal }) {
+export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomReport, openSignal, customRange }) {
   var keys = PERIOD_KEYS.filter(function (k) { return periods[k]; });
   var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
@@ -76,12 +76,22 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
 
   var currentLabel = selected === 'custom'
     ? (periods.custom ? periods.custom.label : '日付指定')
-    : (periods[selected] ? periods[selected].label : '全データ');
+    : (periods[selected] ? periods[selected].label : '全期間');
 
   function selectPreset(k) {
     onSelect(k);
     pop.close();
     setShowCustom(false);
+  }
+
+  // 試合検索で選んだ日付も入るので、開くときに現在の日付指定を読み込む(古い値で上書きしない)
+  function fillCustom() {
+    if (!customRange) return;
+    var s = customRange.start || '', e = customRange.end || '';
+    setStartDate(s.slice(0, 10)); setEndDate(e.slice(0, 10));
+    setStartHour(s ? Number(s.slice(11, 13)) : 0); setStartMin(s ? Number(s.slice(14, 16)) : 0);
+    setEndHour(e ? Number(e.slice(11, 13)) : 23); setEndMin(e ? Number(e.slice(14, 16)) : 59);
+    setShowTime((!!s && s.slice(11) !== '00:00') || (!!e && e.slice(11) !== '23:59'));
   }
 
   function formatDt(date, hour, min) {
@@ -109,7 +119,7 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
             onClick=${function () { selectPreset(k); }}>${periods[k].label}</button>`;
         })}
         ${userKey && html`<button data-ui="period-item" class=${'period-dropdown-item period-dropdown-custom' + (showCustom ? ' active' : '')}
-          onClick=${function () { setShowCustom(!showCustom); }}>日付指定</button>`}
+          onClick=${function () { if (!showCustom) fillCustom(); setShowCustom(!showCustom); }}>日付指定</button>`}
       </div>
       ${showCustom && html`<div class="period-custom" ref=${customElRef}>
         <div class="period-custom-range">
@@ -144,14 +154,20 @@ export function PeriodSelector({ periods, selected, onSelect, userKey, onCustomR
 
 var MODE_OPTIONS = [{ value: 'all', label: '全形式' }, { value: 'shuffle', label: MODE_LABELS.shuffle }, { value: 'fixed', label: MODE_LABELS.fixed }];
 
-// チップは絞り込み行を1段に収めるため略称にし、機体も選んだら機体を優先する(形式は範囲表示に出る)
+// 未選択はシートの中身を名乗り、選んだら選んだものを出す。絞り込み行を1段に収めるため形式は略称(ui-check の oneRow で検査)
 var CHIP_MODE_LABELS = { shuffle: 'シャフ', fixed: '固定' };
+export var MS_CHIP_DEFAULT = '機体・形式';
+function msChipLabel(selected, mode) {
+  var m = modeLabel(mode) ? CHIP_MODE_LABELS[mode] : '';
+  if (selected) return m ? '1機・' + m : '1機選択';
+  return m || MS_CHIP_DEFAULT;
+}
 
 // onMode を渡すとシートの先頭で対戦形式も選べる(絞り込み行を1段に収めるため同居させる)
 export function MsSelector({ entries, selected, onSelect, mode, onMode }) {
   var pop = usePopover({ mode: 'sheet-bottom', lockScroll: true });
   var isOpen = pop.isOpen;
-  var label = selected ? '1機選択' : modeLabel(mode) ? CHIP_MODE_LABELS[mode] : '全機体';
+  var label = msChipLabel(selected, mode);
   var isSelected = !!selected || !!modeLabel(mode);
   return html`<div class="ms-topbar-wrap" ref=${pop.rootRef}>
     <${Chip} ui="ms-trigger" expanded=${isOpen} active=${isSelected} onClick=${pop.toggle}><span class="ui-chip-text">${label}</span></${Chip}>

@@ -3,7 +3,7 @@ import { themeReader } from '../lib/theme.js';
 import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
-  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel,
+  filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel, isTimedRange,
   activeConditions, removableFilterLabels, removeFilter,
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
@@ -17,6 +17,7 @@ import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.
 import { useDismiss, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
 import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
+import { SCOPE_KEYS } from '../lib/scope.js';
 
 var PAGE_SIZE = 20;
 
@@ -124,7 +125,7 @@ function FilterFields({ filters, options, onField }) {
   return html`<div class="search-form">
       <div class="search-field search-field-wide">
         <label class="search-label">期間</label>
-        <${Dropdown} value=${filters.playDays} placeholder="全データ"
+        <${Dropdown} value=${filters.playDays} placeholder="全期間"
           options=${Object.keys(PERIOD_DAYS).map(function (k) { return { value: k, label: '直近' + PERIOD_DAYS[k] + '日' }; })}
           onChange=${function (v) { onField('playDays', v); }} />
       </div>
@@ -188,7 +189,7 @@ function FilterFields({ filters, options, onField }) {
       </div>
 
       <div class="search-adv">
-        <button type="button" class=${'search-adv-toggle' + (advOpen ? ' open' : '')}
+        <button type="button" data-ui="search-adv-toggle" class=${'search-adv-toggle' + (advOpen ? ' open' : '')}
           onClick=${function () { setAdvOpen(!advOpen); }} aria-expanded=${advOpen}>
           <span>詳細な条件${!advOpen && advActive && html` <${Chip} active ui="search-adv-applied">適用中</${Chip}>`}</span>
           <span class="search-chevron" aria-hidden="true"></span>
@@ -198,9 +199,9 @@ function FilterFields({ filters, options, onField }) {
             <label class="search-label">期間（日付を指定）</label>
             <button type="button" data-ui="date-trigger" class=${'panel-select-trigger search-date-trigger' + (dateOpen ? ' open' : '')}
               onClick=${function () { setDateOpen(!dateOpen); }} aria-expanded=${dateOpen}>
-              <span class="panel-select-label">${filters.dateFrom
-                ? filters.dateFrom + ' 〜 ' + (filters.dateTo || '…')
-                : '-'}</span>
+              <span class="panel-select-label">${isTimedRange(filters)
+                ? (filters.rangeStart || '…') + ' 〜 ' + (filters.rangeEnd || '…')
+                : filters.dateFrom ? filters.dateFrom + ' 〜 ' + (filters.dateTo || '…') : '-'}</span>
               <span class="period-arrow">${dateOpen ? '▲' : '▼'}</span>
             </button>
             ${dateOpen && html`<${RangeCalendar} startDate=${filters.dateFrom} endDate=${filters.dateTo}
@@ -553,11 +554,12 @@ function SortSheet({ sortKey, desc, pageSize, onSortKey, onDir, onPageSize }) {
 }
 
 // 試合検索ビュー本体。matches はIndexedDBから読み込んだ全試合。
-// initial は前回 onChange で渡した状態(画面を切り替えても条件を残すため)
-export function SearchView({ matches, msImages, initial, onChange }) {
+// initial は前回 onChange で渡した状態(画面を切り替えても条件を残すため)。期間・対戦形式は scope(必須)で受け取り onScope(必須)で親に返す(レポートと共有)
+export function SearchView({ matches, msImages, initial, onChange, scope, onScope }) {
   var init = initial || {};
   var filtersRef = useState(function () { return Object.assign(emptyFilters(), init.filters); });
-  var filters = filtersRef[0], setFilters = filtersRef[1];
+  var own = filtersRef[0], setFilters = filtersRef[1];
+  var filters = useMemo(function () { return Object.assign({}, own, scope); }, [own, scope]);
   var sortRef = useState(init.sortKey || 'date');
   var sortKey = sortRef[0], setSortKey = sortRef[1];
   var descRef = useState(init.desc !== undefined ? init.desc : true);
@@ -567,8 +569,8 @@ export function SearchView({ matches, msImages, initial, onChange }) {
   var pageSizeRef = useState(init.pageSize || PAGE_SIZE);
   var pageSize = pageSizeRef[0], setPageSize = pageSizeRef[1];
   useEffect(function () {
-    if (onChange) onChange({ filters: filters, sortKey: sortKey, desc: desc, page: page, pageSize: pageSize });
-  }, [filters, sortKey, desc, page, pageSize]);
+    if (onChange) onChange({ filters: own, sortKey: sortKey, desc: desc, page: page, pageSize: pageSize });
+  }, [own, sortKey, desc, page, pageSize]);
   var detailRef = useState(null);
   var detail = detailRef[0], setDetail = detailRef[1];
   var sheetRef = useState(false);
@@ -588,6 +590,7 @@ export function SearchView({ matches, msImages, initial, onChange }) {
 
   // 条件・並び順の変更時は1ページ目に戻す（各操作ハンドラで明示的にリセット）。
   function onField(key, value) {
+    if (SCOPE_KEYS.indexOf(key) >= 0) { onScope(key, value); setPage(1); return; }
     setFilters(function (prev) {
       var next = Object.assign({}, prev);
       next[key] = value;
@@ -596,7 +599,7 @@ export function SearchView({ matches, msImages, initial, onChange }) {
     setPage(1);
   }
   function onRemove(field) { setFilters(function (prev) { return removeFilter(prev, field); }); setPage(1); }
-  function onReset() { setFilters(emptyFilters()); setPage(1); }
+  function onReset() { setFilters(emptyFilters()); onScope(null); setPage(1); }
   function onSortKey(key) { setSortKey(key); setPage(1); }
   function onDir(d) { if (d !== desc) { setDir(d); setPage(1); } }
 

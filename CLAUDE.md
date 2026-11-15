@@ -13,13 +13,13 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'`（`.github/scripts` のテストは bash と jq が要る）
-- **画面確認（UI oracle）**: `make ui-check`（69画面をダーク・ライトの2テーマで計138枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。ローカルは画像比較を省き、他の検査だけ行う（影響する画面だけ `node tools/ui-check/check.js <id>…` で確認し、全画面は PR の CI に任せる）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（75画面をダーク・ライトの2テーマで計150枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)・行が1段に収まるか(`oneRow`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。**ローカルでは実行しない**。画面確認は PR の CI に任せ、失敗したら CI のログと artifact の画像で直す（画面定義を足したら `tools/ui-check/screens.test.js` は test-js で手元でも通す）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **HCL フォーマット**: `tofu fmt -check -recursive infra`（exit 0 が正）
 - **実行/動作確認**: `make run` / 直接: `PORT=8080 go run cmd/server/main.go`（http://localhost:8080 ）
 
-完了条件の既定値: 上記が全て成功していること。Go の変更は build+test+vet/lint、JS の変更は test-js を最低限通す。
+完了条件の既定値: 上記が全て成功していること（UI oracle は PR の CI の結果で判定する）。Go の変更は build+test+vet/lint、JS の変更は test-js を最低限通す。
 
 ## ビルド・開発コマンド
 
@@ -42,9 +42,8 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
-# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ 画面確認（基準画像の比較と更新は PR の CI。更新は ui-baseline ラベル）/ CI が撮った基準の取り込み
+# UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ CI が撮った基準の取り込み（画面確認 make ui-check はローカルで回さず PR の CI に任せる。基準の更新は ui-baseline ラベル）
 make ui-preview
-make ui-check
 make ui-baseline RUN=<run-id>
 
 # ポート変更
@@ -114,19 +113,19 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・再読み込みでの再分析（`shouldReanalyzeOnReload`。ホーム画面アプリ判定 `STANDALONE`）・自動更新の差分取り込み（`pullAutoRefresh`）・通知（`showNotice`。`#error` に Notice を描く）・分析中の進捗表示と速報の自動描画（`showProgress`/`takePrelim`）・`window.renderReport` のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
 - `static/components/report/` — レポート画面（9ファイル）。`report.js`（Report・Skeleton・タブ定義・状態管理）/ `controls.js`（TimeSelector/PeriodSelector/MsSelector(シート先頭で対戦形式も選ぶ)/LensToggle）/ `summary.js`（ReportSummary・タブごとの要約）/ `action-plan.js`（ActionPlanPanel）/ `overview.js`（総合: BasicLensSection/OverviewPane）/ `playstyle.js`（立ち回り）/ `burst.js`（覚醒）/ `matchup.js`（相性: 敵機・相手の階級・僚機・固定相方 FixedPartnerPanel・編成）/ `time.js`（時間帯: 時間帯・曜日・日別・シーズン）（各タブの Pane）。720px より広い画面では絞り込み行の右端(試合検索・総合戦歴は上部バーの右端 `.topbar-trailing`)に再分析ボタン。standalone の引っ張り再分析はホーム・レポート・試合検索・総合戦歴で有効
 - `static/components/shell.js` — 外枠 AppShell（トップバー・本文・下部タブバー TabBar）、その他画面 MoreView（共有タイル・データ・アカウント）、画面状態 `useView`（`catalyzer_view` の読み書き）、下部タブの更新の点 `useTabBadges`（`catalyzer_tab_seen`）、下スクロールで絞り込み行を隠す `useCollapsingBar`、ホーム画面アプリだけの引っ張り再分析 `PullToRefresh`、その他画面のロゴと「再分析」行、設定のテーマ選択（`ThemeSettings`・`THEME_OPTIONS`）と自動更新セクション（`AutoRefreshSettings`。操作は `autoRefresh` props で app.js から注入）。トップバー定義はここだけ（絞り込みもタブも無い画面は高さ0）
-- `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）
+- `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。期間では絞らず、対戦形式はレポートと共有して効かせる。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）
 - `static/components/popover.js` — 共通ポップオーバー（`usePopover`/`useDismiss`/`Popover`/`popoverStyle`）。外側クリック・Esc の document リスナーはここだけ。ドロップダウン5種が載る
 - `static/components/chart-canvas.js` — `ChartCanvas`（`new Chart(` の唯一の生成箇所。テーマ切替で描き直す）・`useThemeName`（`data-theme` を購読。`themeReader` で色を解決する描画が呼ぶ）と軸・凡例・色ヘルパ（`winRateComboConfig` 等）
 - `static/components/parts.js` — 段階B向けの共通部品5種（Chip/ToggleGroup/Summary(主指標付き)/RowList(バー付き)/Notice）。Chip は `onRemove` で×ボタン付きになる。スタイルは `static/styles/parts.css`。Notice は `action={label,onClick}` で二次ボタン（`.ui-action`）を添えられる。RowList はその他画面（MoreView）が使う（部品一覧は ui-check の `parts`・`parts-sheet` 画面）
 - `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相手の階級別勝率（相手2人の平均の7段×相方の階級。`computeOpponentGrade`）/相方/コスト編成/MS編成/ダメージ貢献/被撃墜と勝率（自分×相方の2軸・回数ベース）/覚醒回数/先落ち後落ち/順落ち（自機・僚機が順不同で15秒以内に続けて撃墜。試合継続/そのまま負け/なしに分類）/覚醒タイミング（発動時の被撃墜数で1機目/2機目/3機目に分類）/覚醒タイプ別傾向（F/S/E）/OLスタンバイの順番と勝率（自分と相手の両方がスタンバイになった試合を前後で分類）/試合時間と勝率（30秒刻み＋タイムアップ）/固定相方（シャッフルと分かった試合は除く）/対戦形式での絞り込み `filterByMode`（形式不明は全形式のときだけ含む）/SNS共有データ/MS別サマリー
 - `static/analysis/patterns.js` — 試合の展開（負け筋）の定義一覧 `PATTERNS`（15件）と判定の純粋関数（`testPattern`/`goalPattern`/`patternHits` 等）。ミッション判定・試合検索・詳細の強調が同じ定義を使う。新しい展開は定義1件+テスト1本。stats.js のみ import
-- `static/analysis/coach.js` — 勝率アップミッションの純粋関数（判定は patterns.js から導き、各ミッションを達成できなかった（負け筋に当てはまった）試合数 `unachieved` を持つ）。試合を負け筋の状態（被撃墜回数・先落ち/後落ち・1機目覚醒・覚醒中の被撃墜・覚醒回数・順落ち・OL を覚醒と重ねず使用・最後のコストで覚醒なし・被ダメ/与ダメ/EXダメ）とそれ以外に二分し、勝率差×頻度で影響度と見込み勝率を算出（`computeActionPlan`）。選択したミッションの試合ごとの達成判定（`evaluateGoal`）、苦手機体・3連敗直後の勝率（参考情報）、直近20戦の悪化指標も算出。ホーム画面の ActionPlanPanel が全期間（機体で絞り込み可）の試合で表示
+- `static/analysis/coach.js` — 勝率アップミッションの純粋関数（判定は patterns.js から導き、各ミッションを達成できなかった（負け筋に当てはまった）試合数 `unachieved` を持つ）。試合を負け筋の状態（被撃墜回数・先落ち/後落ち・1機目覚醒・覚醒中の被撃墜・覚醒回数・順落ち・OL を覚醒と重ねず使用・最後のコストで覚醒なし・被ダメ/与ダメ/EXダメ）とそれ以外に二分し、勝率差×頻度で影響度と見込み勝率を算出（`computeActionPlan`）。選択したミッションの試合ごとの達成判定（`evaluateGoal`）、苦手機体・3連敗直後の勝率（参考情報）、直近20戦の悪化指標も算出。ホーム画面の ActionPlanPanel が全期間（機体・対戦形式で絞り込み可。挑戦中の枠は全形式で数える）の試合で表示
 - `static/analysis/today.js` — 今日（試合が無ければ最後に遊んだ日）を前回プレイした日と比べる純粋関数（`compareToday`。日付は朝5時で切り替え `playDay`）。勝率・与ダメ・被ダメ・与被ダメ比・EXダメ・被撃墜
 - `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え・適用中の条件と並べ替えの表示文言 `appliedFilterLabels`/`sortLabel`）。試合の展開（複数選択・すべて/どれかに当てはまる）・負け筋（ホームのミッションから渡る条件）・挑戦中の範囲による絞り込み（`activeConditions`/`removableFilterLabels`）も持つ。対戦形式の条件も持つ。IndexedDBの全試合をフロントエンドでフィルタ
 - `static/components/ui.js` — 汎用UIコンポーネント（Panel/Tips(事実の箇条書き)/SortableTable/Table/SubSection/Dropdown/MultiSelect/Autocomplete）
 - `static/analysis/classrecord.js` — 通算戦績の整形純粋関数（分析カバー率・通算K/D）
 - `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）
-- `static/components/search.js` — 試合検索ビュー（SearchView。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。対戦形式と連勝数の表示・機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
+- `static/components/search.js` — 試合検索ビュー（SearchView。シートの期間・日付・対戦形式はレポートと共有する値（`scope`/`onScope`）。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。対戦形式と連勝数の表示・機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
 - `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（WinRateRowList/EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得・ログアウト時の全消去 `clearAllMatches`）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
@@ -134,14 +133,15 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/lib/theme.js` — canvas/Chart.js 用に CSS 定義を読む `themeReader`（1描画1回 getComputedStyle を呼び読み取り関数を返す）
 - `static/lib/gantt.js` — 試合経過ガントの目盛りの純粋ロジック（`ganttTicks`。終了ラベルと重なる目盛りを画面幅別に間引く）。import を持たない
 - `static/lib/topbar.js` — 上部バーの純粋ロジック（引っ張り再分析 `pullStep`・絞り込み行の隠す/出す `nextBar`）。import を持たない
+- `static/lib/scope.js` — 期間・対戦形式を全画面で共有するための変換（レポートの状態⇔試合検索の条件 `searchScope`/`applyScope`、片側だけの日付指定 `inCustomRange`）。import を持たない
 - `static/lib/runlock.js` — 分析の多重起動ロック `createRunLock`（release で実行中でも切り離せる）
 - `static/lib/progress.js` — 分析の進み具合を3段階（読み込み/取得/集計）の表示用に整える純粋関数 `progressView`。import を持たない
 - `static/lib/tabseen.js` — 下部タブの更新の点の純粋ロジック（`tabBadges`・`markSeen`。タブごとに最後に見たときの試合数等と比べる）。import を持たない
 - `static/lib/launch.js` — 起動経路の判定（`navigationType`・`isStandalone`・再読み込みでの再分析の抑止 `shouldReanalyzeOnReload`）。DOM・storage を持たない
 - `static/lib/userkey.js` — サーバーの `model.UserKey` と同じユーザーキーの導出（`userKeyOf`。ログイン時に前ユーザーのキャッシュを出さない判定に使う）
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定・対戦形式の表示名 `MODE_LABELS`/`modeLabel`・連勝数 `winStreaks`(公式の `win_streak` が無い取得前の試合は相方・形式・10分以内の間隔で推定。10連勝で打ち止め)/`streakLabel`）。import を持たず analysis 層からも使う
-- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信。状態は持たず、`/analyze` の username（`prelim@`/`partial@`/`error@example.com`）でジョブ id を、Cookie `preview_session=valid` で `/session` を選ぶ、`/__preview/` でサンプル投入（`preview/seed.js`。`?today=N` で最後の N 試合を今日に、`?seen=N` でタブの点を再現、`?focus=N` で後ろから N 戦を挑戦中のミッションの対象に、`?legacy=1` で全試合を対戦形式・連勝数・階級不明に））/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（69画面×ダーク/ライトの138枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）/colorScheme（端末の配色を切り替える）。画面の `standalone` でホーム画面アプリとして開く。画面の `clock` で Date を指定日時から進む時計に固定（カレンダー初期月など日時依存の UI 用）。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の138枚。CI の Linux・固定 Chrome で撮影）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/patterns/today/tabseen/format/search/classrecord/theme/theme-init（初期適用・FOUC 構造）/topbar/runlock/launch/userkey/progress/gantt/streakの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、user-state（ログアウトとセッション失効で消す画面状態のキーが揃っているかを app.js の静的検査で確認）、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
+- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信。状態は持たず、`/analyze` の username（`prelim@`/`partial@`/`error@example.com`）でジョブ id を、Cookie `preview_session=valid` で `/session` を選ぶ、`/__preview/` でサンプル投入（`preview/seed.js`。`?today=N` で最後の N 試合を今日に、`?seen=N` でタブの点を再現、`?focus=N` で後ろから N 戦を挑戦中のミッションの対象に、`?legacy=1` で全試合を対戦形式・連勝数・階級不明に））/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（75画面×ダーク/ライトの150枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・1段に収まるか(`oneRow`。はみ出し px を出す)・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）/colorScheme（端末の配色を切り替える）。画面の `standalone` でホーム画面アプリとして開く。画面の `clock` で Date を指定日時から進む時計に固定（カレンダー初期月など日時依存の UI 用）。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の150枚。CI の Linux・固定 Chrome で撮影）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/patterns/today/tabseen/format/search/classrecord/theme/theme-init（初期適用・FOUC 構造）/topbar/runlock/launch/userkey/progress/gantt/streak/scopeの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、user-state（ログアウトとセッション失効で消す画面状態のキーが揃っているかを app.js の静的検査で確認）、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
 - `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
