@@ -19,8 +19,8 @@ export function popoverStyle(mode, triggerRect, viewportWidth) {
 // IME の変換中の Esc は変換の取り消しなので閉じる操作として扱わない。
 export function isEscape(e) { return e.key === 'Escape' && !e.isComposing && e.keyCode !== 229; }
 
-// 層の中でドロップダウン等が開いている間の Esc は、それを閉じるためのもの。層は閉じない。
-export function hasOpenPopup(root) { return !!root && !!root.querySelector('[aria-expanded="true"]'); }
+// 層の中でポップアップ(aria-haspopup)が開いている間の Esc はそれを閉じるためのもの。開閉欄(aria-expanded のみ)は対象外。
+export function hasOpenPopup(root) { return !!root && !!root.querySelector('[aria-haspopup][aria-expanded="true"]'); }
 
 // 外側クリックと Esc で閉じる処理の唯一の登録箇所。rootRef が null なら Esc のみ。
 export function useDismiss(active, rootRef, onDismiss) {

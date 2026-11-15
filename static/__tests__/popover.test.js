@@ -62,12 +62,12 @@ describe('isEscape', () => {
 });
 
 describe('hasOpenPopup', () => {
-  it('層の中に aria-expanded="true" があるときだけ真(開いたドロップダウンがあれば層は Esc で閉じない)', () => {
+  it('層の中に開いたポップアップ([aria-haspopup][aria-expanded="true"])があるときだけ真(開いたドロップダウンがあれば層は Esc で閉じない)', () => {
     var seen = [];
-    var root = { querySelector: function (sel) { seen.push(sel); return sel === '[aria-expanded="true"]' ? {} : null; } };
+    var root = { querySelector: function (sel) { seen.push(sel); return sel === '[aria-haspopup][aria-expanded="true"]' ? {} : null; } };
     assert.strictEqual(hasOpenPopup(root), true);
     assert.strictEqual(hasOpenPopup({ querySelector: function () { return null; } }), false);
     assert.strictEqual(hasOpenPopup(null), false);
-    assert.deepStrictEqual(seen, ['[aria-expanded="true"]']);
+    assert.deepStrictEqual(seen, ['[aria-haspopup][aria-expanded="true"]']);
   });
 });

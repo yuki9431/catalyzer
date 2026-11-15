@@ -191,7 +191,7 @@ export function Dropdown({ value, options, onChange, placeholder, noClear, mode 
   var filtered = q ? options.filter(function (o) { return String(o.label).toLowerCase().indexOf(q) >= 0; }) : options;
 
   return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
-    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen} ref=${pop.triggerRef}
+    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-haspopup="listbox" aria-expanded=${isOpen} ref=${pop.triggerRef}
       onClick=${pop.toggle}>
       <span class="panel-select-label">${label}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
@@ -237,7 +237,7 @@ export function MultiSelect({ values, options, onChange, placeholder, mode }) {
   var filtered = q ? options.filter(function (o) { return String(o.label).toLowerCase().indexOf(q) >= 0; }) : options;
 
   return html`<div class="panel-select-wrap" ref=${pop.rootRef}>
-    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-expanded=${isOpen} ref=${pop.triggerRef}
+    <button type="button" class="panel-select-trigger" data-ui="select-trigger" aria-haspopup="listbox" aria-expanded=${isOpen} ref=${pop.triggerRef}
       onClick=${pop.toggle}>
       <span class="panel-select-label">${triggerLabel}</span>
       <span class="period-arrow">${isOpen ? '▲' : '▼'}</span>
