@@ -96,6 +96,13 @@ func TestScrapeErrorMessage(t *testing.T) {
 	if !strings.Contains(expired, "セッション") {
 		t.Errorf("失効の文言: %q", expired)
 	}
+	// セッション使用中の 401 も失効なので、ログイン画面に戻る文言にする
+	if got := scrapeErrorMessage(fmt.Errorf("x: %w", scraper.ErrUnauthorized), true); got != expired {
+		t.Errorf("セッション使用中の 401 = %q, want %q", got, expired)
+	}
+	if got := scrapeErrorMessage(scraper.ErrLoginFailed, false); strings.Contains(got, "セッション") {
+		t.Errorf("パスワードのログイン失敗に「セッション」を含む: %q", got)
+	}
 }
 
 func TestFailScrapeOn403(t *testing.T) {
