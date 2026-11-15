@@ -4,7 +4,7 @@ import { FOCUS_KEY } from './components/report/action-plan.js';
 import { CLASS_RECORD_KEY, Report, Skeleton } from './components/report/report.js';
 import { VIEW_KEY } from './components/shell.js';
 import { TAB_SEEN_KEY } from './lib/tabseen.js';
-import { diffAfterParam, shouldPull } from './lib/autorefresh.js';
+import { diffAfterParam, shouldPull, createPeriodicPull } from './lib/autorefresh.js';
 import { Notice } from './components/parts.js';
 import { progressView } from './lib/progress.js';
 import { createRunLock } from './lib/runlock.js';
@@ -50,8 +50,8 @@ var activeJobId = null;
 var analysis = createRunLock();
 function analysisBusy() { return analysis.busy() || activeJobId !== null; }
 
-// 自動更新(サーバーが定期取得した試合)の取り込み。起動時と画面が前面に戻ったときに差分だけ取り、直近の取り込みから20秒は飛ばす
-var lastPullAt = 0; // 取り込みを試みた時刻(間隔制御用)
+// 自動更新(サーバーが定期取得した試合)の取り込み。起動時・前面復帰時と表示中の一定間隔で差分だけ取り、直近の touch 付きの取り込みから20秒は飛ばす
+var lastPullAt = 0; // touch 付きの取り込みを試みた時刻(間隔制御用)
 var lastImportedAt = 0; // 差分を保存できた時刻(画面表示用)
 var pulling = false;
 
@@ -443,11 +443,14 @@ async function rebuildCache() {
     return;
   }
 
+  // 分析と並行して取得・IndexedDB 書き込みをしない(#486)。ロックを取るので再構築中は分析も始まらない
+  if (analysisBusy()) { showRebuildError('分析が終わってから実行してください。'); return; }
+
   hideNotice();
   var rebuilt = false;
   rebuildingCache = true;
   try {
-    rebuilt = await rebuildCacheFromServer(userKey);
+    await analysis.run(async function () { rebuilt = await rebuildCacheFromServer(userKey); });
   } catch (e) {
   } finally {
     rebuildingCache = false;
@@ -679,19 +682,23 @@ function currentUserKey() {
   try { return localStorage.getItem('catalyzer_user_key'); } catch (e) { return null; }
 }
 
-async function pullAutoRefresh() {
+// touch はサーバー側の自動更新の継続時間を延ばす。表示中の定期取得は延ばさない(#487)
+async function pullAutoRefresh(opts) {
+  var touch = !opts || opts.touch !== false;
   var userKey = currentUserKey();
   var hasSession = false;
   try { hasSession = !!localStorage.getItem('catalyzer_has_session'); } catch (e) {}
   if (!userKey || !hasSession) return;
-  if (!shouldPull({ now: Date.now(), lastPullAt: lastPullAt, activeJobId: activeJobId, pulling: pulling })) return;
+  if (!shouldPull({ now: Date.now(), lastPullAt: lastPullAt, busy: analysisBusy(), pulling: pulling })) return;
   pulling = true;
-  lastPullAt = Date.now();
+  // touch なしの取得で間引くと、直後の前面復帰で touch が抜ける
+  if (touch) lastPullAt = Date.now();
   try {
-    // touch でサーバー側の自動更新の継続時間を延ばす。401 はセッションが無いので差分取得もしない
-    var touch = await fetch('/auto-refresh/touch', { method: 'POST' });
-    // ここに来るのはセッションを保持していた人だけなので、401 は失効
-    if (touch.status === 401) { returnToLogin(); return; }
+    // ここに来るのはセッションを保持していた人だけなので、401 は失効。差分取得もしない
+    if (touch) {
+      var touchRes = await fetch('/auto-refresh/touch', { method: 'POST' });
+      if (touchRes.status === 401) { returnToLogin(); return; }
+    }
     var after = diffAfterParam(await loadMatchesFromDB(userKey));
     if (!after) return;
     var res = await fetch('/matches?after=' + encodeURIComponent(after));
@@ -712,9 +719,15 @@ async function pullAutoRefresh() {
   }
 }
 
+var periodicPull = createPeriodicPull({
+  isVisible: function () { return document.visibilityState === 'visible'; },
+  setInterval: function (fn, ms) { return setInterval(fn, ms); },
+  clearInterval: function (id) { clearInterval(id); },
+  pull: pullAutoRefresh,
+});
+periodicPull.sync();
+
 document.addEventListener('visibilitychange', function () {
+  periodicPull.sync();
   if (document.visibilityState === 'visible') pullAutoRefresh();
 });
-
-// preview.html用: windowにrenderReportを公開
-window.renderReport = renderReport;

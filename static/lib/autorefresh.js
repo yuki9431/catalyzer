@@ -1,4 +1,4 @@
-// 自動更新の純粋ロジック(取り込みの要否・差分の起点・状態表示の文言)。通信と描画は持たない
+// 自動更新の純粋ロジック(取り込みの要否・差分の起点・定期取得の開始停止・状態表示の文言)。通信と描画は持たない
 
 // 前回の取り込みからこの間隔(ms)は次の取り込みを飛ばす
 export var PULL_MIN_INTERVAL_MS = 20000;
@@ -18,10 +18,28 @@ export function diffAfterParam(matches) {
   return t.getUTCFullYear() + '-' + pad2(t.getUTCMonth() + 1) + '-' + pad2(t.getUTCDate()) + ' ' + pad2(t.getUTCHours()) + ':' + pad2(t.getUTCMinutes());
 }
 
-// 手動分析中・取り込み実行中・直前の取り込みから20秒以内は取り込まない
+// 分析・手動の再構築中・取り込み実行中・直前の取り込みから20秒以内は取り込まない
 export function shouldPull(s) {
-  if (s.activeJobId || s.pulling) return false;
+  if (s.busy || s.pulling) return false;
   return s.now - s.lastPullAt >= PULL_MIN_INTERVAL_MS;
+}
+
+// 表示中の画面が差分を取りに行く間隔(ms)
+export var PERIODIC_PULL_MS = 3 * 60 * 1000;
+
+// 表示中だけ一定間隔で touch なしの pull を呼ぶ。sync は表示状態が変わるたびに呼ぶ
+export function createPeriodicPull(o) {
+  var timer = null;
+  return {
+    sync: function () {
+      if (o.isVisible()) {
+        if (timer === null) timer = o.setInterval(function () { if (o.isVisible()) o.pull({ touch: false }); }, PERIODIC_PULL_MS);
+      } else if (timer !== null) {
+        o.clearInterval(timer);
+        timer = null;
+      }
+    },
+  };
 }
 
 var STOP_REASONS = {
