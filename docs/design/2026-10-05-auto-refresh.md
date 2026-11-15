@@ -193,12 +193,12 @@
 
 ### 4.3 排他(lease)
 - `firestore.AcquireRefreshLease(ctx, userKey, owner string, now time.Time, ttl time.Duration) (bool, error)`。RunTransaction の中で:
-  - ドキュメントが無い → `(true, nil)` を返し、何も書かない(自動更新を使っていないユーザーの手動分析)
+  - ドキュメントが無い → lease だけのドキュメントを作って true(自動更新を使っていないユーザーの手動分析でも lease を残す。取得中に有効化されても、有効化は lease に触れないので次の tick の Job がそのユーザーを取らない。#481)
   - `!st.LeaseFree(owner, now)` → false
   - それ以外 → `lease_until=now+ttl`、`lease_owner=owner` を書いて true
 - 判定は `model.AutoRefreshState.LeaseFree(owner string, now time.Time) bool`(`lease_until` が now 以前、または `lease_owner == owner`)という純粋なメソッドにし、tick の Eligible と共有する
 - `firestore.FinishRefresh(ctx, userKey, owner string, upd model.RefreshUpdate) error`: トランザクションで `lease_owner == owner` のときだけ、lease を空けて結果を書く。owner が違う(lease を失った)なら何もしない
-- `firestore.ReleaseRefreshLease(ctx, userKey, owner string) error`: 手動分析用で、owner が一致したら空ける
+- `firestore.ReleaseRefreshLease(ctx, userKey, owner string) error`: 手動分析用で、owner が一致したら空ける。一度も有効にしていない(`enabled` が false かつ `passphrase_fp` が空=lease のためだけに作った)ドキュメントは消す
 - TTL: Job は 5 分(タスクの timeout 240s より長い。kill されても次の tick 1 回分の遅れで済む)。手動は 15 分
 - **手動分析との排他**: `/analyze` と `/reanalyze` は Job を起動する前に `AcquireRefreshLease(userKey, "manual:"+j.ID, now, 15m)` を呼ぶ
   - false なら 409 `{"error":"自動更新で最新の試合を取得中です。30秒ほど待ってから再度お試しください。"}` を返す。フロントの既存のエラー経路でそのまま表示される

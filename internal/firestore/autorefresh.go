@@ -75,13 +75,9 @@ func GetAutoRefresh(ctx context.Context, userKey string) (*model.AutoRefreshStat
 	return &st, nil
 }
 
-// EnableAutoRefresh は自動更新を有効にする。失敗回数は 0 に戻す。
-func EnableAutoRefresh(ctx context.Context, userKey, token, fp string, now time.Time, window time.Duration) error {
-	ref, _, err := autoRefreshRef(userKey)
-	if err != nil {
-		return err
-	}
-	_, err = ref.Set(ctx, map[string]interface{}{
+// enableFields は有効化で書くフィールドを返す。lease には触れない(手動分析の取得中なら lease が残り、Job はそのユーザーを取らない)。
+func enableFields(token, fp string, now time.Time, window time.Duration) map[string]interface{} {
+	return map[string]interface{}{
 		"enabled":              true,
 		"session_token":        token,
 		"passphrase_fp":        fp,
@@ -89,8 +85,16 @@ func EnableAutoRefresh(ctx context.Context, userKey, token, fp string, now time.
 		"active_until":         now.Add(window),
 		"consecutive_failures": 0,
 		"updated_at":           firestore.ServerTimestamp,
-	}, firestore.MergeAll)
+	}
+}
+
+// EnableAutoRefresh は自動更新を有効にする。失敗回数は 0 に戻す。
+func EnableAutoRefresh(ctx context.Context, userKey, token, fp string, now time.Time, window time.Duration) error {
+	ref, _, err := autoRefreshRef(userKey)
 	if err != nil {
+		return err
+	}
+	if _, err = ref.Set(ctx, enableFields(token, fp, now, window), firestore.MergeAll); err != nil {
 		return fmt.Errorf("enable auto_refresh: %w", err)
 	}
 	return nil
@@ -182,7 +186,21 @@ func ListActiveAutoRefresh(ctx context.Context, now time.Time) ([]model.AutoRefr
 	return out, nil
 }
 
-// AcquireRefreshLease は userKey の lease を取る。ドキュメントが無ければ何も書かず true(自動更新未使用)。
+// acquireLeaseFields は lease を取るときに書くフィールドを返す。他者が保持中なら ok=false。
+// ドキュメントが無い(st が nil)ときも書く。手動分析の取得中に自動更新が有効にされても、
+// 次の tick の Job がこの lease を見て同じアカウントを取らないようにする(#481)。
+func acquireLeaseFields(st *model.AutoRefreshState, owner string, now time.Time, ttl time.Duration) (map[string]interface{}, bool) {
+	if st != nil && !st.LeaseFree(owner, now) {
+		return nil, false
+	}
+	return map[string]interface{}{
+		"lease_until": now.Add(ttl),
+		"lease_owner": owner,
+		"updated_at":  firestore.ServerTimestamp,
+	}, true
+}
+
+// AcquireRefreshLease は userKey の lease を取る。ドキュメントが無ければ lease だけのドキュメントを作る。
 func AcquireRefreshLease(ctx context.Context, userKey, owner string, now time.Time, ttl time.Duration) (bool, error) {
 	ref, c, err := autoRefreshRef(userKey)
 	if err != nil {
@@ -191,27 +209,25 @@ func AcquireRefreshLease(ctx context.Context, userKey, owner string, now time.Ti
 	acquired := false
 	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
 		acquired = false
+		var cur *model.AutoRefreshState
 		doc, getErr := tx.Get(ref)
-		if getErr != nil {
-			if status.Code(getErr) == codes.NotFound {
-				acquired = true
-				return nil
-			}
+		switch {
+		case status.Code(getErr) == codes.NotFound:
+		case getErr != nil:
 			return getErr
+		default:
+			st, parseErr := snapshotState(doc)
+			if parseErr != nil {
+				return parseErr
+			}
+			cur = &st
 		}
-		st, parseErr := snapshotState(doc)
-		if parseErr != nil {
-			return parseErr
-		}
-		if !st.LeaseFree(owner, now) {
+		fields, ok := acquireLeaseFields(cur, owner, now, ttl)
+		if !ok {
 			return nil
 		}
 		acquired = true
-		return tx.Set(ref, map[string]interface{}{
-			"lease_until": now.Add(ttl),
-			"lease_owner": owner,
-			"updated_at":  firestore.ServerTimestamp,
-		}, firestore.MergeAll)
+		return tx.Set(ref, fields, firestore.MergeAll)
 	})
 	if err != nil {
 		return false, fmt.Errorf("acquire refresh lease: %w", err)
@@ -270,6 +286,22 @@ func FinishRefresh(ctx context.Context, userKey, owner string, upd model.Refresh
 	return nil
 }
 
+// releaseLeaseOp は lease の解放で行う操作を返す。owner が保持していなければ何もしない(apply=false)。
+// 自動更新を一度も有効にしていない(lease のためだけに作った)ドキュメントは消す(remove=true)。
+func releaseLeaseOp(st model.AutoRefreshState, owner string) (fields map[string]interface{}, remove, apply bool) {
+	if st.LeaseOwner != owner {
+		return nil, false, false
+	}
+	if !st.Enabled && st.PassphraseFP == "" {
+		return nil, true, true
+	}
+	return map[string]interface{}{
+		"lease_until": time.Time{},
+		"lease_owner": "",
+		"updated_at":  firestore.ServerTimestamp,
+	}, false, true
+}
+
 // ReleaseRefreshLease は owner が持つ lease を空ける(手動分析の終了時)。
 func ReleaseRefreshLease(ctx context.Context, userKey, owner string) error {
 	ref, c, err := autoRefreshRef(userKey)
@@ -288,14 +320,15 @@ func ReleaseRefreshLease(ctx context.Context, userKey, owner string) error {
 		if parseErr != nil {
 			return parseErr
 		}
-		if st.LeaseOwner != owner {
+		fields, remove, apply := releaseLeaseOp(st, owner)
+		switch {
+		case !apply:
 			return nil
+		case remove:
+			return tx.Delete(ref)
+		default:
+			return tx.Set(ref, fields, firestore.MergeAll)
 		}
-		return tx.Set(ref, map[string]interface{}{
-			"lease_until": time.Time{},
-			"lease_owner": "",
-			"updated_at":  firestore.ServerTimestamp,
-		}, firestore.MergeAll)
 	})
 	if err != nil {
 		return fmt.Errorf("release refresh lease: %w", err)
