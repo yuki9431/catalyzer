@@ -4,7 +4,7 @@ import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel, isTimedRange,
-  activeConditions, removableFilterLabels, removeFilter,
+  activeConditions, removableFilterLabels, removeFilter, withNoteAvailability,
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
 import {
