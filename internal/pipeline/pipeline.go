@@ -440,11 +440,13 @@ const AccessDeniedMessage = "ガンダムモバイルへのアクセスが一時
 
 // scrapeErrorMessage はログイン・スクレイピングの失敗をユーザー向けの文言にする
 func scrapeErrorMessage(err error, usingSession bool) string {
+	// 保存済みセッションの失効(ログイン画面への遷移・401)は同じ文言にする。
+	// app.js は「セッション」を含むエラーでログイン画面に戻す(セッションは shouldDeleteSession で消える)
+	if usingSession && scraper.IsSessionExpired(err) {
+		return "セッションの有効期限が切れました。再度ログインしてください。"
+	}
 	switch {
 	case errors.Is(err, scraper.ErrLoginFailed):
-		if usingSession {
-			return "セッションの有効期限が切れました。再度ログインしてください。"
-		}
 		return "ログインに失敗しました。メールアドレスとパスワードを確認してください。"
 	case errors.Is(err, scraper.ErrAccessDenied):
 		// 保存済みセッションでも 403 は失効ではない(失効はログイン画面への遷移で ErrLoginFailed になる)
