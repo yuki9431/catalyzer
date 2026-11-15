@@ -1,3 +1,3 @@
 env = "stg"
 
-image_tag = "c9631cb28076fdc0"
+image_tag = "d49c403923280b6f"
