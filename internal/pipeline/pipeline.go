@@ -433,10 +433,10 @@ func failScrape(j *Job, err error, usingSession bool, on403 []On403Func) {
 	setError(j, scrapeErrorMessage(err, usingSession), err.Error())
 }
 
-// accessDeniedMessage は公式サイトに 403 で拒否されたときの文言。
+// AccessDeniedMessage は公式サイトに 403 で拒否されたときの文言。server の 403 ブロック中の応答も同じ文言を使う。
 // レート制限が原因なので、ログインし直しではなく時間をおいた再試行を促す(#483)。
 // app.js は「セッション」を含むエラーでログイン画面に戻すため、この語を含めない
-const accessDeniedMessage = "ガンダムモバイルへのアクセスが一時的に拒否されました。しばらく時間をおいてから再度お試しください。解決しない場合は、ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"
+const AccessDeniedMessage = "ガンダムモバイルへのアクセスが一時的に拒否されました。しばらく時間をおいてから再度お試しください。解決しない場合は、ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"
 
 // scrapeErrorMessage はログイン・スクレイピングの失敗をユーザー向けの文言にする
 func scrapeErrorMessage(err error, usingSession bool) string {
@@ -448,7 +448,7 @@ func scrapeErrorMessage(err error, usingSession bool) string {
 		return "ログインに失敗しました。メールアドレスとパスワードを確認してください。"
 	case errors.Is(err, scraper.ErrAccessDenied):
 		// 保存済みセッションでも 403 は失効ではない(失効はログイン画面への遷移で ErrLoginFailed になる)
-		return accessDeniedMessage
+		return AccessDeniedMessage
 	case errors.Is(err, scraper.ErrUnauthorized):
 		return "認証の有効期限が切れました。再度ログインしてお試しください。"
 	case errors.Is(err, scraper.ErrNotFound):
