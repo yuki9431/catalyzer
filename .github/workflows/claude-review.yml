@@ -1,0 +1,82 @@
+name: Claude Review
+
+# PR を Claude Code が自動レビューする（CLAUDE.md の規約に照らして指摘する）。
+# 認証は Secrets の CLAUDE_CODE_OAUTH_TOKEN（`claude setup-token` で作る）か ANTHROPIC_API_KEY のどちらか一方。
+# fork からの PR には Secrets が渡らないので動かない。
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+    # 変更が全てここに当てはまる PR はレビューしない（混在する PR はプロンプトで読み飛ばさせる）
+    paths-ignore:
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.gif"
+      - "**/*.webp"
+      - "**/*.ico"
+      - "**/*.svg"
+      - "tools/ui-check/baseline/**"
+      - "data/*.json"
+      - "data/*.csv"
+      - "static/htm-preact-standalone.js"
+      - "static/chart.umd.min.js"
+      - "infra/app/*.tfvars"
+      - "go.sum"
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    # Renovate・update-mslist などボットの PR、draft、develop→main のリリース PR（レビュー済みの変更の束）は除く
+    if: >-
+      !endsWith(github.event.pull_request.user.login, '[bot]') &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.ref != 'develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            この PR をレビューしてください。PR のブランチは作業ディレクトリにチェックアウト済みです。
+            差分は `gh pr diff` で取得し、必要に応じて周辺のコードを読んでください。
+            CLAUDE.md の規約（Go コーディング規約・セキュリティルール・PR運用ルール）に照らして確認してください。
+
+            指摘するもの:
+            - バグ・ロジックの誤り・境界条件の漏れ・競合状態
+            - セキュリティ上の問題（インフラ識別子のハードコード、過剰な IAM 権限、CSP 違反のインラインスクリプト、秘密情報の混入など）
+            - CLAUDE.md の規約違反（パッケージの責務・依存の向き・エラーのラップ・cmd/ にロジックを置かない・未使用のエクスポートなど）
+            - コード構成を変えたのに CLAUDE.md の「コード構成」と README.md のプロジェクト構成を更新していない
+            - 変更に対してテストが足りない
+            - 文字サイズ14px未満・タップ領域44px未満など UI の規約違反
+
+            指摘しないもの:
+            - 好みの問題・命名の細かな言い回し・gofmt や lint が拾う書式
+            - 画像・基準画像（tools/ui-check/baseline/）・data/ 配下の生成データ・同梱ライブラリ（static/htm-preact-standalone.js, static/chart.umd.min.js）・go.sum・infra/app/*.tfvars の image_tag（これらの差分は読まなくてよい）
+
+            出力:
+            - 具体的な問題は `mcp__github_inline_comment__create_inline_comment`（`confirmed: true`）で該当行にコメントする。根拠と直し方を短く書く
+            - 最後に `gh pr comment` で全体の要約を1件だけ投稿する。問題が無ければ「指摘なし」と短く書く
+            - 確信の低い指摘は出さない。コメントは日本語で書く
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

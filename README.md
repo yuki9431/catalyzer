@@ -165,6 +165,7 @@
 │   │   └── scripts.test.js        # 上記2スクリプトのテスト
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
+│       ├── claude-review.yml      # PRの自動AIレビュー（Claude Code）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
 │       ├── deploy.yml             # デプロイ（tofu apply）
 │       ├── infra-ci.yml           # インフラCI（tofu fmt・tofu plan）
