@@ -1,13 +1,15 @@
 // レポートの期間・対戦形式と試合検索の同じ条件を相互に変換する(全画面で1つの値を共有する)。import を持たない
 export var SCOPE_KEYS = ['playDays', 'dateFrom', 'dateTo', 'mode'];
 
-// レポートの状態 → 試合検索の条件。日付指定の時刻は試合検索が日単位なので落とす
+// レポートの状態 → 試合検索の条件。シートは日単位(dateFrom/dateTo)、絞り込みは時刻まで(rangeStart/rangeEnd)
 export function searchScope(period, customRange, mode) {
   var custom = period === 'custom' && customRange;
   return {
     playDays: period === 'all' || period === 'custom' ? '' : period,
     dateFrom: custom && customRange.start ? customRange.start.slice(0, 10) : '',
     dateTo: custom && customRange.end ? customRange.end.slice(0, 10) : '',
+    rangeStart: custom ? customRange.start || '' : '',
+    rangeEnd: custom ? customRange.end || '' : '',
     mode: mode || 'all',
   };
 }

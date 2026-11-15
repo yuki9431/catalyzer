@@ -38,11 +38,11 @@ function TodayCompare({ matches, selectedMs }) {
 
 // ホーム画面: 今日(無ければ最後に遊んだ日)の成績と前回の比較と、勝率アップミッション
 // 挑戦中ミッションは形式で絞らない全試合(focusMatches)で数える。開始時点と枠が形式の切り替えで変わらないように
-export function HomeView({ matches, focusMatches, selectedMs, userKey, plan, onShowMatches }) {
+export function HomeView({ matches, focusMatches, selectedMs, userKey, plan, modeFiltered, onShowMatches }) {
   return html`<div class="tabpane home" data-ui="home">
     <${Panel} title="前回との比較">
       <${TodayCompare} matches=${matches} selectedMs=${selectedMs} />
     <//>
-    <${ActionPlanPanel} plan=${plan} selectedMs=${selectedMs} matches=${focusMatches} userKey=${userKey} onShowMatches=${onShowMatches} />
+    <${ActionPlanPanel} plan=${plan} selectedMs=${selectedMs} modeFiltered=${modeFiltered} matches=${focusMatches} userKey=${userKey} onShowMatches=${onShowMatches} />
   </div>`;
 }

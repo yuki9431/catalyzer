@@ -264,7 +264,7 @@ export function Report({ data, userKey, actions }) {
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
       ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
         ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
-        : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} onShowMatches=${showMatches} />`}
+        : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} />`}
     </${AppShell}>`;
   }
   if (view === 'search') {
@@ -309,7 +309,7 @@ export function Report({ data, userKey, actions }) {
 
   var filters = html`<div class="controls-row" data-ui="filter-bar">
         <${PeriodSelector} periods=${periods} selected=${selectedPeriod} onSelect=${setSelectedPeriod}
-          userKey=${userKey} onCustomReport=${handleCustomReport} openSignal=${periodOpen} />
+          userKey=${userKey} onCustomReport=${handleCustomReport} openSignal=${periodOpen} customRange=${customRange} />
         <${MsSelector} entries=${msEntries} selected=${selectedMs} onSelect=${setSelectedMs} mode=${mode} onMode=${setMode} />
         <${LensToggle} lens=${lens} onSelect=${setLens} />
         ${reanalyzeButton(actions)}

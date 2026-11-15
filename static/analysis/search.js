@@ -22,6 +22,7 @@ export function emptyFilters() {
   return {
     playDays: '',            // 期間プリセット（''=全期間 / '1d','3d'... レポートと同じ直近プレイ日数）
     dateFrom: '', dateTo: '',
+    rangeStart: '', rangeEnd: '', // レポートの日付指定の時刻つき境界（'YYYY-MM-DD HH:MM'。共有値として渡る）
     myMsList: [],            // 自機（複数選択・OR）
     partnerMsList: [],       // 僚機（複数選択・OR）
     enemyMsList: [],         // 敵機（複数選択）
@@ -198,6 +199,7 @@ export function filterMatches(matches, filters) {
   var f = filters || {};
   var dateFrom = f.dateFrom || '';
   var dateTo = f.dateTo || '';
+  var rangeStart = f.rangeStart || '', rangeEnd = f.rangeEnd || '';
   // 自機・僚機は複数選択・OR（選んだどれかに一致）。
   var myMsList = f.myMsList || [];
   var partnerMsList = f.partnerMsList || [];
@@ -232,6 +234,8 @@ export function filterMatches(matches, filters) {
     var day = (m.date || '').substring(0, 10);
     if (dateFrom && day < dateFrom) return false;
     if (dateTo && day > dateTo) return false;
+    if (rangeStart && m.date < rangeStart) return false;
+    if (rangeEnd && m.date > rangeEnd) return false;
     if (myMsList.length && myMsList.indexOf(m.ms) < 0) return false;
     if (partnerMsList.length && partnerMsList.indexOf(m.partner_ms) < 0) return false;
     if (enemyMsList.length) {
@@ -301,6 +305,11 @@ var RANGE_LABELS = [
   ['score', 'スコア'], ['exDmg', 'EXダメージ'], ['bursts', '覚醒回数'],
 ];
 
+// 時刻を指定した日付指定か。日単位で表示すると件数とずれて見えるので、タグとシートは時刻まで出す
+export function isTimedRange(f) {
+  return !!((f.rangeStart && f.rangeStart.slice(11) !== '00:00') || (f.rangeEnd && f.rangeEnd.slice(11) !== '23:59'));
+}
+
 // 適用中の条件を表示用の文字列配列にする。既定値・空・数値にならない範囲は出さない。
 export function appliedFilterLabels(filters) {
   var f = filters || {};
@@ -328,7 +337,8 @@ export function appliedFilterLabels(filters) {
     var pmode = sheet.length > 1 ? (f.patternMode === 'or' ? '（どれかに当てはまる）' : '（すべて当てはまる）') : '';
     out.push('試合の展開' + pmode + ': ' + listLabel(sheet.map(patternLabel)));
   }
-  if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
+  if (isTimedRange(f)) out.push('日付: ' + (f.rangeStart || '') + '〜' + (f.rangeEnd || ''));
+  else if (f.dateFrom && f.dateTo) out.push('日付: ' + f.dateFrom + '〜' + f.dateTo);
   else if (f.dateFrom) out.push('日付: ' + f.dateFrom + '以降');
   else if (f.dateTo) out.push('日付: ' + f.dateTo + '以前');
   if (list('myTagList').length) out.push('味方タッグ: ' + listLabel(list('myTagList')));
