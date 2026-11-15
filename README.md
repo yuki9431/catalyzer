@@ -104,7 +104,7 @@
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
-│   │   ├── autorefresh.js         # 自動更新の純粋ロジック（差分の起点・取り込み可否・状態の文言）
+│   │   ├── autorefresh.js         # 自動更新の純粋ロジック（差分の起点・取り込み可否・定期取得の開始停止・状態の文言）
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
 │   │   ├── runlock.js             # 分析の多重起動ロック
@@ -132,6 +132,7 @@
 │   │   ├── autorefresh.test.js    # autorefresh.js テスト
 │   │   ├── topbar.test.js         # topbar.js テスト
 │   │   ├── runlock.test.js        # runlock.js テスト
+│   │   ├── app-wiring.test.js     # app.js の配線（再構築のロック・定期取得の touch なし）の静的検査
 │   │   ├── scope.test.js          # scope.js テスト
 │   │   ├── launch.test.js         # launch.js テスト
 │   │   ├── progress.test.js       # progress.js テスト

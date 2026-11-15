@@ -1,6 +1,61 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { diffAfterParam, shouldPull, describeStatus, errorMessage, PULL_MIN_INTERVAL_MS } from '../lib/autorefresh.js';
+import { diffAfterParam, shouldPull, describeStatus, errorMessage, createPeriodicPull, PULL_MIN_INTERVAL_MS, PERIODIC_PULL_MS } from '../lib/autorefresh.js';
+
+// 注入する時計。tick() で登録中のタイマーを1回ずつ発火する
+function fakeClock() {
+  var c = { timers: new Map(), next: 1, visible: true, pulls: [] };
+  c.setInterval = function (fn, ms) { var id = c.next++; c.timers.set(id, { fn: fn, ms: ms }); return id; };
+  c.clearInterval = function (id) { c.timers.delete(id); };
+  c.isVisible = function () { return c.visible; };
+  c.pull = function (opts) { c.pulls.push(opts); };
+  c.tick = function () { c.timers.forEach(function (t) { t.fn(); }); };
+  return c;
+}
+
+describe('createPeriodicPull', () => {
+  it('表示中は PERIODIC_PULL_MS 間隔のタイマーを1本だけ張り、発火で取り込む', () => {
+    var c = fakeClock(), p = createPeriodicPull(c);
+    p.sync();
+    p.sync();
+    assert.strictEqual(c.timers.size, 1);
+    assert.strictEqual([...c.timers.values()][0].ms, PERIODIC_PULL_MS);
+    c.tick();
+    assert.strictEqual(c.pulls.length, 1);
+  });
+  it('hidden になると止まり、visible に戻ると再開する', () => {
+    var c = fakeClock(), p = createPeriodicPull(c);
+    p.sync();
+    c.visible = false;
+    p.sync();
+    assert.strictEqual(c.timers.size, 0);
+    c.tick();
+    assert.strictEqual(c.pulls.length, 0);
+    c.visible = true;
+    p.sync();
+    c.tick();
+    assert.strictEqual(c.pulls.length, 1);
+  });
+  it('hidden で開始したらタイマーを張らない', () => {
+    var c = fakeClock();
+    c.visible = false;
+    createPeriodicPull(c).sync();
+    assert.strictEqual(c.timers.size, 0);
+  });
+  it('sync より先に hidden になっていたら発火しても取り込まない', () => {
+    var c = fakeClock(), p = createPeriodicPull(c);
+    p.sync();
+    c.visible = false;
+    c.tick();
+    assert.strictEqual(c.pulls.length, 0);
+  });
+  it('定期取得は touch を送らない', () => {
+    var c = fakeClock(), p = createPeriodicPull(c);
+    p.sync();
+    c.tick();
+    assert.deepStrictEqual(c.pulls, [{ touch: false }]);
+  });
+});
 
 describe('diffAfterParam', () => {
   it('最新日時の1分前を返す(順不同でも最大を採る)', () => {
@@ -18,7 +73,7 @@ describe('diffAfterParam', () => {
 });
 
 describe('shouldPull', () => {
-  var base = { activeJobId: null, pulling: false, lastPullAt: 1000 };
+  var base = { busy: false, pulling: false, lastPullAt: 1000 };
   it('間隔の境界: 19.999 秒は飛ばし、20 秒で取り込む', () => {
     assert.strictEqual(shouldPull({ ...base, now: 1000 + PULL_MIN_INTERVAL_MS - 1 }), false);
     assert.strictEqual(shouldPull({ ...base, now: 1000 + PULL_MIN_INTERVAL_MS }), true);
@@ -26,8 +81,8 @@ describe('shouldPull', () => {
   it('初回(lastPullAt=0)は取り込む', () => {
     assert.strictEqual(shouldPull({ ...base, lastPullAt: 0, now: Date.now() }), true);
   });
-  it('手動分析中・取り込み実行中は飛ばす', () => {
-    assert.strictEqual(shouldPull({ ...base, activeJobId: 'job1', now: 999999 }), false);
+  it('分析・再構築中・取り込み実行中は飛ばす', () => {
+    assert.strictEqual(shouldPull({ ...base, busy: true, now: 999999 }), false);
     assert.strictEqual(shouldPull({ ...base, pulling: true, now: 999999 }), false);
   });
 });
