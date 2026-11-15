@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {
   NOTE_KINDS, sanitizeNotes, notesForEnemy, notesForMatch, hasNoteForMatch, groupByEnemy, notesByTab, tabCounts,
   noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, pinnedCount,
-  upsertNote, removeNoteById, msChoices,
+  upsertNote, removeNoteById, msChoices, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 
 function note(over) {
@@ -196,5 +196,45 @@ describe('静的検査', () => {
   });
   it('lib/notes.js は import を持たない', () => {
     assert.ok(!/^\s*import\s/m.test(fs.readFileSync(new URL('../lib/notes.js', import.meta.url), 'utf8')));
+  });
+});
+
+describe('loadDecision', () => {
+  it('ユーザーが無い・API が使えないときは off', () => {
+    assert.strictEqual(loadDecision('', true, null, null), 'off');
+    assert.strictEqual(loadDecision('u1', false, null, null), 'off');
+  });
+  it('取得済み・同じユーザーを取得中なら skip、それ以外は load', () => {
+    assert.strictEqual(loadDecision('u1', true, 'u1', null), 'skip');
+    assert.strictEqual(loadDecision('u1', true, null, 'u1'), 'skip');
+    assert.strictEqual(loadDecision('u1', true, null, null), 'load');
+  });
+  it('別ユーザーの取得中・取得済みでも新しいユーザーは load する', () => {
+    assert.strictEqual(loadDecision('u2', true, 'u1', null), 'load');
+    assert.strictEqual(loadDecision('u2', true, null, 'u1'), 'load');
+  });
+});
+
+describe('responseOutcome', () => {
+  var ok = { status: 200, body: { user_key: 'u1', notes: [] } };
+  it('取得中にユーザーが替わった応答は stale で捨てる(新ユーザーを error で確定しない)', () => {
+    assert.strictEqual(responseOutcome('u1', 'u2', ok), 'stale');
+    assert.strictEqual(responseOutcome('u1', '', ok), 'stale');
+  });
+  it('本人の 200 は on、401 は off、それ以外と別人の応答は error', () => {
+    assert.strictEqual(responseOutcome('u1', 'u1', ok), 'on');
+    assert.strictEqual(responseOutcome('u1', 'u1', { status: 401, body: null }), 'off');
+    assert.strictEqual(responseOutcome('u1', 'u1', { status: 500, body: null }), 'error');
+    assert.strictEqual(responseOutcome('u1', 'u1', { status: 200, body: { user_key: 'u9' } }), 'error');
+  });
+});
+
+describe('useNotes の取得の判定', () => {
+  var src = fs.readFileSync(new URL('../components/notes.js', import.meta.url), 'utf8');
+  it('使えなくなったら取得済みの印を外す(同じユーザーで再ログインしたとき取り直す)', () => {
+    assert.match(src, /if \(d === 'off'\) \{\s*settled\.current = null;/);
+  });
+  it('応答は取得時のユーザーと今のユーザーで判定する', () => {
+    assert.match(src, /responseOutcome\(key, current\.current, res\)/);
   });
 });

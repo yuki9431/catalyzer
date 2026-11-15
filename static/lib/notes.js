@@ -13,6 +13,21 @@ function validDate(s) {
 function str(v) { return typeof v === 'string' ? v : ''; }
 
 // GET 応答の検証。id・text が文字列で kind が既知の項目だけ残す。他の文字列項目の欠けは '' にする
+// 取得を始めるか。'off'=使えない / 'skip'=取得済みか同じユーザーを取得中 / 'load'
+export function loadDecision(userKey, available, settledKey, loadingKey) {
+  if (!userKey || !available) return 'off';
+  if (settledKey === userKey || loadingKey === userKey) return 'skip';
+  return 'load';
+}
+
+// 取得の応答の扱い。取得中にユーザーが替わっていれば 'stale' で捨てる
+export function responseOutcome(requestedKey, currentKey, res) {
+  if (requestedKey !== currentKey) return 'stale';
+  if (res.status === 401) return 'off';
+  var b = res.body;
+  return res.status === 200 && b && b.user_key === requestedKey ? 'on' : 'error';
+}
+
 export function sanitizeNotes(list) {
   if (!Array.isArray(list)) return [];
   return list.filter(function (n) {

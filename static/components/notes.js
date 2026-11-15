@@ -2,7 +2,7 @@ import { html, useState, useRef, useEffect, useMemo } from '../htm-preact-standa
 import { currentPlayDay } from '../analysis/today.js';
 import {
   sanitizeNotes, notesForMatch, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
-  validateDraft, pinnedCount, upsertNote, removeNoteById,
+  validateDraft, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
 import { ToggleGroup, Notice } from './parts.js';
@@ -23,40 +23,38 @@ export function useNotes(userKey, api, data) {
   var draftRef = useState(null);
   var draft = draftRef[0], setDraft = draftRef[1];
   var settled = useRef(null);
-  var loading = useRef(false);
+  var loading = useRef(null);
+  var current = useRef(userKey);
+  current.current = userKey;
   var alive = useRef(true);
   useEffect(function () {
     alive.current = true;
     return function () { alive.current = false; };
   }, []);
 
-  function load() {
-    loading.current = true;
+  function load(key) {
+    loading.current = key;
     setState(function (prev) { return { status: 'loading', list: prev.list, limits: prev.limits }; });
     api.list().then(function (res) {
-      loading.current = false;
+      if (loading.current === key) loading.current = null;
       if (!alive.current) return;
-      var b = res.body;
-      if (res.status === 200 && b && b.user_key === userKey) {
-        settled.current = userKey;
-        setState({ status: 'on', list: sanitizeNotes(b.notes), limits: b.limits || null });
-      } else if (res.status === 401) {
-        setState({ status: 'off', list: [], limits: null });
-      } else {
-        settled.current = userKey;
-        setState({ status: 'error', list: [], limits: null });
-      }
+      var outcome = responseOutcome(key, current.current, res);
+      if (outcome === 'stale') return;
+      if (outcome === 'off') { setState({ status: 'off', list: [], limits: null }); return; }
+      settled.current = key;
+      setState(outcome === 'on'
+        ? { status: 'on', list: sanitizeNotes(res.body.notes), limits: res.body.limits || null }
+        : { status: 'error', list: [], limits: null });
     });
   }
 
   // 初回ログインでは分析の完了時に使えるようになるため、data の更新でも判定し直す
   useEffect(function () {
-    if (!userKey || !api || !api.available()) {
-      if (!loading.current) setState(function (prev) { return prev.status === 'off' ? prev : { status: 'off', list: [], limits: null }; });
-      return;
-    }
-    if (settled.current === userKey || loading.current) return;
-    load();
+    var d = loadDecision(userKey, !!(api && api.available()), settled.current, loading.current);
+    if (d === 'off') {
+      settled.current = null;
+      setState(function (prev) { return prev.status === 'off' ? prev : { status: 'off', list: [], limits: null }; });
+    } else if (d === 'load') load(userKey);
   }, [userKey, data]);
 
   function apply(fn) { setState(function (prev) { return Object.assign({}, prev, { list: fn(prev.list) }); }); }
@@ -85,7 +83,7 @@ export function useNotes(userKey, api, data) {
     });
   }
 
-  function reload() { if (api && api.available() && !loading.current) load(); }
+  function reload() { if (api && api.available() && current.current && loading.current !== current.current) load(current.current); }
 
   return {
     status: state.status, list: state.list, limits: state.limits, draft: draft,
