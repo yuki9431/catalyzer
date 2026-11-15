@@ -100,6 +100,26 @@ type TagPartner struct {
 	PlayerName string
 }
 
+// メモの種類(Note.Kind)
+const (
+	NoteKindEnemy = "enemy"
+	NoteKindDate  = "date"
+	NoteKindFree  = "free"
+)
+
+// Note は敵機などに紐付く対策メモ。Kind に合わない紐付け先の項目は空
+type Note struct {
+	ID        string
+	Kind      string
+	Text      string
+	EnemyMS   string
+	MyMS      string
+	Date      string // YYYY-MM-DD
+	Pinned    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // JobStatus はジョブの状態
 type JobStatus string
 

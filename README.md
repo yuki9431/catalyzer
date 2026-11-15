@@ -68,6 +68,7 @@
 │   │   └── login.go               # ログイン処理
 │   ├── firestore/
 │   │   ├── client.go              # Firestoreクライアント初期化
+│   │   ├── notes.go               # メモの読み書き
 │   │   ├── scores.go              # 戦績（matches）の読み書き
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
@@ -80,7 +81,8 @@
 │       ├── ratelimit.go           # IPベースレート制限・クライアントIP解決
 │       ├── geoblock.go            # 国別アクセス制限（日本のみ許可）
 │       ├── basicauth.go           # Basic認証ミドルウェア
-│       └── block403.go            # 403時の一時ブロック管理
+│       ├── block403.go            # 403時の一時ブロック管理
+│       └── notes.go               # メモAPI
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
 │   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
