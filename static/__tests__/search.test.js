@@ -619,7 +619,7 @@ describe('対戦形式の絞り込み', function () {
 });
 
 describe('メモがある敵機との試合の絞り込み', function () {
-  var notes = [{ id: 'n1', kind: 'enemy', text: 't', enemy_ms: 'シャアザク', my_ms: '', date: '', pinned: false }];
+  var notes = [{ id: 'n1', text: 't', enemies: ['シャアザク'], my_ms: '', date: '', pinned: false }];
   var hit = makeMatch({ date: '2025-06-15 14:30' });
   var miss = makeMatch({ date: '2025-06-15 15:00', opponent1_ms: 'ジオング', opponent2_ms: 'ゲルググ' });
   var f = Object.assign(emptyFilters(), { noteEnemies: true });

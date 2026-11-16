@@ -19,8 +19,8 @@ var OPEN_DETAIL = OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }])
 var OPEN_NOTE_SHEET = OPEN_DETAIL.concat([{ click: ['[data-ui="note-write"]'] }]);
 var NOTE_TEXT = 'ui-check で書いたメモ';
 var WRITE_NOTE = [{ type: ['[data-ui="note-sheet"] textarea', NOTE_TEXT] }];
-var NOTE_SHEET_REQUIRED = [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-kind"] button[aria-pressed="true"]', '敵機'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'],
-  ['[data-ui="note-save"]'], ['[data-ui="match-detail"][inert], [inert] [data-ui="match-detail"]']];
+var NOTE_SHEET_REQUIRED = [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'], ['[data-ui="note-date-clear"]'],
+  ['[data-ui="note-enemy-add"]'], ['[data-ui="note-my"] [data-ui="select-trigger"]', '指定しない'], ['[data-ui="note-save"]'], ['[data-ui="match-detail"][inert], [inert] [data-ui="match-detail"]']];
 var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
 var COLLAPSED = ['[data-ui="topbar"][data-collapsed="true"]'];
 var EXPANDED = ['[data-ui="topbar"][data-collapsed="false"]'];
@@ -141,10 +141,15 @@ var SCREEN_DEFS = [
     absent: [['[data-ui="search-result"]:not(:has([data-ui="note-mark"]))']], tap: ['[data-ui="search-note-filter"]'] },
   { id: 'mobile-report-matchup-notes', viewport: M, full: false, start: 'report-session-valid',
     ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="tab"]', TABS.matchup] }, { click: ['[data-ui="row-list"] button', 'ガルーダ零'] }, { wait: ['[data-ui="enemy-notes"]'] }],
-    required: [['[data-ui="panel"] [data-ui="note-mark"]'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '距離を詰められたら'], ['[data-ui="enemy-notes"] [data-ui="note-write"]']],
+    required: [['[data-ui="panel"] [data-ui="note-mark"]'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '距離を詰められたら'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '格闘の間合いに入らない'], ['[data-ui="enemy-notes"] [data-ui="note-write"]']],
     inview: [['[data-ui="enemy-notes"]']], tap: ['[data-ui="enemy-notes"] [data-ui="note-item"]', '[data-ui="enemy-notes"] [data-ui="note-write"]'] },
   { id: 'mobile-note-sheet', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED,
-    tap: ['[data-ui="note-save"]', '[data-ui="note-kind"] button'] },
+    tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-remove"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
+  { id: 'mobile-note-sheet-enemies', viewport: M, full: false, start: 'report-session-valid',
+    ops: OPEN_NOTE_SHEET.concat([{ click: ['[data-ui="note-enemy-add"]'] }, { click: ['[data-ui="note-enemy"] [data-ui="select-trigger"]', '選んでください'] }, { click: ['[data-ui="select-item"]', 'ヴァルキュリア'] }]),
+    required: [['[data-ui="note-enemy"]', null, 2], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ヴァルキュリア'],
+      ['[data-ui="note-enemy-remove"]', null, 2], ['[data-ui="note-enemy-add"]'], ['[data-ui="note-date-clear"]']],
+    tap: ['[data-ui="note-enemy-remove"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
   { id: 'note-sheet', viewport: D, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED },
   { id: 'mobile-note-saved', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET.concat(WRITE_NOTE, [{ click: ['[data-ui="note-save"]'] }]),
     required: [['[data-ui="match-notes"] [data-ui="note-item"]', NOTE_TEXT]], absent: [['[data-ui="note-sheet"]']] },
@@ -257,11 +262,11 @@ var SCREEN_DEFS = [
     required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], [THEME_BTN + '[aria-pressed="true"]', '端末に合わせる'], [THEME_BTN, null, 3], ['[data-ui="more-notes"]', 'ログイン状態を保持すると使えます'], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], tap: TAP_FORM },
   // メモ一覧(#389)。fixture のメモ6件(敵機4件=3機体・日付1件・なし1件)
   { id: 'mobile-more-notes', viewport: M, full: false, start: 'report-session-valid', ops: [goTab('その他'), { wait: ['[data-ui="more-notes"] button', '6件'] }, { click: ['[data-ui="more-notes"] button', 'メモ'] }],
-    required: [['[data-ui="note-tabs"] button', null, 4], ['[data-ui="note-tabs"] button[aria-pressed="true"]', 'すべて'], ['[data-ui="note-list"] [data-ui="note-item"]', null, 6], ['[data-ui="note-list-back"]', 'その他'], ['[data-ui="note-write"]', '書く']],
+    required: [['[data-ui="note-tabs"] button', null, 4], ['[data-ui="note-tabs"] button[aria-pressed="true"]', 'すべて'], ['[data-ui="note-list"] [data-ui="note-item"]', null, 6], ['[data-ui="note-tabs"] button', '日付 2'], ['[data-ui="note-item"]', '6/15 ヴァルキュリア・ガルーダ零'], ['[data-ui="note-list-back"]', 'その他'], ['[data-ui="note-write"]', '書く']],
     tap: ['[data-ui="note-tabs"] button', '[data-ui="note-item"]', '[data-ui="note-list-back"]'] },
   { id: 'mobile-more-notes-enemy', viewport: M, full: false, start: 'report-session-valid',
     ops: [goTab('その他'), { wait: ['[data-ui="more-notes"] button', '6件'] }, { click: ['[data-ui="more-notes"] button', 'メモ'] }, { click: ['[data-ui="note-tabs"] button', '敵機'] }],
-    required: [['[data-ui="note-tabs"] button[aria-pressed="true"]', '敵機'], ['[data-ui="note-group"]', null, 3], ['[data-ui="note-group"]', '2件'], ['[data-ui="note-group"]', 'ガルーダ零']],
+    required: [['[data-ui="note-tabs"] button[aria-pressed="true"]', '敵機'], ['[data-ui="note-group"]', null, 3], ['[data-ui="note-group"]', '2件'], ['[data-ui="note-group"]', 'ガルーダ零'], ['[data-ui="note-list"] [data-ui="note-item"]', '格闘の間合いに入らない', 2]],
     tap: ['[data-ui="note-tabs"] button', '[data-ui="note-item"]'] },
   { id: 'mobile-more-confirm', viewport: M, full: true, start: 'report', ops: [goTab('その他'), { click: ['[data-ui="more"] button', '試合データを取得し直す'] }],
     required: [['[data-ui="more"] button[aria-expanded="true"]', '試合データを取得し直す'], ['[data-ui="refetch-confirm"] button', '取得し直す'], ['[data-ui="refetch-confirm"] button', 'やめる']], tap: TAP },

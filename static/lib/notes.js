@@ -1,5 +1,4 @@
-// 敵機ごとのメモの純粋ロジック(import なし)。型・上限はサーバー(internal/server/notes.go)が正で、上限は limits で受け取る。
-export var NOTE_KINDS = ['enemy', 'date', 'free'];
+// メモの純粋ロジック(import なし)。型・上限はサーバー(internal/server/notes.go)が正で、上限は limits で受け取る。
 
 var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -27,23 +26,25 @@ export function responseOutcome(requestedKey, currentKey, res) {
   return res.status === 200 && b && b.user_key === requestedKey ? 'on' : 'error';
 }
 
-// GET 応答の検証。id・text が文字列で kind が既知の項目だけ残す。他の文字列項目の欠けは '' にする
+// GET 応答の検証。id・text が文字列の項目だけ残す。enemies は空でない文字列だけの配列にし、他の文字列項目の欠けは '' にする
 export function sanitizeNotes(list) {
   if (!Array.isArray(list)) return [];
   return list.filter(function (n) {
-    return n && typeof n.id === 'string' && typeof n.text === 'string' && NOTE_KINDS.indexOf(n.kind) >= 0;
+    return n && typeof n.id === 'string' && typeof n.text === 'string';
   }).map(function (n) {
     return {
-      id: n.id, kind: n.kind, text: n.text, enemy_ms: str(n.enemy_ms), my_ms: str(n.my_ms), date: str(n.date),
+      id: n.id, text: n.text,
+      enemies: Array.isArray(n.enemies) ? n.enemies.filter(function (e) { return typeof e === 'string' && e !== ''; }) : [],
+      my_ms: str(n.my_ms), date: str(n.date),
       pinned: n.pinned === true, created_at: str(n.created_at), updated_at: str(n.updated_at),
     };
   });
 }
 
-// myMs が文字列なら、自機の指定が無いメモか同じ自機のメモだけ。null なら自機を問わない
+// enemies に enemyMs を含むメモ(どれか1機で当たる)。myMs が文字列なら、自機の指定が無いメモか同じ自機のメモだけ。null なら自機を問わない
 export function notesForEnemy(notes, enemyMs, myMs) {
   return (notes || []).filter(function (n) {
-    if (n.kind !== 'enemy' || n.enemy_ms !== enemyMs) return false;
+    if (n.enemies.indexOf(enemyMs) < 0) return false;
     return typeof myMs !== 'string' || n.my_ms === '' || n.my_ms === myMs;
   });
 }
@@ -67,11 +68,11 @@ function byUpdated(a, b) {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+// 各メモを enemies の機体それぞれの下に入れる(複数の敵機を持つメモは複数の下に出る)
 export function groupByEnemy(notes) {
   var map = {};
   (notes || []).forEach(function (n) {
-    if (n.kind !== 'enemy') return;
-    (map[n.enemy_ms] = map[n.enemy_ms] || []).push(n);
+    n.enemies.forEach(function (e) { (map[e] = map[e] || []).push(n); });
   });
   return Object.keys(map).map(function (e) { return { enemy: e, count: map[e].length, notes: map[e] }; })
     .sort(function (a, b) { return b.count - a.count || a.enemy.localeCompare(b.enemy, 'ja'); });
@@ -80,10 +81,10 @@ export function groupByEnemy(notes) {
 // tab: 'all' | 'enemy' | 'date' | 'pin'
 export function notesByTab(notes, tab) {
   var list = (notes || []).slice();
-  if (tab === 'enemy') return list.filter(function (n) { return n.kind === 'enemy'; }).sort(byUpdated);
+  if (tab === 'enemy') return list.filter(function (n) { return n.enemies.length > 0; }).sort(byUpdated);
   if (tab === 'pin') return list.filter(function (n) { return n.pinned; }).sort(byUpdated);
   if (tab === 'date') {
-    return list.filter(function (n) { return n.kind === 'date'; }).sort(function (a, b) {
+    return list.filter(function (n) { return n.date !== ''; }).sort(function (a, b) {
       return a.date !== b.date ? (a.date < b.date ? 1 : -1) : byUpdated(a, b);
     });
   }
@@ -97,40 +98,35 @@ export function tabCounts(notes) {
   };
 }
 
-// 敵機名 / 'M/D' / 'メモ'
+// 'M/D' と敵機の '・' 区切りを半角空白でつなぐ。どちらも無ければ 'メモ'
 export function noteTargetLabel(note) {
-  if (note.kind === 'enemy') return note.enemy_ms;
-  if (note.kind === 'date' && DATE_RE.test(note.date)) return Number(note.date.slice(5, 7)) + '/' + Number(note.date.slice(8, 10));
-  return 'メモ';
+  var parts = [];
+  if (DATE_RE.test(note.date)) parts.push(Number(note.date.slice(5, 7)) + '/' + Number(note.date.slice(8, 10)));
+  if (note.enemies.length) parts.push(note.enemies.join('・'));
+  return parts.length ? parts.join(' ') : 'メモ';
 }
 
-// ctx: { enemy_ms?, kind?, date? }。enemy_ms があれば kind は 'enemy'。自機は常に未指定
+// ctx: { enemy?, date? }。敵機があれば1欄に入れる。自機は常に未指定
 export function defaultDraft(ctx) {
   var c = ctx || {};
-  return {
-    id: null, kind: c.enemy_ms ? 'enemy' : (c.kind || 'enemy'), text: '',
-    enemy_ms: c.enemy_ms || '', my_ms: '', date: c.date || '', pinned: false,
-  };
+  return { id: null, text: '', enemies: c.enemy ? [c.enemy] : [], my_ms: '', date: c.date || '', pinned: false };
 }
 
 export function draftFromNote(note) {
-  return {
-    id: note.id, kind: note.kind, text: note.text, enemy_ms: note.enemy_ms, my_ms: note.my_ms,
-    date: note.date, pinned: !!note.pinned,
-  };
+  return { id: note.id, text: note.text, enemies: note.enemies.slice(), my_ms: note.my_ms, date: note.date, pinned: !!note.pinned };
 }
 
 function normalizeText(text) { return String(text || '').replace(/\r\n/g, '\n').trim(); }
 
-// kind で使わない項目は '' にする
+function filledEnemies(draft) {
+  return (draft.enemies || []).map(function (e) { return String(e || '').trim(); }).filter(function (e) { return e !== ''; });
+}
+
+// 未選択の敵機の欄は落とす。重複は落とさない(validateDraft で止める)
 export function draftToRequest(draft) {
-  var k = draft.kind;
   return {
-    kind: k, text: normalizeText(draft.text),
-    enemy_ms: k === 'enemy' ? String(draft.enemy_ms || '').trim() : '',
-    my_ms: k === 'enemy' ? String(draft.my_ms || '').trim() : '',
-    date: k === 'date' ? draft.date || '' : '',
-    pinned: !!draft.pinned,
+    text: normalizeText(draft.text), enemies: filledEnemies(draft),
+    my_ms: String(draft.my_ms || '').trim(), date: draft.date || '', pinned: !!draft.pinned,
   };
 }
 
@@ -142,10 +138,29 @@ export function validateDraft(draft, limits, pinnedOthers) {
   var lim = limits || {};
   if (textLength(draft.text) === 0) return 'メモの本文を入力してください';
   if (lim.text_max && textLength(draft.text) > lim.text_max) return 'メモは' + lim.text_max + '文字までです';
-  if (draft.kind === 'enemy' && !String(draft.enemy_ms || '').trim()) return '敵機を選んでください';
-  if (draft.kind === 'date' && !validDate(draft.date)) return '日付の形式が正しくありません';
+  var enemies = filledEnemies(draft);
+  if (lim.enemies_max && enemies.length > lim.enemies_max) return '敵機は' + lim.enemies_max + '機までです';
+  if (enemies.some(function (e, i) { return enemies.indexOf(e) !== i; })) return '同じ敵機が重複しています';
+  if (draft.date && !validDate(draft.date)) return '日付の形式が正しくありません';
   if (draft.pinned && lim.pinned_max && pinnedOthers >= lim.pinned_max) return 'ピン留めは' + lim.pinned_max + '件までです';
   return '';
+}
+
+// 敵機を足せるか。未選択の欄も数える。上限が分からなければ足せない
+export function canAddEnemy(draft, limits) {
+  return !!(limits && limits.enemies_max) && draft.enemies.length < limits.enemies_max;
+}
+
+// 選択肢に無い機体(編集中のメモの機体など)も値として選べるよう足す
+export function withValue(options, value) {
+  return value && !options.some(function (o) { return o.value === value; }) ? options.concat([{ value: value, label: value }]) : options;
+}
+
+// index 以外の欄で選んだ機体を選択肢から除く(重複を作らせない)。自分の値が選択肢に無ければ足す
+export function enemyOptions(options, enemies, index) {
+  var taken = enemies.filter(function (e, i) { return i !== index && e; });
+  var rest = options.filter(function (o) { return taken.indexOf(o.value) < 0; });
+  return withValue(rest, enemies[index]);
 }
 
 export function pinnedCount(notes, exceptId) {
