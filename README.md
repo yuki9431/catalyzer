@@ -85,7 +85,7 @@
 │       └── notes.go               # メモAPI
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
-│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全16ファイル）
 │   ├── theme-init.js              # テーマの初期適用と切替（<head> で同期実行）
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
@@ -100,7 +100,8 @@
 │   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
-│   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
+│   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）と全画面の層 Layer
+│   │   ├── notes.js               # 敵機のメモ（取得・書くシート・試合詳細の一覧）
 │   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）とその他画面（再分析・自動更新の設定を含む）
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice。Notice は操作ボタン付き）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
@@ -115,6 +116,7 @@
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
+│   │   ├── notes.js               # 敵機のメモの純粋ロジック（抽出・下書き・検証・機体の選択肢）
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
@@ -139,6 +141,7 @@
 │   │   ├── launch.test.js         # launch.js テスト
 │   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
+│   │   ├── notes.test.js          # lib/notes.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト
@@ -203,8 +206,8 @@
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/styles/` | CSS（`tokens.css` に色・文字・余白の定義、他は画面・部品ごと） |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |
-| `static/components/` | UIコンポーネント（`report/` にレポート画面、`shell.js`・`popover.js`・`chart-canvas.js`・`parts.js` に共通部品） |
-| `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー |
+| `static/components/` | UIコンポーネント（`report/` にレポート画面、`shell.js`・`popover.js`・`chart-canvas.js`・`parts.js` に共通部品、`notes.js` に敵機のメモ） |
+| `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー・メモの純粋ロジック |
 | `data/` | 静的データファイル（MSリスト等） |
 | `infra/` | OpenTofu IaC（GCPリソース管理） |
 

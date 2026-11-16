@@ -73,6 +73,13 @@ describe('Skeleton', () => {
     assert.deepStrictEqual(r.bad, []);
   });
 
+  // 渡し忘れると試合詳細の「敵機のメモ」が出ない(props を無視する report-rerender-props-ignored と同じ系統の見落とし)
+  it('全ての <${SearchView} 呼び出しに notes が付く', () => {
+    var r = missingAttr('SearchView', 'notes');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
   it('onPull を持つ全ての <${AppShell} 呼び出しに canPull が付く(無いと分析中でも引っ張りで再分析が走る)', () => {
     var root = new URL('..', import.meta.url).pathname;
     var found = 0, bad = [];

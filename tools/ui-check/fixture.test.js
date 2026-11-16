@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { testPattern } from '../../static/analysis/patterns.js';
-import { generateMatches, MATCH_COUNT, msList } from './fixture.js';
+import { generateMatches, MATCH_COUNT, msList, notes } from './fixture.js';
 
 describe('fixture', function () {
   it('is deterministic across calls', function () {
@@ -27,5 +27,18 @@ describe('fixture', function () {
   });
   it('uses local image URLs for every machine', function () {
     msList().forEach(function (m) { assert.match(m.ImageURL, /^\/__preview\/ms\/\d+\.svg$/); });
+  });
+  it('メモの敵機は日付の新しい順で先頭の試合の相手にいて、種類は enemy 3・date 1・free 1・ピン1', () => {
+    var top = generateMatches().sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0];
+    assert.strictEqual(top.opponent1_ms, 'ストームレイダー');
+    var ns = notes();
+    ns.filter(function (n) { return n.kind === 'enemy'; }).forEach(function (n) {
+      assert.ok([top.opponent1_ms, top.opponent2_ms].includes(n.enemy_ms), n.enemy_ms);
+    });
+    var count = function (k) { return ns.filter(function (n) { return n.kind === k; }).length; };
+    assert.deepEqual([count('enemy'), count('date'), count('free')], [3, 1, 1]);
+    assert.equal(ns.filter(function (n) { return n.pinned; }).length, 1);
+    assert.ok(ns.some(function (n) { return n.my_ms; }));
+    assert.equal(new Set(ns.map(function (n) { return n.id; })).size, ns.length);
   });
 });
