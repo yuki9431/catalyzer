@@ -105,6 +105,15 @@ var SCREEN_DEFS = [
       ['[data-ui="search-enemy-mode"] button', 'すべて含む'], ['[data-ui="search-enemy-mode"] button[aria-pressed="true"]', 'どれかを含む'], ['[data-ui="search-winloss"] button[aria-pressed="true"]', '勝利']],
     inview: [['[data-ui="search-filter-apply"]'], ['[data-ui="search-filter-clear"]'], ['[data-ui="sheet-close"]']], outview: [[TABBAR]],
     tap: ['[data-ui="search-filter-apply"]', '[data-ui="search-filter-clear"]', '[data-ui="sheet-close"]', '[data-ui="search-enemy-mode"] button', '[data-ui="search-name-scope"] button', '[data-ui="search-winloss"] button', '[data-ui="search-mode"] button', '[data-ui="search-pattern-mode"] button', '[data-ui="search-pattern-item"]'] },
+  // 詳細な条件の熟練度は⭐表記でランク順に並ぶ。自分・相方・相手の欄が揃う(#361)
+  { id: 'mobile-search-proficiency', viewport: M, full: false, start: 'report',
+    ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-adv-toggle"]'] },
+      { scroll: ['[data-ui="search-proficiency"]'] }, { click: ['[data-ui="search-proficiency"] [data-ui="select-trigger"]'] }]),
+    required: [['[data-ui="search-proficiency"]', '自機熟練度'], ['[data-ui="search-partner-proficiency"]', '僚機熟練度'],
+      ['[data-ui="search-rank"]', '自分の順位'], ['[data-ui="search-partner-rank"]', '相方の順位'],
+      ['[data-ui="search-my-grade"]', '自分の階級'], ['[data-ui="search-partner-grade"]', '相方の階級'], ['[data-ui="search-enemy-grade"]', '相手の階級'],
+      ['[data-ui="select-item"]', 'Legend'], ['[data-ui="select-item"]', 'Master'], ['[data-ui="select-item"]', '⭐17'], ['[data-ui="select-item"]', '⭐6']],
+    inview: [['[data-ui="select-panel"]']] },
   // 他の画面へ移って戻っても条件が残る
   { id: 'mobile-search-applied', viewport: M, full: false, start: 'report', ops: OPEN_FILTER.concat([{ click: ['[data-ui="search-filter-apply"]'] }, { wait: ['[data-ui="search-applied"]'] }, goTab('ホーム'), { wait: [CURRENT, 'ホーム'] }, goTab('試合検索'), { wait: ['[data-ui="search-applied"]'] }]),
     required: [['[data-ui="search-applied"]', '勝敗: 勝利'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）'], ['[data-ui="search-clear"]', '条件をクリア'],
