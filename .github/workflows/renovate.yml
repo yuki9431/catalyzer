@@ -21,7 +21,7 @@ jobs:
     environment: renovate
     timeout-minutes: 30
     env:
-      RENOVATE_IMAGE: renovate/renovate:44.227.4
+      RENOVATE_IMAGE: renovate/renovate:44.242.0@sha256:0123dd7efea6978a8347732aac8be14745cebb6b8653e77bc9ee290698d97e89
     steps:
       - id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
