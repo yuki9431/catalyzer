@@ -1,7 +1,7 @@
 import { html, useState, useRef, useEffect, useMemo } from '../htm-preact-standalone.js';
 import { currentPlayDay } from '../analysis/today.js';
 import {
-  sanitizeNotes, notesForMatch, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
+  sanitizeNotes, notesForMatch, notesForEnemy, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
@@ -105,6 +105,18 @@ export function NoteItem({ note, showTarget, onOpen }) {
     </span>`}
     <span class="note-item-text">${note.text}</span>
   </button>`;
+}
+
+// 相性タブの行の中身。その敵機のメモを並べる
+export function EnemyNotes({ notes, enemy, myMs }) {
+  var list = notesForEnemy(notes.list, enemy, myMs);
+  return html`<div class="note-match" data-ui="enemy-notes">
+    ${list.length
+      ? list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })
+      : html`<p class="note-empty">まだメモはありません</p>`}
+    <button type="button" class="ui-action note-write" data-ui="note-write"
+      onClick=${function () { notes.open(defaultDraft({ enemy_ms: enemy })); }}>＋ メモを書く</button>
+  </div>`;
 }
 
 // 試合詳細のパネルの中身。その試合の敵機ごとにメモを並べる

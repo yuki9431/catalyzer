@@ -24,6 +24,7 @@
 .search-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .search-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .search-field > .ui-toggle { align-self: flex-start; }
+.search-note-field > .ui-chip { align-self: flex-start; }
 .search-field-wide { grid-column: 1 / -1; }
 /* 詳細設定（マニアックな数値レンジ）を折りたたむ */
 .search-adv { grid-column: 1 / -1; border-top: 1px solid var(--line); margin-top: 2px; }
@@ -111,7 +112,7 @@
 .search-layer-body .panel { margin-bottom: 24px; }
 .search-pattern { display: flex; flex-wrap: wrap; gap: 8px; }
 .ui-toggle + .search-pattern { margin-top: 10px; }
-.search-pattern .ui-chip { min-height: 44px; padding: 0 14px; }
+.search-pattern .ui-chip, .search-note-field .ui-chip { min-height: 44px; padding: 0 14px; }
 .search-item-reason { margin-top: 6px; }
 .search-item-reason .ui-chip { max-width: 100%; overflow-wrap: anywhere; }
 .search-detail-note { margin: 0 0 24px; padding: 10px 14px; border: 1px solid var(--terrible); border-radius: 8px; background: var(--terrible-a15); color: var(--text); font-size: 0.9375rem; line-height: 1.6; }
