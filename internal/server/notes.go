@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -24,6 +25,7 @@ const (
 	noteCountMax   = 2000
 	notePinnedMax  = 3
 	noteMSMax      = 64
+	noteEnemiesMax = 5
 	noteBodyMax    = 8 << 10
 	notesNotFound  = "メモが見つかりません"
 	notesNoSession = "ログイン状態が保持されていません"
@@ -77,29 +79,31 @@ func newNotesAPI() *notesAPI {
 }
 
 type noteRequest struct {
-	Kind    string `json:"kind"`
-	Text    string `json:"text"`
-	EnemyMS string `json:"enemy_ms"`
-	MyMS    string `json:"my_ms"`
-	Date    string `json:"date"`
-	Pinned  bool   `json:"pinned"`
+	Text    string   `json:"text"`
+	Enemies []string `json:"enemies"`
+	MyMS    string   `json:"my_ms"`
+	Date    string   `json:"date"`
+	Pinned  bool     `json:"pinned"`
 }
 
 type noteJSON struct {
-	ID        string `json:"id"`
-	Kind      string `json:"kind"`
-	Text      string `json:"text"`
-	EnemyMS   string `json:"enemy_ms"`
-	MyMS      string `json:"my_ms"`
-	Date      string `json:"date"`
-	Pinned    bool   `json:"pinned"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID        string   `json:"id"`
+	Text      string   `json:"text"`
+	Enemies   []string `json:"enemies"` // 常に配列(null を返さない)
+	MyMS      string   `json:"my_ms"`
+	Date      string   `json:"date"`
+	Pinned    bool     `json:"pinned"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
 }
 
 func toNoteJSON(n model.Note) noteJSON {
+	enemies := n.Enemies
+	if enemies == nil {
+		enemies = []string{}
+	}
 	return noteJSON{
-		ID: n.ID, Kind: n.Kind, Text: n.Text, EnemyMS: n.EnemyMS, MyMS: n.MyMS, Date: n.Date, Pinned: n.Pinned,
+		ID: n.ID, Text: n.Text, Enemies: enemies, MyMS: n.MyMS, Date: n.Date, Pinned: n.Pinned,
 		CreatedAt: n.CreatedAt.UTC().Format(time.RFC3339), UpdatedAt: n.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
@@ -116,43 +120,42 @@ func hasBadControl(s string) bool {
 // validateNote は入力を正規化した Note と、400 の文言(通れば "")を返す。
 func validateNote(req noteRequest) (model.Note, string) {
 	n := model.Note{
-		Kind: req.Kind, Text: strings.TrimSpace(strings.ReplaceAll(req.Text, "\r\n", "\n")),
-		EnemyMS: strings.TrimSpace(req.EnemyMS), MyMS: strings.TrimSpace(req.MyMS), Date: req.Date, Pinned: req.Pinned,
+		Text:    strings.TrimSpace(strings.ReplaceAll(req.Text, "\r\n", "\n")),
+		Enemies: make([]string, 0, len(req.Enemies)),
+		MyMS:    strings.TrimSpace(req.MyMS), Date: req.Date, Pinned: req.Pinned,
 	}
-	switch n.Kind {
-	case model.NoteKindEnemy, model.NoteKindDate, model.NoteKindFree:
-	default:
-		return n, "メモの種類が正しくありません"
+	for _, e := range req.Enemies {
+		n.Enemies = append(n.Enemies, strings.TrimSpace(e))
 	}
-	switch {
-	case n.Text == "":
+	if n.Text == "" {
 		return n, "メモの本文を入力してください"
-	case hasBadControl(n.Text) || hasBadControl(n.EnemyMS) || hasBadControl(n.MyMS):
+	}
+	if hasBadControl(n.Text) || hasBadControl(n.MyMS) || slices.ContainsFunc(n.Enemies, hasBadControl) {
 		return n, "使えない文字が含まれています"
-	case utf8.RuneCountInString(n.Text) > noteTextMax:
+	}
+	if utf8.RuneCountInString(n.Text) > noteTextMax {
 		return n, fmt.Sprintf("メモは%d文字までです", noteTextMax)
-	case utf8.RuneCountInString(n.EnemyMS) > noteMSMax || utf8.RuneCountInString(n.MyMS) > noteMSMax:
+	}
+	if len(n.Enemies) > noteEnemiesMax {
+		return n, fmt.Sprintf("敵機は%d機までです", noteEnemiesMax)
+	}
+	if slices.Contains(n.Enemies, "") {
+		return n, "敵機を選んでください"
+	}
+	tooLong := func(s string) bool { return utf8.RuneCountInString(s) > noteMSMax }
+	if slices.ContainsFunc(n.Enemies, tooLong) || tooLong(n.MyMS) {
 		return n, "機体名が長すぎます"
 	}
-	const mismatch = "メモの種類と紐付け先が合いません"
-	switch n.Kind {
-	case model.NoteKindEnemy:
-		if n.EnemyMS == "" {
-			return n, "敵機を選んでください"
+	seen := make(map[string]bool, len(n.Enemies))
+	for _, e := range n.Enemies {
+		if seen[e] {
+			return n, "同じ敵機が重複しています"
 		}
-		if n.Date != "" {
-			return n, mismatch
-		}
-	case model.NoteKindDate:
-		if n.EnemyMS != "" || n.MyMS != "" {
-			return n, mismatch
-		}
+		seen[e] = true
+	}
+	if n.Date != "" {
 		if d, err := time.Parse("2006-01-02", n.Date); err != nil || d.Format("2006-01-02") != n.Date {
 			return n, "日付の形式が正しくありません"
-		}
-	case model.NoteKindFree:
-		if n.EnemyMS != "" || n.MyMS != "" || n.Date != "" {
-			return n, mismatch
 		}
 	}
 	return n, ""
@@ -255,7 +258,7 @@ func (a *notesAPI) handleNotes(w http.ResponseWriter, r *http.Request) {
 		}
 		sendJSON(w, http.StatusOK, map[string]interface{}{
 			"user_key": userKey, "notes": items,
-			"limits": map[string]int{"text_max": noteTextMax, "count_max": noteCountMax, "pinned_max": notePinnedMax},
+			"limits": map[string]int{"text_max": noteTextMax, "count_max": noteCountMax, "pinned_max": notePinnedMax, "enemies_max": noteEnemiesMax},
 		})
 		return
 	}

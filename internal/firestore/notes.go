@@ -30,9 +30,8 @@ type NoteLimits struct{ MaxCount, MaxPinned int }
 
 // noteDoc は notes/{userKey}/items/{id} の1ドキュメント。
 type noteDoc struct {
-	Kind      string    `firestore:"kind"`
 	Text      string    `firestore:"text"`
-	EnemyMS   string    `firestore:"enemy_ms"`
+	Enemies   []string  `firestore:"enemies"`
 	MyMS      string    `firestore:"my_ms"`
 	Date      string    `firestore:"date"`
 	Pinned    bool      `firestore:"pinned"`
@@ -42,14 +41,14 @@ type noteDoc struct {
 
 func docFromNote(n model.Note) noteDoc {
 	return noteDoc{
-		Kind: n.Kind, Text: n.Text, EnemyMS: n.EnemyMS, MyMS: n.MyMS, Date: n.Date,
+		Text: n.Text, Enemies: n.Enemies, MyMS: n.MyMS, Date: n.Date,
 		Pinned: n.Pinned, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt,
 	}
 }
 
 func (d noteDoc) note(id string) model.Note {
 	return model.Note{
-		ID: id, Kind: d.Kind, Text: d.Text, EnemyMS: d.EnemyMS, MyMS: d.MyMS, Date: d.Date,
+		ID: id, Text: d.Text, Enemies: d.Enemies, MyMS: d.MyMS, Date: d.Date,
 		Pinned: d.Pinned, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt,
 	}
 }

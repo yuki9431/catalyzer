@@ -1,8 +1,8 @@
 import { html, useState, useRef, useEffect, useMemo } from '../htm-preact-standalone.js';
-import { currentPlayDay } from '../analysis/today.js';
+import { currentPlayDay, playDay } from '../analysis/today.js';
 import {
   sanitizeNotes, notesForMatch, notesForEnemy, groupByEnemy, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
-  validateDraft, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
+  validateDraft, canAddEnemy, enemyOptions, withValue, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
 import { ToggleGroup, Notice } from './parts.js';
@@ -107,6 +107,16 @@ export function NoteItem({ note, showTarget, onOpen }) {
   </button>`;
 }
 
+// 試合詳細から書くときの既定: その試合のプレイ日と相手の1機目
+export function matchDraft(match) {
+  return defaultDraft({ enemy: match.opponent1_ms, date: playDay(match.date) });
+}
+
+// 相性タブ・メモ一覧から書くときの既定: 今日のプレイ日。enemy が '' なら敵機は0欄
+export function todayDraft(enemy, now) {
+  return defaultDraft({ enemy: enemy, date: currentPlayDay(now) });
+}
+
 // 相性タブの行の中身。その敵機のメモを並べる
 export function EnemyNotes({ notes, enemy, myMs }) {
   var list = notesForEnemy(notes.list, enemy, myMs);
@@ -115,7 +125,7 @@ export function EnemyNotes({ notes, enemy, myMs }) {
       ? list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })
       : html`<p class="note-empty">まだメモはありません</p>`}
     <button type="button" class="ui-action note-write" data-ui="note-write"
-      onClick=${function () { notes.open(defaultDraft({ enemy_ms: enemy })); }}>＋ メモを書く</button>
+      onClick=${function () { notes.open(todayDraft(enemy, new Date())); }}>＋ メモを書く</button>
   </div>`;
 }
 
@@ -132,15 +142,8 @@ export function MatchNotes({ notes, match }) {
       </section>`;
     })}
     <button type="button" class="ui-action note-write" data-ui="note-write"
-      onClick=${function () { notes.open(defaultDraft({ enemy_ms: match.opponent1_ms })); }}>＋ メモを書く</button>
+      onClick=${function () { notes.open(matchDraft(match)); }}>＋ メモを書く</button>
   </div>`;
-}
-
-var KIND_OPTIONS = [{ value: 'enemy', label: '敵機' }, { value: 'date', label: '日付' }, { value: 'free', label: 'なし' }];
-
-// 選択肢に無い機体(編集中のメモの機体など)も値として選べるよう足す
-function withValue(options, value) {
-  return value && !options.some(function (o) { return o.value === value; }) ? options.concat([{ value: value, label: value }]) : options;
 }
 
 function NoteSheetBody({ notes, choices }) {
@@ -165,7 +168,8 @@ function NoteSheetBody({ notes, choices }) {
   var editing = !!draft.id;
 
   function patch(p) { setDraft(function (prev) { return Object.assign({}, prev, p); }); }
-  function setKind(k) { patch(k === 'date' && !draft.date ? { kind: k, date: currentPlayDay(new Date()) } : { kind: k }); }
+  function setEnemy(i, v) { patch({ enemies: draft.enemies.map(function (e, k) { return k === i ? v : e; }) }); }
+  function removeEnemy(i) { patch({ enemies: draft.enemies.filter(function (e, k) { return k !== i; }) }); }
   function done(p) {
     setBusy(true); setError('');
     p.then(function (msg) {
@@ -187,7 +191,6 @@ function NoteSheetBody({ notes, choices }) {
     <button type="button" class="search-apply note-save" data-ui="note-save" disabled=${!!problem || busy}
       onClick=${function () { done(notes.save(draft)); }}>${busy ? '保存中…' : '保存'}</button>`;
 
-  var enemies = withValue(choices.enemies, draft.enemy_ms);
   var mine = withValue(choices.mine, draft.my_ms);
   return html`<${Layer} ui="note-sheet" label=${editing ? 'メモを編集' : 'メモを書く'} head=${head} foot=${foot} footUi="note-foot" onClose=${notes.close}>
     <div class="note-form">
@@ -198,24 +201,32 @@ function NoteSheetBody({ notes, choices }) {
         <p class=${'note-count' + (over ? ' note-count-over' : '')} data-ui="note-count">${len}${limits.text_max ? ' / ' + limits.text_max : ''}</p>
       </div>
       <div class="search-field">
-        <label class="search-label">紐付け先</label>
-        <${ToggleGroup} ui="note-kind" label="紐付け先" options=${KIND_OPTIONS} value=${draft.kind} onChange=${setKind} />
+        <label class="search-label" for="noteDate">日付</label>
+        <div class="note-row">
+          <input id="noteDate" type="date" class="note-date" data-ui="note-date" value=${draft.date}
+            onInput=${function (e) { patch({ date: e.target.value }); }} />
+          ${draft.date && html`<button type="button" class="note-x" data-ui="note-date-clear" aria-label="日付を消す"
+            onClick=${function () { patch({ date: '' }); }}>×</button>`}
+        </div>
       </div>
-      ${draft.kind === 'enemy' && html`<div class="search-field">
+      <div class="search-field">
         <label class="search-label">敵機</label>
-        <div data-ui="note-enemy"><${Dropdown} value=${draft.enemy_ms} options=${enemies} noClear placeholder="選んでください"
-          onChange=${function (v) { patch({ enemy_ms: v }); }} /></div>
+        ${draft.enemies.map(function (e, i) {
+          return html`<div class="note-row" data-ui="note-enemy" key=${i}>
+            <${Dropdown} value=${e} options=${enemyOptions(choices.enemies, draft.enemies, i)} noClear placeholder="選んでください"
+              onChange=${function (v) { setEnemy(i, v); }} />
+            <button type="button" class="note-x" data-ui="note-enemy-remove" aria-label="敵機を外す"
+              onClick=${function () { removeEnemy(i); }}>×</button>
+          </div>`;
+        })}
+        ${canAddEnemy(draft, limits) && html`<button type="button" class="ui-action note-write" data-ui="note-enemy-add"
+          onClick=${function () { patch({ enemies: draft.enemies.concat(['']) }); }}>＋ 敵機を追加する</button>`}
       </div>
       <div class="search-field">
         <label class="search-label">自機</label>
         <div data-ui="note-my"><${Dropdown} value=${draft.my_ms} options=${mine} placeholder="指定しない"
           onChange=${function (v) { patch({ my_ms: v }); }} /></div>
-      </div>`}
-      ${draft.kind === 'date' && html`<div class="search-field">
-        <label class="search-label" for="noteDate">日付</label>
-        <input id="noteDate" type="date" class="note-date" data-ui="note-date" value=${draft.date}
-          onInput=${function (e) { patch({ date: e.target.value }); }} />
-      </div>`}
+      </div>
       <label class="note-pin" data-ui="note-pin">
         <input type="checkbox" checked=${draft.pinned} disabled=${pinFull && !draft.pinned}
           onChange=${function (e) { patch({ pinned: e.target.checked }); }} />
@@ -245,11 +256,11 @@ export function NoteList({ notes, onClose }) {
   var head = html`<button type="button" class="search-back" data-ui="note-list-back" aria-label="その他に戻る" onClick=${onClose}>
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>その他</button>
     <h2>メモ</h2>
-    <button type="button" class="search-link note-list-write" data-ui="note-write" onClick=${function () { notes.open(defaultDraft({})); }}>書く</button>`;
+    <button type="button" class="search-link note-list-write" data-ui="note-write" onClick=${function () { notes.open(todayDraft('', new Date())); }}>書く</button>`;
   var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]] }; });
   return html`<${Layer} ui="note-list" label="メモ" head=${head} onClose=${onClose}>
     <div class="note-list">
-      <${ToggleGroup} ui="note-tabs" label="メモの種類" options=${options} value=${tab} onChange=${setTab} />
+      <${ToggleGroup} ui="note-tabs" label="表示するメモ" options=${options} value=${tab} onChange=${setTab} />
       ${!items.length && html`<p class="note-empty">メモはまだありません</p>`}
       ${tab === 'enemy'
         ? groups.map(function (g) {

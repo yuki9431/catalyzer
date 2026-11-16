@@ -1,4 +1,4 @@
-/* ===== 敵機のメモ(components/notes.js)。色は tokens.css の定義だけを使う ===== */
+/* ===== メモ(components/notes.js)。色は tokens.css の定義だけを使う ===== */
 .note-match { display: flex; flex-direction: column; gap: 16px; }
 .note-group { display: flex; flex-direction: column; gap: 8px; }
 .note-group-head { margin: 0; color: var(--text); font-size: 0.9375rem; }
@@ -19,6 +19,10 @@
 .note-count { margin: 0; color: var(--muted); font-size: 0.875rem; text-align: right; }
 .note-count-over { color: var(--bad); font-weight: bold; }
 .note-date { box-sizing: border-box; align-self: flex-start; min-height: 44px; padding: 0 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+.note-row { display: flex; align-items: center; gap: 8px; }
+.note-row .panel-select-wrap { flex: 1; min-width: 0; }
+.note-x { flex: none; box-sizing: border-box; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 1.25rem; line-height: 1; cursor: pointer; transition: none; }
+.note-x:hover { background: var(--accent-a10); }
 .note-pin { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; margin: 0; padding: 8px 0; color: var(--text); font-size: 0.9375rem; cursor: pointer; }
 .note-pin input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--accent); }
 .note-pin small { display: block; color: var(--muted); font-size: 0.875rem; }

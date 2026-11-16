@@ -41,7 +41,7 @@ var JOB_STATUS = {
 var RESULT_FLAG = { 'preview-prelim': 'preliminary', 'preview-partial': 'partial', 'preview-prelim-error': 'preliminary' };
 
 // メモのモック。状態は持たない。Cookie があれば fixture、無ければ空(どちらも 200。401 だと session-expired 画面の console エラーで落ちる)
-var NOTES_LIMITS = { text_max: 500, count_max: 2000, pinned_max: 3 };
+var NOTES_LIMITS = { text_max: 500, count_max: 2000, pinned_max: 3, enemies_max: 5 };
 var NOTE_FIXED_AT = '2026-06-16T00:00:00Z';
 
 function readJson(req, cb) {
@@ -95,7 +95,7 @@ export function createServer() {
       if ((req.method === 'POST' && !noteId) || (req.method === 'PUT' && noteId)) {
         return readJson(req, function (b) {
           if (String(b.text || '').includes('保存エラー')) return json(res, 500, { error: 'メモを保存できませんでした' });
-          var note = Object.assign({ pinned: false }, b, { id: noteId || 'preview-note-new', created_at: NOTE_FIXED_AT, updated_at: NOTE_FIXED_AT });
+          var note = Object.assign({ enemies: [], pinned: false }, b, { id: noteId || 'preview-note-new', created_at: NOTE_FIXED_AT, updated_at: NOTE_FIXED_AT });
           json(res, noteId ? 200 : 201, { note: note });
         });
       }
