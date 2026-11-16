@@ -100,21 +100,13 @@ type TagPartner struct {
 	PlayerName string
 }
 
-// メモの種類(Note.Kind)
-const (
-	NoteKindEnemy = "enemy"
-	NoteKindDate  = "date"
-	NoteKindFree  = "free"
-)
-
-// Note は敵機などに紐付く対策メモ。Kind に合わない紐付け先の項目は空
+// Note は対策メモ。日付・敵機・自機はどれも任意
 type Note struct {
 	ID        string
-	Kind      string
 	Text      string
-	EnemyMS   string
-	MyMS      string
-	Date      string // YYYY-MM-DD
+	Enemies   []string // 0〜5機。重複なし・選んだ順
+	MyMS      string   // "" = 指定しない
+	Date      string   // YYYY-MM-DD。"" = 日付なし
 	Pinned    bool
 	CreatedAt time.Time
 	UpdatedAt time.Time

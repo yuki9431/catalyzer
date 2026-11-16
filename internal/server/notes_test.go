@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -152,7 +153,7 @@ func errorOf(t *testing.T, rec *httptest.ResponseRecorder) string {
 	return b.Error
 }
 
-const validNoteBody = `{"kind":"free","text":"メモ"}`
+const validNoteBody = `{"text":"メモ"}`
 
 func TestNotesRequireSession(t *testing.T) {
 	store := newFakeNotesStore()
@@ -230,27 +231,31 @@ func TestNotesValidate(t *testing.T) {
 		wantMsg string
 		want    model.Note // wantMsg が空のときの正規化結果(比較する項目だけ)
 	}{
-		{"空", noteRequest{Kind: "free", Text: ""}, "メモの本文を入力してください", model.Note{}},
-		{"空白だけ", noteRequest{Kind: "free", Text: " \t\n　"}, "メモの本文を入力してください", model.Note{}},
-		{"500字は通る", noteRequest{Kind: "free", Text: long(500)}, "", model.Note{Kind: "free", Text: long(500)}},
-		{"501字", noteRequest{Kind: "free", Text: long(501)}, "メモは500文字までです", model.Note{}},
-		{"絵文字500字は通る", noteRequest{Kind: "free", Text: strings.Repeat("😀", 500)}, "", model.Note{Kind: "free", Text: strings.Repeat("😀", 500)}},
-		{"絵文字501字", noteRequest{Kind: "free", Text: strings.Repeat("😀", 501)}, "メモは500文字までです", model.Note{}},
-		{"CRLF は LF・前後の空白は除く", noteRequest{Kind: "free", Text: "  a\r\nb\r\n "}, "", model.Note{Kind: "free", Text: "a\nb"}},
-		{"改行・タブは通る", noteRequest{Kind: "free", Text: "a\tb\nc"}, "", model.Note{Kind: "free", Text: "a\tb\nc"}},
-		{"制御文字", noteRequest{Kind: "free", Text: "a\x00b"}, "使えない文字が含まれています", model.Note{}},
-		{"単独の CR", noteRequest{Kind: "free", Text: "a\rb"}, "使えない文字が含まれています", model.Note{}},
-		{"enemy で enemy_ms が空", noteRequest{Kind: "enemy", Text: "x"}, "敵機を選んでください", model.Note{}},
-		{"enemy は通る(自機は任意)", noteRequest{Kind: "enemy", Text: "x", EnemyMS: " ガンダム ", MyMS: "ユニコーン"}, "", model.Note{Kind: "enemy", Text: "x", EnemyMS: "ガンダム", MyMS: "ユニコーン"}},
-		{"enemy に date", noteRequest{Kind: "enemy", Text: "x", EnemyMS: "a", Date: "2026-06-15"}, "メモの種類と紐付け先が合いません", model.Note{}},
-		{"date の形式不正", noteRequest{Kind: "date", Text: "x", Date: "2026-13-01"}, "日付の形式が正しくありません", model.Note{}},
-		{"date が空", noteRequest{Kind: "date", Text: "x"}, "日付の形式が正しくありません", model.Note{}},
-		{"date は通る", noteRequest{Kind: "date", Text: "x", Date: "2026-06-15", Pinned: true}, "", model.Note{Kind: "date", Text: "x", Date: "2026-06-15", Pinned: true}},
-		{"date に enemy_ms", noteRequest{Kind: "date", Text: "x", Date: "2026-06-15", EnemyMS: "a"}, "メモの種類と紐付け先が合いません", model.Note{}},
-		{"free に enemy_ms", noteRequest{Kind: "free", Text: "x", EnemyMS: "a"}, "メモの種類と紐付け先が合いません", model.Note{}},
-		{"未知の kind", noteRequest{Kind: "other", Text: "x"}, "メモの種類が正しくありません", model.Note{}},
-		{"機体名65字", noteRequest{Kind: "enemy", Text: "x", EnemyMS: long(65)}, "機体名が長すぎます", model.Note{}},
-		{"機体名64字は通る", noteRequest{Kind: "enemy", Text: "x", EnemyMS: long(64)}, "", model.Note{Kind: "enemy", Text: "x", EnemyMS: long(64)}},
+		{"空", noteRequest{Text: ""}, "メモの本文を入力してください", model.Note{}},
+		{"空白だけ", noteRequest{Text: " \t\n　"}, "メモの本文を入力してください", model.Note{}},
+		{"500字は通る", noteRequest{Text: long(500)}, "", model.Note{Text: long(500)}},
+		{"501字", noteRequest{Text: long(501)}, "メモは500文字までです", model.Note{}},
+		{"絵文字500字は通る", noteRequest{Text: strings.Repeat("😀", 500)}, "", model.Note{Text: strings.Repeat("😀", 500)}},
+		{"絵文字501字", noteRequest{Text: strings.Repeat("😀", 501)}, "メモは500文字までです", model.Note{}},
+		{"CRLF は LF・前後の空白は除く", noteRequest{Text: "  a\r\nb\r\n "}, "", model.Note{Text: "a\nb"}},
+		{"改行・タブは通る", noteRequest{Text: "a\tb\nc"}, "", model.Note{Text: "a\tb\nc"}},
+		{"制御文字", noteRequest{Text: "a\x00b"}, "使えない文字が含まれています", model.Note{}},
+		{"単独の CR", noteRequest{Text: "a\rb"}, "使えない文字が含まれています", model.Note{}},
+		{"何も持たないメモは通る", noteRequest{Text: "x"}, "", model.Note{Text: "x"}},
+		{"敵機5機・日付・自機は通る", noteRequest{Text: "x", Enemies: []string{" A ", "B", "C", "D", "E"}, MyMS: " ユニコーン ", Date: "2026-06-15"}, "",
+			model.Note{Text: "x", Enemies: []string{"A", "B", "C", "D", "E"}, MyMS: "ユニコーン", Date: "2026-06-15"}},
+		{"敵機6機", noteRequest{Text: "x", Enemies: []string{"A", "B", "C", "D", "E", "F"}}, "敵機は5機までです", model.Note{}},
+		{"敵機の重複", noteRequest{Text: "x", Enemies: []string{"A", "B", "A"}}, "同じ敵機が重複しています", model.Note{}},
+		{"空白を除くと重複", noteRequest{Text: "x", Enemies: []string{"A", " A "}}, "同じ敵機が重複しています", model.Note{}},
+		{"空の敵機", noteRequest{Text: "x", Enemies: []string{"A", ""}}, "敵機を選んでください", model.Note{}},
+		{"空白だけの敵機", noteRequest{Text: "x", Enemies: []string{" \t "}}, "敵機を選んでください", model.Note{}},
+		{"敵機に制御文字", noteRequest{Text: "x", Enemies: []string{"A\x00"}}, "使えない文字が含まれています", model.Note{}},
+		{"機体名65字", noteRequest{Text: "x", Enemies: []string{long(65)}}, "機体名が長すぎます", model.Note{}},
+		{"機体名64字は通る", noteRequest{Text: "x", Enemies: []string{long(64)}}, "", model.Note{Text: "x", Enemies: []string{long(64)}}},
+		{"自機65字", noteRequest{Text: "x", MyMS: long(65)}, "機体名が長すぎます", model.Note{}},
+		{"日付の形式不正", noteRequest{Text: "x", Date: "2026-13-01"}, "日付の形式が正しくありません", model.Note{}},
+		{"日付の桁あふれ", noteRequest{Text: "x", Date: "2026-02-30"}, "日付の形式が正しくありません", model.Note{}},
+		{"日付は通る", noteRequest{Text: "x", Date: "2026-06-15", Pinned: true}, "", model.Note{Text: "x", Date: "2026-06-15", Pinned: true}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -258,8 +263,13 @@ func TestNotesValidate(t *testing.T) {
 			if msg != tc.wantMsg {
 				t.Fatalf("msg = %q, want %q", msg, tc.wantMsg)
 			}
-			if msg == "" && (got.Kind != tc.want.Kind || got.Text != tc.want.Text || got.EnemyMS != tc.want.EnemyMS ||
-				got.MyMS != tc.want.MyMS || got.Date != tc.want.Date || got.Pinned != tc.want.Pinned) {
+			if msg != "" {
+				return
+			}
+			if got.Enemies == nil || !slices.Equal(got.Enemies, tc.want.Enemies) {
+				t.Errorf("Enemies = %#v, want %#v(nil でなく長さ0以上)", got.Enemies, tc.want.Enemies)
+			}
+			if got.Text != tc.want.Text || got.MyMS != tc.want.MyMS || got.Date != tc.want.Date || got.Pinned != tc.want.Pinned {
 				t.Errorf("got %+v, want %+v", got, tc.want)
 			}
 		})
@@ -267,11 +277,11 @@ func TestNotesValidate(t *testing.T) {
 
 	t.Run("HTTP では 400", func(t *testing.T) {
 		a, _ := newTestNotesAPI(newFakeNotesStore())
-		rec := serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, `{"kind":"free","text":""}`))
+		rec := serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, `{"text":""}`))
 		if rec.Code != http.StatusBadRequest || errorOf(t, rec) != "メモの本文を入力してください" {
 			t.Errorf("= %d %s", rec.Code, rec.Body.String())
 		}
-		rec = serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, `{"kind":"free","text":"`+strings.Repeat("a", 9000)+`"}`))
+		rec = serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, `{"text":"`+strings.Repeat("a", 9000)+`"}`))
 		if rec.Code != http.StatusBadRequest || errorOf(t, rec) != "Invalid request body" {
 			t.Errorf("8KiB 超 = %d %s", rec.Code, rec.Body.String())
 		}
@@ -306,7 +316,7 @@ func listNotes(t *testing.T, a *notesAPI, token string) []noteJSON {
 	if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
 		t.Fatal(err)
 	}
-	if b.Limits["text_max"] != noteTextMax || b.Limits["count_max"] != noteCountMax || b.Limits["pinned_max"] != notePinnedMax {
+	if b.Limits["text_max"] != noteTextMax || b.Limits["count_max"] != noteCountMax || b.Limits["pinned_max"] != notePinnedMax || b.Limits["enemies_max"] != noteEnemiesMax {
 		t.Errorf("limits = %v", b.Limits)
 	}
 	if b.Notes == nil {
@@ -322,7 +332,7 @@ func TestNotesCRUD(t *testing.T) {
 		t.Fatalf("最初は空: %v", got)
 	}
 
-	rec := serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, `{"kind":"enemy","text":"着地を狙う","enemy_ms":"ガンダム"}`))
+	rec := serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, `{"text":"着地を狙う","enemies":["ガンダム","ザク"]}`))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST = %d %s", rec.Code, rec.Body.String())
 	}
@@ -330,12 +340,15 @@ func TestNotesCRUD(t *testing.T) {
 	if created.ID == "" || created.Text != "着地を狙う" || created.CreatedAt != "2026-06-01T12:00:00Z" || created.CreatedAt != created.UpdatedAt {
 		t.Fatalf("作成結果 = %+v", created)
 	}
-	if got := listNotes(t, a, notesTokenA); len(got) != 1 || got[0].ID != created.ID {
-		t.Fatalf("GET に含まれない: %v", got)
+	if got := listNotes(t, a, notesTokenA); len(got) != 1 || got[0].ID != created.ID || !slices.Equal(got[0].Enemies, []string{"ガンダム", "ザク"}) {
+		t.Fatalf("GET に含まれない・敵機が往復しない: %v", got)
+	}
+	if !slices.Equal(created.Enemies, []string{"ガンダム", "ザク"}) {
+		t.Fatalf("作成の応答の敵機 = %v", created.Enemies)
 	}
 
 	*clock = clock.Add(time.Hour)
-	rec = serveNotes(a, notesReq(http.MethodPut, "/notes/"+created.ID, notesTokenA, `{"kind":"enemy","text":"変更後","enemy_ms":"ガンダム","pinned":true}`))
+	rec = serveNotes(a, notesReq(http.MethodPut, "/notes/"+created.ID, notesTokenA, `{"text":"変更後","enemies":["ガンダム","ザク"],"pinned":true}`))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT = %d %s", rec.Code, rec.Body.String())
 	}
@@ -377,6 +390,19 @@ func TestNotesCRUD(t *testing.T) {
 	}
 	if got := listNotes(t, a, notesTokenA); len(got) != 0 {
 		t.Errorf("削除後も残っている: %v", got)
+	}
+
+	t.Run("敵機の無いメモは enemies が空配列", func(t *testing.T) {
+		if rec := serveNotes(a, notesReq(http.MethodPost, "/notes", notesTokenA, validNoteBody)); rec.Code != http.StatusCreated {
+			t.Fatalf("POST = %d %s", rec.Code, rec.Body.String())
+		}
+		raw := serveNotes(a, notesReq(http.MethodGet, "/notes", notesTokenA, "")).Body.String()
+		if !strings.Contains(raw, `"enemies":[]`) {
+			t.Errorf("enemies が空配列でない: %s", raw)
+		}
+	})
+	if rec := serveNotes(a, notesReq(http.MethodGet, "/notes", notesTokenA, "")); strings.Contains(rec.Body.String(), "null") {
+		t.Errorf("null を含む: %s", rec.Body.String())
 	}
 }
 

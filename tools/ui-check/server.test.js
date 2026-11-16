@@ -84,14 +84,14 @@ describe('preview server', function () {
     var withCookie = await q('preview_session=valid');
     assert.equal(withCookie[0], 200);
     assert.equal(withCookie[1].notes.length, fixtureNotes().length);
-    assert.deepEqual(withCookie[1].limits, { text_max: 500, count_max: 2000, pinned_max: 3 });
+    assert.deepEqual(withCookie[1].limits, { text_max: 500, count_max: 2000, pinned_max: 3, enemies_max: 5 });
     var without = await q(null);
     assert.equal(without[0], 200);
     assert.deepEqual(without[1].notes, []);
   });
   it('/notes の POST は通常 201 で id が付き、本文に「保存エラー」を含めば 500', async function () {
     var post = function (path, method, text) {
-      return fetch(base + path, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'free', text: text }) });
+      return fetch(base + path, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) });
     };
     var ok = await post('/notes', 'POST', 'メモ');
     assert.equal(ok.status, 201);

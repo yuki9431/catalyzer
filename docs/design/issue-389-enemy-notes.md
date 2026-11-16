@@ -1,13 +1,13 @@
 # 設計書: 敵機ごとの対策メモ(段階1) — issue #389
 
-- ステータス: 段階1 全単位 実装完了(単位1〜4)
+- ステータス: 段階1 単位1〜5 実装完了(単位5 = #684。メモのデータモデル変更。基準画像の取り込みは CI の ui-baseline 後)
 - 日付: 2026-11-16
-- 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671)
+- 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671、単位5 = #684)
 - 対象: catalyzer(既定ブランチ develop。調査は origin/develop d23aaec)
 
 ## 0. 用語(表示文言)
 ナレッジ ui-terminology に従い、要求文の「相手機体」は表示上 **敵機** と書く(「敵機体」「相手機体」は使わない)。
-自分の機体は **自機**。コード識別子(`enemy_ms`・`my_ms`・kind `enemy`)は英語のまま。
+自分の機体は **自機**。コード識別子(`enemies`・`my_ms`)は英語のまま。画面に「紐付け先」「種類」という語は出さない(単位5)。
 
 ---
 
@@ -52,6 +52,22 @@ GET /notes は items を全件読む(起動ごとに件数分。件数が増え�
 ### 1.6 外部の定石
 確立済みのアーキテクチャへの機能追加なので、内部パターンに合わせる(autoRefreshAPI の store interface + 依存注入、tag-partners の本人確認、auto-refresh の props 注入)。外部の定石は引かない。
 
+### 1.7 単位5: 種類をやめ、日付・敵機・自機を独立した任意の属性にする(採用。ユーザー合意 2026-11-16)
+
+| 案 | 長所 | 短所 |
+|---|---|---|
+| A. kind を残し、kind=enemy に敵機の配列を足す | 差分が小さい | 「日付と敵機の両方」を持てない。シートに「紐付け先」の切り替えが残る |
+| **B. kind を廃止し、日付(任意)・敵機0〜5機(任意)・自機(任意)を独立に持つ(採用)** | 1件のメモが日付と複数の敵機を同時に持てる。シートから切り替えが消える | API・保存形式・フロントの抽出関数を全部変える(保存済みのメモが無いので移行は不要) |
+
+細部の決定:
+- **敵機は OR で試合に当てる**: 敵機を複数持つメモは、どれか1機がいる試合に出す(`notesForEnemy` が `enemies` に含むかで判定するので、`notesForMatch`・`hasNoteForMatch`・試合検索の絞り込みは呼び出しを変えずに OR になる)。
+- **試合詳細・メモ一覧の敵機タブでは、当てはまる敵機それぞれの下に出す**: 試合の相手2機が両方メモの敵機に入っていると、同じメモが2つの見出しの下に出る。1回だけ出す案は「どの見出しの下に出すか」の規則が別に要るので採らない(`groupByEnemy` と同じ規則にそろえる)。
+- **上限5機・重複不可**。上限はサーバーの定数 `noteEnemiesMax` の1か所に置き、`GET /notes` の `limits.enemies_max` でフロントに渡す(他の上限と同じ。フロントに数値を持たない)。重複は書くシートで他の欄の機体を選択肢から外して作らせず、`validateDraft` とサーバーでも拒否する。
+- **未選択の敵機の欄は保存しない**: 「＋ 敵機を追加する」で足して選ばなかった欄は `draftToRequest` で落とす(保存を止めない)。サーバーは空の敵機を 400 にする(UI からは届かない)。
+- **日付の既定**: 試合詳細から書くときはその試合のプレイ日(`playDay(match.date)`。朝5時切替)、相性タブ・メモ一覧からは今日のプレイ日(`currentPlayDay(new Date())`)。× で空にできる。`lib/notes.js` は import を持たないので、日付を決めるのは `components/notes.js` の `matchDraft`・`todayDraft`(§5.2)。
+- **自機だけのメモも保存できる**: 試合詳細・相性タブは敵機で引くので、敵機の無いメモ(自機だけ・日付だけ・何も無い)はメモ一覧にだけ出る。自機の絞り込み規則(`my_ms` が空か一致)は今のまま。
+- 保存済みのメモは無い(画面は未デプロイ)ので、データ移行・旧フィールドの互換は作らない。Firestore の `DataTo` は struct に無いフィールドを読み飛ばす(cloud.google.com/go/firestore v1.29.2 `from_value.go` の `populateStruct`)ので、仮に旧形式の文書が残っていても一覧の読み込みは失敗しない(旧 `enemy_ms` は無視され、敵機の無いメモになる)。
+
 ---
 
 ## 2. データモデル
@@ -61,17 +77,16 @@ GET /notes は items を全件読む(起動ごとに件数分。件数が増え�
 notes/{userKey}/items/{id}    // userKey = SHA256(email)[:8] の16進。id = サーバーが生成する UUID v4(ドキュメント ID)
 
 NoteDoc
-  kind:       string   // "enemy" | "date" | "free"
-  text:       string   // 1〜500文字(rune)。前後の空白を除き、CRLF→LF
-  enemy_ms:   string   // kind=enemy で必須(1〜64文字)。他の kind では ""
-  my_ms:      string   // kind=enemy で任意(0〜64文字)。"" = 指定しない。他の kind では ""
-  date:       string   // kind=date で必須 "YYYY-MM-DD"(プレイ日。朝5時で切り替え)。他の kind では ""
-  pinned:     bool     // 段階2用。全体で最大3件
+  text:       string    // 1〜500文字(rune)。前後の空白を除き、CRLF→LF
+  enemies:    []string  // 0〜5機(任意)。各1〜64文字、前後の空白を除く、重複なし、選んだ順。無ければ空配列(null にしない)
+  my_ms:      string    // 0〜64文字(任意)。"" = 指定しない
+  date:       string    // "" または "YYYY-MM-DD"(任意。プレイ日。朝5時で切り替え)
+  pinned:     bool      // 全体で最大3件
   created_at: timestamp
   updated_at: timestamp
 ```
-- 段階2(ピン)・段階3(日付)は、このスキーマのまま表示を足すだけで済む。
-- 自機は「敵機メモの補足」(この自機で戦うときだけのメモ)。自機だけに紐付くメモは段階1では作らない(kind を足せば後から拡張できる)。
+- 日付・敵機・自機はどれも任意で、組み合わせに制約は無い(3つとも空のメモも保存できる)。
+- `enemies` で検索するクエリは無い(一覧は全件読んでフロントで引く)ので、インデックスの追加は要らない。
 
 ### 2.2 上限(サーバーが正。GET の応答 `limits` でフロントに渡し、フロントに定数を重複させない)
 | 項目 | 値 | 超えたとき |
@@ -79,7 +94,8 @@ NoteDoc
 | 本文 | 500文字(rune、正規化後) | 400 |
 | 件数 | 2000件/ユーザー | 409 |
 | ピン | 3件/ユーザー | 409 |
-| 機体名 | 64文字 | 400 |
+| 敵機 | 5機/メモ(`enemies_max`)。重複は不可 | 400 |
+| 機体名 | 64文字(敵機の各機体・自機) | 400 |
 | リクエスト本文 | 8KiB | 400 |
 | 書き込み回数 | ユーザーごとにバースト30・2秒に1回回復 | 429 |
 
@@ -91,13 +107,13 @@ NoteDoc
 
 | メソッド・パス | リクエスト | 成功 | 内容 |
 |---|---|---|---|
-| `GET /notes` | なし | 200 `{"user_key","notes":[Note…],"limits":{"text_max":500,"count_max":2000,"pinned_max":3}}` | `updated_at` の新しい順、同じなら id の昇順 |
+| `GET /notes` | なし | 200 `{"user_key","notes":[Note…],"limits":{"text_max":500,"count_max":2000,"pinned_max":3,"enemies_max":5}}` | `updated_at` の新しい順、同じなら id の昇順 |
 | `POST /notes` | `NoteRequest` | 201 `{"note":Note}` | 作成。id・日時はサーバーが付ける |
 | `PUT /notes/{id}` | `NoteRequest` | 200 `{"note":Note}` | 編集できる項目を丸ごと置き換える。`created_at` はそのまま |
 | `DELETE /notes/{id}` | なし | 200 `{"ok":true}` | 削除 |
 
-- `NoteRequest` = `{"kind","text","enemy_ms","my_ms","date","pinned"}`
-- `Note` = `NoteRequest` + `"id"`・`"created_at"`・`"updated_at"`(RFC3339)
+- `NoteRequest` = `{"text","enemies":[string…],"my_ms","date","pinned"}`。`enemies` の省略・`null` は `[]` として扱う。配列でない `enemies` は JSON の型違いで 400 `Invalid request body`。知らない項目(旧 `kind`・`enemy_ms` を含む)は無視する
+- `Note` = `NoteRequest` + `"id"`・`"created_at"`・`"updated_at"`(RFC3339)。応答の `enemies` は常に配列(敵機が無ければ `[]`。`null` を返さない)
 
 判定の順序(上から順に見て、最初に当たったものを返す):
 1. メソッド違い → 405(`/notes` は GET/POST、`/notes/{id}` は PUT/DELETE)
@@ -105,16 +121,26 @@ NoteDoc
 3. 書き込みだけ: ユーザー単位のレート制限 → 429 `保存の回数が多すぎます。しばらく待ってからお試しください`
 4. POST/PUT だけ: Content-Type が `application/json` でない → 415。SameSite=Strict に加えて、フォームからの送信を断つ(同じサイトの別サブドメインからの CSRF 対策。数行で済む)
 5. `/notes/{id}` の id が UUID として読めない、または後ろにパスが続く → 404 `メモが見つかりません`
-6. 本文を読めない(8KiB 超を含む) → 400 `Invalid request body`
-7. 入力検証に落ちた → 400。文言: `メモの本文を入力してください` / `メモは500文字までです` / `敵機を選んでください` / `日付の形式が正しくありません` / `メモの種類が正しくありません` / `機体名が長すぎます` / `使えない文字が含まれています`(改行・タブ以外の制御文字) / kind に合わない項目が入っている → `メモの種類と紐付け先が合いません`
+6. 本文を読めない(8KiB 超・型違いを含む) → 400 `Invalid request body`
+7. 入力検証(`validateNote`)に落ちた → 400。正規化(本文は CRLF→LF と前後の空白除去、敵機の各機体と自機は前後の空白除去)の後、次の順に見る:
+   1. 本文が空 → `メモの本文を入力してください`
+   2. 本文・敵機のどれか・自機に改行とタブ以外の制御文字 → `使えない文字が含まれています`
+   3. 本文が500文字超 → `メモは500文字までです`
+   4. 敵機が `noteEnemiesMax` 機超 → `敵機は5機までです`
+   5. 空の敵機がある → `敵機を選んでください`
+   6. 敵機のどれか・自機が64文字超 → `機体名が長すぎます`
+   7. 敵機が重複している → `同じ敵機が重複しています`
+   8. 日付が空でなく、`YYYY-MM-DD` として読めないか桁あふれ(`2026-02-30`) → `日付の形式が正しくありません`
 8. 保存処理のエラー: `ErrNoteNotFound` → 404、`ErrNoteLimit` → 409 `メモは2000件までです。不要なメモを削除してください`、`ErrPinLimit` → 409 `ピン留めは3件までです`、それ以外 → 500 `メモを読み込めませんでした` / `メモを保存できませんでした` / `メモを削除できませんでした`(数値はすべて定数から Sprintf で作る)
+
+単位1〜4 の `kind`(`enemy`/`date`/`free`)・`enemy_ms` と、文言 `メモの種類が正しくありません`・`メモの種類と紐付け先が合いません` は単位5で廃止する。
 
 ---
 
 ## 4. 変更ファイルと変更内容
 
 ### 4.1 Go(単位1)
-- `internal/model/types.go`: `Note` 型と kind 定数 `NoteKindEnemy="enemy"`・`NoteKindDate="date"`・`NoteKindFree="free"` を足す(JobStatus の定数と同じ置き方)。
+- `internal/model/types.go`: `Note` 型と kind 定数 `NoteKindEnemy="enemy"`・`NoteKindDate="date"`・`NoteKindFree="free"` を足す(JobStatus の定数と同じ置き方)。kind 定数は単位5で削除(§4.4)。
 - `internal/firestore/notes.go`(新規): `notes/{userKey}/items/{id}` の読み書き。作成・更新は `RunTransaction` の中で、対象を `tx.Get`、件数は `items` の count 集計(`NewAggregationQuery().WithCount().Transaction(tx)`)、ピン数は `Where("pinned","==",true)` の count 集計で数え、`checkCreate`・`checkUpdate` で判定してから `tx.Create`・`tx.Set` する(自分の除外は checkUpdate の中)。削除は `tx.Get` で存在確認して `tx.Delete`。判定規則は純粋関数に切り出し、エミュレータなしでテストする。
 - `internal/firestore/notes_test.go`(新規)
 - `internal/server/notes.go`(新規): `notesAPI`(store interface・`loadSession`・`limiter`・`now`・`newID` を注入する。`autoRefreshAPI` と同じ形)、`validateNote`、`registerNotes(mux)`。上限は定数で持つ(`noteTextMax=500`・`noteCountMax=2000`・`notePinnedMax=3`・`noteMSMax=64`・`noteBodyMax=8<<10`)。
@@ -137,7 +163,7 @@ NoteDoc
 - テスト: `static/__tests__/notes.test.js`(新規)、`popover.test.js`・`search.test.js`・`skeleton-actions.test.js` に追記。
 
 ### 4.3 ui-check
-- `tools/ui-check/fixture.js`: `notes()` を足す。架空の6件(kind enemy 4件=ストームレイダー2件・ヴァルキュリア1件・ガルーダ零1件(単位3で足した。`computeEnemyMatchup` の苦手に入る敵機)で、うち1件は `my_ms` 付き、date 1件 `2026-06-15`、free 1件。ピンは1件。日時は固定の ISO 文字列)。敵機は fixture の機体名から、§7 の fixture テストを満たすものを選ぶ。
+- `tools/ui-check/fixture.js`: `notes()` を足す(単位5で §4.4 の6件に置き換え)。架空の6件(kind enemy 4件=ストームレイダー2件・ヴァルキュリア1件・ガルーダ零1件(単位3で足した。`computeEnemyMatchup` の苦手に入る敵機)で、うち1件は `my_ms` 付き、date 1件 `2026-06-15`、free 1件。ピンは1件。日時は固定の ISO 文字列)。敵機は fixture の機体名から、§7 の fixture テストを満たすものを選ぶ。
 - `tools/ui-check/server.js`: `/notes` のモック(状態は持たない)
   - `GET /notes`: Cookie `preview_session=valid` があれば `fixture.notes()`、無ければ `notes: []`。**どちらも 200**。401 を返すと、`?session=1` で始まる既存画面(session-expired)で Report の取得が console エラーになり、その画面が落ちるため。`limits` は `{text_max:500,count_max:2000,pinned_max:3}`
   - `POST /notes`: 本文の text に `保存エラー` を含めば 500 `{error:'メモを保存できませんでした'}`。それ以外は 201 で、本文に `id:'preview-note-new'` と固定の日時を足して返す
@@ -147,20 +173,57 @@ NoteDoc
 - `tools/ui-check/screens.js`: §6.6 の画面を足す。
 - `tools/ui-check/server.test.js`・`fixture.test.js`: 追記(§7)。
 
+### 4.4 単位5: 日付と複数の敵機を両方持てるようにする
+4.1〜4.3 は単位1〜4 の変更の記録。単位5 で置き換える箇所は次のとおり(§2・§3・§5・§6 が正)。
+
+Go:
+- `internal/model/types.go`: `NoteKindEnemy`・`NoteKindDate`・`NoteKindFree` とその見出しコメントを削除。`Note` から `Kind`・`EnemyMS` を削除し `Enemies []string` を足す(§5.1)。
+- `internal/firestore/notes.go`: `noteDoc` から `Kind`・`EnemyMS` を削除し `Enemies []string` を足す(タグは `firestore:"enemies"`)。`docFromNote`・`note` を合わせる。トランザクション・上限判定・関数のシグネチャは変えない。
+- `internal/firestore/notes_test.go`: `model.Note` のリテラルに `Kind`・`EnemyMS` があれば外す(3関数の中身は変えない)。
+- `internal/server/notes.go`: 定数 `noteEnemiesMax = 5` を足す(上限の唯一の定義)。`noteRequest`・`noteJSON` を §5.1 に変更。`validateNote` を §3 の順に書き直す(kind の判定と「種類と紐付け先」の整合を削除)。`toNoteJSON` は `Enemies` が nil なら `[]string{}` にする。GET の `limits` に `"enemies_max": noteEnemiesMax`。
+- `internal/server/notes_test.go`: `validNoteBody` を `{"text":"メモ"}` に。`TestNotesValidate` の表を §7 の24件に置き換える。`listNotes` で `limits["enemies_max"] == noteEnemiesMax` を確かめる。`TestNotesCRUD` の本文を `enemies` にし、敵機2機の往復と、敵機の無いメモの GET 応答の生 JSON に `"enemies":[]` が含まれることを確かめる。他の `kind` を含む本文も外す。
+
+フロント:
+- `static/lib/notes.js`: `NOTE_KINDS` を削除。§5.2 のとおり `sanitizeNotes`・`notesForEnemy`・`groupByEnemy`・`notesByTab`・`noteTargetLabel`・`defaultDraft`・`draftFromNote`・`draftToRequest`・`validateDraft` を変更し、`canAddEnemy`・`enemyOptions`・`withValue`(components/notes.js から移す)を足す。`notesForMatch`・`hasNoteForMatch`・`tabCounts` はコードを変えない(中で使う関数の変更で新しい規則になる)。
+- `static/components/notes.js`: `analysis/today.js` から `playDay` も import する。`matchDraft`・`todayDraft` を足し、`MatchNotes`・`EnemyNotes`・`NoteList` の「書く」をそれぞれに置き換える。`NoteSheetBody` から `KIND_OPTIONS`・`setKind`・紐付け先の `ToggleGroup` を削除し、§6.1 の欄にする。`NoteList` の `ToggleGroup` の label を `メモの種類` から `表示するメモ` に変える(「種類」を出さない)。
+- `static/styles/notes.css`: 敵機の行(Dropdown と × を横に並べる)・日付の行(入力と ×)・× ボタン(44px 四方以上)のスタイルを足す。文字は14px 以上、色は tokens.css の定義だけ。
+- `static/__tests__/notes.test.js`: §7 のとおり書き換える。
+- `static/__tests__/search.test.js`: メモのリテラル(`kind`・`enemy_ms`)を `enemies: ['シャアザク']` に。期待値は変えない。
+- 呼び出し側(`static/components/search.js`・`static/analysis/search.js`・`static/components/report/matchup.js`・`report.js`・`shell.js`・`app.js`)は変えない(関数のシグネチャが変わらないため)。
+
+ui-check:
+- `tools/ui-check/fixture.js`: `notes()` を次の6件にする(id・本文・日時・ピンは今のまま。`kind`・`enemy_ms` を外し `enemies` を足す)。
+  | id | enemies | my_ms | date |
+  |---|---|---|---|
+  | preview-note-1(ピン) | `['ストームレイダー']` | '' | '' |
+  | preview-note-2 | `['ストームレイダー']` | 'ストームレイダー' | '' |
+  | preview-note-3 | `['ヴァルキュリア', 'ガルーダ零']` | '' | '2026-06-15' |
+  | preview-note-4 | `[]` | '' | '2026-06-15' |
+  | preview-note-5 | `[]` | '' | '' |
+  | preview-note-6 | `['ガルーダ零']` | '' | '' |
+  タブの件数は すべて6・敵機4・日付2・ピン1。敵機タブのまとまりは ガルーダ零2件(3と6)・ストームレイダー2件・ヴァルキュリア1件の3つ。先頭の試合(2026-06-15 22:23、相手はストームレイダーとヴァルキュリア)で印が付く試合の集合は単位4 と同じ。
+- `tools/ui-check/fixture.test.js`: メモの検査を新しいモデルにする(§7)。
+- `tools/ui-check/server.js`: `NOTES_LIMITS` に `enemies_max: 5` を足す(モックは他の上限と同じく値を自分で持つ)。
+- `tools/ui-check/server.test.js`: `limits` の期待値に `enemies_max: 5`、POST の本文から `kind` を外す。
+- `tools/ui-check/screens.js`: §6.6 のとおり `NOTE_SHEET_REQUIRED` と既存画面の検査を変え、`mobile-note-sheet-enemies` を足す。
+- `tools/ui-check/baseline/`: 新画面の2枚と、変わる既存画面の基準を CI の撮影から取り込む(`ui-baseline` ラベル → `make ui-baseline RUN=<run-id>`)。
+
+ドキュメント: CLAUDE.md・README(§10)、この設計書。
+
 ---
 
 ## 5. インターフェース
 
 ### 5.1 Go
 ```go
-// internal/model/types.go
+// internal/model/types.go(単位5。Kind・EnemyMS と NoteKind* 定数は削除)
+// Note は対策メモ。日付・敵機・自機はどれも任意
 type Note struct {
 	ID        string
-	Kind      string // NoteKindEnemy / NoteKindDate / NoteKindFree
 	Text      string
-	EnemyMS   string
-	MyMS      string
-	Date      string // YYYY-MM-DD
+	Enemies   []string // 0〜5機。重複なし・選んだ順
+	MyMS      string   // "" = 指定しない
+	Date      string   // YYYY-MM-DD。"" = 日付なし
 	Pinned    bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -200,16 +263,28 @@ func newNotesAPI() *notesAPI
 func (a *notesAPI) handleNotes(w http.ResponseWriter, r *http.Request) // /notes
 func (a *notesAPI) handleNote(w http.ResponseWriter, r *http.Request)  // /notes/{id}
 func registerNotes(mux *http.ServeMux)                                 // "/notes" と "/notes/" を登録
+const noteEnemiesMax = 5 // 1件の敵機の上限。定義はここだけ。GET の limits.enemies_max で渡す(単位5)
 type noteRequest struct {
-	Kind    string `json:"kind"`
-	Text    string `json:"text"`
-	EnemyMS string `json:"enemy_ms"`
-	MyMS    string `json:"my_ms"`
-	Date    string `json:"date"`
-	Pinned  bool   `json:"pinned"`
+	Text    string   `json:"text"`
+	Enemies []string `json:"enemies"`
+	MyMS    string   `json:"my_ms"`
+	Date    string   `json:"date"`
+	Pinned  bool     `json:"pinned"`
 }
-func validateNote(req noteRequest) (model.Note, string) // 正規化済みの Note と、400 の文言(通れば "")
+type noteJSON struct {
+	ID        string   `json:"id"`
+	Text      string   `json:"text"`
+	Enemies   []string `json:"enemies"` // 常に配列(nil は []string{} にして null を返さない)
+	MyMS      string   `json:"my_ms"`
+	Date      string   `json:"date"`
+	Pinned    bool     `json:"pinned"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
+}
+func validateNote(req noteRequest) (model.Note, string) // 正規化済みの Note と、400 の文言(通れば "")。判定順は §3。返す Enemies は nil にしない
+func toNoteJSON(n model.Note) noteJSON
 ```
+- `internal/firestore/notes.go` の公開関数(`ListNotes`・`CreateNote`・`UpdateNote`・`DeleteNote`)と `checkCreate`・`checkUpdate`・`notesFromDocs` のシグネチャは単位5でも変えない。変わるのは `noteDoc` の項目だけ(`text`・`enemies`・`my_ms`・`date`・`pinned`・`created_at`・`updated_at`)。
 - store の呼び出しは `context.WithTimeout(r.Context(), storeTimeout)` で包む(autorefresh.go の定数を使い回す)。
 - 書き込みの limiter は `newRateLimiter(rate.Every(2*time.Second), 30)` のパッケージ変数で、キーは `"notes:"+userKey`。
 
@@ -225,25 +300,29 @@ var NOTES_ACTIONS = {
   remove: function (id) { return apiCall('DELETE', '/notes/' + encodeURIComponent(id)); },
 };
 
-// static/lib/notes.js(import なし)
-export var NOTE_KINDS = ['enemy', 'date', 'free'];
-export function sanitizeNotes(list)                       // GET 応答の検証。id・text が文字列で kind が NOTE_KINDS の項目だけ残す。他の文字列項目の欠けは '' にする
-export function notesForEnemy(notes, enemyMs, myMs)       // kind=enemy かつ enemy_ms 一致。myMs が文字列なら my_ms が '' か myMs と一致するものだけ(null なら自機を問わない)
-export function notesForMatch(notes, match)               // 敵機ごとに [{ enemy, notes }]。opponent1_ms・opponent2_ms の順で、同じ機体は1つにまとめる。自機は match.ms で絞る
-export function hasNoteForMatch(notes, match)             // notesForMatch のどれかが1件以上
-export function groupByEnemy(notes)                       // [{ enemy, count, notes }]。件数の多い順、同じなら localeCompare('ja')
-export function notesByTab(notes, tab)                    // 'all'|'enemy'|'date'|'pin'。all・pin は updated_at の新しい順、enemy は kind=enemy のみ、date は date の新しい順
-export function tabCounts(notes)                          // { all, enemy, date, pin }
-export function noteTargetLabel(note)                     // 敵機名 / 'M/D' / 'メモ'
-export function defaultDraft(ctx)                         // ctx: { enemy_ms?, kind?, date? } → { id:null, kind, text:'', enemy_ms, my_ms:'', date, pinned:false }。enemy_ms があれば kind 'enemy'
-export function draftFromNote(note)
-export function draftToRequest(draft)                     // CRLF→LF・前後の空白を除く。kind で使わない項目は '' にする(enemy→date='' / date→enemy_ms=my_ms='' / free→3つとも '')
-export function textLength(text)                          // 正規化後の Array.from(text).length(サーバーの rune 数と一致させる)
-export function validateDraft(draft, limits, pinnedOthers) // 保存できない理由の文言。保存できるなら ''
-export function pinnedCount(notes, exceptId)
-export function upsertNote(notes, note)                    // 同じ id は置き換え、無ければ先頭に足す
+// static/lib/notes.js(import なし。単位5の形)
+export function loadDecision(userKey, available, settledKey, loadingKey) // 'off'|'skip'|'load'(変更なし)
+export function responseOutcome(requestedKey, currentKey, res)         // 'stale'|'off'|'on'|'error'(変更なし)
+export function sanitizeNotes(list)                       // id・text が文字列の項目だけ残す。enemies は配列なら空でない文字列だけ、配列でなければ []。my_ms・date・日時の欠けは ''。kind は見ない・持たない
+export function notesForEnemy(notes, enemyMs, myMs)       // enemies に enemyMs を含むメモ(OR)。myMs が文字列なら my_ms が '' か myMs と一致するものだけ(null なら自機を問わない)
+export function notesForMatch(notes, match)               // 変更なし。敵機ごとに [{ enemy, notes }]。opponent1_ms・opponent2_ms の順で、同じ機体は1つにまとめる。複数の敵機を持つメモは当てはまる敵機それぞれの下に出る
+export function hasNoteForMatch(notes, match)             // 変更なし。相手のどれか1機が、どれかのメモの enemies にあれば真
+export function groupByEnemy(notes)                       // [{ enemy, count, notes }]。各メモを enemies の機体それぞれの下に入れる。count はその敵機の下のメモ数。件数の多い順、同じなら localeCompare('ja')
+export function notesByTab(notes, tab)                    // 'all'|'enemy'|'date'|'pin'。enemy = enemies が1機以上、date = date が ''でない。all・enemy・pin は updated_at の新しい順、date は date の新しい順(同じなら updated_at)
+export function tabCounts(notes)                          // 変更なし。{ all, enemy, date, pin }(enemy はメモの件数で、まとまりの延べ数ではない)
+export function noteTargetLabel(note)                     // 'M/D' と敵機の '・' 区切りを半角空白でつなぐ(例 '6/15 ヴァルキュリア・ガルーダ零')。どちらも無ければ 'メモ'
+export function defaultDraft(ctx)                         // ctx: { enemy?, date? } → { id:null, text:'', enemies: enemy ? [enemy] : [], my_ms:'', date: date || '', pinned:false }
+export function draftFromNote(note)                       // { id, text, enemies: note.enemies の複製, my_ms, date, pinned }
+export function draftToRequest(draft)                     // { text, enemies, my_ms, date, pinned }。本文は CRLF→LF・前後の空白を除く。enemies は各機体の前後の空白を除き '' を落とす(順序は保つ。重複は落とさない=validateDraft で止める)
+export function textLength(text)                          // 変更なし
+export function validateDraft(draft, limits, pinnedOthers) // 判定順: 本文が空 → 本文が text_max 超 → 空でない敵機が enemies_max 超 → 敵機の重複 `同じ敵機が重複しています` → date が '' でなく不正 → ピン上限。保存できるなら ''。文言はサーバーと同じ
+export function canAddEnemy(draft, limits)                // limits.enemies_max があり、draft.enemies.length(未選択の欄も数える) < enemies_max なら真。limits が無ければ偽
+export function enemyOptions(options, enemies, index)     // index 以外の欄で選んだ機体を options から除き、enemies[index] が options に無ければ足す(withValue)
+export function withValue(options, value)                 // value が options に無ければ { value, label: value } を足す(components/notes.js から移す。自機の選択肢でも使う)
+export function pinnedCount(notes, exceptId)              // 以下4つは変更なし
+export function upsertNote(notes, note)
 export function removeNoteById(notes, id)
-export function msChoices(msImages, matches)              // { enemies, mine }。どちらも [{value,label}]。対戦した機体(enemies は opponent1/2_ms、mine は ms)を試合数の多い順、続けて msImages にだけある機体を localeCompare('ja') 順
+export function msChoices(msImages, matches)
 
 // static/components/popover.js(単位2で追加)
 export function createLayerStack()                        // { push(token), remove(token), isTop(token) }。モジュールで1つ持つ
@@ -255,7 +334,9 @@ export function useNotes(userKey, api, data)
 //     open(draft), close(), save(draft) → Promise<string>(失敗時は文言、成功時は ''),
 //     remove(id) → Promise<string>, reload() }
 export function NoteMark()                                // <span data-ui="note-mark" role="img" aria-label="メモあり"><svg…/></span>
-export function NoteItem({ note, showTarget, onOpen })    // button data-ui="note-item"。本文は pre-wrap で3行まで、自機の指定があれば「自機: X」
+export function NoteItem({ note, showTarget, onOpen })    // button data-ui="note-item"。本文は pre-wrap で3行まで。showTarget なら noteTargetLabel、自機の指定があれば「自機: X」
+export function matchDraft(match)                         // 単位5。defaultDraft({ enemy: match.opponent1_ms, date: playDay(match.date) })
+export function todayDraft(enemy, now)                    // 単位5。defaultDraft({ enemy: enemy, date: currentPlayDay(now) })。enemy が '' なら敵機0欄
 export function MatchNotes({ notes, match })              // MatchDetail のパネル中身(data-ui="match-notes")
 export function NoteSheet({ notes, choices })             // notes.draft が null なら何も描かない
 export function EnemyNotes({ notes, enemy, myMs })        // 単位3
@@ -279,32 +360,52 @@ export function NoteList({ notes, onClose })              // 単位4
 
 ## 6. 画面の変更
 
-共通: `notes.status !== 'on'` のときは、どの画面も今と同じ DOM にする(単位4のその他画面だけ例外)。
+共通: `notes.status !== 'on'` のときは、どの画面も今と同じ DOM にする(単位4のその他画面だけ例外)。この節は単位5 の後の形で書く。
 
 ### 6.1 書くシート `NoteSheet`(Layer `ui="note-sheet"`、見出しは「メモを書く」/「メモを編集」)
+上から次の順に並べる。「紐付け先」の切り替え(単位2〜4 の `ToggleGroup ui="note-kind"`)は単位5で削除する。
+```
+ メモ  [textarea 6行]                       n / 500
+ 日付  [2026/06/15 ] [×]
+ 敵機  [ストームレイダー ▼] [×]
+       [ヴァルキュリア ▼]   [×]
+       ＋ 敵機を追加する          (enemies_max 欄で消える)
+ 自機  [指定しない ▼]
+ □ ピン留めする（最大3件）
+```
 - head: 閉じる(`data-ui="sheet-close"`)・見出し
-- 本文: `textarea`(6行。placeholder `対策を書く（例: 着地を見てから射撃を合わせる）`)。文字数 `n / 500`(`data-ui="note-count"`。上限を超えたら bad の色)
-- 紐付け: `ToggleGroup ui="note-kind"` [敵機][日付][なし]
-  - 敵機: 「敵機」は `Dropdown`(noClear、placeholder `選んでください`、`data-ui="note-enemy"` で包む)。「自機」は `Dropdown`(placeholder `指定しない`、`data-ui="note-my"` で包む)。選択肢は `choices.enemies`・`choices.mine`
-  - 日付: `<input type="date" data-ui="note-date">`。初期値は `currentPlayDay(new Date())`(analysis/today.js)
+- メモ: `textarea`(6行。placeholder `対策を書く（例: 着地を見てから射撃を合わせる）`)。文字数 `n / 500`(`data-ui="note-count"`。上限を超えたら bad の色)
+- 日付: `<input type="date" id="noteDate" data-ui="note-date">`。`draft.date` が空でないときだけ右に × `button data-ui="note-date-clear" aria-label="日付を消す"`(押すと `date: ''`)。空にした後も入力欄から選び直せる
+- 敵機: 見出しのラベル「敵機」。`draft.enemies` の各欄を `div data-ui="note-enemy"` で包み、中に `Dropdown`(noClear、placeholder `選んでください`、選択肢は `enemyOptions(choices.enemies, draft.enemies, i)`)と × `button data-ui="note-enemy-remove" aria-label="敵機を外す"`(その欄を消す)を横に並べる。欄の下に、`canAddEnemy(draft, limits)` が真のときだけ `button.ui-action data-ui="note-enemy-add"`「＋ 敵機を追加する」(押すと `enemies` の末尾に '' を足す)。敵機が0欄なら追加ボタンだけ
+- 自機: 常に出す。`Dropdown`(placeholder `指定しない`、`data-ui="note-my"` で包む。選択肢は `withValue(choices.mine, draft.my_ms)`)
 - `<label data-ui="note-pin"><input type="checkbox"> ピン留めする（最大3件）</label>`。他のピンが上限に達していて、自分もピン留めしていなければ disabled にし、`ピン留めは3件までです` を添える
+- × ボタンは3つとも 44px 四方以上(ui-check の tap 検査の対象にする)
 - 失敗時: シート内に `Notice tone="error"`。入力はそのまま残し、保存ボタンは押せる状態に戻す
 - foot: 編集時は左に「削除」(`data-ui="note-delete"`)。押すと行内に「削除する」「やめる」(`data-ui="note-delete-confirm"`)。右に「保存」(`data-ui="note-save"`)。`validateDraft` が文言を返す間と保存中は disabled。保存中のラベルは「保存中…」
-- 入口ごとの既定値: 試合詳細 → 敵機=opponent1_ms / 相性タブ → その行の敵機 / メモ一覧の「書く」→ 敵機は未選択。**自機はどの入口でも「指定しない」**(→ 要判断 6)
+
+入口ごとの既定値(単位5):
+| 入口 | 日付 | 敵機 | 自機 |
+|---|---|---|---|
+| 試合詳細の「＋ メモを書く」(`matchDraft(match)`) | その試合のプレイ日 `playDay(match.date)` | `opponent1_ms` の1欄(単位2 と同じ) | 指定しない |
+| 相性タブの行内の「＋ メモを書く」(`todayDraft(enemy, new Date())`) | 今日のプレイ日 `currentPlayDay(new Date())` | その行の敵機の1欄 | 指定しない |
+| メモ一覧の「書く」(`todayDraft('', new Date())`) | 今日のプレイ日 | 0欄 | 指定しない |
+| 既存のメモをタップ(`draftFromNote`) | 保存値 | 保存値 | 保存値 |
+
+自機はどの入口でも「指定しない」(→ 要判断 6)。
 
 ### 6.2 試合詳細 `MatchDetail`
 - 結果の行(と、あれば注意の一文)の直後、「4人の比較」より上に `Panel title="敵機のメモ"`
-- 中身 `MatchNotes`: 敵機ごとに機体名の小見出しを置き、`NoteItem` を並べる(無ければ `まだメモはありません`)。末尾に「＋ メモを書く」(`data-ui="note-write"`)
+- 中身 `MatchNotes`: 敵機ごとに機体名の小見出しを置き、`notesForMatch` のメモを `NoteItem` で並べる(無ければ `まだメモはありません`)。複数の敵機を持つメモは、当てはまる敵機それぞれの下に出る(§1.7)。末尾に「＋ メモを書く」(`data-ui="note-write"`。`matchDraft(match)` で開く)
 - `NoteItem` をタップすると編集シート
 
 ### 6.3 試合検索(単位3)
-- `ResultItem`: `hasNoteForMatch` が真なら、上の行(日付の前)に `NoteMark`
+- `ResultItem`: `hasNoteForMatch` が真なら、上の行(日付の前)に `NoteMark`。メモの敵機のどれか1機が相手にいれば真(OR)
 - `FilterFields`: 敵機の欄の直下に `Chip ui="search-note-filter"`「メモがある敵機との試合」(押すと切り替わる)。status 'on' のときだけ出す
 - 絞り込み: `filterMatches(base, filters, notes.list)`。`noteEnemies` が真なら `hasNoteForMatch` の試合だけ残す。notes を渡さなければ空として扱い、0件になる。適用中のタグは `メモがある敵機との試合`
 
 ### 6.4 レポートの相性タブ(単位3)
-- 「得意な敵機」「苦手な敵機」の行: `notesForEnemy(list, 名前, selectedMs)` が1件以上なら機体名の後ろに `NoteMark`
-- status 'on' のときだけ行をボタンにし、タップで行内に `EnemyNotes`(`data-ui="enemy-notes"`: その敵機のメモと「＋ メモを書く」)を開閉する。開くのは一度に1行
+- 「得意な敵機」「苦手な敵機」の行: `notesForEnemy(list, 名前, selectedMs)` が1件以上なら機体名の後ろに `NoteMark`(その敵機を `enemies` のどれかに持つメモ)
+- status 'on' のときだけ行をボタンにし、タップで行内に `EnemyNotes`(`data-ui="enemy-notes"`: その敵機のメモと「＋ メモを書く」。`todayDraft(enemy, new Date())` で開く)を開閉する。開くのは一度に1行
 - 「表で見る」の表は変えない
 
 ### 6.5 その他画面 → メモ一覧(単位4)
@@ -313,54 +414,70 @@ export function NoteList({ notes, onClose })              // 単位4
   - 'off': 補足 `ログイン状態を保持すると使えます`。タップできない(onSelect を渡さない)
   - 'error': 補足 `読み込めませんでした`。タップで `reload()`
   - `notes` props が無い(Skeleton 経由)ときはパネルを出さない
-- `NoteList`(Layer `ui="note-list"`): head に戻る(`data-ui="note-list-back"`「その他」)・見出し「メモ」・「書く」(`data-ui="note-write"`)
-  - `ToggleGroup ui="note-tabs"`: `すべて n` / `敵機 n` / `日付 n` / `ピン n`
-  - すべて・日付・ピン: `NoteItem`(紐付け先のラベル付き)の一覧
-  - 敵機: `groupByEnemy` の順に、`data-ui="note-group"` の見出し(機体名と `n件`)とその `NoteItem` を並べる
+- `NoteList`(Layer `ui="note-list"`): head に戻る(`data-ui="note-list-back"`「その他」)・見出し「メモ」・「書く」(`data-ui="note-write"`。`todayDraft('', new Date())` で開く)
+  - `ToggleGroup ui="note-tabs"`(label `表示するメモ`): `すべて n` / `敵機 n` / `日付 n` / `ピン n`。敵機 = 敵機を1機以上持つメモ、日付 = 日付を持つメモ。両方持つメモは両方のタブに出て、両方の件数に入る
+  - すべて・日付・ピン: `NoteItem`(`showTarget`。`noteTargetLabel` で日付と敵機を出す。例 `6/15 ヴァルキュリア・ガルーダ零`)の一覧
+  - 敵機: `groupByEnemy` の順に、`data-ui="note-group"` の見出し(機体名と `n件`)とその `NoteItem` を並べる。複数の敵機を持つメモは各敵機の下に出る。タブの件数はメモの件数(まとまりの延べ数ではない)
   - 0件: `メモはまだありません`
 
-### 6.6 ui-check に足す画面 id
-すべて start `report-session-valid`(既存のプリセット。`?session=valid` で Cookie が付き、モックが fixture のメモを返す)。テキストの具体値は実装時に fixture から確定させ、文字列で書く。
+### 6.6 ui-check の画面 id
+すべて start `report-session-valid`(既存のプリセット。`?session=valid` で Cookie が付き、モックが fixture のメモを返す)。単位5 の後の required・tap を書く。
+
+`NOTE_SHEET_REQUIRED`(単位5で置き換え): `[data-ui="note-sheet"] textarea` / `[data-ui="note-enemy"] [data-ui="select-trigger"]`「ストームレイダー」/ `[data-ui="note-date-clear"]`(日付の既定が入っている)/ `[data-ui="note-enemy-add"]` / `[data-ui="note-my"] [data-ui="select-trigger"]`「指定しない」/ `[data-ui="note-save"]` / `[data-ui="match-detail"][inert], [inert] [data-ui="match-detail"]`
 
 | 単位 | id | viewport | 操作の要点 | 主な required / 検査 |
 |---|---|---|---|---|
-| 2 | `mobile-match-detail-notes` | M | 試合検索 → 先頭の結果を開く | `[data-ui="panel"] h2`「敵機のメモ」、`[data-ui="match-notes"] [data-ui="note-item"]` 1件以上、`[data-ui="note-write"]`。inview: `[data-ui="match-notes"]`。tap: note-item・note-write |
-| 2 | `mobile-note-sheet` | M | ↑ +「メモを書く」 | `[data-ui="note-sheet"] textarea`、`[data-ui="note-kind"] button[aria-pressed="true"]`「敵機」、`[data-ui="note-enemy"] [data-ui="select-trigger"]` に先頭試合の opponent1_ms、`[data-ui="note-save"]`、`[data-ui="match-detail"][inert], [inert] [data-ui="match-detail"]`。tap: note-save・note-kind button |
-| 2 | `note-sheet` | D | 同上 | 同上(広い画面の見え方) |
+| 2 | `mobile-match-detail-notes` | M | 試合検索 → 先頭の結果を開く | `[data-ui="panel"] h2`「敵機のメモ」、`[data-ui="match-notes"] [data-ui="note-item"]`「着地を見てから射撃を合わせる」、`[data-ui="match-notes"] [data-ui="note-write"]`。inview: `[data-ui="match-notes"]`。tap: note-item・note-write |
+| 2 | `mobile-note-sheet` | M | ↑ +「メモを書く」 | `NOTE_SHEET_REQUIRED`。tap: note-save・`[data-ui="note-enemy-remove"]`・`[data-ui="note-enemy-add"]`・`[data-ui="note-date-clear"]`(単位5で `note-kind button` から置き換え) |
+| 2 | `note-sheet` | D | 同上 | `NOTE_SHEET_REQUIRED` |
 | 2 | `mobile-note-saved` | M | ↑ + textarea に `ui-check で書いたメモ` を入力 → 保存 | `[data-ui="match-notes"] [data-ui="note-item"]` に入力した文字列。absent: `[data-ui="note-sheet"]` |
 | 2 | `mobile-note-sheet-error` | M | ↑ + `保存エラー` を入力 → 保存。expectConsole `status of 500` | `[data-ui="note-sheet"] [data-ui="notice"][role="alert"]`「メモを保存できませんでした」、`[data-ui="note-save"]:not([disabled])` |
 | 3 | `mobile-search-notes` | M | 試合検索 | `[data-ui="search-result"] [data-ui="note-mark"]` 1件以上 |
-| 3 | `mobile-search-filter-notes` | M | 絞り込み → `search-note-filter`(シートを開いたまま撮る。tap 検査の対象がシートの中にあるため) | `[data-ui="search-applied"]`「メモがある敵機との試合」、印付きの結果が1件以上。absent: `[data-ui="search-result"]:not(:has([data-ui="note-mark"]))` |
-| 3 | `mobile-report-matchup-notes` | M | 相性タブ → 印付きの敵機の行をタップ | `[data-ui="note-mark"]` 1件以上、`[data-ui="enemy-notes"] [data-ui="note-item"]` 1件以上、`[data-ui="enemy-notes"] [data-ui="note-write"]` |
-| 4 | `mobile-more-notes` | M | その他 → メモの行 | `[data-ui="note-tabs"] button` 4件、`[data-ui="note-tabs"] button[aria-pressed="true"]`「すべて」、`[data-ui="note-list"] [data-ui="note-item"]` 6件。tap: note-tabs button・note-item・note-list-back |
-| 4 | `mobile-more-notes-enemy` | M | ↑ + タブ「敵機」 | `[data-ui="note-group"]` が3件(ストームレイダー・ヴァルキュリア・ガルーダ零)、2件ある敵機の見出しに `2件` |
+| 3 | `mobile-search-filter-notes` | M | 絞り込み → `search-note-filter`(シートを開いたまま撮る) | `[data-ui="search-applied"]`「メモがある敵機との試合」、印付きの結果が1件以上。absent: `[data-ui="search-result"]:not(:has([data-ui="note-mark"]))` |
+| 3 | `mobile-report-matchup-notes` | M | 相性タブ → 「ガルーダ零」の行をタップ | `[data-ui="panel"] [data-ui="note-mark"]`、`[data-ui="enemy-notes"] [data-ui="note-item"]`「距離を詰められたら」、**単位5で追加** `[data-ui="enemy-notes"] [data-ui="note-item"]`「格闘の間合いに入らない」(複数の敵機を持つメモが出る)、`[data-ui="enemy-notes"] [data-ui="note-write"]` |
+| 4 | `mobile-more-notes` | M | その他 → メモの行 | `[data-ui="note-tabs"] button` 4件、`[data-ui="note-tabs"] button[aria-pressed="true"]`「すべて」、`[data-ui="note-list"] [data-ui="note-item"]` 6件、**単位5で追加** `[data-ui="note-tabs"] button`「日付 2」・`[data-ui="note-item"]`「6/15 ヴァルキュリア・ガルーダ零」。tap: note-tabs button・note-item・note-list-back |
+| 4 | `mobile-more-notes-enemy` | M | ↑ + タブ「敵機」 | `[data-ui="note-group"]` 3件、`[data-ui="note-group"]`「2件」、`[data-ui="note-group"]`「ガルーダ零」、**単位5で追加** `[data-ui="note-list"] [data-ui="note-item"]`「格闘の間合いに入らない」2件(ヴァルキュリアとガルーダ零の両方の下に出る) |
+| 5 | `mobile-note-sheet-enemies`(新規) | M | `OPEN_NOTE_SHEET` → `note-enemy-add` → `[data-ui="note-enemy"] [data-ui="select-trigger"]`「選んでください」→ `[data-ui="select-item"]`「ヴァルキュリア」 | `[data-ui="note-enemy"]` 2件、`[data-ui="note-enemy"] [data-ui="select-trigger"]`「ストームレイダー」、同「ヴァルキュリア」、`[data-ui="note-enemy-remove"]` 2件、`[data-ui="note-enemy-add"]`、`[data-ui="note-date-clear"]`。tap: note-enemy-remove・note-enemy-add・note-date-clear |
 
-基準画像が変わる既存画面: 単位4の `more`・`mobile-more`・`mobile-more-confirm`・`mobile-more-auto-refresh`・`mobile-more-auto-refresh-error`(メモの行が増えるため)。単位2・3では既存画面の画像は変わらない想定。CI が差分を出したら artifact で原因を確かめる。
-画面数は 75 → 80(単位2)→ 83(単位3)→ 85(単位4)、画像は 150 → 160 → 166 → 170 枚。
+画面数は 75 → 80(単位2)→ 83(単位3)→ 85(単位4)→ 86(単位5)、画像は 150 → 160 → 166 → 170 → 172 枚。
+
+単位5 で基準画像が変わる見込みの既存画面(`ui-baseline` で撮り直す):
+- `mobile-note-sheet`・`note-sheet`・`mobile-note-sheet-error`(シートの欄が変わる)
+- `mobile-report-matchup-notes`(ガルーダ零の行内のメモが1件 → 2件)
+- `mobile-more-notes`(日付タブの件数 1 → 2、ラベルに日付と複数の敵機)
+- `mobile-more-notes-enemy`(まとまりの並びと中身。ガルーダ零が先頭・2件)
+
+変わらない見込み: `mobile-match-detail-notes`・`mobile-note-saved`・`mobile-search-notes`・`mobile-search-filter-notes`(先頭の試合のメモと印の付く試合の集合が単位4 と同じ)、その他の既存画面。`ui-baseline` を付ける前の CI の ui-check で不一致になった画面がこの見込みと違えば、artifact の画像で原因を確かめてから取り込む。
 
 ---
 
 ## 7. テスト計画
 
-| 対象 | 追加するテスト | 検証コマンド |
+単位5 の後の形で書く。単位5 で変える行は「単位5」と書く。
+
+| 対象 | 追加・変更するテスト | 検証コマンド |
 |---|---|---|
-| server | `TestNotesRequireSession`(4メソッド×Cookie無し・解決できないトークンで401、store を呼ばない)/ `TestNotesMethods`(PATCH /notes・GET /notes/{id} で405)/ `TestNotesContentType`(415)/ `TestNotesValidate`(表駆動: 空・空白だけ・500字は通る・501字・絵文字500字は通る・CRLF の正規化・制御文字・enemy で enemy_ms が空・enemy に date・date の形式不正(`2026-13-01`)・date は通る・free に enemy_ms・未知の kind・機体名65字)/ `TestNotesCRUD`(作成201→GET に含まれる→PUT で本文が変わり created_at は不変→DELETE 200→GET が空。別ユーザーの GET に出ない・別ユーザーの PUT は404)/ `TestNotesStoreErrors`(ErrNoteLimit・ErrPinLimit→409、ErrNoteNotFound→404、その他→500、UUID でない id・後ろにパスが続く id→404)/ `TestNotesRateLimit`(31回目の書き込みが429、GET は制限しない) | `go test -race ./internal/server/` |
-| server | `TestDataAPIsRequireSession` に `/notes` を追加 | 同上 |
-| firestore | `TestNotesCheckCreate`(`checkCreate`: 件数が2000未満なら通り2000件で ErrNoteLimit / ピン付きで他のピンが3件なら ErrPinLimit・2件なら通る / ピンなしはピン数を見ない)/ `TestNotesCheckUpdate`(`checkUpdate`: ピン総数3で自分が未ピンのままピンにすると ErrPinLimit・ピン総数3で自分がピン済みなら通る(自分を除く)・ピンを外す更新は上限でも通る)/ `TestNotesSortOrder`(UpdatedAt 降順・同じなら ID 昇順)。トランザクション自体はエミュレータなしでは試せないので、規則を純粋関数に切り出してテストする | `go test -race ./internal/firestore/` |
-| lib/notes.js | `static/__tests__/notes.test.js`: §5.2 の全関数(自機の指定ありとなし・相手2機が同じ機体・kind 切替での項目のクリア・絵文字の文字数・sanitizeNotes が壊れた項目を落とす・msChoices の並び)。さらに `components/notes.js` と `lib/notes.js` に `dangerouslySetInnerHTML`・`innerHTML`・`localStorage` が無いことの静的検査 | `node --test static/__tests__/notes.test.js` |
-| popover.js | `popover.test.js` に `createLayerStack`(push 2つ → 上だけ isTop、上を remove → 下が isTop、途中を remove しても順序が保たれる) | `node --test static/__tests__/popover.test.js` |
-| props の渡し忘れ | `skeleton-actions.test.js` に「全ての `<${SearchView}` に `notes=`」(単位2)、「全ての `<${MatchupPane}` に `notes=`」(単位3) | `node --test static/__tests__/skeleton-actions.test.js` |
-| analysis/search.js | `search.test.js`(単位3): noteEnemies で印のある試合だけ残る / my_ms 付きのメモは自機が違う試合では残らない / notes を渡さないと0件 / hasActiveFilters が真 / appliedFilterLabels に文言が出る | `node --test static/__tests__/search.test.js` |
-| ui-check | `server.test.js`: Cookie 付きの GET は fixture の件数、Cookie 無しは 200 で空、POST `保存エラー` は500、通常の POST は201で id がある。`fixture.test.js`: fixture のメモの敵機は、日付の新しい順で先頭の試合の相手(単位2)か `computeEnemyMatchup(全試合)` の strong ∪ weak(単位3)のどちらかに入り、それぞれに当てはまるメモが1件以上ある | `node --test tools/ui-check/server.test.js tools/ui-check/fixture.test.js` |
+| server | `TestNotesRequireSession`(4メソッド×Cookie無し・解決できないトークンで401、store を呼ばない)/ `TestNotesMethods`(PATCH /notes・GET /notes/{id} で405)/ `TestNotesContentType`(415)/ `TestNotesCRUD`(作成201→GET に含まれる→PUT で本文が変わり created_at は不変→DELETE 200→GET が空。別ユーザーの GET に出ない・別ユーザーの PUT は404。**単位5**: 本文は `enemies` で書き、敵機2機 `["A","B"]` が順序どおり往復する・敵機の無いメモの GET の生 JSON に `"enemies":[]` を含む。`listNotes` で `limits.enemies_max == noteEnemiesMax`)/ `TestNotesStoreErrors`(ErrNoteLimit・ErrPinLimit→409、ErrNoteNotFound→404、その他→500、UUID でない id・後ろにパスが続く id→404)/ `TestNotesRateLimit`(31回目の書き込みが429、GET は制限しない) | `go test -race ./internal/server/` |
+| server(単位5) | `TestNotesValidate` の表を次の24件にする(名前はこのとおり。期待は §3 の文言): `空` / `空白だけ` / `500字は通る` / `501字` / `絵文字500字は通る` / `絵文字501字` / `CRLF は LF・前後の空白は除く` / `改行・タブは通る` / `制御文字` / `単独の CR` / `何も持たないメモは通る`(Enemies は nil でなく長さ0)/ `敵機5機・日付・自機は通る`(各機体の前後の空白を除く)/ `敵機6機` / `敵機の重複` / `空白を除くと重複` / `空の敵機` / `空白だけの敵機` / `敵機に制御文字` / `機体名65字` / `機体名64字は通る` / `自機65字` / `日付の形式不正`(`2026-13-01`)/ `日付の桁あふれ`(`2026-02-30`)/ `日付は通る`(ピン付き)。既存の `HTTP では 400` のサブテストは本文から `kind` を外して残す | `go test -race -run '^TestNotesValidate$' -v ./internal/server/` |
+| server | `TestDataAPIsRequireSession` に `/notes`(単位1。変更なし) | 同上 |
+| firestore | `TestNotesCheckCreate`・`TestNotesCheckUpdate`・`TestNotesSortOrder`(単位1。単位5では `model.Note` のリテラルから旧項目を外すだけ) | `go test -race ./internal/firestore/` |
+| lib/notes.js(単位5) | `static/__tests__/notes.test.js` を書き換える。削除: `kind は enemy・date・free`・`draftToRequest は kind で使わない項目を空にする`。変更: 既存のメモのリテラルを `enemies` にする(`note()` の既定は `enemies: ['A']`)。追加(1項目1 `it`、計14本): (1) sanitizeNotes が enemies を文字列の配列にし(空文字・文字列でない要素を落とす)、配列でなければ [] にし、出力のキーが `id`・`text`・`enemies`・`my_ms`・`date`・`pinned`・`created_at`・`updated_at` の8つだけ (2) notesForEnemy は複数の敵機のどれかが一致すれば出る (3) hasNoteForMatch は相手の片方だけがメモの敵機でも真(OR) (4) notesForMatch は相手2機を両方持つメモを両方の敵機の下に出す (5) groupByEnemy は複数の敵機を持つメモを各敵機の下に入れて件数にも数える (6) notesByTab で敵機と日付の両方を持つメモが enemy・date の両方に出て、tabCounts の両方に数える (7) noteTargetLabel が `'6/15 A・B'`・日付だけ `'6/15'`・敵機だけ `'A・B'`・どちらも無ければ `'メモ'` (8) defaultDraft が `{ enemy, date }` を受け、無ければ enemies [] と date '' (9) draftToRequest が空の欄を落とし前後の空白を除き、順序を保つ (10) validateDraft が空でない敵機の数で enemies_max を判定する(未選択の欄は数えない) (11) validateDraft が重複を `同じ敵機が重複しています` にし、日付が空なら通す (12) canAddEnemy が enemies_max 未満で真・到達で偽・limits が無ければ偽 (13) enemyOptions が他の欄の機体を除き、自分の値は残し、選択肢に無い値を足す (14) matchDraft が `date: '2026-06-15 03:00'` の試合で date `'2026-06-14'`・敵機 opponent1_ms、todayDraft が `new Date(2026, 5, 15, 4, 0)` で `'2026-06-14'`・敵機 '' で0欄(components/notes.js を import する。popover.test と同じく node で読める)。静的検査は今のまま(`dangerouslySetInnerHTML`・`innerHTML`・`localStorage` が無い、lib/notes.js が import を持たない) | `node --test static/__tests__/notes.test.js` |
+| popover.js | `popover.test.js` の `createLayerStack`(単位2。変更なし) | `node --test static/__tests__/popover.test.js` |
+| props の渡し忘れ | `skeleton-actions.test.js`(単位2・3。変更なし) | `node --test static/__tests__/skeleton-actions.test.js` |
+| analysis/search.js | `search.test.js`(単位3)。**単位5**: メモのリテラルを `enemies` にするだけで期待値は変えない | `node --test static/__tests__/search.test.js` |
+| ui-check(単位5) | テストに旧項目の名前(`kind`・`enemy_ms`)を書かない(§8 単位5 の条件10・11 で0件を確かめるため)。`server.test.js`: `limits` が `{ text_max:500, count_max:2000, pinned_max:3, enemies_max:5 }`、POST の本文に `kind` を含めない。`fixture.test.js`: メモの各敵機は先頭の試合の相手か `computeEnemyMatchup(全試合)` の strong ∪ weak に入る・先頭の試合の相手を持つメモと得意・苦手の敵機を持つメモがそれぞれ1件以上・件数は「敵機あり4・日付あり2・両方1・敵機2機以上1・どちらも無し1・ピン1」・どのメモもキーが `id`・`text`・`enemies`・`my_ms`・`date`・`pinned`・`created_at`・`updated_at` の8つだけ | `node --test tools/ui-check/server.test.js tools/ui-check/fixture.test.js` |
+| 画面定義 | `screens.test.js`(既存の規約テスト。新画面がクラス名セレクタを使わないこと、基準画像と SCREENS の過不足が無いこと) | `node --test tools/ui-check/screens.test.js` |
 | 画面 | §6.6。CI の UI Check で撮影・比較する(ローカルでは回さない) | PR の `ui-check` ジョブ |
 
-手元の node が使えないとき(Intel Mac)は catalyzer-oracle イメージで test-js を回す(メモリ reference_docker-js-oracle)。
+手元の node が使えないとき(Intel Mac)は catalyzer-oracle イメージで回す: `docker run --rm -v "$PWD":/w -w /w catalyzer-oracle <node のコマンド>`(メモリ reference_docker-js-oracle)。
+単位5 の着手前の実測(2026-11-16、worktree catalyzer--notes-fields の 5cf7d86): JS 全体 `# tests 602`・`# pass 602`、notes.test `# pass 42`、SCREENS 85、`^--- PASS: TestNotes` 10、`TestNotesValidate/` のサブテスト 22。
 
 ---
 
 ## 8. sub-issue への分割
 
 PR タイトルに `(#番号)` を入れない(ナレッジ build-no-deploy-pr-number-from-title。#535 が直るまで)。
+単位1〜4 の表は完了した時点の記録(単位5 で消える `note-kind` 等を含む)。単位5 の後の仕様は §2・§3・§5・§6 が正。
 
 ### 単位1: メモ(段階1-1) メモの保存 API
 - 範囲: §4.1 の全部と、CLAUDE.md・README の API・Go の記述(§10)
@@ -416,6 +533,41 @@ PR タイトルに `(#番号)` を入れない(ナレッジ build-no-deploy-pr-n
 | 画面確認(既存5枚の基準更新を含む) | `gh pr checks <PR>` | `ui-check` が pass |
 | CLAUDE.md の画面数 | `grep -cE '8[25]画面' CLAUDE.md` | `1` |
 
+### 単位5: メモ(段階1-5) 日付と複数の敵機を両方持てるようにする
+- 範囲: §4.4 の全部(Go のモデル・保存・API の検証、lib/notes.js・components/notes.js・notes.css、fixture・モック・画面定義、既存6画面と新1画面の基準画像)、CLAUDE.md・README(§10)
+- 依存: 単位4(#679。feat-notes-list の上に積む)。保存済みのメモは無いので、データ移行と旧 `kind`・`enemy_ms` の互換は作らない
+- JS のコマンドは手元に node が無ければ `docker run --rm -v "$PWD":/w -w /w catalyzer-oracle <コマンド>` で回す。検証はすべて worktree の直下で行う
+
+| # | 条件 | 検証コマンド | 期待値 |
+|---|---|---|---|
+| 1 | Go のテストが通る | `go test -race ./internal/...` | exit 0 |
+| 2 | メモのテスト関数が全部通る | `go test -race -run '^TestNotes' -v ./internal/server/ ./internal/firestore/ 2>&1 \| grep -cE '^--- PASS: TestNotes'` | `10`(着手前と同じ) |
+| 3 | 入力検証のケースが新しい表になっている | `go test -race -run '^TestNotesValidate$' -v ./internal/server/ 2>&1 \| grep -cE '^    --- PASS: TestNotesValidate/'` | `25`(表24件 + `HTTP では 400`。着手前 22) |
+| 4 | 複数の敵機・上限・重複・日付なしのケースがある | `grep -cE '"(敵機6機\|敵機の重複\|空白を除くと重複\|空の敵機\|何も持たないメモは通る\|敵機5機・日付・自機は通る)"' internal/server/notes_test.go` | `6` |
+| 5 | 敵機の上限の定義が1か所 | `grep -rnE 'noteEnemiesMax[[:space:]]*=' internal \| wc -l` | `1` |
+| 6 | 上限の値が5 | `grep -cE 'noteEnemiesMax[[:space:]]*=[[:space:]]*5([^0-9]\|$)' internal/server/notes.go` | `1` |
+| 7 | GET の limits で上限を渡す | `grep -cE '"enemies_max":[[:space:]]*noteEnemiesMax' internal/server/notes.go` | `1` |
+| 8 | GET の limits をテストで確かめている | `grep -c 'enemies_max' internal/server/notes_test.go` | `1` 以上 |
+| 9 | フロントが上限の数値を持たない(テストは除く) | `grep -rnE 'enemies_max[[:space:]]*[:=]\|enemies\.length[[:space:]]*[<>]=?[[:space:]]*[2-9]' static --exclude-dir=__tests__ \| wc -l` | `0` |
+| 10 | 旧モデルの識別子・文言が残っていない | `grep -rIlE 'NoteKind\|EnemyMS\|enemy_ms\|NOTE_KINDS\|note-kind\|紐付け' internal static tools \| wc -l` | `0` |
+| 11 | 旧 kind が残っていない | `grep -nwE 'Kind\|kind' internal/model/types.go internal/firestore/notes.go internal/firestore/notes_test.go internal/server/notes.go internal/server/notes_test.go static/lib/notes.js static/components/notes.js static/__tests__/notes.test.js static/__tests__/search.test.js tools/ui-check/fixture.js tools/ui-check/fixture.test.js tools/ui-check/server.js tools/ui-check/server.test.js tools/ui-check/screens.js \| wc -l` | `0` |
+| 12 | lint | `golangci-lint run` | exit 0(指摘0件) |
+| 13 | フォーマット | `gofmt -l .` | 出力なし |
+| 14 | ビルド(実行ファイルを残さない) | `go build -o /dev/null ./cmd/server` | exit 0 |
+| 15 | notes.test が通り、テストが増えた | `node --test --test-reporter=tap static/__tests__/notes.test.js \| grep -E '^# (pass\|fail)'` | `# pass` が `54` 以上(着手前 42 − 削除2 + 追加14)、`# fail 0` |
+| 16 | 新しい関数にテストがある | `for f in canAddEnemy enemyOptions matchDraft todayDraft; do grep -c "$f(" static/__tests__/notes.test.js; done` | 4行とも `1` 以上 |
+| 17 | 日付の既定を試合のプレイ日・今日のプレイ日で決める | `grep -cE 'playDay\(match\.date\)\|currentPlayDay\(now\)' static/components/notes.js` | `2` |
+| 18 | ui-check の上限のモック | `grep -c 'enemies_max: 5' tools/ui-check/server.js` | `1` |
+| 19 | 画面を1つ足した | `node --input-type=module -e "import {SCREENS} from './tools/ui-check/screens.js'; console.log(['mobile-note-sheet-enemies'].filter(id=>SCREENS.some(s=>s.id===id)).length, SCREENS.length)"` | `1 86` |
+| 20 | 基準画像の取り込み前: 失敗は基準画像の過不足の1件だけ | `node --test --test-reporter=tap 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js' \| grep -E '^# fail\|^[[:space:]]*not ok [0-9]+ - 基準画像が'` | `# fail 1` と `not ok … - 基準画像が SCREENS × THEMES …` の1行ずつ |
+| 21 | 画面確認と基準の取り込み | PR に `ui-baseline` → `make ui-baseline RUN=<run-id>` で取り込んでコミットした後の `gh pr checks <PR>` | `ui-check` が pass |
+| 22 | 基準画像の枚数 | `ls tools/ui-check/baseline/*.png \| wc -l` | `172` |
+| 23 | 基準の取り込み後: JS のテストが全部通る | `node --test --test-reporter=tap 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js' \| grep -E '^# (pass\|fail)'` | `# pass` が `614` 以上(着手前 602 − 2 + 14)、`# fail 0` |
+| 24 | CLAUDE.md の画面数 | `grep -c '86画面' CLAUDE.md` | `1` |
+| 25 | CLAUDE.md の画像数 | `grep -o '172枚' CLAUDE.md \| wc -l` | `2`(撮影の説明と baseline の説明。同じ行に2回出る) |
+| 26 | 古い画面数・画像数が残っていない | `grep -cE '85画面\|170枚' CLAUDE.md` | `0` |
+| 27 | CI(Go・JS) | `gh pr checks <PR>` | `build`・`lint-go`・`test-js` が pass(Go を変えるので `skip-ci` は付けない) |
+
 ---
 
 ## 9. レビュー観点(主観判断。完了条件には入れない)
@@ -423,6 +575,8 @@ PR タイトルに `(#番号)` を入れない(ナレッジ build-no-deploy-pr-n
 - 印のアイコンの見た目と大きさ、文字数カウンタの色
 - 文言が ui-terminology に沿っているか(敵機・自機・相手・相方)
 - 単位ごとの差分に、他の単位の範囲が混ざっていないか
+- 単位5: シートの欄の順(メモ→日付→敵機→自機→ピン)と、敵機の行の × が押しやすいか。複数の敵機を持つメモが試合詳細・敵機タブで重ねて出る見え方が煩くないか
+- 単位5: `noteTargetLabel` の `6/15 A・B` が敵機5機のとき折り返して読めるか
 
 ## 10. CLAUDE.md・README の更新対象
 | 単位 | CLAUDE.md | README |
@@ -431,17 +585,22 @@ PR タイトルに `(#番号)` を入れない(ナレッジ build-no-deploy-pr-n
 | 2 | `static/lib/notes.js`・`static/components/notes.js` の行を新設。`popover.js` の行に Layer(重なると最上位だけ Esc で閉じる)。`search.js` の行に敵機のメモ。`static/styles/` を全16ファイルに。`tools/ui-check/` の行に `/notes` のモック(Cookie 付きでサンプル、無ければ空・200)と fixture のメモ。`static/__tests__/` の列挙に notes。画面数 80画面・160枚 | ツリーに lib/notes.js・components/notes.js、styles を全16ファイル、`__tests__/notes.test.js`。表の static/components・static/lib |
 | 3 | `static/analysis/search.js`・`static/components/search.js` の行にメモの絞り込みと印、`report/` の行に相性タブの印。83画面・166枚 | 必要なら components の説明 |
 | 4 | `shell.js` の行に MoreView のメモ一覧。85画面・170枚 | shell.js の説明 |
+| 5 | `static/components/notes.js` の行の「敵機のメモ。」を「メモ（日付・敵機0〜5機・自機・ピン。どれも任意。敵機はどれか1機がいる試合に出す）。」にし、`NoteSheet` に「日付の既定は試合詳細=その試合のプレイ日・他=今日」。`static/lib/notes.js` の行の「敵機ごとのメモの純粋ロジック」を「メモの純粋ロジック」にし、`canAddEnemy`・`enemyOptions` と「敵機の上限は `limits.enemies_max`」を足す。`tools/ui-check/` の行を 86画面・172枚(2か所) | `components/notes.js`・`lib/notes.js` の説明の「敵機のメモ」を「メモ」に |
 
 ## 11. エスカレーション事項
 - 不可逆な操作・外部公開: なし。prod の Firestore には、最初の保存で `notes` コレクションができるだけ(移行・infra の変更なし)。
 - 保持期間: メモはログアウトしてもサーバーに残る(それが目的)。ユーザー単位で全部消す機能は段階1に含めない。ログアウトの説明文(「保存したログイン情報と端末内の試合データを削除します」)は変えなくても正しい。
 - 既存の基準画像: 単位4で、その他画面の5枚が意図した変更として変わる(`ui-baseline` ラベルで撮り直す)。
+- 単位5: API の契約(`kind`・`enemy_ms` → `enemies`)を互換なしで変える。単位1 の API は develop(stg)に入っているが、呼ぶ画面(単位2〜4)は未マージで、保存済みのメモは無い前提(ユーザー合意 2026-11-16)。stg に試しに作った文書が残っていても、読み込みは失敗せず敵機の無いメモとして出るだけ(§1.7)。不可逆な操作・外部公開は無い。
+- 単位5: 既存6画面の基準画像が意図した変更として変わる(§6.6)。
 
 ## 12. ナレッジ候補・起票候補
 ナレッジ候補(knowledge-add):
 - メモは `notes/{userKey}/items/{id}` に1件1ドキュメントで持つ。件数・ピン上限は書き込みと同じトランザクション内の count 集計で判定する(全件を読まない)。1MiB の制約を受けない代わりに、一覧は件数分の読み取りになる
 - 全画面の Layer は重なると最上位だけが Esc で閉じる(useDismiss が document の keydown を全部の層で聞くため)
 - ui-check のモックは 401 を返さない。セッション失効の画面で Report の取得が console エラーになり、その画面が落ちる(/notes は Cookie なしでも 200 で空)
+- 単位5: メモは種類を持たず、日付・敵機(0〜5機)・自機・ピンを独立に持つ。敵機はどれか1機がいる試合に出し(OR)、まとまりでは各敵機の下に出す。敵機の上限はサーバーの `noteEnemiesMax` だけが持ち、`limits.enemies_max` で渡す
+- 単位5: Firestore Go の `DataTo` は struct に無いフィールドを読み飛ばす(`populateStruct`)。項目を消す変更でも、古い文書の読み込みは失敗しない
 
 起票候補(issue-create):
 - develop に 31,836,226 バイトの実行ファイル `server` がコミットされている(f5f6a47。`.gitignore` に `/server` が無い)。今回の範囲外
