@@ -238,3 +238,26 @@ describe('useNotes の取得の判定', () => {
     assert.match(src, /responseOutcome\(key, current\.current, res\)/);
   });
 });
+
+describe('NoteList・その他画面の受け渡し', () => {
+  var src = fs.readFileSync(new URL('../components/notes.js', import.meta.url), 'utf8');
+  var report = fs.readFileSync(new URL('../components/report/report.js', import.meta.url), 'utf8');
+  it('NoteList は groupByEnemy・notesByTab・tabCounts を import して使う', () => {
+    var imp = src.slice(src.indexOf('import {\n'), src.indexOf("} from '../lib/notes.js'"));
+    assert.ok(imp.length > 0);
+    ['groupByEnemy', 'notesByTab', 'tabCounts'].forEach(function (f) {
+      assert.match(imp, new RegExp('\\b' + f + '\\b'));
+      assert.ok(src.includes(f + '('), f);
+    });
+    ['note-list', 'note-list-back', 'note-tabs', 'note-group'].forEach(function (u) { assert.ok(src.includes(u), u); });
+  });
+  it('report.js の MoreView は Report の呼び出しだけ notes を渡し、Skeleton 側は渡さない', () => {
+    var calls = Array.from(report.matchAll(/<\$\{MoreView\}[^>]*\/>/g)).map(function (m) { return m[0]; });
+    assert.strictEqual(calls.length, 2);
+    assert.strictEqual(calls.filter(function (c) { return /notes=\$\{notes\}/.test(c); }).length, 1);
+  });
+  it('more view にも NoteSheet を描く', () => {
+    var i = report.indexOf("view === 'more'");
+    assert.ok(report.slice(i, i + 900).includes('<${NoteSheet}'));
+  });
+});

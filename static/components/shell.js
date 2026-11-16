@@ -1,6 +1,7 @@
 import { html, useState, useEffect, useLayoutEffect, useRef } from '../htm-preact-standalone.js';
 import { Panel } from './ui.js';
 import { RowList, Notice, ToggleGroup } from './parts.js';
+import { NoteList } from './notes.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
 import { PULL_IDLE, pullStep, pullReady, BAR_SHOWN, nextBar } from '../lib/topbar.js';
 import { TAB_SEEN_KEY, markSeen, tabBadges } from '../lib/tabseen.js';
@@ -195,9 +196,18 @@ function AutoRefreshSettings({ autoRefresh }) {
 
 // --- その他画面 ---
 
-export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh }) {
+// メモの行。使えない(off)ときはタップさせない
+function notesRow(notes) {
+  if (notes.status === 'on') return { key: 'notes', main: 'メモ', sub: notes.list.length + '件' };
+  if (notes.status === 'error') return { key: 'notes', main: 'メモ', sub: '読み込めませんでした' };
+  return { key: 'notes', main: 'メモ', sub: notes.status === 'loading' ? '読み込み中…' : 'ログイン状態を保持すると使えます' };
+}
+
+export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh, notes }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
+  var listRef = useState(false);
+  var listOpen = listRef[0], setListOpen = listRef[1];
   var hasShare = !!(shareData && shareData.length);
   var confirmPanel = confirming && html`<div class="more-confirm" data-ui="refetch-confirm">
     <p>試合データをサーバーから全件取得し直します。</p>
@@ -222,12 +232,17 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
       <${ThemeSettings} />
       <${AutoRefreshSettings} autoRefresh=${autoRefresh} />
     </${Panel}>
+    ${notes && html`<${Panel} title="メモ">
+      <div data-ui="more-notes"><${RowList} rows=${[notesRow(notes)]}
+        onSelect=${notes.status === 'on' || notes.status === 'error' ? function () { if (notes.status === 'on') setListOpen(true); else notes.reload(); } : undefined} /></div>
+    </${Panel}>`}
     <${Panel} title="データ">
       <${RowList} rows=${dataRows} onSelect=${function (k) { if (k === 'reanalyze') onReanalyze(); else if (k === 'refetch') setConfirming(!confirming); }} />
     </${Panel}>
     <${Panel} title="アカウント">
       <${RowList} rows=${accountRows} onSelect=${function () { onLogout(); }} />
     </${Panel}>
+    ${notes && listOpen && notes.status === 'on' && html`<${NoteList} notes=${notes} onClose=${function () { setListOpen(false); }} />`}
   </div>`;
 }
 

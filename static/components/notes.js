@@ -1,7 +1,7 @@
 import { html, useState, useRef, useEffect, useMemo } from '../htm-preact-standalone.js';
 import { currentPlayDay } from '../analysis/today.js';
 import {
-  sanitizeNotes, notesForMatch, notesForEnemy, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
+  sanitizeNotes, notesForMatch, notesForEnemy, groupByEnemy, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
@@ -230,4 +230,35 @@ function NoteSheetBody({ notes, choices }) {
 export function NoteSheet({ notes, choices }) {
   if (!notes || !notes.draft) return null;
   return html`<${NoteSheetBody} notes=${notes} choices=${choices || { enemies: [], mine: [] }} />`;
+}
+
+var LIST_TABS = [['all', 'すべて'], ['enemy', '敵機'], ['date', '日付'], ['pin', 'ピン']];
+
+// その他画面から開くメモ一覧。タップで編集シートを開く
+export function NoteList({ notes, onClose }) {
+  var tabRef = useState('all');
+  var tab = tabRef[0], setTab = tabRef[1];
+  var counts = useMemo(function () { return tabCounts(notes.list); }, [notes.list]);
+  var items = useMemo(function () { return notesByTab(notes.list, tab); }, [notes.list, tab]);
+  var groups = useMemo(function () { return groupByEnemy(notes.list); }, [notes.list]);
+  function open(n) { notes.open(draftFromNote(n)); }
+  var head = html`<button type="button" class="search-back" data-ui="note-list-back" aria-label="その他に戻る" onClick=${onClose}>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>その他</button>
+    <h2>メモ</h2>
+    <button type="button" class="search-link note-list-write" data-ui="note-write" onClick=${function () { notes.open(defaultDraft({})); }}>書く</button>`;
+  var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]] }; });
+  return html`<${Layer} ui="note-list" label="メモ" head=${head} onClose=${onClose}>
+    <div class="note-list">
+      <${ToggleGroup} ui="note-tabs" label="メモの種類" options=${options} value=${tab} onChange=${setTab} />
+      ${!items.length && html`<p class="note-empty">メモはまだありません</p>`}
+      ${tab === 'enemy'
+        ? groups.map(function (g) {
+          return html`<section class="note-group" key=${g.enemy}>
+            <h3 class="note-group-head" data-ui="note-group">${g.enemy}<span>${g.count}件</span></h3>
+            ${g.notes.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${open} />`; })}
+          </section>`;
+        })
+        : items.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget onOpen=${open} />`; })}
+    </div>
+  </${Layer}>`;
 }
