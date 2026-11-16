@@ -99,7 +99,8 @@ export function generateMatches() {
       partner_score: r.int(300, 1200), partner_kills: r.int(0, 5), partner_deaths: pDeaths,
       partner_dmg_given: r.int(500, 2000) * 10, partner_dmg_taken: r.int(500, 1800) * 10, partner_ex_dmg: r.int(0, 700),
       bursts: bursts, partner_bursts: pBursts,
-      proficiency: 'gold2', partner_proficiency: 'silver1',
+      // 乱数を消費せず試合番号で決める(検索の熟練度の並び順を画面で確かめる)
+      proficiency: ['gold2', 'master', 'silver3', 'bronze1', 'legend'][i % 5], partner_proficiency: 'silver1',
       score_ranking: r.int(1, 4), partner_score_ranking: r.int(1, 4),
       arcade: 'テスト店舗',
       // 乱数を消費せず試合番号で決める。7試合に1つは形式不明(取得前のデータ)

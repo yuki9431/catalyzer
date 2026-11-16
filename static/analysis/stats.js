@@ -337,7 +337,7 @@ export function computeEnemyMatchup(matches, minMatches) {
 }
 
 // 階級の段。通し番号はサーバーの gradelist.BuildRankMap(Pilot 10=1 … Extreme 1=40、∞=41)
-var OPPONENT_GRADE_BANDS = [
+export var OPPONENT_GRADE_BANDS = [
   { key: 'inf', label: '∞', min: 41 },
   { key: 'e1', label: 'Extreme 1〜3', min: 38 },
   { key: 'e4', label: 'Extreme 4〜6', min: 35 },
@@ -354,7 +354,7 @@ var PARTNER_GRADE_BANDS = [
   { key: 'low', label: 'Ace以下', min: 1 },
 ];
 
-function gradeBand(bands, rank) {
+export function gradeBand(bands, rank) {
   if (!rank) return null;
   for (var i = 0; i < bands.length; i++) { if (rank >= bands[i].min) return bands[i].key; }
   return null;
