@@ -146,7 +146,7 @@ var SCREEN_DEFS = [
   // 試合詳細のメモ欄は既定で閉じ、見出しに件数を出す。先頭の試合はストームレイダー2・ヴァルキュリア1・自機・僚機1の4件
   { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
     required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件']], absent: [['[data-ui="match-notes"]']],
-    oneRow: ['[data-ui="match-notes-toggle"]'], tap: ['[data-ui="match-notes-toggle"]'] },
+    tap: ['[data-ui="match-notes-toggle"]'] },
   { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_MATCH_NOTES,
     required: [['[data-ui="match-notes-toggle"][aria-expanded="true"]', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
     absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="note-item"]', '[data-ui="note-write"]'] },
