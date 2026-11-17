@@ -144,7 +144,7 @@ var SCREEN_DEFS = [
   // メモ(#389)。ログイン状態を保持した端末(report-session-valid)で、先頭の試合(ストームレイダー・ヴァルキュリア戦)の詳細から書く
   { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
     required: [['[data-ui="panel"] h2', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
-    absent: [['[data-ui="panel"] h2', '敵機のメモ']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="note-item"]', '[data-ui="note-write"]'] },
+    absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="note-item"]', '[data-ui="note-write"]'] },
   // メモの印と絞り込み(#389)。先頭の試合の相手(ストームレイダー等)とガルーダ零にメモがある
   { id: 'mobile-search-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_SEARCH.concat([{ wait: ['[data-ui="search-result"] [data-ui="note-mark"]'] }]),
     required: [['[data-ui="search-result"] [data-ui="note-mark"]']] },
@@ -171,9 +171,10 @@ var SCREEN_DEFS = [
   // ホームのピン留めしたメモ(#689)。pins3=ピン3件・pins0=ピン0件
   { id: 'mobile-home-notes', home: true, viewport: M, full: false, start: 'report-session-pins3', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }],
     required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3], ['[data-ui="note-item"]', '6/15 ヴァルキュリア・ガルーダ零'], ['[data-ui="home-note-write"][aria-label="書く"] svg'], ['[data-ui="today-card"]']],
-    absent: [['[data-ui="home-notes-all"]']], inview: [['[data-ui="home-notes"]']], tap: ['[data-ui="home-notes"] [data-ui="note-item"]', '[data-ui="home-note-write"]'] },
+    absent: [['[data-ui="home-notes-all"]'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="home-notes"]']], tap: ['[data-ui="home-notes"] [data-ui="note-item"]', '[data-ui="home-note-write"]'] },
   { id: 'home-notes', home: true, viewport: D, full: false, start: 'report-session-pins3', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }],
-    required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3]] },
+    required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3]],
+    absent: [['[data-ui="note-pinned"]']] },
   { id: 'mobile-home-notes-empty', home: true, viewport: M, full: false, start: 'report-session-pins0', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-note-write"]'] }],
     required: [['[data-ui="home-notes"]', 'ピン留めすると'], ['[data-ui="home-note-write"][aria-label="書く"] svg'], ['[data-ui="today-card"]']],
     absent: [['[data-ui="home-notes"] h2'], ['[data-ui="home-notes-all"]'], ['[data-ui="home-notes"] [data-ui="note-item"]']], oneRow: ['[data-ui="home-notes"]'], tap: ['[data-ui="home-note-write"]'] },
@@ -289,11 +290,11 @@ var SCREEN_DEFS = [
     required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more"] [data-ui="row-list"]', null, 3], [THEME_BTN + '[aria-pressed="true"]', '端末に合わせる'], [THEME_BTN, null, 3], ['[data-ui="more-classrecord"] button', '総合戦歴'], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="auto-refresh"] button', '有効にする'], ['[data-ui="auto-refresh"] input#autoRefreshPassphrase'], ['[data-ui="more"] a', 'ガンダムモバイルを開く'], ['[data-ui="more"] button', 'ログアウト'], ['footer', '非公式のファンツール']], absent: [['[data-ui="more-notes"]']], tap: TAP_FORM },
   // メモ一覧(#389)。fixture のメモ6件(敵機4件=3機体・日付1件・敵機と日付なし1件(僚機あり))
   { id: 'mobile-notes', viewport: M, full: false, start: 'report-session-valid', ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }],
-    required: [[CURRENT, 'メモ'], ['[data-ui="notes-view"] h2', 'メモ'], ['[data-ui="note-write"][aria-label="書く"] svg'], ['[data-ui="note-tabs"] button', null, 6], ['[data-ui="note-tabs"] button[aria-pressed="true"]', 'すべて'], ['[data-ui="note-list"] [data-ui="note-item"]', null, 6], ['[data-ui="note-tabs"] button', '日付 2'], ['[data-ui="note-tabs"] button', '自機 1'], ['[data-ui="note-tabs"] button', '僚機 1'], ['[data-ui="note-tabs"] button[aria-label="ピン 1"]', '📍 1'], ['[data-ui="note-item"]', '6/15 ヴァルキュリア・ガルーダ零'], ['[data-ui="note-item"]', '僚機: ガルーダ零']],
+    required: [[CURRENT, 'メモ'], ['[data-ui="notes-view"] h2', 'メモ'], ['[data-ui="note-write"][aria-label="書く"] svg'], ['[data-ui="note-tabs"] button', null, 5], ['[data-ui="note-tabs"] button[aria-pressed="true"]', 'すべて'], ['[data-ui="note-list"] [data-ui="note-item"]', null, 6], ['[data-ui="note-tabs"] button', '日付 2'], ['[data-ui="note-tabs"] button', '自機 1'], ['[data-ui="note-tabs"] button', '僚機 1'], ['[data-ui="note-list"] [data-ui="note-item"]:first-of-type [data-ui="note-pinned"][aria-label="ピン留め"] svg'], ['[data-ui="note-item"]', '6/15 ヴァルキュリア・ガルーダ零'], ['[data-ui="note-item"]', '僚機: ガルーダ零']],
     absent: [['[data-ui="note-list-back"]'], REANALYZE_BTN.slice(0, 1)], tap: ['[data-ui="note-tabs"] button', '[data-ui="note-item"]', '[data-ui="note-write"]'] },
   { id: 'mobile-notes-enemy', viewport: M, full: false, start: 'report-session-valid',
     ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-tabs"] button', '敵機'] }],
-    required: [['[data-ui="note-tabs"] button[aria-pressed="true"]', '敵機'], ['[data-ui="note-group"]', null, 3], ['[data-ui="note-group"]', '2件'], ['[data-ui="note-group"]', 'ガルーダ零'], ['[data-ui="note-list"] [data-ui="note-item"]', '格闘の間合いに入らない', 2]],
+    required: [['[data-ui="note-tabs"] button[aria-pressed="true"]', '敵機'], ['[data-ui="note-group"]', null, 3], ['[data-ui="note-group"]', '2件'], ['[data-ui="note-group"]', 'ガルーダ零'], ['[data-ui="note-list"] [data-ui="note-item"]', '格闘の間合いに入らない', 2], ['[data-ui="note-group"] ~ [data-ui="note-item"] [data-ui="note-pinned"]']],
     tap: ['[data-ui="note-tabs"] button', '[data-ui="note-item"]'] },
   { id: 'mobile-notes-partner', viewport: M, full: false, start: 'report-session-valid',
     ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-tabs"] button', '僚機'] }],

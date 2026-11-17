@@ -102,7 +102,7 @@ export function groupByMs(notes, field) {
 // 機体でまとめる一覧タブと、まとめる項目
 export var MS_TABS = { enemy: 'enemies', mine: 'my_ms', partner: 'partner_ms' };
 
-// tab: 'all' | 'enemy' | 'mine' | 'partner' | 'date' | 'pin'
+// tab: 'all' | 'enemy' | 'mine' | 'partner' | 'date' | 'pin'。all はピン留めを先頭に置く
 export function notesByTab(notes, tab) {
   var list = (notes || []).slice();
   if (tab === 'enemy') return list.filter(function (n) { return n.enemies.length > 0; }).sort(byUpdated);
@@ -114,12 +114,13 @@ export function notesByTab(notes, tab) {
       return a.date !== b.date ? (a.date < b.date ? 1 : -1) : byUpdated(a, b);
     });
   }
-  return list.sort(byUpdated);
+  return list.sort(function (a, b) { return (b.pinned - a.pinned) || byUpdated(a, b); });
 }
 
+// メモタブの各タブの件数。ピンはタブにせず all の先頭に並べる
 export function tabCounts(notes) {
   var out = {};
-  ['all', 'enemy', 'mine', 'partner', 'date', 'pin'].forEach(function (t) { out[t] = notesByTab(notes, t).length; });
+  ['all', 'enemy', 'mine', 'partner', 'date'].forEach(function (t) { out[t] = notesByTab(notes, t).length; });
   return out;
 }
 

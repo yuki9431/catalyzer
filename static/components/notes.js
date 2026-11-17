@@ -101,10 +101,17 @@ function WriteButton({ ui, onClick }) {
   return html`<button type="button" class="search-link note-write-icon" data-ui=${ui} aria-label="書く" onClick=${onClick}><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z M13 7l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" /></svg></button>`;
 }
 
-// 1件の行。タップで編集シートを開く
-export function NoteItem({ note, showTarget, onOpen }) {
+// ピン留めの印。NoteMark と同じ線画
+function PinMark() {
+  return html`<span class="note-mark" data-ui="note-pinned" role="img" aria-label="ピン留め"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 3h6 M10 3v6l-3 5h10l-3-5V3 M12 14v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" /></svg></span>`;
+}
+
+// 1件の行。タップで編集シートを開く。showPin でピン留めの印を出す
+export function NoteItem({ note, showTarget, showPin, onOpen }) {
+  var pin = showPin && note.pinned;
   return html`<button type="button" class="note-item" data-ui="note-item" onClick=${function () { onOpen(note); }}>
-    ${(showTarget || note.my_ms || note.partner_ms) && html`<span class="note-item-meta">
+    ${(pin || showTarget || note.my_ms || note.partner_ms) && html`<span class="note-item-meta">
+      ${pin && html`<${PinMark} />`}
       ${showTarget && html`<b>${noteTargetLabel(note)}</b>`}
       ${note.my_ms && html`<span>自機: ${note.my_ms}</span>`}
       ${note.partner_ms && html`<span>僚機: ${note.partner_ms}</span>`}
@@ -260,7 +267,7 @@ export function NoteSheet({ notes, choices }) {
   return html`<${NoteSheetBody} notes=${notes} choices=${choices || { enemies: [], mine: [], partners: [] }} />`;
 }
 
-var LIST_TABS = [['all', 'すべて'], ['enemy', '敵機'], ['mine', '自機'], ['partner', '僚機'], ['date', '日付'], ['pin', '📍', 'ピン']];
+var LIST_TABS = [['all', 'すべて'], ['enemy', '敵機'], ['mine', '自機'], ['partner', '僚機'], ['date', '日付']];
 
 // メモ一覧の本体。タップで編集シートを開く
 function NoteList({ notes }) {
@@ -271,7 +278,7 @@ function NoteList({ notes }) {
   var field = MS_TABS[tab];
   var groups = useMemo(function () { return field ? groupByMs(notes.list, field) : []; }, [notes.list, field]);
   function open(n) { notes.open(draftFromNote(n)); }
-  var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]], aria: t[2] && t[2] + ' ' + counts[t[0]] }; });
+  var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]] }; });
   return html`<div class="note-list" data-ui="note-list">
     <div class="note-tabs-scroll"><${ToggleGroup} ui="note-tabs" label="表示するメモ" options=${options} value=${tab} onChange=${setTab} /></div>
     ${!items.length && html`<p class="note-empty">メモはまだありません</p>`}
@@ -279,10 +286,10 @@ function NoteList({ notes }) {
       ? groups.map(function (g) {
         return html`<section class="note-group" key=${g.ms}>
           <h3 class="note-group-head" data-ui="note-group">${g.ms}<span>${g.count}件</span></h3>
-          ${g.notes.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${open} />`; })}
+          ${g.notes.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showPin onOpen=${open} />`; })}
         </section>`;
       })
-      : items.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget onOpen=${open} />`; })}
+      : items.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget showPin onOpen=${open} />`; })}
   </div>`;
 }
 
