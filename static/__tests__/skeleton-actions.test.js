@@ -99,9 +99,9 @@ describe('Skeleton', () => {
     assert.deepStrictEqual(r.bad.concat(s.bad), []);
   });
 
-  it('全ての <${PinnedNotes} 呼び出しに notes と onAll が付く', () => {
+  it('全ての <${PinnedNotes} 呼び出しに notes と myMs が付く', () => {
     var r = missingAttr('PinnedNotes', 'notes');
-    var s = missingAttr('PinnedNotes', 'onAll');
+    var s = missingAttr('PinnedNotes', 'myMs');
     assert.ok(r.found >= 1);
     assert.deepStrictEqual(r.bad.concat(s.bad), []);
   });

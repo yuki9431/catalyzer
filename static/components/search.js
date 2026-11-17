@@ -128,7 +128,7 @@ function FilterFields({ filters, options, onField, noteOn }) {
           onChange=${function (vs) { onField('enemyMsList', vs); }} />
       </div>
       ${noteOn && html`<div class="search-field search-field-wide search-note-field">
-        <${Chip} ui="search-note-filter" active=${filters.noteEnemies === true} onClick=${function () { onField('noteEnemies', filters.noteEnemies !== true); }}>メモがある敵機との試合</${Chip}>
+        <${Chip} ui="search-note-filter" active=${filters.noteEnemies === true} onClick=${function () { onField('noteEnemies', filters.noteEnemies !== true); }}>メモがある試合</${Chip}>
       </div>`}
 
       <div class="search-field search-field-wide">
@@ -505,7 +505,7 @@ function MatchDetail({ match, msImages, conds, streak, notes, onClose }) {
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
 
-    ${notes && notes.status === 'on' && html`<${Panel} title="敵機のメモ"><${MatchNotes} notes=${notes} match=${match} /></${Panel}>`}
+    ${notes && notes.status === 'on' && html`<${Panel} title="メモ"><${MatchNotes} notes=${notes} match=${match} /></${Panel}>`}
 
     <${Panel} title="4人の比較">
       <div class="search-radar-toggles">

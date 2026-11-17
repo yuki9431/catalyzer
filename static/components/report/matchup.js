@@ -123,7 +123,7 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
   <//>`;
 }
 
-export function MatchupPane({ frontendData, lens, notes, selectedMs }) {
+export function MatchupPane({ frontendData, lens, notes, selectedMs, lastMs }) {
   var openRef = useState(null);
   var openKey = openRef[0], setOpenKey = openRef[1];
   var enemyMatchup = frontendData.enemy_matchup;
@@ -142,7 +142,7 @@ export function MatchupPane({ frontendData, lens, notes, selectedMs }) {
       if (!noteOn) return r;
       r.key = e.ms + '-' + i;
       r.mark = notesForEnemy(notes.list, e.ms, selectedMs).length > 0;
-      r.expand = openKey === r.key && html`<${EnemyNotes} notes=${notes} enemy=${e.ms} myMs=${selectedMs} />`;
+      r.expand = openKey === r.key && html`<${EnemyNotes} notes=${notes} enemy=${e.ms} myMs=${selectedMs} writeMs=${selectedMs || lastMs} />`;
       return r;
     });
   }
