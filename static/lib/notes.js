@@ -237,3 +237,19 @@ export function msChoices(msImages, matches) {
   }
   return { enemies: build(enemyCount), mine: build(myCount), partners: build(partnerCount) };
 }
+
+// 横スワイプの動き始めの向き。8px 動くまでは '' (未定)
+export function swipeAxis(dx, dy) {
+  if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return '';
+  return Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+}
+
+// 行の横位置。開いた状態(-width)から始めたかを open で受け、0〜-width に収める
+export function swipeOffset(dx, open, width) {
+  return Math.max(-width, Math.min(0, (open ? -width : 0) + dx));
+}
+
+// 指を離したら、半分より引いていれば開いたままにする
+export function swipeOpens(offset, width) {
+  return offset < -width / 2;
+}

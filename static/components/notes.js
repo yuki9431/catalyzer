@@ -3,6 +3,7 @@ import { currentPlayDay, playDay } from '../analysis/today.js';
 import {
   sanitizeNotes, notesForMatch, matchEnemies, pinnedNotes, canPinMore, notesForEnemy, groupByMs, MS_TABS, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, canAddEnemy, enemyOptions, withValue, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
+  swipeAxis, swipeOffset, swipeOpens,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
 import { ToggleGroup, Notice } from './parts.js';
@@ -59,13 +60,14 @@ export function useNotes(userKey, api, data) {
 
   function apply(fn) { setState(function (prev) { return Object.assign({}, prev, { list: fn(prev.list) }); }); }
 
-  function save(d) {
+  // fromRow は一覧の行の操作。後から開いた編集シートを閉じない
+  function save(d, fromRow) {
     var req = draftToRequest(d);
     var call = d.id ? api.update(d.id, req) : api.create(req);
     return call.then(function (res) {
       var note = res.body && res.body.note ? sanitizeNotes([res.body.note])[0] : null;
       if ((res.status === 200 || res.status === 201) && note) {
-        if (alive.current) { apply(function (list) { return upsertNote(list, note); }); setDraft(null); }
+        if (alive.current) { apply(function (list) { return upsertNote(list, note); }); if (!fromRow) setDraft(null); }
         return '';
       }
       return failText(res, 'メモを保存できませんでした');
@@ -73,10 +75,10 @@ export function useNotes(userKey, api, data) {
   }
 
   // 404 はもう消えているので成功として扱う
-  function remove(id) {
+  function remove(id, fromRow) {
     return api.remove(id).then(function (res) {
       if (res.status === 200 || res.status === 404) {
-        if (alive.current) { apply(function (list) { return removeNoteById(list, id); }); setDraft(null); }
+        if (alive.current) { apply(function (list) { return removeNoteById(list, id); }); if (!fromRow) setDraft(null); }
         return '';
       }
       return failText(res, 'メモを削除できませんでした');
@@ -118,6 +120,99 @@ export function NoteItem({ note, showTarget, showPin, onOpen }) {
     </span>`}
     <span class="note-item-text">${note.text}</span>
   </button>`;
+}
+
+var SWIPE_WIDTH = 168;
+
+// 左スワイプでピン留めと削除を出す行。削除は2回タップで確定。rowKey が openId と同じ行だけ開く
+export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, setOpenId, onError }) {
+  var open = openId === rowKey;
+  var dragRef = useState(null);
+  var drag = dragRef[0], setDrag = dragRef[1];
+  var confirmRef = useState(false);
+  var confirming = confirmRef[0], setConfirming = confirmRef[1];
+  var busyRef = useState(false);
+  var busy = busyRef[0], setBusy = busyRef[1];
+  var start = useRef(null);
+  var dragX = useRef(null);
+  var moved = useRef(false);
+  useEffect(function () { if (!open) setConfirming(false); }, [open]);
+
+  function drop() { start.current = null; dragX.current = null; setDrag(null); }
+  function down(e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, axis: '' };
+    moved.current = false;
+  }
+  function move(e) {
+    var st = start.current;
+    if (!st || st.id !== e.pointerId) return;
+    if (e.pointerType === 'mouse' && !e.buttons) { drop(); return; }
+    if (!st.axis) {
+      st.axis = swipeAxis(e.clientX - st.x, e.clientY - st.y);
+      if (st.axis === 'x' && e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    if (st.axis !== 'x') return;
+    moved.current = true;
+    dragX.current = swipeOffset(e.clientX - st.x, open, SWIPE_WIDTH);
+    setDrag(dragX.current);
+  }
+  function up() {
+    var last = dragX.current;
+    drop();
+    if (last === null) return;
+    var opens = swipeOpens(last, SWIPE_WIDTH);
+    setOpenId(function (cur) { return opens ? rowKey : (cur === rowKey ? null : cur); });
+    // タッチではドラッグ後に click が来ないことがあるので、次の操作を止めないよう戻す
+    setTimeout(function () { moved.current = false; }, 0);
+  }
+  function tap(x) {
+    if (moved.current) { moved.current = false; return; }
+    if (openId !== null) { setOpenId(null); return; }
+    notes.open(draftFromNote(x));
+  }
+  function run(call) {
+    setBusy(true);
+    onError('');
+    call().then(function (msg) {
+      setBusy(false);
+      if (msg) onError(msg);
+      else setOpenId(function (cur) { return cur === rowKey ? null : cur; });
+    });
+  }
+  function togglePin() {
+    if (!note.pinned && !canPinMore(notes.list, notes.limits)) {
+      var max = (notes.limits || {}).pinned_max;
+      onError(max ? 'ピン留めは' + max + '件までです' : 'これ以上ピン留めできません');
+      return;
+    }
+    run(function () { return notes.save(Object.assign(draftFromNote(note), { pinned: !note.pinned }), true); });
+  }
+  function remove() {
+    if (!confirming) { setConfirming(true); return; }
+    run(function () { return notes.remove(note.id, true); });
+  }
+  var x = drag !== null ? drag : (open ? -SWIPE_WIDTH : 0);
+  return html`<div class="note-swipe" data-ui="note-swipe">
+    ${x !== 0 && html`<div class="note-swipe-actions">
+      <button type="button" class="note-swipe-pin" data-ui="note-swipe-pin" disabled=${busy} tabindex=${open ? 0 : -1} onClick=${togglePin}>${note.pinned ? 'ピンを外す' : 'ピン留め'}</button>
+      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} onClick=${remove}>${confirming ? '削除する' : '削除'}</button>
+    </div>`}
+    <div class=${'note-swipe-front' + (drag !== null ? ' note-swipe-drag' : '')} style=${'transform:translateX(' + x + 'px)'}
+      onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${drop}>
+      <${NoteItem} note=${note} showTarget=${showTarget} showPin=${showPin} onOpen=${tap} />
+    </div>
+  </div>`;
+}
+
+// スワイプで開いている行とエラー。行の開閉でエラーを消す
+function useSwipeRows() {
+  var openRef = useState(null);
+  var errRef = useState('');
+  return {
+    openId: openRef[0], error: errRef[0], setError: errRef[1],
+    setOpenId: function (v) { openRef[1](v); errRef[1](''); },
+  };
 }
 
 // 試合詳細から書くときの既定: その試合のプレイ日・相手の2機・自機
@@ -277,19 +372,25 @@ function NoteList({ notes }) {
   var items = useMemo(function () { return notesByTab(notes.list, tab); }, [notes.list, tab]);
   var field = MS_TABS[tab];
   var groups = useMemo(function () { return field ? groupByMs(notes.list, field) : []; }, [notes.list, field]);
-  function open(n) { notes.open(draftFromNote(n)); }
+  var sw = useSwipeRows();
+  function row(n, group) {
+    var key = group + '\n' + n.id;
+    return html`<${SwipeNote} key=${key} rowKey=${key} notes=${notes} note=${n} showTarget=${!group} showPin openId=${sw.openId} setOpenId=${sw.setOpenId} onError=${sw.setError} />`;
+  }
+  function pickTab(t) { setTab(t); sw.setOpenId(null); }
   var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]] }; });
   return html`<div class="note-list" data-ui="note-list">
-    <div class="note-tabs-scroll"><${ToggleGroup} ui="note-tabs" label="表示するメモ" options=${options} value=${tab} onChange=${setTab} /></div>
+    <div class="note-tabs-scroll"><${ToggleGroup} ui="note-tabs" label="表示するメモ" options=${options} value=${tab} onChange=${pickTab} /></div>
+    ${sw.error && html`<${Notice} tone="error">${sw.error}</${Notice}>`}
     ${!items.length && html`<p class="note-empty">メモはまだありません</p>`}
     ${field
       ? groups.map(function (g) {
         return html`<section class="note-group" key=${g.ms}>
           <h3 class="note-group-head" data-ui="note-group">${g.ms}<span>${g.count}件</span></h3>
-          ${g.notes.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showPin onOpen=${open} />`; })}
+          ${g.notes.map(function (n) { return row(n, g.ms); })}
         </section>`;
       })
-      : items.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget showPin onOpen=${open} />`; })}
+      : items.map(function (n) { return row(n, ''); })}
   </div>`;
 }
 
@@ -308,6 +409,13 @@ export function NotesView({ notes, myMs }) {
   </div>`;
 }
 
+// ホームのピン留めの行。スワイプの開閉とエラーを持つ
+function PinnedRows({ notes, list }) {
+  var sw = useSwipeRows();
+  return html`${sw.error && html`<${Notice} tone="error">${sw.error}</${Notice}>`}
+    ${list.map(function (n) { return html`<${SwipeNote} key=${n.id} rowKey=${n.id} notes=${notes} note=${n} showTarget openId=${sw.openId} setOpenId=${sw.setOpenId} onError=${sw.setError} />`; })}`;
+}
+
 // ホーム最上部のピン留めしたメモ。メモが使えないときは何も描かない
 export function PinnedNotes({ notes, myMs }) {
   if (!notes || notes.status !== 'on') return null;
@@ -319,6 +427,6 @@ export function PinnedNotes({ notes, myMs }) {
   }
   return html`<section class="note-pins" data-ui="home-notes">
     <div class="note-pins-head"><h2>ピン留めしたメモ</h2>${write}</div>
-    ${list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })}
+    <${PinnedRows} notes=${notes} list=${list} />
   </section>`;
 }
