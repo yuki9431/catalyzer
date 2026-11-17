@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# プロジェクト規約は CodeRabbit が既定で読む CLAUDE.md に従う。ここには重点と除外だけを書く
+language: ja-JP
+reviews:
+  profile: chill
+  poem: false
+  suggested_labels: false
+  suggested_reviewers: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # 既定ブランチ develop に加えて main 向け(緊急修正)も見る
+    base_branches:
+      - main
+    # develop→main のリリース PR(レビュー済みの束)と MS リストの自動更新は除く
+    ignore_title_keywords:
+      - "release:"
+      - "MSリストを自動更新"
+    ignore_usernames:
+      - catalyzer-renovate-yuki9431[bot]
+      - renovate[bot]
+  path_filters:
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+    - "!**/*.ico"
+    - "!**/*.svg"
+    - "!tools/ui-check/baseline/**"
+    - "!data/*.json"
+    - "!data/*.csv"
+    - "!static/htm-preact-standalone.js"
+    - "!static/chart.umd.min.js"
+    - "!infra/app/*.tfvars"
+    - "!go.sum"
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        指摘するもの:
+        - バグ・ロジックの誤り・境界条件の漏れ・競合状態
+        - セキュリティ上の問題(インフラ識別子のハードコード、過剰な IAM 権限、CSP 違反のインラインスクリプト、秘密情報の混入など)
+        - CLAUDE.md の規約違反(パッケージの責務・依存の向き・エラーのラップ・cmd/ にロジックを置かない・未使用のエクスポートなど)
+        - コード構成を変えたのに CLAUDE.md の「コード構成」と README.md のプロジェクト構成を更新していない
+        - 変更に対してテストが足りない
+        - 文字サイズ14px未満・タップ領域44px未満など UI の規約違反
+        指摘しないもの: 好みの問題・命名の細かな言い回し・gofmt や lint が拾う書式。確信の低い指摘は出さない。
+  tools:
+    golangci-lint:
+      enabled: true
+      config_file: .golangci.yml
