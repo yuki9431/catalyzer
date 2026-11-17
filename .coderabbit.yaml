@@ -16,6 +16,9 @@ reviews:
     ignore_title_keywords:
       - "release:"
       - "MSリストを自動更新"
+    # 本当に軽微な修正は no-review ラベルで外す
+    labels:
+      - "!no-review"
     ignore_usernames:
       - catalyzer-renovate-yuki9431[bot]
       - renovate[bot]

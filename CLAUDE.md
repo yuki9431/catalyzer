@@ -155,7 +155,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の `infra/app/<env>.tfvars` の `image_tag` を書き換え → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
 - Deploy: `deploy.yml`（`infra/app/**` の変更の push（develop→stg、main→prod）or build.yml からの `workflow_dispatch` → `tofu apply -var-file=<env>.tfvars`。refresh 付きで実物を読み直してから適用する（手元の plan・apply も同じ）。prod の手動実行は main からのみ）
 - UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
-- AIレビュー: CodeRabbit（GitHub App。設定は `.coderabbit.yaml`。develop・main 向けPRを CLAUDE.md の規約に照らしてレビューする。ボット（Renovate）・draft・リリース PR（タイトル `release:`）・MSリスト自動更新は対象外。画像・基準画像・`data/` の生成データ・同梱ライブラリ・`go.sum`・`infra/app/*.tfvars` は読まない）
+- AIレビュー: CodeRabbit（GitHub App。設定は `.coderabbit.yaml`。develop・main 向けPRを CLAUDE.md の規約に照らしてレビューする。ボット（Renovate）・draft・リリース PR（タイトル `release:`）・MSリスト自動更新・`no-review` ラベルの PR は対象外。画像・基準画像・`data/` の生成データ・同梱ライブラリ・`go.sum`・`infra/app/*.tfvars` は読まない）
 - Infra CI: `infra-ci.yml`（infra/配下・`.github/scripts/`・自身の変更時に `tofu fmt -check` と shared + app(prod/stg)の `tofu plan`（PR 用の身元は全リソースを読めないので `-refresh=false`、state に書けないので `-lock=false`）。PR コメントは `.github/scripts/tofu-plan-summary.sh` が出す変更件数とリソースのアドレスだけ（公開 repo に識別子を出さない）。infra-ci・build・deploy のジョブログは `.github/scripts/mask-gcp-ids.sh` でプロジェクト ID・番号をマスク。両スクリプトのテストは `.github/scripts/scripts.test.js`）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。公式サイトは日本以外の IP を拒否するため、取得は東京の Cloud Build（実行 SA `mslist-build`、ログイン情報は Secret Manager）で行い、結果をバケット経由で受け取る。変更時に main 向けPRを自動作成・マージし prod に反映）
 - 依存更新: Renovate（`renovate.json5`）。`renovate.yml` が毎時、自前の GitHub App のトークンで実行する（秘密鍵は environment `renovate`。develop のみ。設定手順は infra/README.md）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch とイメージの digest は CI 緑で Renovate 自身が develop に自動マージし、major と OpenTofu の provider・Renovate 本体のイメージは手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
@@ -167,6 +167,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - 作業ブランチのPRは `develop` 向けに作る。本番リリースは `develop` → `main` のPR
 - PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）。止めるのは build（イメージ更新）だけで、`infra/app/**` の変更はラベルに関係なくマージで apply される。新しいイメージが前提の設定変更(Job の command・ポート等)は、イメージの PR と分けて後から入れる(同じマージだと push の deploy が先に古いイメージで当たる)
 - Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける（Renovate の PR には付けない。skipped のチェックも緑とみなして自動マージされる）
+- 本当に軽微な修正（typo・文言・コメントのみ等）には `no-review` ラベルを付けて CodeRabbit のレビューを省く。迷ったら付けない
 - **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `no-deploy` なしでPRをマージ、または `gh workflow run build.yml --ref <branch>` で手動実行（main は prod、それ以外は stg）
 - **コード構成やディレクトリ構造に変更があった場合は、CLAUDE.mdの「コード構成」セクションとREADME.mdのプロジェクト構成も合わせて更新すること**
