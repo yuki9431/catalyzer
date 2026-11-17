@@ -1,8 +1,8 @@
-# 設計書: 敵機ごとの対策メモ(段階1) — issue #389
+# 設計書: 敵機ごとの対策メモ(段階1・2) — issue #389
 
-- ステータス: 段階1 単位1〜5 実装完了(単位5 = #684。メモのデータモデル変更。基準画像の取り込みは CI の ui-baseline 後)
+- ステータス: 段階1 単位1〜5 実装完了。段階2(#689、§13)実装完了(レビュー2周で収束)。基準画像の取り込みは CI の ui-baseline 後
 - 日付: 2026-11-16
-- 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671、単位5 = #684)
+- 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671、単位5 = #684、段階2 = #689)
 - 対象: catalyzer(既定ブランチ develop。調査は origin/develop d23aaec)
 
 ## 0. 用語(表示文言)
@@ -605,3 +605,104 @@ PR タイトルに `(#番号)` を入れない(ナレッジ build-no-deploy-pr-n
 起票候補(issue-create):
 - develop に 31,836,226 バイトの実行ファイル `server` がコミットされている(f5f6a47。`.gitignore` に `/server` が無い)。今回の範囲外
 - Layer の中の Dropdown(FilterSheet など)で Esc を押すと、ドロップダウンと層が両方閉じる(どちらも document の keydown で閉じるため。コードを読んで確認しただけで、実機では未確認)
+
+## 13. 段階2(#689): ホームのピン留めしたメモ・試合詳細から相手2機
+
+基点: feat-notes-home(origin/develop e2d9ee1)。Go・API・保存形式は変えない。
+
+### 13.1 方針
+- **「すべて ›」**: メモ一覧の開閉 state を Report の useState に持ち上げ、MoreView に `listOpen`/`onListOpen` を渡す(採用 D)。`openNoteList()` = `setNoteListOpen(true); nav.onNavigate('more')`。一覧の下にその他画面が描かれるので戻る「その他」は正しい。保存キーを足さない(user-state.test 無影響)。不採用: A ホーム上で開く(戻る文言が嘘)、B localStorage(clearUserState に波及)、C ref の一度きり要求(消し忘れで毎回開く)。Layer のロックは useEffect で Report の useLayoutEffect([view]) の overflow 解除より後に走る。Layer をレイアウトエフェクトに変えない
+- **カード**: `PinnedNotes` を components/notes.js に作り、report.js のホーム分岐で EmptyMode/HomeView より前に描く。メモは形式で絞らないので EmptyMode でも出す。home.js は変えない。セッション無しの既存ホーム画面は null を返すので DOM 不変
+- **CSS**: 既存 static/styles/notes.css に足す(新規ファイル・link なし)。クラス `.note-pins`/`.note-pins-empty`(surface.test の `.panel|.kpi|.card` に当たらない名前)。ボタンは既存 `.search-link`、hover の背景だけ明示(base.css の button:hover に負けるため)
+- **純粋ロジック**: lib/notes.js(import なし)に `matchEnemies`・`pinnedNotes`・`canPinMore`。`notesForMatch` の重複除去も `matchEnemies` に置換(定義を1か所に)。日付が要る `homeDraft` は components/notes.js
+- **ui-check のピン件数再現**: seed `?pins=N` → Cookie `preview_pins=N` → モック GET /notes が `fixture.notes(N)`(先頭 N 件ピン。既定1件=現状)。不採用: fixture 既定を3件(mobile-more-notes が変わる)、UI 操作で0件(流れに依存)
+
+### 13.2 画面仕様
+`PinnedNotes({notes,onAll})`(hook を使わない):
+- `notes.status !== 'on'` は null
+- ピン1件以上: `section.note-pins[data-ui="home-notes"]`。見出し行 `div.note-pins-head`: `h2`「ピン留めしたメモ」/ `button.search-link[data-ui="home-note-write"]`「書く」/ `button.search-link[data-ui="home-notes-all"]`「すべて ›」(U+203A。action-plan.js の「n戦 ›」に合わせる)。続けて `pinnedNotes(list, limits.pinned_max)` を `NoteItem showTarget` で並べ、タップで `draftFromNote` の編集シート
+- ピン0件: `section.note-pins-empty[data-ui="home-notes"]` に `p`「メモをピン留めすると、ここに出ます」と「書く」のみ(h2・すべて無し。1段の細い枠)
+- 書く: `notes.open(homeDraft(notes.list, notes.limits, new Date()))`。すべて: `onAll`
+- 書くシートの文言: `ホームにピン留めする（最大${limits.pinned_max || ''}件）`。満杯時の disabled・「ピン留めは3件までです」は現状維持
+
+入口ごとの既定値:
+| 入口 | 日付 | 敵機 | ピン |
+|---|---|---|---|
+| 試合詳細 matchDraft | その試合のプレイ日 | 相手2機(matchEnemies。同機体は1機、空は除く) | なし |
+| 相性タブ todayDraft(enemy) | 今日のプレイ日 | その行の敵機 | なし |
+| メモ一覧の書く todayDraft('') | 今日のプレイ日 | 0欄 | なし |
+| ホームの書く homeDraft | 今日のプレイ日 | 0欄 | canPinMore が真ならチェック |
+
+### 13.3 インターフェース
+```js
+// static/lib/notes.js
+matchEnemies(match)           // [opponent1_ms, opponent2_ms] の順で空・重複を除く
+pinnedNotes(notes, max)       // pinned を新しい順(notesByTab 'pin')。max が正の数なら先頭 max 件
+canPinMore(notes, limits)     // limits.pinned_max があり pinnedCount(notes) < pinned_max なら真。limits 無しは偽
+defaultDraft(ctx)             // ctx {enemies?,date?,pinned?}。enemies は複製。enemy は廃止。pinned: !!pinned
+// static/components/notes.js
+matchDraft(match)             // defaultDraft({enemies: matchEnemies(match), date: playDay(match.date)})
+todayDraft(enemy, now)        // defaultDraft({enemies: enemy ? [enemy] : [], date: currentPlayDay(now)})
+homeDraft(notes, limits, now) // defaultDraft({date: currentPlayDay(now), pinned: canPinMore(notes, limits)})
+PinnedNotes({notes,onAll})
+// static/components/shell.js
+MoreView({shareData,onLogout,onRebuildCache,onReanalyze,autoRefresh,notes,listOpen,onListOpen})
+```
+- shell.js: 内部の `listRef`/`setListOpen` を削除。メモ行 onSelect は `if (notes.status==='on') onListOpen(true); else notes.reload();`、NoteList の onClose は `function(){ onListOpen(false); }`
+- report.js: `import { NoteSheet, PinnedNotes, useNotes } from '../notes.js'`。`useNotes` の直後(分岐より前)に `var noteListRef = useState(false)` と `function openNoteList()`。ホーム分岐の AppShell の子は PinnedNotes → 既存の EmptyMode/HomeView 三項 → NoteSheet。more 分岐の MoreView に `listOpen=${noteListOpen} onListOpen=${setNoteListOpen}`。既存の静的テスト保護: more 分岐より前に文字列 `view === 'more'` を書かない・MoreView 呼び出しに `=>` を使わない
+- CSS(14px 以上、色は tokens.css のみ):
+```css
+.note-pins { display: flex; flex-direction: column; gap: 8px; margin: 0 0 36px; }
+.note-pins-head { display: flex; align-items: center; gap: 8px; }
+.note-pins-head h2 { flex: 1; margin: 0; color: var(--text); font-size: 1.125rem; }
+.note-pins-empty { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 36px; padding: 0 4px 0 12px; border: 1px solid var(--line); border-radius: 8px; }
+.note-pins-empty p { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover { background: var(--accent-a10); }
+```
+(トークン名が実在しなければ既存の近いものに合わせる)
+
+### 13.4 ui-check
+- fixture.js `notes(pins)`(引数無し=1、`pinned: i < pins`)、seed.js `get('pins') !== null` なら `document.cookie='preview_pins='+値+'; path=/'` を location.replace 前に、server.js GET /notes は Cookie `/(?:^|;\s*)preview_pins=(\d+)(?:;|$)/` で `fx.notes(n)`、check.js START_URL に `'report-session-pins0': '/__preview/?session=valid&pins=0'`・`'report-session-pins3': '/__preview/?session=valid&pins=3'`
+- 新規画面(全て `home: true`・`clock: HOME_CLOCK`・`full: false`):
+  - `mobile-home-notes`(M, pins3, wait home-notes の note-item): required `[data-ui="home-notes"] h2`「ピン留めしたメモ」/ note-item 3件 / 「6/15 ヴァルキュリア・ガルーダ零」/ home-note-write「書く」/ home-notes-all「すべて」/ today-card。inview home-notes。tap note-item・write・all
+  - `home-notes`(D, pins3): h2、note-item 3件
+  - `mobile-home-notes-empty`(M, pins0, wait home-note-write): required home-notes「ピン留めすると」/ write / today-card。absent `home-notes h2`・home-notes-all・home-notes の note-item。oneRow home-notes。tap write
+  - `mobile-home-note-sheet`(M, report-session-valid, click home-note-write → wait note-sheet): required textarea / `note-pin input:checked` / note-pin「ホームにピン留めする（最大3件）」/ note-date-clear / note-enemy-add / note-my select-trigger「指定しない」/ `[data-ui="home-notes"][inert], [inert] [data-ui="home-notes"]`。absent note-enemy・note-delete。tap save・enemy-add・date-clear
+  - `mobile-home-notes-all`(M, report-session-valid, click home-notes-all → wait note-list): required CURRENT「その他」/ note-list / note-list-back「その他」/ more-notes「6件」。tap note-list-back。閉じた後の absent は即評価されるので使わない
+- 既存の変更: `NOTE_SHEET_REQUIRED` に `['[data-ui="note-enemy"]', null, 2]`・`['[data-ui="note-enemy"] [data-ui="select-trigger"]','ヴァルキュリア']`・`['[data-ui="note-pin"]','ホームにピン留めする（最大3件）']`・`['[data-ui="note-pin"] input:not(:checked)']` を足す。`mobile-note-sheet-enemies` は初期2欄なので追加で選ぶ機体を「ガルーダ零」に変え、note-enemy 3件・select-trigger 3種・remove 3件に。`mobile-note-saved` の `[data-ui="match-notes"] [data-ui="note-item"]` NOTE_TEXT は2件に
+- 基準が変わる既存画面(5): mobile-note-sheet, note-sheet, mobile-note-sheet-error, mobile-note-sheet-enemies, mobile-note-saved。不変見込み: セッション無しの全ホーム画面・mobile-more-notes(-enemy)・mobile-match-detail-notes。CI の不一致が見込みと違えば artifact で原因を確認してから取り込む
+- 画面数 87→92、画像 174→184 枚
+
+### 13.5 テスト計画(docker: `docker run --rm -v "$PWD":/w -w /w catalyzer-oracle <cmd>`)
+- notes.test.js(54→62): 変更3(defaultDraft の完全一致/引数なしで pinned false/enemies 複製、draftToRequest CRLF は `defaultDraft({enemies:['A']})`、matchDraft 相手A・Bで['A','B']・同機体で['A']・opponent2空で['A']) / 追加8(matchEnemies、pinnedNotes、canPinMore、homeDraft(`new Date(2026,5,15,4,0)`→'2026-06-14'・enemies []・ピン2/上限3で true・3件で false)、PinnedNotes 直接呼び(off/loading/error で null、on 0件で all 無し write 有り、on 4件/pinned_max3 で NoteItem 3)、components/notes.js の import 網羅(lib の export のうち src に `名前(` がある関数は全て import 節にある)、report.js(PinnedNotes import、ホーム分岐で EmptyMode より前に PinnedNotes と NoteSheet、`<${X}` が全て import/定義済み)、MoreView 呼び出しに listOpen=/onListOpen= があり shell.js に setListOpen 無し)
+- skeleton-actions.test.js +1(`<${PinnedNotes}` 全呼び出しに notes と onAll)、fixture.test.js +1、server.test.js +1、screens.test.js +1(`home` かつ start が `report-session` 始まりの画面は5つで全て clock を持つ)
+
+### 13.6 完了条件
+| # | 条件 | 期待値 |
+|---|---|---|
+| 1 | JS 全体(取り込み前): docker oracle(tap) | pass 634 / fail 1(基準画像過不足の1件のみ)。着手前 623/0 |
+| 2 | notes.test | pass 62 / fail 0 |
+| 3 | node -e で components/notes.js の PinnedNotes・homeDraft、lib/notes.js の matchEnemies・pinnedNotes・canPinMore が function | `2 3` |
+| 4 | `grep -cE "^import \{[^}]*\bPinnedNotes\b[^}]*\} from '\.\./notes\.js';" static/components/report/report.js` | 1 |
+| 5 | report.js・shell.js を node で import | ok |
+| 6 | `grep -c setListOpen static/components/shell.js` | 0 |
+| 7 | `grep -c 'function openNoteList' static/components/report/report.js` | 1 |
+| 8 | `git diff origin/develop -- static | grep -cE '^\+.*(localStorage|sessionStorage)'` | 0 |
+| 9 | `grep -c '\[match.opponent1_ms, match.opponent2_ms\]' static/lib/notes.js` | 1 |
+| 10 | `grep -c 'ホームにピン留めする（最大' static/components/notes.js` | 1 |
+| 11 | フロントにピン上限の数値を持たない(`grep -rnE 'pinned_max[[:space:]]*[:=]|最大3件' static --exclude-dir=__tests__ | wc -l`) | 0 |
+| 12 | SCREENS に5 id があり総数 | `5 92` |
+| 13 | check.js に pins プリセット2件 | 2 |
+| 14 | `git diff --name-only origin/develop -- '*.go' | wc -l` | 0 |
+| 15 | baseline 枚数(CI 取り込み後) | 184 |
+| 16 | JS 全体(取り込み後) | pass 635 / fail 0 |
+| 17 | CLAUDE.md: `grep -c '92画面'`=1、`grep -o '184枚' | wc -l`=2、`grep -cE '87画面|174枚'`=0 | 左記 |
+| 18 | CLAUDE.md に PinnedNotes と preview_pins、README に ピン留め が各所 | 1以上 |
+| 19 | 画面確認(ui-check)・基準取り込み | PR の CI で判定(ローカルで回さない) |
+
+### 13.7 ドキュメント更新
+CLAUDE.md: home.js 行(ホーム最上部のピンカードは notes.js の PinnedNotes を report.js が描く)、shell.js 行(メモ一覧の開閉は Report が持つ)、components/notes.js 行(PinnedNotes・敵機の既定は試合詳細=相手2機)、lib/notes.js 行(matchEnemies・pinnedNotes・canPinMore)、tools/ui-check 行(preview_pins・?pins=N・notes(pins)・92画面・184枚の2か所)。README: notes.js 行に「ホームのピン留め」、lib/notes.js 行に「ピン留め」。
+
+### 13.8 レビュー観点
+見た目(ピン1件以上はフラット見出し+行、0件は細い枠)/「すべて ›」の記号は既存「n戦 ›」に合わせた/0件の案内文/2機の重ね表示/文言が ui-terminology に沿うか。
+ナレッジ候補: 別画面から全画面の層を開いて遷移するときは開閉 state を Report に持ち上げる。起票候補: `.search-link` の hover が base.css の accent-2 背景になる(既存ボタン)。

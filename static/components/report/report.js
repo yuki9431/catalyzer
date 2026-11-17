@@ -7,7 +7,7 @@ import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
-import { NoteSheet, useNotes } from '../notes.js';
+import { NoteSheet, PinnedNotes, useNotes } from '../notes.js';
 import { msChoices } from '../../lib/notes.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MS_CHIP_DEFAULT, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
@@ -260,6 +260,9 @@ export function Report({ data, userKey, actions }) {
   // メモは Report が持つ。書くシートはどの画面からも同じものを開く
   var notes = useNotes(userKey, actions.notes, data);
   var noteChoices = useMemo(function () { return msChoices(msImages, allMatches); }, [msImages, allMatches]);
+  var noteListRef = useState(false);
+  var noteListOpen = noteListRef[0], setNoteListOpen = noteListRef[1];
+  function openNoteList() { setNoteListOpen(true); nav.onNavigate('more'); }
   nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
   if (view === 'home') {
     var msOnly = html`<div class="controls-row" data-ui="filter-bar">
@@ -267,9 +270,11 @@ export function Report({ data, userKey, actions }) {
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
+      <${PinnedNotes} notes=${notes} onAll=${openNoteList} />
       ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
         ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
         : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} />`}
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }
   if (view === 'search') {
@@ -287,7 +292,7 @@ export function Report({ data, userKey, actions }) {
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} notes=${notes} />
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} notes=${notes} listOpen=${noteListOpen} onListOpen=${setNoteListOpen} />
       <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }

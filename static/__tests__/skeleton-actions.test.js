@@ -87,6 +87,13 @@ describe('Skeleton', () => {
     assert.deepStrictEqual(r.bad.concat(s.bad), []);
   });
 
+  it('全ての <${PinnedNotes} 呼び出しに notes と onAll が付く', () => {
+    var r = missingAttr('PinnedNotes', 'notes');
+    var s = missingAttr('PinnedNotes', 'onAll');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad.concat(s.bad), []);
+  });
+
   it('onPull を持つ全ての <${AppShell} 呼び出しに canPull が付く(無いと分析中でも引っ張りで再分析が走る)', () => {
     var root = new URL('..', import.meta.url).pathname;
     var found = 0, bad = [];

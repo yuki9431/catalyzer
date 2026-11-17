@@ -101,7 +101,7 @@
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）と全画面の層 Layer
-│   │   ├── notes.js               # メモ（取得・書くシート・試合詳細・相性タブの一覧・メモ一覧）
+│   │   ├── notes.js               # メモ（取得・書くシート・試合詳細・相性タブの一覧・メモ一覧・ホームのピン留め）
 │   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）とその他画面（再分析・自動更新の設定・メモ一覧への入口を含む）
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice。Notice は操作ボタン付き）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
@@ -116,7 +116,7 @@
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
-│   │   ├── notes.js               # メモの純粋ロジック（抽出・下書き・検証・機体の選択肢）
+│   │   ├── notes.js               # メモの純粋ロジック（抽出・下書き・検証・ピン留め・機体の選択肢）
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト

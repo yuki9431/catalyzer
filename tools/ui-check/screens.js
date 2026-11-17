@@ -19,7 +19,8 @@ var OPEN_DETAIL = OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }])
 var OPEN_NOTE_SHEET = OPEN_DETAIL.concat([{ click: ['[data-ui="note-write"]'] }]);
 var NOTE_TEXT = 'ui-check で書いたメモ';
 var WRITE_NOTE = [{ type: ['[data-ui="note-sheet"] textarea', NOTE_TEXT] }];
-var NOTE_SHEET_REQUIRED = [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'], ['[data-ui="note-date-clear"]'],
+var NOTE_SHEET_REQUIRED = [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-enemy"]', null, 2], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ヴァルキュリア'],
+  ['[data-ui="note-pin"]', 'ホームにピン留めする（最大3件）'], ['[data-ui="note-pin"] input:not(:checked)'], ['[data-ui="note-date-clear"]'],
   ['[data-ui="note-enemy-add"]'], ['[data-ui="note-my"] [data-ui="select-trigger"]', '指定しない'], ['[data-ui="note-save"]'], ['[data-ui="match-detail"][inert], [inert] [data-ui="match-detail"]']];
 var OPEN_FILTER = OPEN_SEARCH.concat([{ click: ['[data-ui="search-filter-toggle"]'] }, { click: ['[data-ui="search-winloss"] button', '勝利'] }]);
 var COLLAPSED = ['[data-ui="topbar"][data-collapsed="true"]'];
@@ -155,15 +156,30 @@ var SCREEN_DEFS = [
   { id: 'mobile-note-sheet', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED,
     tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-remove"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
   { id: 'mobile-note-sheet-enemies', viewport: M, full: false, start: 'report-session-valid',
-    ops: OPEN_NOTE_SHEET.concat([{ click: ['[data-ui="note-enemy-add"]'] }, { click: ['[data-ui="note-enemy"] [data-ui="select-trigger"]', '選んでください'] }, { click: ['[data-ui="select-item"]', 'ヴァルキュリア'] }]),
-    required: [['[data-ui="note-enemy"]', null, 2], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ヴァルキュリア'],
-      ['[data-ui="note-enemy-remove"]', null, 2], ['[data-ui="note-enemy-add"]'], ['[data-ui="note-date-clear"]']],
+    ops: OPEN_NOTE_SHEET.concat([{ click: ['[data-ui="note-enemy-add"]'] }, { click: ['[data-ui="note-enemy"] [data-ui="select-trigger"]', '選んでください'] }, { click: ['[data-ui="select-item"]', 'ガルーダ零'] }]),
+    required: [['[data-ui="note-enemy"]', null, 3], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ストームレイダー'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ヴァルキュリア'], ['[data-ui="note-enemy"] [data-ui="select-trigger"]', 'ガルーダ零'],
+      ['[data-ui="note-enemy-remove"]', null, 3], ['[data-ui="note-enemy-add"]'], ['[data-ui="note-date-clear"]']],
     tap: ['[data-ui="note-enemy-remove"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
   { id: 'note-sheet', viewport: D, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED },
   { id: 'mobile-note-saved', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET.concat(WRITE_NOTE, [{ click: ['[data-ui="note-save"]'] }]),
-    required: [['[data-ui="match-notes"] [data-ui="note-item"]', NOTE_TEXT]], absent: [['[data-ui="note-sheet"]']] },
+    required: [['[data-ui="match-notes"] [data-ui="note-item"]', NOTE_TEXT, 2]], absent: [['[data-ui="note-sheet"]']] },
   { id: 'mobile-note-sheet-error', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET.concat([{ type: ['[data-ui="note-sheet"] textarea', '保存エラー'] }, { click: ['[data-ui="note-save"]'] }]), expectConsole: ['status of 500'],
     required: [['[data-ui="note-sheet"] [data-ui="notice"][role="alert"]', 'メモを保存できませんでした'], ['[data-ui="note-save"]:not([disabled])']] },
+  // ホームのピン留めしたメモ(#689)。pins3=ピン3件・pins0=ピン0件
+  { id: 'mobile-home-notes', home: true, viewport: M, full: false, start: 'report-session-pins3', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }],
+    required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3], ['[data-ui="note-item"]', '6/15 ヴァルキュリア・ガルーダ零'], ['[data-ui="home-note-write"]', '書く'], ['[data-ui="home-notes-all"]', 'すべて'], ['[data-ui="today-card"]']],
+    inview: [['[data-ui="home-notes"]']], tap: ['[data-ui="home-notes"] [data-ui="note-item"]', '[data-ui="home-note-write"]', '[data-ui="home-notes-all"]'] },
+  { id: 'home-notes', home: true, viewport: D, full: false, start: 'report-session-pins3', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }],
+    required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3]] },
+  { id: 'mobile-home-notes-empty', home: true, viewport: M, full: false, start: 'report-session-pins0', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-note-write"]'] }],
+    required: [['[data-ui="home-notes"]', 'ピン留めすると'], ['[data-ui="home-note-write"]', '書く'], ['[data-ui="today-card"]']],
+    absent: [['[data-ui="home-notes"] h2'], ['[data-ui="home-notes-all"]'], ['[data-ui="home-notes"] [data-ui="note-item"]']], oneRow: ['[data-ui="home-notes"]'], tap: ['[data-ui="home-note-write"]'] },
+  { id: 'mobile-home-note-sheet', home: true, viewport: M, full: false, start: 'report-session-valid', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-note-write"]'] }, { click: ['[data-ui="home-note-write"]'] }, { wait: ['[data-ui="note-sheet"]'] }],
+    required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-pin"] input:checked'], ['[data-ui="note-pin"]', 'ホームにピン留めする（最大3件）'], ['[data-ui="note-date-clear"]'], ['[data-ui="note-enemy-add"]'],
+      ['[data-ui="note-my"] [data-ui="select-trigger"]', '指定しない'], ['[data-ui="home-notes"][inert], [inert] [data-ui="home-notes"]']],
+    absent: [['[data-ui="note-enemy"]'], ['[data-ui="note-delete"]']], tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
+  { id: 'mobile-home-notes-all', home: true, viewport: M, full: false, start: 'report-session-valid', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-notes-all"]'] }, { click: ['[data-ui="home-notes-all"]'] }, { wait: ['[data-ui="note-list"]'] }],
+    required: [[CURRENT, 'その他'], ['[data-ui="note-list"]'], ['[data-ui="note-list-back"]', 'その他'], ['[data-ui="more-notes"]', '6件']], tap: ['[data-ui="note-list-back"]'] },
   { id: 'mobile-mission-search', viewport: M, full: false, start: 'report', home: true, clock: HOME_CLOCK,
     ops: [goTab('ホーム'), { wait: ['[data-ui="mission-matches"]'] }, { click: ['[data-ui="mission-matches"]'] }, { wait: ['[data-ui="search-goal"]'] }],
     required: [['[data-ui="search-goal"]', '負け筋: '], ['[data-ui="search-goal-remove"][aria-label$="を外す"]'], ['[data-ui="search-reason"]'], ['[data-ui="search-total"]', '39試合'], ['[data-ui="search-filter-toggle"]', '絞り込み（1件適用中）']],

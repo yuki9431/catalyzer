@@ -36,6 +36,9 @@ if (location.search.includes('session=valid')) {
   localStorage.setItem('catalyzer_has_session', '1');
   document.cookie = 'preview_session=valid; path=/';
 }
+// ?pins=N はメモのピン留め件数を N 件にする(Cookie でモックの GET /notes が返す)
+var pinsP = new URLSearchParams(location.search).get('pins');
+if (pinsP !== null) document.cookie = 'preview_pins=' + Number(pinsP) + '; path=/';
 // ?seen=N は各タブを試合数 N の時点で見たことにし、更新の点を再現する
 var seenN = Number(new URLSearchParams(location.search).get('seen'));
 if (seenN > 0) localStorage.setItem('catalyzer_tab_seen', JSON.stringify({ user_key: USER_KEY, seen: { home: seenN, report: seenN, search: seenN, classrecord: 1100 } }));

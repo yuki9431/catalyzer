@@ -49,13 +49,18 @@ export function notesForEnemy(notes, enemyMs, myMs) {
   });
 }
 
-// 敵機ごとに [{ enemy, notes }]。opponent1_ms・opponent2_ms の順で、同じ機体は1つにまとめる
-export function notesForMatch(notes, match) {
+// 試合の相手の機体。opponent1_ms・opponent2_ms の順で、空と同じ機体は除く
+export function matchEnemies(match) {
   var seen = [];
   [match.opponent1_ms, match.opponent2_ms].forEach(function (e) {
     if (e && seen.indexOf(e) < 0) seen.push(e);
   });
-  return seen.map(function (e) { return { enemy: e, notes: notesForEnemy(notes, e, match.ms) }; });
+  return seen;
+}
+
+// 敵機ごとに [{ enemy, notes }]
+export function notesForMatch(notes, match) {
+  return matchEnemies(match).map(function (e) { return { enemy: e, notes: notesForEnemy(notes, e, match.ms) }; });
 }
 
 export function hasNoteForMatch(notes, match) {
@@ -106,10 +111,10 @@ export function noteTargetLabel(note) {
   return parts.length ? parts.join(' ') : 'メモ';
 }
 
-// ctx: { enemy?, date? }。敵機があれば1欄に入れる。自機は常に未指定
+// ctx: { enemies?, date?, pinned? }。自機は常に未指定
 export function defaultDraft(ctx) {
   var c = ctx || {};
-  return { id: null, text: '', enemies: c.enemy ? [c.enemy] : [], my_ms: '', date: c.date || '', pinned: false };
+  return { id: null, text: '', enemies: (c.enemies || []).slice(), my_ms: '', date: c.date || '', pinned: !!c.pinned };
 }
 
 export function draftFromNote(note) {
@@ -165,6 +170,17 @@ export function enemyOptions(options, enemies, index) {
 
 export function pinnedCount(notes, exceptId) {
   return (notes || []).filter(function (n) { return n.pinned && n.id !== exceptId; }).length;
+}
+
+// ピン留めしたメモを新しい順に。max が正の数なら先頭 max 件
+export function pinnedNotes(notes, max) {
+  var list = notesByTab(notes, 'pin');
+  return max > 0 ? list.slice(0, max) : list;
+}
+
+// ピン留めの上限に空きがあるか。limits が無ければ偽
+export function canPinMore(notes, limits) {
+  return !!(limits && limits.pinned_max) && pinnedCount(notes) < limits.pinned_max;
 }
 
 // 同じ id は置き換え、無ければ先頭に足す
