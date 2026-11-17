@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import {
   sanitizeNotes, notesForEnemy, notesForMatch, hasNoteForMatch, groupByMs, notesByTab, tabCounts,
-  noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, canAddEnemy, enemyOptions, pinnedCount,
+  noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, canAddEnemy, enemyOptions, pinnedCount, swipeAxis, swipeOffset, swipeOpens,
   upsertNote, removeNoteById, msChoices, loadDecision, responseOutcome, matchEnemies, pinnedNotes, canPinMore, lastPlayedMs,
 } from '../lib/notes.js';
 import { Notice } from '../components/parts.js';
@@ -441,7 +441,10 @@ describe('ホームのピン留め(#689)', () => {
     assert.ok(!empty.includes('home-notes-all'));
     var four = [1, 2, 3, 4].map(function (i) { return note({ id: 'n' + i, pinned: true, updated_at: '2026-06-0' + i + 'T00:00:00Z' }); });
     var v = PinnedNotes({ notes: { status: 'on', list: four, limits: LIMITS } });
-    assert.strictEqual(collect(v, NoteItem, []).length, 3);
+    var rows = [];
+    (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if (x.type && x.type.name === 'PinnedRows') rows.push(x); walk(x.props.children); } })(v);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].props.list.length, 3);
     assert.ok(uis(v).includes('home-note-write'));
   });
   it('components/notes.js は lib/notes.js の export のうち使う関数を全て import している', () => {
@@ -497,5 +500,25 @@ describe('ホームのピン留め(#689)', () => {
     write[0].props.onClick();
     assert.deepStrictEqual(opened.enemies, []);
     assert.strictEqual(opened.pinned, false);
+  });
+});
+
+describe('スワイプ', () => {
+  it('swipeAxis は 8px 動くまで未定で、大きい方の向き', () => {
+    assert.strictEqual(swipeAxis(7, -7), '');
+    assert.strictEqual(swipeAxis(-12, 5), 'x');
+    assert.strictEqual(swipeAxis(3, 9), 'y');
+    assert.strictEqual(swipeAxis(10, 10), 'y');
+  });
+  it('swipeOffset は閉じた状態からは dx、開いた状態からは -width+dx で、0〜-width に収める', () => {
+    assert.strictEqual(swipeOffset(-50, false, 144), -50);
+    assert.strictEqual(swipeOffset(30, false, 144), 0);
+    assert.strictEqual(swipeOffset(-200, false, 144), -144);
+    assert.strictEqual(swipeOffset(40, true, 144), -104);
+    assert.strictEqual(swipeOffset(-10, true, 144), -144);
+  });
+  it('swipeOpens は半分より引いていれば開く', () => {
+    assert.strictEqual(swipeOpens(-73, 144), true);
+    assert.strictEqual(swipeOpens(-72, 144), false);
   });
 });
