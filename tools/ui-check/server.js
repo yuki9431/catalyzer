@@ -89,7 +89,8 @@ export function createServer() {
       var noteId = p.startsWith('/notes/') ? p.slice('/notes/'.length) : null;
       if (get && !noteId) {
         var valid = /(?:^|;\s*)preview_session=valid(?:;|$)/.test(req.headers.cookie || '');
-        return json(res, 200, { user_key: fx.USER_KEY, notes: valid ? fx.notes() : [], limits: NOTES_LIMITS });
+        var pinsM = /(?:^|;\s*)preview_pins=(\d+)(?:;|$)/.exec(req.headers.cookie || '');
+        return json(res, 200, { user_key: fx.USER_KEY, notes: valid ? fx.notes(pinsM ? Number(pinsM[1]) : undefined) : [], limits: NOTES_LIMITS });
       }
       if (req.method === 'DELETE' && noteId) return json(res, 200, { ok: true });
       if ((req.method === 'POST' && !noteId) || (req.method === 'PUT' && noteId)) {

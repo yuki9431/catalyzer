@@ -29,6 +29,11 @@ describe('fixture', function () {
   it('uses local image URLs for every machine', function () {
     msList().forEach(function (m) { assert.match(m.ImageURL, /^\/__preview\/ms\/\d+\.svg$/); });
   });
+  it('notes(pins) は先頭 pins 件がピン留めで、引数なしは1件', () => {
+    var pinned = function (n) { return notes(n).filter(function (x) { return x.pinned; }).length; };
+    assert.deepEqual([pinned(), pinned(0), pinned(3)], [1, 0, 3]);
+    assert.equal(notes(3)[2].pinned, true);
+  });
   it('メモの各敵機は先頭の試合の相手か相性タブの得意・苦手な敵機にいて、敵機あり4・日付あり2・両方1・敵機2機以上1・どちらも無し1・ピン1', () => {
     var top = generateMatches().sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0];
     assert.strictEqual(top.opponent1_ms, 'ストームレイダー');

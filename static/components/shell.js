@@ -203,11 +203,9 @@ function notesRow(notes) {
   return { key: 'notes', main: 'メモ', sub: notes.status === 'loading' ? '読み込み中…' : 'ログイン状態を保持すると使えます' };
 }
 
-export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh, notes }) {
+export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh, notes, listOpen, onListOpen }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
-  var listRef = useState(false);
-  var listOpen = listRef[0], setListOpen = listRef[1];
   var hasShare = !!(shareData && shareData.length);
   var confirmPanel = confirming && html`<div class="more-confirm" data-ui="refetch-confirm">
     <p>試合データをサーバーから全件取得し直します。</p>
@@ -234,7 +232,7 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
     </${Panel}>
     ${notes && html`<${Panel} title="メモ">
       <div data-ui="more-notes"><${RowList} rows=${[notesRow(notes)]}
-        onSelect=${notes.status === 'on' || notes.status === 'error' ? function () { if (notes.status === 'on') setListOpen(true); else notes.reload(); } : undefined} /></div>
+        onSelect=${notes.status === 'on' || notes.status === 'error' ? function () { if (notes.status === 'on') onListOpen(true); else notes.reload(); } : undefined} /></div>
     </${Panel}>`}
     <${Panel} title="データ">
       <${RowList} rows=${dataRows} onSelect=${function (k) { if (k === 'reanalyze') onReanalyze(); else if (k === 'refetch') setConfirming(!confirming); }} />
@@ -242,7 +240,7 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
     <${Panel} title="アカウント">
       <${RowList} rows=${accountRows} onSelect=${function () { onLogout(); }} />
     </${Panel}>
-    ${notes && listOpen && notes.status === 'on' && html`<${NoteList} notes=${notes} onClose=${function () { setListOpen(false); }} />`}
+    ${notes && listOpen && notes.status === 'on' && html`<${NoteList} notes=${notes} onClose=${function () { onListOpen(false); }} />`}
   </div>`;
 }
 

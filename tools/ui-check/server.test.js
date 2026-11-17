@@ -89,6 +89,12 @@ describe('preview server', function () {
     assert.equal(without[0], 200);
     assert.deepEqual(without[1].notes, []);
   });
+  it('/notes は Cookie preview_pins でピン留め件数を切り替える', async function () {
+    var pins = async function (cookie) { var b = await (await fetch(base + '/notes', { headers: { Cookie: cookie } })).json(); return b.notes.filter(function (n) { return n.pinned; }).length; };
+    assert.equal(await pins('preview_session=valid'), 1);
+    assert.equal(await pins('preview_session=valid; preview_pins=0'), 0);
+    assert.equal(await pins('preview_pins=3; preview_session=valid'), 3);
+  });
   it('/notes の POST は通常 201 で id が付き、本文に「保存エラー」を含めば 500', async function () {
     var post = function (path, method, text) {
       return fetch(base + path, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) });

@@ -1,7 +1,7 @@
 import { html, useState, useRef, useEffect, useMemo } from '../htm-preact-standalone.js';
 import { currentPlayDay, playDay } from '../analysis/today.js';
 import {
-  sanitizeNotes, notesForMatch, notesForEnemy, groupByEnemy, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
+  sanitizeNotes, notesForMatch, matchEnemies, pinnedNotes, canPinMore, notesForEnemy, groupByEnemy, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, canAddEnemy, enemyOptions, withValue, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
@@ -107,14 +107,19 @@ export function NoteItem({ note, showTarget, onOpen }) {
   </button>`;
 }
 
-// 試合詳細から書くときの既定: その試合のプレイ日と相手の1機目
+// 試合詳細から書くときの既定: その試合のプレイ日と相手の2機
 export function matchDraft(match) {
-  return defaultDraft({ enemy: match.opponent1_ms, date: playDay(match.date) });
+  return defaultDraft({ enemies: matchEnemies(match), date: playDay(match.date) });
 }
 
 // 相性タブ・メモ一覧から書くときの既定: 今日のプレイ日。enemy が '' なら敵機は0欄
 export function todayDraft(enemy, now) {
-  return defaultDraft({ enemy: enemy, date: currentPlayDay(now) });
+  return defaultDraft({ enemies: enemy ? [enemy] : [], date: currentPlayDay(now) });
+}
+
+// ホームの「書く」の既定: 今日のプレイ日。ピンに空きがあればピン留め
+export function homeDraft(notes, limits, now) {
+  return defaultDraft({ date: currentPlayDay(now), pinned: canPinMore(notes, limits) });
 }
 
 // 相性タブの行の中身。その敵機のメモを並べる
@@ -230,7 +235,7 @@ function NoteSheetBody({ notes, choices }) {
       <label class="note-pin" data-ui="note-pin">
         <input type="checkbox" checked=${draft.pinned} disabled=${pinFull && !draft.pinned}
           onChange=${function (e) { patch({ pinned: e.target.checked }); }} />
-        <span>ピン留めする（最大${limits.pinned_max || ''}件）${pinFull && !draft.pinned && html`<small>ピン留めは${limits.pinned_max}件までです</small>`}</span>
+        <span>ホームにピン留めする（最大${limits.pinned_max || ''}件）${pinFull && !draft.pinned && html`<small>ピン留めは${limits.pinned_max}件までです</small>`}</span>
       </label>
       ${error && html`<${Notice} tone="error">${error}</${Notice}>`}
     </div>
@@ -272,4 +277,20 @@ export function NoteList({ notes, onClose }) {
         : items.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget onOpen=${open} />`; })}
     </div>
   </${Layer}>`;
+}
+
+// ホーム最上部のピン留めしたメモ。メモが使えないときは何も描かない
+export function PinnedNotes({ notes, onAll }) {
+  if (!notes || notes.status !== 'on') return null;
+  var write = html`<button type="button" class="search-link" data-ui="home-note-write"
+    onClick=${function () { notes.open(homeDraft(notes.list, notes.limits, new Date())); }}>書く</button>`;
+  var list = pinnedNotes(notes.list, (notes.limits || {}).pinned_max);
+  if (!list.length) {
+    return html`<section class="note-pins-empty" data-ui="home-notes"><p>メモをピン留めすると、ここに出ます</p>${write}</section>`;
+  }
+  return html`<section class="note-pins" data-ui="home-notes">
+    <div class="note-pins-head"><h2>ピン留めしたメモ</h2>${write}
+      <button type="button" class="search-link" data-ui="home-notes-all" onClick=${onAll}>すべて ›</button></div>
+    ${list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })}
+  </section>`;
 }

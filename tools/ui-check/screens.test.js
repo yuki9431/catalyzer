@@ -77,6 +77,12 @@ describe('screens', () => {
     assert.ok(s.tap && s.tap.length > 0);
   });
 
+  it('ホームのメモ画面は5つで、全て clock を持つ', () => {
+    var homes = SCREENS.filter(function (s) { return s.home && s.start.indexOf('report-session') === 0; });
+    assert.equal(homes.length, 5);
+    homes.forEach(function (s) { assert.ok(s.clock, s.id); });
+  });
+
   var get = function (id) { return SCREENS.find(function (x) { return x.id === id; }); };
   var pulls = function (s) { return s.ops.filter(function (o) { return o.pull; }).map(function (o) { return o.pull; }); };
 
