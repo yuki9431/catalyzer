@@ -268,7 +268,7 @@ export function MatchNotesPanel({ notes, match }) {
   }, [notes.list, match]);
   return html`<div class="panel" data-ui="panel">
     <h2 class=${open ? '' : 'note-panel-closed'}><button type="button" class=${'note-panel-toggle' + (open ? ' open' : '')} data-ui="match-notes-toggle" aria-expanded=${open}
-      onClick=${function () { setOpen(!open); }}>
+      onClick=${function () { setOpen(function (o) { return !o; }); }}>
       <span>メモ<small>${count}件</small></span><span class="search-chevron" aria-hidden="true"></span>
     </button></h2>
     ${open && html`<${MatchNotes} notes=${notes} match=${match} />`}

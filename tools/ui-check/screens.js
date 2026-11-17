@@ -144,7 +144,10 @@ var SCREEN_DEFS = [
     required: [['[data-ui="match-result"]', '勝利'], ['[data-ui="match-result"] [data-ui="win-streak"]', '2連勝']], outview: [[TABBAR]] },
   // メモ(#389)。ログイン状態を保持した端末(report-session-valid)で、先頭の試合(ストームレイダー・ヴァルキュリア戦)の詳細から書く
   // 試合詳細のメモ欄は既定で閉じ、見出しに件数を出す。先頭の試合はストームレイダー2・ヴァルキュリア1・自機・僚機1の4件
-  { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
+  // 開く→閉じる→試合詳細を出て開き直すと、閉じた状態に戻る
+  { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid',
+    ops: OPEN_MATCH_NOTES.concat([{ wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-notes-toggle"]'] }, { waitGone: ['[data-ui="match-notes"]'] },
+      { click: ['[data-ui="match-detail-back"]'] }, { waitGone: ['[data-ui="match-detail"]'] }, { click: ['[data-ui="search-result"]'] }, { wait: ['[data-ui="match-notes-toggle"]'] }]),
     required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件']], absent: [['[data-ui="match-notes"]']],
     tap: ['[data-ui="match-notes-toggle"]'] },
   { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_MATCH_NOTES,
