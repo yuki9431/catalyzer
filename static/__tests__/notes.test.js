@@ -2,15 +2,15 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import {
-  sanitizeNotes, notesForEnemy, notesForMatch, hasNoteForMatch, groupByEnemy, notesByTab, tabCounts,
+  sanitizeNotes, notesForEnemy, notesForMatch, hasNoteForMatch, groupByMs, notesByTab, tabCounts,
   noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, canAddEnemy, enemyOptions, pinnedCount,
-  upsertNote, removeNoteById, msChoices, loadDecision, responseOutcome, matchEnemies, pinnedNotes, canPinMore,
+  upsertNote, removeNoteById, msChoices, loadDecision, responseOutcome, matchEnemies, pinnedNotes, canPinMore, lastPlayedMs,
 } from '../lib/notes.js';
 import { Notice } from '../components/parts.js';
 import { matchDraft, todayDraft, homeDraft, PinnedNotes, NoteItem, NotesView } from '../components/notes.js';
 
 function note(over) {
-  return Object.assign({ id: 'n1', text: 'メモ', enemies: ['A'], my_ms: '', date: '', pinned: false, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z' }, over);
+  return Object.assign({ id: 'n1', text: 'メモ', enemies: ['A'], my_ms: '', partner_ms: '', date: '', pinned: false, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z' }, over);
 }
 var LIMITS = { text_max: 500, count_max: 2000, pinned_max: 3, enemies_max: 5 };
 
@@ -34,9 +34,11 @@ describe('sanitizeNotes', () => {
     assert.deepStrictEqual(sanitizeNotes([{ id: 'a', text: 'x', enemies: 'A' }])[0].enemies, []);
     assert.deepStrictEqual(sanitizeNotes([{ id: 'a', text: 'x' }])[0].enemies, []);
   });
-  it('出力のキーは8つだけ(旧項目を持ち越さない)', () => {
+  it('出力のキーは9つだけ(旧項目を持ち越さない)。僚機の欠けは空', () => {
     var out = sanitizeNotes([{ id: 'a', text: 'x', enemies: ['A'], extra: 1 }])[0];
-    assert.deepStrictEqual(Object.keys(out).sort(), ['created_at', 'date', 'enemies', 'id', 'my_ms', 'pinned', 'text', 'updated_at']);
+    assert.deepStrictEqual(Object.keys(out).sort(), ['created_at', 'date', 'enemies', 'id', 'my_ms', 'partner_ms', 'pinned', 'text', 'updated_at']);
+    assert.strictEqual(out.partner_ms, '');
+    assert.strictEqual(sanitizeNotes([{ id: 'a', text: 'x', partner_ms: 'P' }])[0].partner_ms, 'P');
   });
 });
 
@@ -61,7 +63,7 @@ describe('notesForMatch', () => {
   var list = [note({ id: '1', enemies: ['A'] }), note({ id: '2', enemies: ['B'], my_ms: 'M' }), note({ id: '3', enemies: ['B'], my_ms: 'Z' })];
   it('敵機ごとに opponent1・2 の順でまとめ、自機で絞る', () => {
     var g = notesForMatch(list, { ms: 'M', opponent1_ms: 'B', opponent2_ms: 'A' });
-    assert.deepStrictEqual(g.map(function (x) { return x.enemy; }), ['B', 'A']);
+    assert.deepStrictEqual(g.map(function (x) { return x.head; }), ['B', 'A']);
     assert.deepStrictEqual(g[0].notes.map(function (n) { return n.id; }), ['2']);
   });
   it('相手2機が同じ機体なら1つにまとめる', () => {
@@ -72,10 +74,18 @@ describe('notesForMatch', () => {
     assert.strictEqual(hasNoteForMatch(multi, { ms: 'M', opponent1_ms: 'B', opponent2_ms: 'X' }), true);
     assert.strictEqual(hasNoteForMatch(multi, { ms: 'M', opponent1_ms: 'X', opponent2_ms: 'A' }), true);
   });
-  it('相手2機を両方持つメモは両方の敵機の下に出る', () => {
-    var multi = [note({ id: 'm', enemies: ['A', 'B'] })];
+  it('相手2機を両方持つメモは「A・B」の組に1回だけ出て、1機ずつの組には出ない', () => {
+    var multi = [note({ id: 'm', enemies: ['C', 'B', 'A'] }), note({ id: 'a', enemies: ['A', 'C'] })];
     var g = notesForMatch(multi, { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'B' });
-    assert.deepStrictEqual(g.map(function (x) { return x.notes.length; }), [1, 1]);
+    assert.deepStrictEqual(g.map(function (x) { return [x.head, x.notes.map(function (n) { return n.id; })]; }), [['A', ['a']], ['B', []], ['A・B', ['m']]]);
+  });
+  it('相手1機だけの試合では、2機を持つメモもその1機の組に入り「A・B」の組は作らない', () => {
+    var g = notesForMatch([note({ id: 'm', enemies: ['A', 'B'] })], { ms: 'M', opponent1_ms: 'A', opponent2_ms: '' });
+    assert.deepStrictEqual(g.map(function (x) { return [x.head, x.notes.map(function (n) { return n.id; })]; }), [['A', ['m']]]);
+  });
+  it('2機の組は該当が無ければ出さず、相手が同じ機体2機なら作らない', () => {
+    assert.deepStrictEqual(notesForMatch([note({ enemies: ['A'] })], { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'B' }).map(function (x) { return x.head; }), ['A', 'B']);
+    assert.deepStrictEqual(notesForMatch([note({ enemies: ['A'] })], { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'A' }).map(function (x) { return x.head; }), ['A']);
   });
   it('メモが無い敵機も返し、hasNoteForMatch は1件以上で真', () => {
     assert.strictEqual(notesForMatch([], { ms: 'M', opponent1_ms: 'A', opponent2_ms: 'B' }).length, 2);
@@ -83,9 +93,20 @@ describe('notesForMatch', () => {
     assert.strictEqual(hasNoteForMatch(list, { ms: 'M', opponent1_ms: 'C', opponent2_ms: 'D' }), false);
     assert.strictEqual(hasNoteForMatch(list, { ms: 'Q', opponent1_ms: 'B', opponent2_ms: 'C' }), false);
   });
+  it('僚機を指定したメモは、同じ僚機の試合だけに出る', () => {
+    var p = [note({ id: 'p', enemies: ['A'], partner_ms: 'P' })];
+    assert.strictEqual(hasNoteForMatch(p, { ms: 'M', partner_ms: 'P', opponent1_ms: 'A', opponent2_ms: 'B' }), true);
+    assert.strictEqual(hasNoteForMatch(p, { ms: 'M', partner_ms: 'Q', opponent1_ms: 'A', opponent2_ms: 'B' }), false);
+  });
+  it('敵機の無いメモは、自機か僚機を指定して合うときだけ末尾の head が空の組に入る', () => {
+    var own = [note({ id: 'o', enemies: [], my_ms: 'M' }), note({ id: 'q', enemies: [], partner_ms: 'P' }), note({ id: 'n', enemies: [] }), note({ id: 'z', enemies: [], my_ms: 'Z' })];
+    var g = notesForMatch(own, { ms: 'M', partner_ms: 'P', opponent1_ms: 'A', opponent2_ms: 'B' });
+    assert.deepStrictEqual(g.map(function (x) { return [x.head, x.notes.map(function (n) { return n.id; })]; }), [['A', []], ['B', []], ['', ['o', 'q']]]);
+    assert.strictEqual(notesForMatch(own, { ms: 'X', partner_ms: 'Y', opponent1_ms: 'A', opponent2_ms: 'B' }).length, 2);
+  });
 });
 
-describe('groupByEnemy・notesByTab・tabCounts', () => {
+describe('groupByMs・notesByTab・tabCounts', () => {
   var list = [
     note({ id: '1', enemies: ['B'], updated_at: '2026-06-01T00:00:00Z' }),
     note({ id: '2', enemies: ['A'], updated_at: '2026-06-03T00:00:00Z', pinned: true }),
@@ -94,19 +115,26 @@ describe('groupByEnemy・notesByTab・tabCounts', () => {
     note({ id: '5', enemies: [], date: '2026-06-12', updated_at: '2026-06-01T00:00:00Z' }),
     note({ id: '6', enemies: [], updated_at: '2026-06-05T00:00:00Z' }),
   ];
-  it('groupByEnemy は件数の多い順、同数は五十音順', () => {
-    var g = groupByEnemy(list);
-    assert.deepStrictEqual(g.map(function (x) { return [x.enemy, x.count]; }), [['B', 2], ['A', 1]]);
+  it('groupByMs(enemies) は件数の多い順、同数は五十音順', () => {
+    var g = groupByMs(list, 'enemies');
+    assert.deepStrictEqual(g.map(function (x) { return [x.ms, x.count]; }), [['B', 2], ['A', 1]]);
   });
-  it('groupByEnemy は複数の敵機を持つメモを各敵機の下に入れ、件数にも数える', () => {
-    var g = groupByEnemy([note({ id: '1', enemies: ['A', 'B'] }), note({ id: '2', enemies: ['B'] })]);
-    assert.deepStrictEqual(g.map(function (x) { return [x.enemy, x.count, x.notes.map(function (n) { return n.id; })]; }), [['B', 2, ['1', '2']], ['A', 1, ['1']]]);
+  it('groupByMs(enemies) は複数の敵機を持つメモを各敵機の下に入れ、件数にも数える', () => {
+    var g = groupByMs([note({ id: '1', enemies: ['A', 'B'] }), note({ id: '2', enemies: ['B'] })], 'enemies');
+    assert.deepStrictEqual(g.map(function (x) { return [x.ms, x.count, x.notes.map(function (n) { return n.id; })]; }), [['B', 2, ['1', '2']], ['A', 1, ['1']]]);
+  });
+  it('groupByMs(my_ms・partner_ms) は指定の無いメモを除き、機体ごとにまとめる', () => {
+    var ms = [note({ id: '1', my_ms: 'X', partner_ms: 'P' }), note({ id: '2', my_ms: 'X' }), note({ id: '3' })];
+    assert.deepStrictEqual(groupByMs(ms, 'my_ms').map(function (x) { return [x.ms, x.count]; }), [['X', 2]]);
+    assert.deepStrictEqual(groupByMs(ms, 'partner_ms').map(function (x) { return [x.ms, x.count]; }), [['P', 1]]);
+    assert.deepStrictEqual(notesByTab(ms, 'mine').map(function (n) { return n.id; }).sort(), ['1', '2']);
+    assert.deepStrictEqual(notesByTab(ms, 'partner').map(function (n) { return n.id; }), ['1']);
   });
   it('敵機と日付の両方を持つメモは enemy・date の両方に出て、tabCounts の両方に数える', () => {
     var both = [note({ id: 'x', enemies: ['A'], date: '2026-06-01' })];
     assert.deepStrictEqual(notesByTab(both, 'enemy').map(function (n) { return n.id; }), ['x']);
     assert.deepStrictEqual(notesByTab(both, 'date').map(function (n) { return n.id; }), ['x']);
-    assert.deepStrictEqual(tabCounts(both), { all: 1, enemy: 1, date: 1, pin: 0 });
+    assert.deepStrictEqual(tabCounts(both), { all: 1, enemy: 1, mine: 0, partner: 0, date: 1, pin: 0 });
   });
   it('all は更新の新しい順', () => {
     assert.deepStrictEqual(notesByTab(list, 'all').map(function (n) { return n.id; }), ['6', '4', '2', '3', '1', '5']);
@@ -117,7 +145,7 @@ describe('groupByEnemy・notesByTab・tabCounts', () => {
     assert.deepStrictEqual(notesByTab(list, 'pin').map(function (n) { return n.id; }), ['2']);
   });
   it('tabCounts', () => {
-    assert.deepStrictEqual(tabCounts(list), { all: 6, enemy: 3, date: 2, pin: 1 });
+    assert.deepStrictEqual(tabCounts(list), { all: 6, enemy: 3, mine: 0, partner: 0, date: 2, pin: 1 });
   });
   it('更新が同じなら id の昇順', () => {
     var same = [note({ id: 'b' }), note({ id: 'a' })];
@@ -135,25 +163,25 @@ describe('noteTargetLabel', () => {
 });
 
 describe('draft', () => {
-  it('defaultDraft は { enemies, date, pinned } を受け、無ければ敵機0欄・日付なし・ピンなし。敵機は複製し、自機は指定しない', () => {
-    assert.deepStrictEqual(defaultDraft({ enemies: ['A', 'B'], date: '2026-06-01', pinned: true }), { id: null, text: '', enemies: ['A', 'B'], my_ms: '', date: '2026-06-01', pinned: true });
-    assert.deepStrictEqual(defaultDraft(), { id: null, text: '', enemies: [], my_ms: '', date: '', pinned: false });
+  it('defaultDraft は { enemies, my_ms, date, pinned } を受け、無ければ敵機0欄・自機なし・日付なし・ピンなし。敵機は複製し、僚機は指定しない', () => {
+    assert.deepStrictEqual(defaultDraft({ enemies: ['A', 'B'], my_ms: 'M', date: '2026-06-01', pinned: true }), { id: null, text: '', enemies: ['A', 'B'], my_ms: 'M', partner_ms: '', date: '2026-06-01', pinned: true });
+    assert.deepStrictEqual(defaultDraft(), { id: null, text: '', enemies: [], my_ms: '', partner_ms: '', date: '', pinned: false });
     assert.deepStrictEqual(defaultDraft({}).enemies, []);
     var src = ['A'];
     assert.notStrictEqual(defaultDraft({ enemies: src }).enemies, src);
   });
   it('draftFromNote は編集できる項目と id だけで、敵機は複製する', () => {
-    var n = note({ my_ms: 'X', pinned: true });
+    var n = note({ my_ms: 'X', partner_ms: 'P', pinned: true });
     var d = draftFromNote(n);
-    assert.deepStrictEqual(d, { id: 'n1', text: 'メモ', enemies: ['A'], my_ms: 'X', date: '', pinned: true });
+    assert.deepStrictEqual(d, { id: 'n1', text: 'メモ', enemies: ['A'], my_ms: 'X', partner_ms: 'P', date: '', pinned: true });
     assert.notStrictEqual(d.enemies, n.enemies);
   });
   it('draftToRequest は CRLF を LF にし前後の空白を除く', () => {
     assert.strictEqual(draftToRequest(Object.assign(defaultDraft({ enemies: ['A'] }), { text: '  a\r\nb \n' })).text, 'a\nb');
   });
   it('draftToRequest は未選択の欄を落とし、前後の空白を除いて順序を保つ', () => {
-    var d = { id: 'x', text: 't', enemies: [' B ', '', 'A', '  '], my_ms: 'M', date: '2026-06-01', pinned: true };
-    assert.deepStrictEqual(draftToRequest(d), { text: 't', enemies: ['B', 'A'], my_ms: 'M', date: '2026-06-01', pinned: true });
+    var d = { id: 'x', text: 't', enemies: [' B ', '', 'A', '  '], my_ms: 'M', partner_ms: ' P ', date: '2026-06-01', pinned: true };
+    assert.deepStrictEqual(draftToRequest(d), { text: 't', enemies: ['B', 'A'], my_ms: 'M', partner_ms: 'P', date: '2026-06-01', pinned: true });
   });
   it('matchDraft は試合のプレイ日(朝5時切替)と相手の2機。同じ機体は1機、空は除く', () => {
     var d = matchDraft({ date: '2026-06-15 03:00', opponent1_ms: 'A', opponent2_ms: 'B' });
@@ -162,11 +190,22 @@ describe('draft', () => {
     assert.deepStrictEqual(matchDraft({ date: '2026-06-15 12:00', opponent1_ms: 'A', opponent2_ms: 'A' }).enemies, ['A']);
     assert.deepStrictEqual(matchDraft({ date: '2026-06-15 12:00', opponent1_ms: 'A', opponent2_ms: '' }).enemies, ['A']);
   });
+  it('matchDraft は自機にその試合の機体を入れ、僚機は指定しない', () => {
+    var d = matchDraft({ date: '2026-06-15 12:00', ms: 'M', partner_ms: 'P', opponent1_ms: 'A', opponent2_ms: 'B' });
+    assert.strictEqual(d.my_ms, 'M');
+    assert.strictEqual(d.partner_ms, '');
+  });
   it('todayDraft は今日のプレイ日で、敵機が空なら0欄', () => {
     var now = new Date(2026, 5, 15, 4, 0);
-    assert.strictEqual(todayDraft('', now).date, '2026-06-14');
-    assert.deepStrictEqual(todayDraft('', now).enemies, []);
-    assert.deepStrictEqual(todayDraft('A', now).enemies, ['A']);
+    assert.strictEqual(todayDraft('', '', now).date, '2026-06-14');
+    assert.deepStrictEqual(todayDraft('', '', now).enemies, []);
+    assert.deepStrictEqual(todayDraft('A', '', now).enemies, ['A']);
+    assert.strictEqual(todayDraft('A', 'M', now).my_ms, 'M');
+  });
+  it('lastPlayedMs は日時が最も新しい試合の自機。試合が無ければ空', () => {
+    assert.strictEqual(lastPlayedMs([{ date: '2026-06-15 12:00', ms: 'A' }, { date: '2026-06-15 21:00', ms: 'B' }, { date: '2026-06-14 23:00', ms: 'C' }]), 'B');
+    assert.strictEqual(lastPlayedMs([]), '');
+    assert.strictEqual(lastPlayedMs(null), '');
   });
   it('canAddEnemy は上限未満で真、到達で偽、limits が無ければ偽(未選択の欄も数える)', () => {
     assert.strictEqual(canAddEnemy({ enemies: ['A', ''] }, LIMITS), true);
@@ -253,7 +292,7 @@ describe('msChoices', () => {
     assert.deepStrictEqual(c.mine.map(function (o) { return o.value; }), ['M2', 'M1', 'A', 'Y', 'Z']);
   });
   it('msImages・matches が無くても動く', () => {
-    assert.deepStrictEqual(msChoices(null, null), { enemies: [], mine: [] });
+    assert.deepStrictEqual(msChoices(null, null), { enemies: [], mine: [], partners: [] });
   });
 });
 
@@ -312,10 +351,10 @@ describe('useNotes の取得の判定', () => {
 describe('NoteList・その他画面の受け渡し', () => {
   var src = fs.readFileSync(new URL('../components/notes.js', import.meta.url), 'utf8');
   var report = fs.readFileSync(new URL('../components/report/report.js', import.meta.url), 'utf8');
-  it('NoteList は groupByEnemy・notesByTab・tabCounts を import して使う', () => {
+  it('NoteList は groupByMs・notesByTab・tabCounts を import して使う', () => {
     var imp = src.slice(src.indexOf('import {\n'), src.indexOf("} from '../lib/notes.js'"));
     assert.ok(imp.length > 0);
-    ['groupByEnemy', 'notesByTab', 'tabCounts'].forEach(function (f) {
+    ['groupByMs', 'notesByTab', 'tabCounts'].forEach(function (f) {
       assert.match(imp, new RegExp('\\b' + f + '\\b'));
       assert.ok(src.includes(f + '('), f);
     });
@@ -334,11 +373,11 @@ describe('NoteList・その他画面の受け渡し', () => {
     assert.ok(i >= 0 && branch.includes('<${NotesView}') && branch.includes('<${NoteSheet}'));
     assert.ok(!/trailing=|onPull=/.test(branch));
   });
-  it('report.js・shell.js にメモ一覧の開閉 state が無く、「すべて ›」はメモタブへ遷移する', () => {
+  it('report.js・shell.js にメモ一覧の開閉 state が無く、ホームに「すべて ›」を置かない(下部タブで行ける)', () => {
     assert.ok(!/noteListOpen|openNoteList|listOpen|setListOpen/.test(report));
     var shellSrc = fs.readFileSync(new URL('../components/shell.js', import.meta.url), 'utf8');
     assert.ok(!/noteListOpen|openNoteList|listOpen|setListOpen/.test(shellSrc));
-    assert.ok(report.includes("onAll=${function () { nav.onNavigate('notes'); }}"));
+    assert.ok(!/onAll|home-notes-all/.test(report + fs.readFileSync(new URL('../components/notes.js', import.meta.url), 'utf8')));
   });
 });
 
@@ -359,7 +398,7 @@ describe('ホームのピン留め(#689)', () => {
     var out = [];
     (function walk(x) {
       if (Array.isArray(x)) x.forEach(walk);
-      else if (x && typeof x === 'object' && x.props) { if (x.props['data-ui']) out.push(x.props['data-ui']); walk(x.props.children); }
+      else if (x && typeof x === 'object' && x.props) { var u = x.props['data-ui'] || x.props.ui; if (u) out.push(u); walk(x.props.children); }
     })(v);
     return out;
   }
@@ -386,21 +425,22 @@ describe('ホームのピン留め(#689)', () => {
   });
   it('homeDraft は今日のプレイ日・敵機0欄で、ピンに空きがあればピン留めする', () => {
     var two = [note({ id: 'a', pinned: true }), note({ id: 'b', pinned: true })];
-    var d = homeDraft(two, LIMITS, NOW);
+    var d = homeDraft(two, LIMITS, 'M', NOW);
     assert.strictEqual(d.date, '2026-06-14');
     assert.deepStrictEqual(d.enemies, []);
+    assert.strictEqual(d.my_ms, 'M');
     assert.strictEqual(d.pinned, true);
-    assert.strictEqual(homeDraft(two.concat(note({ id: 'c', pinned: true })), LIMITS, NOW).pinned, false);
+    assert.strictEqual(homeDraft(two.concat(note({ id: 'c', pinned: true })), LIMITS, '', NOW).pinned, false);
   });
   it('PinnedNotes は on 以外で null、0件は「書く」だけ、4件で上限3なら3件まで', () => {
-    ['off', 'loading', 'error'].forEach(function (s) { assert.strictEqual(PinnedNotes({ notes: { status: s, list: [], limits: LIMITS }, onAll: function () {} }), null, s); });
-    var empty = uis(PinnedNotes({ notes: { status: 'on', list: [note({ pinned: false })], limits: LIMITS }, onAll: function () {} }));
+    ['off', 'loading', 'error'].forEach(function (s) { assert.strictEqual(PinnedNotes({ notes: { status: s, list: [], limits: LIMITS } }), null, s); });
+    var empty = uis(PinnedNotes({ notes: { status: 'on', list: [note({ pinned: false })], limits: LIMITS } }));
     assert.ok(empty.includes('home-note-write'));
     assert.ok(!empty.includes('home-notes-all'));
     var four = [1, 2, 3, 4].map(function (i) { return note({ id: 'n' + i, pinned: true, updated_at: '2026-06-0' + i + 'T00:00:00Z' }); });
-    var v = PinnedNotes({ notes: { status: 'on', list: four, limits: LIMITS }, onAll: function () {} });
+    var v = PinnedNotes({ notes: { status: 'on', list: four, limits: LIMITS } });
     assert.strictEqual(collect(v, NoteItem, []).length, 3);
-    assert.ok(uis(v).includes('home-notes-all'));
+    assert.ok(uis(v).includes('home-note-write'));
   });
   it('components/notes.js は lib/notes.js の export のうち使う関数を全て import している', () => {
     var lib = fs.readFileSync(new URL('../lib/notes.js', import.meta.url), 'utf8');
@@ -440,7 +480,7 @@ describe('ホームのピン留め(#689)', () => {
     (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if (typeof x.type === 'function') kids.push(x.type.name); walk(x.props.children); } })(v);
     assert.ok(kids.includes('NoteList'));
     var write = [];
-    (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if (x.props['data-ui'] === 'note-write') write.push(x); walk(x.props.children); } })(v);
+    (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if ((x.props['data-ui'] || x.props.ui) === 'note-write') write.push(x); walk(x.props.children); } })(v);
     write[0].props.onClick();
     assert.deepStrictEqual(opened.enemies, []);
     assert.strictEqual(opened.pinned, false);

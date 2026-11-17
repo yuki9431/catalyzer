@@ -55,7 +55,7 @@ export function emptyFilters() {
     patternMode: 'and',      // 'and'=選んだ展開にすべて当てはまる / 'or'=どれかに当てはまる
     goal: null,              // ホームのミッションから渡る負け筋 {key, line?, avoid?}
     focusRange: null,        // 挑戦中カードから渡る範囲 {after, until}（until ''=上限なし）
-    noteEnemies: false,      // メモがある敵機との試合だけ
+    noteEnemies: false,      // メモがある試合だけ
   };
 }
 
@@ -396,7 +396,7 @@ export function appliedFilterLabels(filters) {
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
   if (modeLabel(f.mode)) out.push('対戦形式: ' + modeLabel(f.mode));
-  if (f.noteEnemies === true) out.push('メモがある敵機との試合');
+  if (f.noteEnemies === true) out.push('メモがある試合');
   // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
   var sheet = sheetConditions(f);
   if (sheet.length) {

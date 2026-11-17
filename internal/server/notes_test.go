@@ -242,8 +242,8 @@ func TestNotesValidate(t *testing.T) {
 		{"制御文字", noteRequest{Text: "a\x00b"}, "使えない文字が含まれています", model.Note{}},
 		{"単独の CR", noteRequest{Text: "a\rb"}, "使えない文字が含まれています", model.Note{}},
 		{"何も持たないメモは通る", noteRequest{Text: "x"}, "", model.Note{Text: "x"}},
-		{"敵機5機・日付・自機は通る", noteRequest{Text: "x", Enemies: []string{" A ", "B", "C", "D", "E"}, MyMS: " ユニコーン ", Date: "2026-06-15"}, "",
-			model.Note{Text: "x", Enemies: []string{"A", "B", "C", "D", "E"}, MyMS: "ユニコーン", Date: "2026-06-15"}},
+		{"敵機5機・日付・自機は通る", noteRequest{Text: "x", Enemies: []string{" A ", "B", "C", "D", "E"}, MyMS: " ユニコーン ", PartnerMS: " νガンダム ", Date: "2026-06-15"}, "",
+			model.Note{Text: "x", Enemies: []string{"A", "B", "C", "D", "E"}, MyMS: "ユニコーン", PartnerMS: "νガンダム", Date: "2026-06-15"}},
 		{"敵機6機", noteRequest{Text: "x", Enemies: []string{"A", "B", "C", "D", "E", "F"}}, "敵機は5機までです", model.Note{}},
 		{"敵機の重複", noteRequest{Text: "x", Enemies: []string{"A", "B", "A"}}, "同じ敵機が重複しています", model.Note{}},
 		{"空白を除くと重複", noteRequest{Text: "x", Enemies: []string{"A", " A "}}, "同じ敵機が重複しています", model.Note{}},
@@ -253,6 +253,8 @@ func TestNotesValidate(t *testing.T) {
 		{"機体名65字", noteRequest{Text: "x", Enemies: []string{long(65)}}, "機体名が長すぎます", model.Note{}},
 		{"機体名64字は通る", noteRequest{Text: "x", Enemies: []string{long(64)}}, "", model.Note{Text: "x", Enemies: []string{long(64)}}},
 		{"自機65字", noteRequest{Text: "x", MyMS: long(65)}, "機体名が長すぎます", model.Note{}},
+		{"僚機65字", noteRequest{Text: "x", PartnerMS: long(65)}, "機体名が長すぎます", model.Note{}},
+		{"僚機に制御文字", noteRequest{Text: "x", PartnerMS: "a\x00"}, "使えない文字が含まれています", model.Note{}},
 		{"日付の形式不正", noteRequest{Text: "x", Date: "2026-13-01"}, "日付の形式が正しくありません", model.Note{}},
 		{"日付の桁あふれ", noteRequest{Text: "x", Date: "2026-02-30"}, "日付の形式が正しくありません", model.Note{}},
 		{"日付は通る", noteRequest{Text: "x", Date: "2026-06-15", Pinned: true}, "", model.Note{Text: "x", Date: "2026-06-15", Pinned: true}},
@@ -269,7 +271,7 @@ func TestNotesValidate(t *testing.T) {
 			if got.Enemies == nil || !slices.Equal(got.Enemies, tc.want.Enemies) {
 				t.Errorf("Enemies = %#v, want %#v(nil でなく長さ0以上)", got.Enemies, tc.want.Enemies)
 			}
-			if got.Text != tc.want.Text || got.MyMS != tc.want.MyMS || got.Date != tc.want.Date || got.Pinned != tc.want.Pinned {
+			if got.Text != tc.want.Text || got.MyMS != tc.want.MyMS || got.PartnerMS != tc.want.PartnerMS || got.Date != tc.want.Date || got.Pinned != tc.want.Pinned {
 				t.Errorf("got %+v, want %+v", got, tc.want)
 			}
 		})

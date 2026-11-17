@@ -54,10 +54,11 @@ describe('fixture', function () {
       count(function (n) { return n.enemies.length >= 2; }),
       count(function (n) { return n.enemies.length === 0 && n.date === ''; }),
     ], [4, 2, 1, 1, 1]);
-    var keys = ['created_at', 'date', 'enemies', 'id', 'my_ms', 'pinned', 'text', 'updated_at'];
+    var keys = ['created_at', 'date', 'enemies', 'id', 'my_ms', 'partner_ms', 'pinned', 'text', 'updated_at'];
     ns.forEach(function (n) { assert.deepEqual(Object.keys(n).sort(), keys); });
     assert.equal(ns.filter(function (n) { return n.pinned; }).length, 1);
     assert.ok(ns.some(function (n) { return n.my_ms; }));
+    assert.equal(count(function (n) { return n.partner_ms; }), 1);
     assert.equal(new Set(ns.map(function (n) { return n.id; })).size, ns.length);
   });
 });

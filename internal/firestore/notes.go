@@ -33,6 +33,7 @@ type noteDoc struct {
 	Text      string    `firestore:"text"`
 	Enemies   []string  `firestore:"enemies"`
 	MyMS      string    `firestore:"my_ms"`
+	PartnerMS string    `firestore:"partner_ms"`
 	Date      string    `firestore:"date"`
 	Pinned    bool      `firestore:"pinned"`
 	CreatedAt time.Time `firestore:"created_at"`
@@ -41,14 +42,14 @@ type noteDoc struct {
 
 func docFromNote(n model.Note) noteDoc {
 	return noteDoc{
-		Text: n.Text, Enemies: n.Enemies, MyMS: n.MyMS, Date: n.Date,
+		Text: n.Text, Enemies: n.Enemies, MyMS: n.MyMS, PartnerMS: n.PartnerMS, Date: n.Date,
 		Pinned: n.Pinned, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt,
 	}
 }
 
 func (d noteDoc) note(id string) model.Note {
 	return model.Note{
-		ID: id, Text: d.Text, Enemies: d.Enemies, MyMS: d.MyMS, Date: d.Date,
+		ID: id, Text: d.Text, Enemies: d.Enemies, MyMS: d.MyMS, PartnerMS: d.PartnerMS, Date: d.Date,
 		Pinned: d.Pinned, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt,
 	}
 }

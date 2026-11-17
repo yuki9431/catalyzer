@@ -8,7 +8,7 @@ import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
 import { NoteSheet, NotesView, PinnedNotes, useNotes } from '../notes.js';
-import { msChoices } from '../../lib/notes.js';
+import { msChoices, lastPlayedMs } from '../../lib/notes.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MS_CHIP_DEFAULT, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
 import { MatchupPane } from './matchup.js';
@@ -260,6 +260,7 @@ export function Report({ data, userKey, actions }) {
   // メモは Report が持つ。書くシートはどの画面からも同じものを開く
   var notes = useNotes(userKey, actions.notes, data);
   var noteChoices = useMemo(function () { return msChoices(msImages, allMatches); }, [msImages, allMatches]);
+  var lastMs = useMemo(function () { return lastPlayedMs(allMatches); }, [allMatches]);
   nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
   if (view === 'home') {
     var msOnly = html`<div class="controls-row" data-ui="filter-bar">
@@ -267,7 +268,7 @@ export function Report({ data, userKey, actions }) {
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${PinnedNotes} notes=${notes} onAll=${function () { nav.onNavigate('notes'); }} />
+      <${PinnedNotes} notes=${notes} myMs=${lastMs} />
       ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
         ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
         : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} />`}
@@ -283,7 +284,7 @@ export function Report({ data, userKey, actions }) {
 
   if (view === 'notes') {
     return html`<${AppShell} nav=${nav}>
-      <${NotesView} notes=${notes} />
+      <${NotesView} notes=${notes} myMs=${lastMs} />
       <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }
@@ -316,7 +317,7 @@ export function Report({ data, userKey, actions }) {
   } else if (activeTab === 'burst') {
     pane = html`<${BurstPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'matchup') {
-    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} notes=${notes} selectedMs=${selectedMs} />`;
+    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} notes=${notes} selectedMs=${selectedMs} lastMs=${lastMs} />`;
   } else if (activeTab === 'time') {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
     pane = html`<${TimePane} pd=${timePd} />`;

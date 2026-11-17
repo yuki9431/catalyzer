@@ -79,11 +79,12 @@ func newNotesAPI() *notesAPI {
 }
 
 type noteRequest struct {
-	Text    string   `json:"text"`
-	Enemies []string `json:"enemies"`
-	MyMS    string   `json:"my_ms"`
-	Date    string   `json:"date"`
-	Pinned  bool     `json:"pinned"`
+	Text      string   `json:"text"`
+	Enemies   []string `json:"enemies"`
+	MyMS      string   `json:"my_ms"`
+	PartnerMS string   `json:"partner_ms"`
+	Date      string   `json:"date"`
+	Pinned    bool     `json:"pinned"`
 }
 
 type noteJSON struct {
@@ -91,6 +92,7 @@ type noteJSON struct {
 	Text      string   `json:"text"`
 	Enemies   []string `json:"enemies"` // 常に配列(null を返さない)
 	MyMS      string   `json:"my_ms"`
+	PartnerMS string   `json:"partner_ms"`
 	Date      string   `json:"date"`
 	Pinned    bool     `json:"pinned"`
 	CreatedAt string   `json:"created_at"`
@@ -103,7 +105,7 @@ func toNoteJSON(n model.Note) noteJSON {
 		enemies = []string{}
 	}
 	return noteJSON{
-		ID: n.ID, Text: n.Text, Enemies: enemies, MyMS: n.MyMS, Date: n.Date, Pinned: n.Pinned,
+		ID: n.ID, Text: n.Text, Enemies: enemies, MyMS: n.MyMS, PartnerMS: n.PartnerMS, Date: n.Date, Pinned: n.Pinned,
 		CreatedAt: n.CreatedAt.UTC().Format(time.RFC3339), UpdatedAt: n.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
@@ -122,7 +124,7 @@ func validateNote(req noteRequest) (model.Note, string) {
 	n := model.Note{
 		Text:    strings.TrimSpace(strings.ReplaceAll(req.Text, "\r\n", "\n")),
 		Enemies: make([]string, 0, len(req.Enemies)),
-		MyMS:    strings.TrimSpace(req.MyMS), Date: req.Date, Pinned: req.Pinned,
+		MyMS:    strings.TrimSpace(req.MyMS), PartnerMS: strings.TrimSpace(req.PartnerMS), Date: req.Date, Pinned: req.Pinned,
 	}
 	for _, e := range req.Enemies {
 		n.Enemies = append(n.Enemies, strings.TrimSpace(e))
@@ -130,7 +132,7 @@ func validateNote(req noteRequest) (model.Note, string) {
 	if n.Text == "" {
 		return n, "メモの本文を入力してください"
 	}
-	if hasBadControl(n.Text) || hasBadControl(n.MyMS) || slices.ContainsFunc(n.Enemies, hasBadControl) {
+	if hasBadControl(n.Text) || hasBadControl(n.MyMS) || hasBadControl(n.PartnerMS) || slices.ContainsFunc(n.Enemies, hasBadControl) {
 		return n, "使えない文字が含まれています"
 	}
 	if utf8.RuneCountInString(n.Text) > noteTextMax {
@@ -143,7 +145,7 @@ func validateNote(req noteRequest) (model.Note, string) {
 		return n, "敵機を選んでください"
 	}
 	tooLong := func(s string) bool { return utf8.RuneCountInString(s) > noteMSMax }
-	if slices.ContainsFunc(n.Enemies, tooLong) || tooLong(n.MyMS) {
+	if slices.ContainsFunc(n.Enemies, tooLong) || tooLong(n.MyMS) || tooLong(n.PartnerMS) {
 		return n, "機体名が長すぎます"
 	}
 	seen := make(map[string]bool, len(n.Enemies))

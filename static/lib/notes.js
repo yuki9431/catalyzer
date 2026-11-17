@@ -35,7 +35,7 @@ export function sanitizeNotes(list) {
     return {
       id: n.id, text: n.text,
       enemies: Array.isArray(n.enemies) ? n.enemies.filter(function (e) { return typeof e === 'string' && e !== ''; }) : [],
-      my_ms: str(n.my_ms), date: str(n.date),
+      my_ms: str(n.my_ms), partner_ms: str(n.partner_ms), date: str(n.date),
       pinned: n.pinned === true, created_at: str(n.created_at), updated_at: str(n.updated_at),
     };
   });
@@ -58,9 +58,24 @@ export function matchEnemies(match) {
   return seen;
 }
 
-// 敵機ごとに [{ enemy, notes }]
+// 自機・僚機を指定したメモは、その試合の機体と同じときだけ当たる
+function fitsMs(n, match) {
+  return (!n.my_ms || n.my_ms === match.ms) && (!n.partner_ms || n.partner_ms === match.partner_ms);
+}
+
+// [{ head, notes }]。各メモは当たった相手の機体の組(head は '・' 区切り)に1回だけ入る。相手1機ずつの組は常に、2機の組は有れば出す。
+// 敵機が無く自機か僚機で当たるメモは末尾の { head: '', notes } に入れる(無ければ出さない)
 export function notesForMatch(notes, match) {
-  return matchEnemies(match).map(function (e) { return { enemy: e, notes: notesForEnemy(notes, e, match.ms) }; });
+  var list = (notes || []).filter(function (n) { return fitsMs(n, match); });
+  var enemies = matchEnemies(match);
+  var hitsOf = function (n) { return enemies.filter(function (e) { return n.enemies.indexOf(e) >= 0; }); };
+  var groups = enemies.map(function (e) {
+    return { head: e, notes: list.filter(function (n) { var h = hitsOf(n); return h.length === 1 && h[0] === e; }) };
+  });
+  var both = list.filter(function (n) { return enemies.length > 1 && hitsOf(n).length === enemies.length; });
+  if (both.length) groups.push({ head: enemies.join('・'), notes: both });
+  var own = list.filter(function (n) { return n.enemies.length === 0 && (n.my_ms || n.partner_ms); });
+  return own.length ? groups.concat([{ head: '', notes: own }]) : groups;
 }
 
 export function hasNoteForMatch(notes, match) {
@@ -73,20 +88,26 @@ function byUpdated(a, b) {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-// 各メモを enemies の機体それぞれの下に入れる(複数の敵機を持つメモは複数の下に出る)
-export function groupByEnemy(notes) {
+// field の機体ごとにまとめる。'enemies' は各敵機の下に入れる(複数の敵機を持つメモは複数の下に出る)。'my_ms'・'partner_ms' は空を除く
+export function groupByMs(notes, field) {
   var map = {};
   (notes || []).forEach(function (n) {
-    n.enemies.forEach(function (e) { (map[e] = map[e] || []).push(n); });
+    var names = field === 'enemies' ? n.enemies : n[field] ? [n[field]] : [];
+    names.forEach(function (e) { (map[e] = map[e] || []).push(n); });
   });
-  return Object.keys(map).map(function (e) { return { enemy: e, count: map[e].length, notes: map[e] }; })
-    .sort(function (a, b) { return b.count - a.count || a.enemy.localeCompare(b.enemy, 'ja'); });
+  return Object.keys(map).map(function (e) { return { ms: e, count: map[e].length, notes: map[e] }; })
+    .sort(function (a, b) { return b.count - a.count || a.ms.localeCompare(b.ms, 'ja'); });
 }
 
-// tab: 'all' | 'enemy' | 'date' | 'pin'
+// 機体でまとめる一覧タブと、まとめる項目
+export var MS_TABS = { enemy: 'enemies', mine: 'my_ms', partner: 'partner_ms' };
+
+// tab: 'all' | 'enemy' | 'mine' | 'partner' | 'date' | 'pin'
 export function notesByTab(notes, tab) {
   var list = (notes || []).slice();
   if (tab === 'enemy') return list.filter(function (n) { return n.enemies.length > 0; }).sort(byUpdated);
+  if (tab === 'mine') return list.filter(function (n) { return n.my_ms !== ''; }).sort(byUpdated);
+  if (tab === 'partner') return list.filter(function (n) { return n.partner_ms !== ''; }).sort(byUpdated);
   if (tab === 'pin') return list.filter(function (n) { return n.pinned; }).sort(byUpdated);
   if (tab === 'date') {
     return list.filter(function (n) { return n.date !== ''; }).sort(function (a, b) {
@@ -97,10 +118,9 @@ export function notesByTab(notes, tab) {
 }
 
 export function tabCounts(notes) {
-  return {
-    all: notesByTab(notes, 'all').length, enemy: notesByTab(notes, 'enemy').length,
-    date: notesByTab(notes, 'date').length, pin: notesByTab(notes, 'pin').length,
-  };
+  var out = {};
+  ['all', 'enemy', 'mine', 'partner', 'date', 'pin'].forEach(function (t) { out[t] = notesByTab(notes, t).length; });
+  return out;
 }
 
 // 'M/D' と敵機の '・' 区切りを半角空白でつなぐ。どちらも無ければ 'メモ'
@@ -111,14 +131,14 @@ export function noteTargetLabel(note) {
   return parts.length ? parts.join(' ') : 'メモ';
 }
 
-// ctx: { enemies?, date?, pinned? }。自機は常に未指定
+// ctx: { enemies?, my_ms?, date?, pinned? }。僚機は常に未指定
 export function defaultDraft(ctx) {
   var c = ctx || {};
-  return { id: null, text: '', enemies: (c.enemies || []).slice(), my_ms: '', date: c.date || '', pinned: !!c.pinned };
+  return { id: null, text: '', enemies: (c.enemies || []).slice(), my_ms: c.my_ms || '', partner_ms: '', date: c.date || '', pinned: !!c.pinned };
 }
 
 export function draftFromNote(note) {
-  return { id: note.id, text: note.text, enemies: note.enemies.slice(), my_ms: note.my_ms, date: note.date, pinned: !!note.pinned };
+  return { id: note.id, text: note.text, enemies: note.enemies.slice(), my_ms: note.my_ms, partner_ms: note.partner_ms, date: note.date, pinned: !!note.pinned };
 }
 
 function normalizeText(text) { return String(text || '').replace(/\r\n/g, '\n').trim(); }
@@ -131,7 +151,7 @@ function filledEnemies(draft) {
 export function draftToRequest(draft) {
   return {
     text: normalizeText(draft.text), enemies: filledEnemies(draft),
-    my_ms: String(draft.my_ms || '').trim(), date: draft.date || '', pinned: !!draft.pinned,
+    my_ms: String(draft.my_ms || '').trim(), partner_ms: String(draft.partner_ms || '').trim(), date: draft.date || '', pinned: !!draft.pinned,
   };
 }
 
@@ -194,11 +214,19 @@ export function removeNoteById(notes, id) {
   return (notes || []).filter(function (n) { return n.id !== id; });
 }
 
-// 対戦した機体を試合数の多い順、続けて msImages にだけある機体を五十音順。{ enemies, mine }(どちらも [{value,label}])
+// 最後に遊んだ試合の自機。試合が無ければ ''
+export function lastPlayedMs(matches) {
+  var last = null;
+  (matches || []).forEach(function (m) { if (m.ms && (!last || m.date > last.date)) last = m; });
+  return last ? last.ms : '';
+}
+
+// 対戦した機体を試合数の多い順、続けて msImages にだけある機体を五十音順。{ enemies, mine, partners }(どれも [{value,label}])
 export function msChoices(msImages, matches) {
-  var enemyCount = {}, myCount = {};
+  var enemyCount = {}, myCount = {}, partnerCount = {};
   (matches || []).forEach(function (m) {
     if (m.ms) myCount[m.ms] = (myCount[m.ms] || 0) + 1;
+    if (m.partner_ms) partnerCount[m.partner_ms] = (partnerCount[m.partner_ms] || 0) + 1;
     [m.opponent1_ms, m.opponent2_ms].forEach(function (e) { if (e) enemyCount[e] = (enemyCount[e] || 0) + 1; });
   });
   var rest = Object.keys(msImages || {}).sort(function (a, b) { return a.localeCompare(b, 'ja'); });
@@ -206,5 +234,5 @@ export function msChoices(msImages, matches) {
     var played = Object.keys(count).sort(function (a, b) { return count[b] - count[a] || a.localeCompare(b, 'ja'); });
     return played.concat(rest.filter(function (n) { return !count[n]; })).map(function (n) { return { value: n, label: n }; });
   }
-  return { enemies: build(enemyCount), mine: build(myCount) };
+  return { enemies: build(enemyCount), mine: build(myCount), partners: build(partnerCount) };
 }

@@ -618,7 +618,7 @@ describe('対戦形式の絞り込み', function () {
   });
 });
 
-describe('メモがある敵機との試合の絞り込み', function () {
+describe('メモがある試合の絞り込み', function () {
   var notes = [{ id: 'n1', text: 't', enemies: ['シャアザク'], my_ms: '', date: '', pinned: false }];
   var hit = makeMatch({ date: '2025-06-15 14:30' });
   var miss = makeMatch({ date: '2025-06-15 15:00', opponent1_ms: 'ジオング', opponent2_ms: 'ゲルググ' });
@@ -632,6 +632,11 @@ describe('メモがある敵機との試合の絞り込み', function () {
     assert.deepStrictEqual(filterMatches([hit], f, mine), []);
     assert.deepStrictEqual(filterMatches([makeMatch({ ms: 'ザク' })], f, mine).length, 1);
   });
+  it('敵機の無いメモでも、自機か僚機が合えば残る', function () {
+    var own = [{ id: 'n2', text: 't', enemies: [], my_ms: 'ザク', partner_ms: '', date: '', pinned: false }];
+    assert.deepStrictEqual(filterMatches([makeMatch({ ms: 'ザク' })], f, own).length, 1);
+    assert.deepStrictEqual(filterMatches([hit], f, own), []);
+  });
   it('noteEnemies で notes を渡さないと0件、noteEnemies が偽なら notes を見ない', function () {
     assert.deepStrictEqual(filterMatches([hit, miss], f), []);
     assert.deepStrictEqual(filterMatches([hit, miss], emptyFilters()), [hit, miss]);
@@ -639,7 +644,7 @@ describe('メモがある敵機との試合の絞り込み', function () {
   it('noteEnemies は hasActiveFilters を真にし、適用中の文言が出る', function () {
     assert.strictEqual(hasActiveFilters(emptyFilters()), false);
     assert.strictEqual(hasActiveFilters(f), true);
-    assert.ok(appliedFilterLabels(f).includes('メモがある敵機との試合'));
+    assert.ok(appliedFilterLabels(f).includes('メモがある試合'));
     assert.deepStrictEqual(appliedFilterLabels(emptyFilters()), []);
   });
   it('メモが使えないときは noteEnemies を外し、使えるときはそのまま返す', function () {

@@ -153,16 +153,16 @@ export function classRecord() {
   };
 }
 
-// 架空のメモ6件(先頭 pins 件がピン留め。既定1件)。敵機は先頭の試合の相手(ストームレイダー・ヴァルキュリア)と、相性タブの苦手な敵機(ガルーダ零)。日時は固定
+// 架空のメモ6件(先頭 pins 件がピン留め。既定1件)。敵機は先頭の試合の相手(ストームレイダー・ヴァルキュリア)と、相性タブの苦手な敵機(ガルーダ零)。僚機は1件だけで、先頭の試合の僚機(ガルーダ零)。日時は固定
 export function notes(pins) {
   var n = pins === undefined ? 1 : pins;
   return [
-    { id: 'preview-note-1', text: '着地を見てから射撃を合わせる。', enemies: ['ストームレイダー'], my_ms: '', date: '', pinned: 0 < n, created_at: '2026-06-14T12:00:00Z', updated_at: '2026-06-15T12:00:00Z' },
-    { id: 'preview-note-2', text: '覚醒を吐かせてから前に出る。\n先落ちは避ける。', enemies: ['ストームレイダー'], my_ms: 'ストームレイダー', date: '', pinned: 1 < n, created_at: '2026-06-13T12:00:00Z', updated_at: '2026-06-14T12:00:00Z' },
-    { id: 'preview-note-3', text: '格闘の間合いに入らない。', enemies: ['ヴァルキュリア', 'ガルーダ零'], my_ms: '', date: '2026-06-15', pinned: 2 < n, created_at: '2026-06-12T12:00:00Z', updated_at: '2026-06-13T12:00:00Z' },
-    { id: 'preview-note-4', text: '夜は連敗しやすい。早めに切り上げる。', enemies: [], my_ms: '', date: '2026-06-15', pinned: 3 < n, created_at: '2026-06-11T12:00:00Z', updated_at: '2026-06-12T12:00:00Z' },
-    { id: 'preview-note-5', text: '開幕は前に出すぎない。', enemies: [], my_ms: '', date: '', pinned: 4 < n, created_at: '2026-06-10T12:00:00Z', updated_at: '2026-06-11T12:00:00Z' },
-    { id: 'preview-note-6', text: '距離を詰められたら無理に追わない。', enemies: ['ガルーダ零'], my_ms: '', date: '', pinned: 5 < n, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-10T12:00:00Z' },
+    { id: 'preview-note-1', text: '着地を見てから射撃を合わせる。', enemies: ['ストームレイダー'], my_ms: '', partner_ms: '', date: '', pinned: 0 < n, created_at: '2026-06-14T12:00:00Z', updated_at: '2026-06-15T12:00:00Z' },
+    { id: 'preview-note-2', text: '覚醒を吐かせてから前に出る。\n先落ちは避ける。', enemies: ['ストームレイダー'], my_ms: 'ストームレイダー', partner_ms: '', date: '', pinned: 1 < n, created_at: '2026-06-13T12:00:00Z', updated_at: '2026-06-14T12:00:00Z' },
+    { id: 'preview-note-3', text: '格闘の間合いに入らない。', enemies: ['ヴァルキュリア', 'ガルーダ零'], my_ms: '', partner_ms: '', date: '2026-06-15', pinned: 2 < n, created_at: '2026-06-12T12:00:00Z', updated_at: '2026-06-13T12:00:00Z' },
+    { id: 'preview-note-4', text: '夜は連敗しやすい。早めに切り上げる。', enemies: [], my_ms: '', partner_ms: '', date: '2026-06-15', pinned: 3 < n, created_at: '2026-06-11T12:00:00Z', updated_at: '2026-06-12T12:00:00Z' },
+    { id: 'preview-note-5', text: '開幕は前に出すぎない。', enemies: [], my_ms: '', partner_ms: 'ガルーダ零', date: '', pinned: 4 < n, created_at: '2026-06-10T12:00:00Z', updated_at: '2026-06-11T12:00:00Z' },
+    { id: 'preview-note-6', text: '距離を詰められたら無理に追わない。', enemies: ['ガルーダ零'], my_ms: '', partner_ms: '', date: '', pinned: 5 < n, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-10T12:00:00Z' },
   ];
 }
 

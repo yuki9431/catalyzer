@@ -95,9 +95,9 @@ describe('screens', () => {
     assert.ok(b.absent.some(function (r) { return r[0].includes('nth-child(4)') && r[0].includes('tabbar-dot'); }));
   });
 
-  it('ホームのメモ画面は5つで、全て clock を持つ', () => {
+  it('ホームのメモ画面は4つで、全て clock を持つ', () => {
     var homes = SCREENS.filter(function (s) { return s.home && s.start.indexOf('report-session') === 0; });
-    assert.equal(homes.length, 5);
+    assert.equal(homes.length, 4);
     homes.forEach(function (s) { assert.ok(s.clock, s.id); });
   });
 

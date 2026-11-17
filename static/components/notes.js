@@ -1,7 +1,7 @@
 import { html, useState, useRef, useEffect, useMemo } from '../htm-preact-standalone.js';
 import { currentPlayDay, playDay } from '../analysis/today.js';
 import {
-  sanitizeNotes, notesForMatch, matchEnemies, pinnedNotes, canPinMore, notesForEnemy, groupByEnemy, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
+  sanitizeNotes, notesForMatch, matchEnemies, pinnedNotes, canPinMore, notesForEnemy, groupByMs, MS_TABS, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, canAddEnemy, enemyOptions, withValue, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
@@ -96,51 +96,57 @@ export function NoteMark() {
   return html`<span class="note-mark" data-ui="note-mark" role="img" aria-label="メモあり"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" /></svg></span>`;
 }
 
+// 鉛筆アイコンの「書く」ボタン
+function WriteButton({ ui, onClick }) {
+  return html`<button type="button" class="search-link note-write-icon" data-ui=${ui} aria-label="書く" onClick=${onClick}><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z M13 7l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" /></svg></button>`;
+}
+
 // 1件の行。タップで編集シートを開く
 export function NoteItem({ note, showTarget, onOpen }) {
   return html`<button type="button" class="note-item" data-ui="note-item" onClick=${function () { onOpen(note); }}>
-    ${(showTarget || note.my_ms) && html`<span class="note-item-meta">
+    ${(showTarget || note.my_ms || note.partner_ms) && html`<span class="note-item-meta">
       ${showTarget && html`<b>${noteTargetLabel(note)}</b>`}
       ${note.my_ms && html`<span>自機: ${note.my_ms}</span>`}
+      ${note.partner_ms && html`<span>僚機: ${note.partner_ms}</span>`}
     </span>`}
     <span class="note-item-text">${note.text}</span>
   </button>`;
 }
 
-// 試合詳細から書くときの既定: その試合のプレイ日と相手の2機
+// 試合詳細から書くときの既定: その試合のプレイ日・相手の2機・自機
 export function matchDraft(match) {
-  return defaultDraft({ enemies: matchEnemies(match), date: playDay(match.date) });
+  return defaultDraft({ enemies: matchEnemies(match), my_ms: match.ms || '', date: playDay(match.date) });
 }
 
-// 相性タブ・メモ一覧から書くときの既定: 今日のプレイ日。enemy が '' なら敵機は0欄
-export function todayDraft(enemy, now) {
-  return defaultDraft({ enemies: enemy ? [enemy] : [], date: currentPlayDay(now) });
+// 相性タブ・メモ一覧から書くときの既定: 今日のプレイ日と myMs。enemy が '' なら敵機は0欄
+export function todayDraft(enemy, myMs, now) {
+  return defaultDraft({ enemies: enemy ? [enemy] : [], my_ms: myMs, date: currentPlayDay(now) });
 }
 
-// ホームの「書く」の既定: 今日のプレイ日。ピンに空きがあればピン留め
-export function homeDraft(notes, limits, now) {
-  return defaultDraft({ date: currentPlayDay(now), pinned: canPinMore(notes, limits) });
+// ホームの「書く」の既定: 今日のプレイ日と myMs。ピンに空きがあればピン留め
+export function homeDraft(notes, limits, myMs, now) {
+  return defaultDraft({ my_ms: myMs, date: currentPlayDay(now), pinned: canPinMore(notes, limits) });
 }
 
-// 相性タブの行の中身。その敵機のメモを並べる
-export function EnemyNotes({ notes, enemy, myMs }) {
+// 相性タブの行の中身。その敵機のメモを並べる。writeMs は書くときの自機の既定
+export function EnemyNotes({ notes, enemy, myMs, writeMs }) {
   var list = notesForEnemy(notes.list, enemy, myMs);
   return html`<div class="note-match" data-ui="enemy-notes">
     ${list.length
       ? list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })
       : html`<p class="note-empty">まだメモはありません</p>`}
     <button type="button" class="ui-action note-write" data-ui="note-write"
-      onClick=${function () { notes.open(todayDraft(enemy, new Date())); }}>＋ メモを書く</button>
+      onClick=${function () { notes.open(todayDraft(enemy, writeMs || '', new Date())); }}>＋ メモを書く</button>
   </div>`;
 }
 
-// 試合詳細のパネルの中身。その試合の敵機ごとにメモを並べる
+// 試合詳細のパネルの中身。相手の機体の組ごと、続けて敵機の指定が無い自機・僚機のメモを並べる
 export function MatchNotes({ notes, match }) {
   var groups = useMemo(function () { return notesForMatch(notes.list, match); }, [notes.list, match]);
   return html`<div class="note-match" data-ui="match-notes">
     ${groups.map(function (g) {
-      return html`<section class="note-group">
-        <h3 class="note-group-head">${g.enemy}</h3>
+      return html`<section class="note-group" key=${g.head}>
+        <h3 class="note-group-head">${g.head || '自機・僚機'}</h3>
         ${g.notes.length
           ? g.notes.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })
           : html`<p class="note-empty">まだメモはありません</p>`}
@@ -197,6 +203,7 @@ function NoteSheetBody({ notes, choices }) {
       onClick=${function () { done(notes.save(draft)); }}>${busy ? '保存中…' : '保存'}</button>`;
 
   var mine = withValue(choices.mine, draft.my_ms);
+  var partners = withValue(choices.partners, draft.partner_ms);
   return html`<${Layer} ui="note-sheet" label=${editing ? 'メモを編集' : 'メモを書く'} head=${head} foot=${foot} footUi="note-foot" onClose=${notes.close}>
     <div class="note-form">
       <div class="search-field">
@@ -232,6 +239,11 @@ function NoteSheetBody({ notes, choices }) {
         <div data-ui="note-my"><${Dropdown} value=${draft.my_ms} options=${mine} placeholder="指定しない"
           onChange=${function (v) { patch({ my_ms: v }); }} /></div>
       </div>
+      <div class="search-field">
+        <label class="search-label">僚機</label>
+        <div data-ui="note-partner"><${Dropdown} value=${draft.partner_ms} options=${partners} placeholder="指定しない"
+          onChange=${function (v) { patch({ partner_ms: v }); }} /></div>
+      </div>
       <label class="note-pin" data-ui="note-pin">
         <input type="checkbox" checked=${draft.pinned} disabled=${pinFull && !draft.pinned}
           onChange=${function (e) { patch({ pinned: e.target.checked }); }} />
@@ -245,10 +257,10 @@ function NoteSheetBody({ notes, choices }) {
 // 書くシート。どの入口から開いても同じ部品。draft が無いときは何も描かない
 export function NoteSheet({ notes, choices }) {
   if (!notes || !notes.draft) return null;
-  return html`<${NoteSheetBody} notes=${notes} choices=${choices || { enemies: [], mine: [] }} />`;
+  return html`<${NoteSheetBody} notes=${notes} choices=${choices || { enemies: [], mine: [], partners: [] }} />`;
 }
 
-var LIST_TABS = [['all', 'すべて'], ['enemy', '敵機'], ['date', '日付'], ['pin', 'ピン']];
+var LIST_TABS = [['all', 'すべて'], ['enemy', '敵機'], ['mine', '自機'], ['partner', '僚機'], ['date', '日付'], ['pin', '📍', 'ピン']];
 
 // メモ一覧の本体。タップで編集シートを開く
 function NoteList({ notes }) {
@@ -256,16 +268,17 @@ function NoteList({ notes }) {
   var tab = tabRef[0], setTab = tabRef[1];
   var counts = useMemo(function () { return tabCounts(notes.list); }, [notes.list]);
   var items = useMemo(function () { return notesByTab(notes.list, tab); }, [notes.list, tab]);
-  var groups = useMemo(function () { return groupByEnemy(notes.list); }, [notes.list]);
+  var field = MS_TABS[tab];
+  var groups = useMemo(function () { return field ? groupByMs(notes.list, field) : []; }, [notes.list, field]);
   function open(n) { notes.open(draftFromNote(n)); }
-  var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]] }; });
+  var options = LIST_TABS.map(function (t) { return { value: t[0], label: t[1] + ' ' + counts[t[0]], aria: t[2] && t[2] + ' ' + counts[t[0]] }; });
   return html`<div class="note-list" data-ui="note-list">
-    <${ToggleGroup} ui="note-tabs" label="表示するメモ" options=${options} value=${tab} onChange=${setTab} />
+    <div class="note-tabs-scroll"><${ToggleGroup} ui="note-tabs" label="表示するメモ" options=${options} value=${tab} onChange=${setTab} /></div>
     ${!items.length && html`<p class="note-empty">メモはまだありません</p>`}
-    ${tab === 'enemy'
+    ${field
       ? groups.map(function (g) {
-        return html`<section class="note-group" key=${g.enemy}>
-          <h3 class="note-group-head" data-ui="note-group">${g.enemy}<span>${g.count}件</span></h3>
+        return html`<section class="note-group" key=${g.ms}>
+          <h3 class="note-group-head" data-ui="note-group">${g.ms}<span>${g.count}件</span></h3>
           ${g.notes.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${open} />`; })}
         </section>`;
       })
@@ -274,7 +287,7 @@ function NoteList({ notes }) {
 }
 
 // メモタブ。使えるとき(on)だけ書く・一覧を出す
-export function NotesView({ notes }) {
+export function NotesView({ notes, myMs }) {
   var on = notes.status === 'on';
   var body;
   if (on) body = html`<${NoteList} notes=${notes} />`;
@@ -282,24 +295,23 @@ export function NotesView({ notes }) {
   else if (notes.status === 'error') body = html`<${Notice} tone="error" action=${{ label: 'もう一度読み込む', onClick: notes.reload }}>読み込めませんでした</${Notice}>`;
   else body = html`<${Notice}>ログイン状態を保持すると使えます</${Notice}>`;
   return html`<div data-ui="notes-view">
-    <div class="notes-head"><h2>メモ</h2>${on && html`<button type="button" class="search-link" data-ui="note-write"
-      onClick=${function () { notes.open(todayDraft('', new Date())); }}>書く</button>`}</div>
+    <div class="notes-head"><h2>メモ</h2>${on && html`<${WriteButton} ui="note-write"
+      onClick=${function () { notes.open(todayDraft('', myMs || '', new Date())); }} />`}</div>
     ${body}
   </div>`;
 }
 
 // ホーム最上部のピン留めしたメモ。メモが使えないときは何も描かない
-export function PinnedNotes({ notes, onAll }) {
+export function PinnedNotes({ notes, myMs }) {
   if (!notes || notes.status !== 'on') return null;
-  var write = html`<button type="button" class="search-link" data-ui="home-note-write"
-    onClick=${function () { notes.open(homeDraft(notes.list, notes.limits, new Date())); }}>書く</button>`;
+  var write = html`<${WriteButton} ui="home-note-write"
+    onClick=${function () { notes.open(homeDraft(notes.list, notes.limits, myMs || '', new Date())); }} />`;
   var list = pinnedNotes(notes.list, (notes.limits || {}).pinned_max);
   if (!list.length) {
     return html`<section class="note-pins-empty" data-ui="home-notes"><p>メモをピン留めすると、ここに出ます</p>${write}</section>`;
   }
   return html`<section class="note-pins" data-ui="home-notes">
-    <div class="note-pins-head"><h2>ピン留めしたメモ</h2>${write}
-      <button type="button" class="search-link" data-ui="home-notes-all" onClick=${onAll}>すべて ›</button></div>
+    <div class="note-pins-head"><h2>ピン留めしたメモ</h2>${write}</div>
     ${list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} showTarget onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })}
   </section>`;
 }
