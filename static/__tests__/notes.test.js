@@ -6,7 +6,8 @@ import {
   noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, canAddEnemy, enemyOptions, pinnedCount,
   upsertNote, removeNoteById, msChoices, loadDecision, responseOutcome, matchEnemies, pinnedNotes, canPinMore,
 } from '../lib/notes.js';
-import { matchDraft, todayDraft, homeDraft, PinnedNotes, NoteItem } from '../components/notes.js';
+import { Notice } from '../components/parts.js';
+import { matchDraft, todayDraft, homeDraft, PinnedNotes, NoteItem, NotesView } from '../components/notes.js';
 
 function note(over) {
   return Object.assign({ id: 'n1', text: 'メモ', enemies: ['A'], my_ms: '', date: '', pinned: false, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z' }, over);
@@ -318,23 +319,32 @@ describe('NoteList・その他画面の受け渡し', () => {
       assert.match(imp, new RegExp('\\b' + f + '\\b'));
       assert.ok(src.includes(f + '('), f);
     });
-    ['note-list', 'note-list-back', 'note-tabs', 'note-group'].forEach(function (u) { assert.ok(src.includes(u), u); });
+    ['note-list', 'note-tabs', 'note-group', 'notes-view'].forEach(function (u) { assert.ok(src.includes(u), u); });
+    assert.ok(!src.includes('note-list-back'));
+    assert.ok(!src.includes('<${Layer} ui="note-list"'));
   });
-  it('report.js の MoreView は Report の呼び出しだけ notes を渡し、Skeleton 側は渡さない', () => {
+  it('MoreView の呼び出しは notes を渡さない', () => {
     var calls = Array.from(report.matchAll(/<\$\{MoreView\}[^>]*\/>/g)).map(function (m) { return m[0]; });
     assert.strictEqual(calls.length, 2);
-    assert.strictEqual(calls.filter(function (c) { return /notes=\$\{notes\}/.test(c); }).length, 1);
+    assert.strictEqual(calls.filter(function (c) { return /notes=/.test(c); }).length, 0);
   });
-  it('more view にも NoteSheet を描く', () => {
-    var i = report.indexOf("view === 'more'");
-    assert.ok(report.slice(i, i + 900).includes('<${NoteSheet}'));
+  it('notes 分岐は NotesView と NoteSheet を描き、trailing・onPull を持たない', () => {
+    var i = report.indexOf("if (view === 'notes')");
+    var branch = report.slice(i, report.indexOf("if (view === 'classrecord')"));
+    assert.ok(i >= 0 && branch.includes('<${NotesView}') && branch.includes('<${NoteSheet}'));
+    assert.ok(!/trailing=|onPull=/.test(branch));
+  });
+  it('report.js・shell.js にメモ一覧の開閉 state が無く、「すべて ›」はメモタブへ遷移する', () => {
+    assert.ok(!/noteListOpen|openNoteList|listOpen|setListOpen/.test(report));
+    var shellSrc = fs.readFileSync(new URL('../components/shell.js', import.meta.url), 'utf8');
+    assert.ok(!/noteListOpen|openNoteList|listOpen|setListOpen/.test(shellSrc));
+    assert.ok(report.includes("onAll=${function () { nav.onNavigate('notes'); }}"));
   });
 });
 
 describe('ホームのピン留め(#689)', () => {
   var comp = fs.readFileSync(new URL('../components/notes.js', import.meta.url), 'utf8');
   var report = fs.readFileSync(new URL('../components/report/report.js', import.meta.url), 'utf8');
-  var shell = fs.readFileSync(new URL('../components/shell.js', import.meta.url), 'utf8');
   var NOW = new Date(2026, 5, 15, 4, 0);
   // vnode を辿って type が一致するものを集める
   function collect(v, type, out) {
@@ -410,9 +420,29 @@ describe('ホームのピン留め(#689)', () => {
       assert.ok(new RegExp('import \\{[^}]*\\b' + n + '\\b[^}]*\\}').test(report) || new RegExp('function ' + n + '\\b').test(report), n);
     });
   });
-  it('MoreView の呼び出しは listOpen と onListOpen を渡し、shell.js は開閉 state を持たない', () => {
-    var calls = Array.from(report.matchAll(/<\$\{MoreView\}[^>]*\/>/g)).map(function (m) { return m[0]; });
-    assert.strictEqual(calls.filter(function (c) { return /listOpen=/.test(c) && /onListOpen=/.test(c); }).length, 1);
-    assert.ok(!shell.includes('setListOpen'));
+  it('NotesView は off/loading/error で書く・一覧を出さず、error の再読み込みは notes.reload', () => {
+    var reload = function () {};
+    ['off', 'loading', 'error'].forEach(function (st) {
+      var v = NotesView({ notes: { status: st, list: [], limits: LIMITS, reload: reload, open: function () {} } });
+      var u = uis(v);
+      assert.ok(u.includes('notes-view') && !u.includes('note-write') && !u.includes('note-list'), st);
+    });
+    var err = NotesView({ notes: { status: 'error', list: [], reload: reload } });
+    assert.strictEqual(collect(err, Notice, [])[0].props.action.onClick, reload);
+    assert.strictEqual(collect(NotesView({ notes: { status: 'off', list: [] } }), Notice, []).length, 1);
+    assert.strictEqual(collect(NotesView({ notes: { status: 'loading', list: [] } }), Notice, []).length, 0);
+  });
+  it('NotesView は on で書くを出し、NoteList を描き、書くは敵機0欄・ピンなしの下書きで開く', () => {
+    var opened = null;
+    var v = NotesView({ notes: { status: 'on', list: [note()], limits: LIMITS, open: function (d) { opened = d; } } });
+    assert.ok(uis(v).includes('note-write'));
+    var kids = [];
+    (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if (typeof x.type === 'function') kids.push(x.type.name); walk(x.props.children); } })(v);
+    assert.ok(kids.includes('NoteList'));
+    var write = [];
+    (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if (x.props['data-ui'] === 'note-write') write.push(x); walk(x.props.children); } })(v);
+    write[0].props.onClick();
+    assert.deepStrictEqual(opened.enemies, []);
+    assert.strictEqual(opened.pinned, false);
   });
 });

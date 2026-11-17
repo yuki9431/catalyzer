@@ -1,8 +1,8 @@
-# 設計書: 敵機ごとの対策メモ(段階1・2) — issue #389
+# 設計書: 敵機ごとの対策メモ(段階1〜3) — issue #389
 
-- ステータス: 段階1 単位1〜5 実装完了。段階2(#689、§13)実装完了(レビュー2周で収束)。基準画像の取り込みは CI の ui-baseline 後
+- ステータス: 段階1 単位1〜5 実装完了。段階2(#689、§13)実装完了(レビュー2周で収束)。段階3(#690、§14)実装完了(レビュー2周で収束)。基準画像の取り込みは CI の ui-baseline 後
 - 日付: 2026-11-16
-- 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671、単位5 = #684、段階2 = #689)
+- 関連 issue: #389(単位1 = #668、単位2〜4 = #669〜#671、単位5 = #684、段階2 = #689、段階3 = #690)
 - 対象: catalyzer(既定ブランチ develop。調査は origin/develop d23aaec)
 
 ## 0. 用語(表示文言)
@@ -706,3 +706,121 @@ CLAUDE.md: home.js 行(ホーム最上部のピンカードは notes.js の Pinn
 ### 13.8 レビュー観点
 見た目(ピン1件以上はフラット見出し+行、0件は細い枠)/「すべて ›」の記号は既存「n戦 ›」に合わせた/0件の案内文/2機の重ね表示/文言が ui-terminology に沿うか。
 ナレッジ候補: 別画面から全画面の層を開いて遷移するときは開閉 state を Report に持ち上げる。起票候補: `.search-link` の hover が base.css の accent-2 背景になる(既存ボタン)。
+
+## 14. 段階3(#690): 総合戦歴をその他に移し、下部タブにメモ
+
+基点: feat-notes-tab(feat-notes-home 12d5db4)。Go・API・保存形式・localStorage のキー・app.js・lib/tabseen.js・components/classrecord.js・ui-check の seed/server/check/fixture は変えない。
+
+### 14.1 方針
+1. **総合戦歴は view 値 `classrecord` を残し「その他の下の画面」にする(a)**。shell.js に `SUB_VIEWS = { classrecord: 'more' }`(非 export)と `tabOf(view)`(hasOwnProperty で引く)。TabBar の `aria-current` は親タブ。`readView` は TAB_ITEMS の key と SUB_VIEWS の key を許す。Report の classrecord 分岐は今の形(bare+trailing 再分析ボタン+onPull/canPull)のまま、本文先頭に戻るボタン `classrecord-back`「その他」を足す。不採用(b) MoreView 内に描く: trailing・onPull・既読判定が Report 側にあり、描き分け state を持ち上げると(a)の作り直しになる。Layer に載せるとタブバー・引っ張り・再分析ボタンが隠れる
+2. **総合戦歴の点はその他のタブと「総合戦歴」の行に移す**。signals は `{home,report,search,classrecord}` のまま。`tabDot(badges,key,view)` で下の画面の点を親タブに出す(表示中のタブには付けない)。その他を開くとタブの点は消えるので行に `dot` を出す。既読は今と同じく view===classrecord 表示時(markSeen 不変)。不採用: 点をやめる(今の通知が消える)、その他を開いたら既読(見ていないのに消える)。**メモタブには点を付けない**(メモが変わるのは本人の操作だけで外部更新が無いため)
+3. **メモタブは bare**。trailing・onPull は渡さない(メモは戦績と無関係で再分析しても変わらず、誤った引っ張りで数分の取得が走るのを避ける)。「書く」は本文の見出し行(trailing はスマホで display:none)
+4. **NoteList の Layer 版は消す**(使っていたのは MoreView だけ)。本体は内部 `NoteList({notes})`(export しない)、外側は export する `NotesView({notes})`(hook なし)。`note-list-back`・`more-notes`・`notesRow`・`listOpen`/`onListOpen`・`noteListOpen`/`openNoteList`・more 分岐の NoteSheet は削除
+5. view 値 `notes`、ラベル「メモ」、アイコンは鉛筆。`TAB_ICONS.classrecord` は削除
+
+### 14.2 画面仕様
+- 下部タブ: ホーム / レポート / 試合検索 / メモ / その他(shell.css の repeat(5,1fr) 不変)
+- `NotesView` ルート `div[data-ui="notes-view"]`。見出し行 `div.notes-head` に `h2`「メモ」、status が on のときだけ `button.search-link[data-ui="note-write"]`「書く」(`notes.open(todayDraft('', new Date()))`)
+  - on: NoteList(`div.note-list[data-ui="note-list"]`。すべて/敵機/日付/ピン・一覧・空なら「メモはまだありません」)
+  - off: Notice(info)「ログイン状態を保持すると使えます」/ loading: `p.note-empty`「読み込み中…」/ error: `Notice tone="error" action={label:'もう一度読み込む', onClick: notes.reload}`「読み込めませんでした」。on 以外では書く・トグル・一覧を出さない
+- Report の分岐順: home → search → notes → classrecord → more → report。notes 分岐は `AppShell nav` の子に NotesView と NoteSheet
+- 総合戦歴: 先頭に `button.search-back[data-ui="classrecord-back"][aria-label="その他に戻る"]`(左矢印 svg+「その他」)、押すと `nav.onNavigate('more')`。再分析ボタン・引っ張りは今のまま
+- その他: ブランドロゴ直後に `Panel title="戦績"` → `div[data-ui="more-classrecord"]` → RowList 1行 `{key:'classrecord', main:'総合戦歴', sub:'ガンダムモバイルの通算戦績と通算記録', dot: !!classRecordDot}`(押すと `onClassRecord()`)。「メモ」Panel は削除
+- ホームの「すべて ›」: `onAll` は `nav.onNavigate('notes')`
+- RowList の `dot`: 真のとき main と aside の間に `span.ui-row-dot[data-ui="row-dot"][aria-hidden]` と `span.visually-hidden`「(更新あり)」
+
+### 14.3 インターフェース
+```js
+// static/components/shell.js
+export var TAB_ITEMS = [home, report, search, { key: 'notes', label: 'メモ' }, more];
+export function tabOf(view)               // SUB_VIEWS を hasOwnProperty で引き、無ければ view
+export function tabDot(badges, key, view) // !badges か key===tabOf(view) なら false。badges[key] か、SUB_VIEWS[s]===key の badges[s] が真なら true
+export var TAB_ICONS                      // テストから読むため export
+export function readView()                // TAB_ITEMS か SUB_VIEWS の key ならそれ、他は 'home'
+// TabBar: aria-current は tabOf(view)===t.key、点は tabDot(badges,t.key,view)
+export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh, onClassRecord, classRecordDot })
+// shell.js は notes.js を import しない(notesRow 削除)
+// static/components/notes.js: function NoteList({ notes }) / export function NotesView({ notes })
+// static/components/parts.js: RowList の行に dot?: boolean
+// report.js: import { NoteSheet, NotesView, PinnedNotes, useNotes } from '../notes.js'
+//  noteListRef/noteListOpen/openNoteList 削除。PinnedNotes onAll=${function () { nav.onNavigate('notes'); }}
+//  more: MoreView に onClassRecord=${function () { nav.onNavigate('classrecord'); }} classRecordDot=${nav.badges.classrecord}(NoteSheet・notes・listOpen は渡さない)。Skeleton の more にも onClassRecord
+```
+- MoreView 呼び出しに `=>` を使わない(既存静的テストの正規表現)。アイコン path 例: `M5 19l1-4L16 5l3 3L9 18l-4 1zM14 7l3 3`
+- CSS(14px 以上、色は tokens のみ):
+```css
+/* notes.css */
+.note-pins-head, .notes-head { display: flex; align-items: center; gap: 8px; }
+.note-pins-head h2, .notes-head h2 { flex: 1; margin: 0; color: var(--text); font-size: 1.125rem; }
+.notes-head { margin: 0 0 12px; }
+.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover, .notes-head .search-link:hover { background: var(--accent-a10); }
+/* 削除: .search-layer-head .note-list-write(クラス note-list-write も) */
+/* search.css(追加) */
+.search-back:hover { background: var(--accent-a10); }  /* button:hover に負けるため。試合詳細の戻るボタンにも効く */
+/* parts.css */
+.ui-row-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+```
+
+### 14.4 ui-check
+- 現状: SCREENS 92、基準 174 枚(#692 の5画面10枚が未取込、孤児0)。変更後 **95 画面・190 枚**(92-2+5)
+- 改名(削除): mobile-more-notes→mobile-notes、mobile-more-notes-enemy→mobile-notes-enemy。基準 `mobile-more-notes{,-enemy}-{dark,light}.png` 4枚は **ラベルを付ける前に git rm**(make ui-baseline は cp で孤児を消さない)
+- 新規5: 
+  - `mobile-notes`(M, report-session-valid): goTab('メモ')→wait note-list note-item。required: CURRENT メモ / notes-view h2 メモ / note-write 書く / note-tabs button 4件 / pressed すべて / note-list note-item 6件 / 「日付 2」/ 「6/15 ヴァルキュリア・ガルーダ零」。absent: note-list-back・reanalyze-button。tap: note-tabs button・note-item・note-write
+  - `mobile-notes-enemy`(M): 上に加え「敵機」を押す。required・tap は旧 mobile-more-notes-enemy と同じ
+  - `notes`(D, full:false): required CURRENT メモ / note-item 6件 / note-write。absent reanalyze-button
+  - `mobile-notes-write`(M, clock: HOME_CLOCK): goTab('メモ')→click note-write→wait note-sheet。required: textarea / note-date-clear / `note-pin input:not(:checked)` / note-my「指定しない」/ note-enemy-add / `[data-ui="notes-view"][inert], [inert] [data-ui="notes-view"]`。absent: note-enemy・note-delete。tap: note-save・note-enemy-add・note-date-clear
+  - `mobile-classrecord`(M, report-seen): goTab('その他')→wait `more-classrecord row-dot`→absentNow `tabbar-item:nth-child(5) tabbar-dot`→click `more-classrecord button`→wait classrecord-back。required: CURRENT その他 / classrecord-back「その他」/ summary-hero 通算勝率 / h2 通算記録。absent: reanalyze-button・`tabbar-item:nth-child(5) tabbar-dot`。tap: classrecord-back
+- 既存の変更: 
+  - `classrecord`(D): ops goTab('その他')→click more-classrecord button→wait h2 通算記録。CURRENT を「その他」、classrecord-back を追加(REANALYZE_BTN は残す)
+  - `mobile-more`: ops 試合検索→wait search-filter→メモ→wait [notes-view notice,'ログイン状態を保持すると使えます']→その他→総合戦歴の行 click→wait 通算記録→classrecord-back→wait more-classrecord→総合戦歴の行→wait 通算記録→reload→wait [CURRENT,'ホーム']→goTab('その他')。required の more-notes を `['[data-ui="more-classrecord"] button','総合戦歴']` に置換、absent に more-notes
+  - `more`(D): required に more-classrecord button 総合戦歴
+  - `mobile-home-badges`: required に `tabbar-item:nth-child(5) tabbar-dot`、absent に nth-child(4)(点の数3は不変)
+  - `mobile-home-notes-all`: required CURRENT メモ / note-list note-item 6件、absent note-list-back・home-notes、tap 削除(home:true・report-session-valid のまま)
+- **基準が変わる画面(タブバーが写る63)**
+  - D 14: analyzing, report-overview, home, report-playstyle, report-burst, report-matchup, report-time, dropdown-period, dropdown-ms, search, dropdown-search-sort, home-notes, classrecord, more
+  - M 49: analyzing-prelim, analyze-partial, analyze-prelim-error, mobile-home-few, mobile-home, mobile-home-last-day, mobile-home-badges-cleared, mobile-home-badges, mobile-report-grade, mobile-search-applied, mobile-search-sort, mobile-search-notes, mobile-search-filter-notes, mobile-report-matchup-notes, mobile-home-notes, mobile-home-notes-empty, mobile-home-notes-all, mobile-mission-search, mobile-mission-search-removed, mobile-search-pattern, mobile-search-pattern-multi, mobile-home-focus, mobile-focus-review, mobile-search-back, mobile-search-page-next, mobile-report-overview, mobile-report-scroll-up, mobile-pull, mobile-search-pull, mobile-pull-browser, mobile-dropdown-period, mobile-dropdown-mode, mobile-report-empty-mode, mobile-search-shared-scope, mobile-report-shared-scope-cleared, mobile-report-shared-dates, mobile-home-mode, mobile-home-empty-mode, mobile-ms-mode-chip, mobile-dropdown-ms, mobile-more, mobile-more-confirm, mobile-more-auto-refresh, mobile-more-auto-refresh-error, mobile-theme-light, mobile-theme-dark-reload, mobile-theme-os-switch, report-empty-period, report-empty-period-back
+  - 基準未取込の #692 の4画面を除くと既存基準で書き換わるのは59画面・118枚
+- 変わらない見込み27: AppShell が写らない9(login, session-expired, analyze-error, notice-session-expired, mobile-pull-release, more-reanalyze, report-reanalyze, parts, parts-sheet)・全画面 Layer がタブバーを覆う18(match-detail, mobile-search-filter, mobile-search-proficiency, dropdown-search-filter, mobile-match-detail, mobile-match-detail-streak, mobile-match-detail-notes, mobile-note-sheet, mobile-note-sheet-enemies, note-sheet, mobile-note-saved, mobile-note-sheet-error, mobile-home-note-sheet, mobile-match-detail-hit, mobile-match-detail-ol-hit, mobile-match-detail-lastcost-hit, mobile-match-gantt, mobile-layer-exclusive)。CI で不一致が出たら artifact で原因確認後に取り込む
+- 取り込み: 削除4枚をコミット→PR に ui-baseline→`make ui-baseline RUN=<id>`→コミット(#692 の10枚も同じ取り込みで入る。#692 側が先なら rebase して同 id はこのブランチの画像を採る)
+
+### 14.5 テスト計画(docker: `docker run --rm -v "$PWD":/w -w /w catalyzer-oracle <cmd>`)
+- shell.test.js(6→11): 変更=TAB_ITEMS 順 `home,report,search,notes,more`、readView は classrecord をそのまま返す、旧「MoreView のメモ行」を差替(notes 引数なし・onClassRecord と classRecordDot あり・`dot: !!classRecordDot`・`from './notes.js'` なし)。追加=tabOf(classrecord→more, notes→notes, valueOf→valueOf)・tabDot(`{classrecord:true}` は more/home で真、more/more・more/classrecord・notes/home で偽、`{report:true}` は report/classrecord で真、badges undefined で偽)・TAB_ICONS が全 key に function を持ち classrecord を持たない・shell.js の `<${X}` が全て import/定義済み
+- notes.test.js(62→64): 変更=NoteList の data-ui を `note-list, note-tabs, note-group, notes-view` にし note-list-back と `<${Layer} ui="note-list"` が無いこと、MoreView 呼び出しに `notes=` なし、notes 分岐(`if (view === 'notes')`〜`if (view === 'classrecord')`)に NotesView と NoteSheet があり trailing=・onPull= が無い、report.js・shell.js に `noteListOpen|openNoteList|listOpen|setListOpen` が無く `onAll=${function () { nav.onNavigate('notes'); }}` がある。追加=NotesView を off/loading/error で直接呼び note-write・note-list が無い(off/error は Notice、error の action.onClick===notes.reload、loading は「読み込み中…」)・on で note-write があり NoteList を子に持ち、書くで notes.open に渡る draft が `enemies:[]`・`pinned:false`
+- skeleton-actions.test.js(10→12): MoreView の全呼び出しに onClassRecord(2件以上)、NotesView の全呼び出しに notes
+- screens.test.js(23→24): mobile-more の押したラベルにレポート・試合検索・メモ・その他、`more-classrecord button` と `classrecord-back` の click、reload 直前は wait「通算記録」、+1 は wait ホーム、+2 は click その他。追加=どの画面も `goTab('総合戦歴')` を使わず classrecord・mobile-classrecord は CURRENT その他と classrecord-back 必須 / mobile-home-badges は nth-child(5) 点必須・nth-child(4) 点 absent
+- tabseen.test.js・user-state.test.js は不変。合計 635→645(取込前 pass 644/fail 1、取込後 pass 645/fail 0)
+
+### 14.6 完了条件
+`$D`=`docker run --rm -v "$PWD":/w -w /w catalyzer-oracle`、`$T`=`node --test --test-reporter=tap 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'`
+| # | 条件 | コマンド | 期待値 |
+|---|---|---|---|
+| 1 | JS 全体(取込前) | `$D $T \| grep -E '^# (pass\|fail)'` | pass 644 / fail 1 |
+| 2 | 失敗は基準画像の過不足のみ | `$D $T \| grep -cE '^[[:space:]]*not ok [0-9]+ - 基準画像が'` | 1 |
+| 3-5 | shell / notes / skeleton-actions test | 各ファイルを同様に実行 | pass 11 / 64 / 12、fail 0 |
+| 6 | タブの並び | TAB_ITEMS の key を node で出力 | `home,report,search,notes,more` |
+| 7 | 画面の増減と総数 | SCREENS から新規5・旧2・総数を出力 | `5 0 95` |
+| 8 | `grep -c "goTab('総合戦歴')" tools/ui-check/screens.js` | | 0 |
+| 9 | `ls tools/ui-check/baseline \| grep -c '^mobile-more-notes'` | | 0 |
+| 10 | `grep -cE 'note-list-back\|ui="note-list" label' static/components/notes.js` | | 0 |
+| 11 | `grep -c "from './notes.js'" static/components/shell.js` | | 0 |
+| 12 | report.js shell.js に `noteListOpen\|openNoteList\|listOpen` | grep -c | 0 |
+| 13 | `git diff origin/feat-notes-home...HEAD -- static \| grep -cE '^\+.*localStorage\.setItem'` | | 0 |
+| 14 | `git diff --name-only origin/feat-notes-home...HEAD -- '*.go' \| wc -l` | | 0 |
+| 15 | ui-baseline 取込後の PR checks | | ui-check pass |
+| 16 | `ls tools/ui-check/baseline/*.png \| wc -l`(取込後) | | 190 |
+| 17 | JS 全体(取込後) | | pass 645 / fail 0 |
+| 18-20 | CLAUDE.md: `grep -c '95画面'`=1、`grep -o '190枚' \| wc -l`=2、`grep -cE '92画面\|184枚'`=0 | | 左記 |
+| 21 | CLAUDE.md に旧記述(`NoteList`（その他画面`・listOpen・その他画面のメモの行) | grep -c | 0 |
+| 22 | CLAUDE.md の `NotesView`、README の `メモタブ` | grep -c | 各1以上 |
+| 23 | CI test-js(skip-ci を付けない) | | pass |
+PR の base が develop になったら #13・#14 は読み替える。#15・#16・#17(取込後)・#23 は PR の CI 後で、本パイプラインでは #1-14 と #18-22 を検証する。
+
+### 14.7 ドキュメント更新
+- CLAUDE.md: report/ 行(引っ張りは「メモ・その他では無効」)/ shell.js 行(MoreView の括弧書きを総合戦歴への行 `onClassRecord`・点 `classRecordDot`・共有・設定・データ・アカウントに。下部タブ5種と `tabOf`・`tabDot`、classrecord はその他の下の画面)/ home.js(「すべて ›」はメモタブ)/ parts.js(RowList に dot)/ notes.js(メモタブに案内だけ・`NotesView`・import 元は search.js・charts.js・report/)/ classrecord.js(その他の「総合戦歴」の行から開く)/ ui-check の 92画面→95画面・184枚→190枚(2か所)
+- README: classrecord.js(その他から開く)・notes.js(メモタブ)・shell.js(下部タブ5種、総合戦歴への入口)
+
+### 14.8 変更予定ファイル
+static/components/{shell,notes,parts}.js、static/components/report/report.js、static/styles/{notes,parts,search}.css、static/__tests__/{shell,notes,skeleton-actions}.test.js、tools/ui-check/{screens,screens.test}.js、tools/ui-check/baseline/(4枚削除)、CLAUDE.md、README.md
+
+### 14.9 レビュー観点・既知の制限
+鉛筆アイコン・戦績パネル位置と sub 文言・戻るボタンと要約の間隔・メモの見出し行と書くの配置・行の点の大きさ。既知: Skeleton は view が notes のとき search と同様にレポート骨組みを出す。エスカレーション4条件に該当なし(基準4枚の git rm は履歴から戻せる)。
