@@ -309,7 +309,7 @@ export function notesForMatch(notes, match)               // 変更なし。敵�
 export function hasNoteForMatch(notes, match)             // 変更なし。相手のどれか1機が、どれかのメモの enemies にあれば真
 export function groupByEnemy(notes)                       // [{ enemy, count, notes }]。各メモを enemies の機体それぞれの下に入れる。count はその敵機の下のメモ数。件数の多い順、同じなら localeCompare('ja')
 export function notesByTab(notes, tab)                    // 'all'|'enemy'|'date'|'pin'。enemy = enemies が1機以上、date = date が ''でない。all・enemy・pin は updated_at の新しい順、date は date の新しい順(同じなら updated_at)
-export function tabCounts(notes)                          // 変更なし。{ all, enemy, date, pin }(enemy はメモの件数で、まとまりの延べ数ではない)
+export function tabCounts(notes)                          // 変更なし。{ all, enemy, date, pin }(enemy はメモの件数で、まとまりの延べ数ではない。§16 で pin を外し、all はピン留めを先頭にした)
 export function noteTargetLabel(note)                     // 'M/D' と敵機の '・' 区切りを半角空白でつなぐ(例 '6/15 ヴァルキュリア・ガルーダ零')。どちらも無ければ 'メモ'
 export function defaultDraft(ctx)                         // ctx: { enemy?, date? } → { id:null, text:'', enemies: enemy ? [enemy] : [], my_ms:'', date: date || '', pinned:false }
 export function draftFromNote(note)                       // { id, text, enemies: note.enemies の複製, my_ms, date, pinned }
@@ -830,9 +830,14 @@ static/components/{shell,notes,parts}.js、static/components/report/report.js、
 - 項目: メモに僚機 `partner_ms` を足す(API・Firestore・フロント。任意、空=指定しない)。
 - 試合に出す条件: 敵機・自機・僚機のうち指定したものが全部合う。敵機はどれか1機で合う。敵機が空でも自機か僚機が合えば、試合詳細の末尾「自機・僚機」に出る。
 - 書くときの既定の自機: 試合詳細=その試合の自機、相性タブ=選択中の機体か最後に遊んだ機体、ホーム・メモタブ=最後に遊んだ機体。僚機は常に指定しない。
-- メモタブ: すべて・敵機・自機・僚機・日付・📍(読み上げは「ピン」)。自機・僚機は機体ごとにまとめる。
+- メモタブ: すべて・敵機・自機・僚機・日付(§16 でピンのタブを外した)。自機・僚機は機体ごとにまとめる。
 - 試合詳細の並び: 相手1機ずつの組(常に出す)→ 相手2機とも持つメモの「A・B」組(有れば)→「自機・僚機」組(有れば)。各メモは1回だけ出る。
 - メモタブの一覧タブは横スクロールの行に入れる(件数が2桁・狭い端末で見切れない)。
 - 置き換え: §5 以前の `notesForMatch`(敵機ごとのみ)・`groupByEnemy` は本節の `notesForMatch`(末尾の組つき)・`groupByMs` に置き換える。相性タブ(`notesForEnemy`)は僚機の軸を持たないので僚機を見ない。
 - 文言: 試合詳細のパネルは「メモ」、試合検索の絞り込みは「メモがある試合」。
 - ホーム: ピン留めの「すべて ›」は外す(下部タブのメモで行ける)。ホーム・メモタブの「書く」は鉛筆アイコン(aria-label「書く」)。
+
+## 16. ピンのタブをやめる
+
+- メモタブからピンのタブを外し、5タブにする。カラー絵文字の 📍 は他の線画アイコンから浮き、ピンは最大3件でホームにも全部出るため専用のタブは要らない。
+- 「すべて」はピン留めを先頭に置き、その中とそれ以外は更新の新しい順。メモタブの各行はピン留めなら線画のピンの印(aria-label「ピン留め」)を出す。ホーム・試合詳細・相性タブの行には出さない。

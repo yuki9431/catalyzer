@@ -134,10 +134,12 @@ describe('groupByMs・notesByTab・tabCounts', () => {
     var both = [note({ id: 'x', enemies: ['A'], date: '2026-06-01' })];
     assert.deepStrictEqual(notesByTab(both, 'enemy').map(function (n) { return n.id; }), ['x']);
     assert.deepStrictEqual(notesByTab(both, 'date').map(function (n) { return n.id; }), ['x']);
-    assert.deepStrictEqual(tabCounts(both), { all: 1, enemy: 1, mine: 0, partner: 0, date: 1, pin: 0 });
+    assert.deepStrictEqual(tabCounts(both), { all: 1, enemy: 1, mine: 0, partner: 0, date: 1 });
   });
-  it('all は更新の新しい順', () => {
-    assert.deepStrictEqual(notesByTab(list, 'all').map(function (n) { return n.id; }), ['6', '4', '2', '3', '1', '5']);
+  it('all はピン留めを先頭に置き、その中とそれ以外は更新の新しい順', () => {
+    assert.deepStrictEqual(notesByTab(list, 'all').map(function (n) { return n.id; }), ['2', '6', '4', '3', '1', '5']);
+    var pins = list.map(function (n) { return n.id === '1' ? note(Object.assign({}, n, { pinned: true })) : n; });
+    assert.deepStrictEqual(notesByTab(pins, 'all').map(function (n) { return n.id; }), ['2', '1', '6', '4', '3', '5']);
   });
   it('enemy・date・pin に絞る。date は日付の新しい順', () => {
     assert.deepStrictEqual(notesByTab(list, 'enemy').map(function (n) { return n.id; }), ['2', '3', '1']);
@@ -145,7 +147,7 @@ describe('groupByMs・notesByTab・tabCounts', () => {
     assert.deepStrictEqual(notesByTab(list, 'pin').map(function (n) { return n.id; }), ['2']);
   });
   it('tabCounts', () => {
-    assert.deepStrictEqual(tabCounts(list), { all: 6, enemy: 3, mine: 0, partner: 0, date: 2, pin: 1 });
+    assert.deepStrictEqual(tabCounts(list), { all: 6, enemy: 3, mine: 0, partner: 0, date: 2 });
   });
   it('更新が同じなら id の昇順', () => {
     var same = [note({ id: 'b' }), note({ id: 'a' })];
@@ -471,6 +473,17 @@ describe('ホームのピン留め(#689)', () => {
     assert.strictEqual(collect(err, Notice, [])[0].props.action.onClick, reload);
     assert.strictEqual(collect(NotesView({ notes: { status: 'off', list: [] } }), Notice, []).length, 1);
     assert.strictEqual(collect(NotesView({ notes: { status: 'loading', list: [] } }), Notice, []).length, 0);
+  });
+  it('NoteItem は showPin かつピン留めのときだけピンの印を出す', () => {
+    var marks = function (v) {
+      var out = [];
+      (function walk(x) { if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object' && x.props) { if (typeof x.type === 'function') out.push(x.type.name); walk(x.props.children); } })(v);
+      return out.filter(function (n) { return n === 'PinMark'; }).length;
+    };
+    var open = function () {};
+    assert.strictEqual(marks(NoteItem({ note: note({ pinned: true }), showPin: true, onOpen: open })), 1);
+    assert.strictEqual(marks(NoteItem({ note: note({ pinned: true }), onOpen: open })), 0);
+    assert.strictEqual(marks(NoteItem({ note: note({ pinned: false }), showPin: true, onOpen: open })), 0);
   });
   it('NotesView は on で書くを出し、NoteList を描き、書くは敵機0欄・ピンなしの下書きで開く', () => {
     var opened = null;

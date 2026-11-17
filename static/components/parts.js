@@ -17,7 +17,7 @@ export function Chip({ tone, active, onClick, expanded, ui, onRemove, removeLabe
 export function ToggleGroup({ options, value, onChange, label, ui }) {
   return html`<div class="ui-toggle" role="group" aria-label=${label} data-ui=${ui || 'toggle'}>
     ${options.map(function (o) {
-      return html`<button type="button" class="ui-toggle-btn" aria-pressed=${o.value === value} aria-label=${o.aria} onClick=${function () { onChange(o.value); }}>${o.label}</button>`;
+      return html`<button type="button" class="ui-toggle-btn" aria-pressed=${o.value === value} onClick=${function () { onChange(o.value); }}>${o.label}</button>`;
     })}
   </div>`;
 }
