@@ -11,6 +11,12 @@
 .note-item-meta b { color: var(--accent-2); }
 .note-item-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
+.note-panel-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 2px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.note-panel-toggle:hover, .note-panel-toggle:focus { background: none; color: var(--text); }
+.note-panel-toggle small { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
+.panel h2.note-panel-closed { margin-bottom: 0; }
+.note-panel-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
+
 .note-mark { display: inline-flex; align-items: center; color: var(--accent-2); vertical-align: middle; }
 
 .note-form { display: flex; flex-direction: column; gap: 16px; }

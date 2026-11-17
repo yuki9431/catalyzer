@@ -16,7 +16,8 @@ var HOME_CLOCK = '2026-10-08T22:00:00+09:00';
 var SORT_TRIGGER = '[data-ui="search-sort-trigger"]';
 var SHEET = '[data-ui="search-filter-sheet"]';
 var OPEN_DETAIL = OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]);
-var OPEN_NOTE_SHEET = OPEN_DETAIL.concat([{ click: ['[data-ui="note-write"]'] }]);
+var OPEN_MATCH_NOTES = OPEN_DETAIL.concat([{ click: ['[data-ui="match-notes-toggle"]'] }]);
+var OPEN_NOTE_SHEET = OPEN_MATCH_NOTES.concat([{ click: ['[data-ui="note-write"]'] }]);
 var NOTE_TEXT = 'ui-check で書いたメモ';
 var WRITE_NOTE = [{ type: ['[data-ui="note-sheet"] textarea', NOTE_TEXT] }];
 // 自機は最初から機体が入る(指定しないで始まらない)
@@ -142,9 +143,13 @@ var SCREEN_DEFS = [
   { id: 'mobile-match-detail-streak', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]', '2連勝'] }]),
     required: [['[data-ui="match-result"]', '勝利'], ['[data-ui="match-result"] [data-ui="win-streak"]', '2連勝']], outview: [[TABBAR]] },
   // メモ(#389)。ログイン状態を保持した端末(report-session-valid)で、先頭の試合(ストームレイダー・ヴァルキュリア戦)の詳細から書く
-  { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
-    required: [['[data-ui="panel"] h2', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
-    absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="note-item"]', '[data-ui="note-write"]'] },
+  // 試合詳細のメモ欄は既定で閉じ、見出しに件数を出す。先頭の試合はストームレイダー2・ヴァルキュリア1・自機・僚機1の4件
+  { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
+    required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件']], absent: [['[data-ui="match-notes"]']],
+    oneRow: ['[data-ui="match-notes-toggle"]'], tap: ['[data-ui="match-notes-toggle"]'] },
+  { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_MATCH_NOTES,
+    required: [['[data-ui="match-notes-toggle"][aria-expanded="true"]', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
+    absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="note-item"]', '[data-ui="note-write"]'] },
   // メモの印と絞り込み(#389)。先頭の試合の相手(ストームレイダー等)とガルーダ零にメモがある
   { id: 'mobile-search-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_SEARCH.concat([{ wait: ['[data-ui="search-result"] [data-ui="note-mark"]'] }]),
     required: [['[data-ui="search-result"] [data-ui="note-mark"]']] },
