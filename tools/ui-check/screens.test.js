@@ -65,16 +65,34 @@ describe('screens', () => {
     assert.deepStrictEqual(have.sort(), want.sort());
   });
 
-  it('mobile-more は 4 項目を巡回して再読み込みでホームに戻ることを確かめ、その他を開いてタップ領域を検査する', () => {
+  it('mobile-more は 4 項目を巡回し、総合戦歴の往復の後、再読み込みでホームに戻ることを確かめ、その他を開いてタップ領域を検査する', () => {
     var s = SCREENS.find(function (x) { return x.id === 'mobile-more'; });
     var clicked = s.ops.filter(function (op) { return op.click; }).map(function (op) { return op.click[1]; });
-    ['レポート', '試合検索', '総合戦歴', 'その他'].forEach(function (l) { assert.ok(clicked.includes(l), l); });
+    ['レポート', '試合検索', 'メモ', 'その他'].forEach(function (l) { assert.ok(clicked.includes(l), l); });
+    var clicks = s.ops.filter(function (op) { return op.click; }).map(function (op) { return op.click[0]; });
+    assert.ok(clicks.includes('[data-ui="more-classrecord"] button'));
+    assert.ok(clicks.includes('[data-ui="classrecord-back"]'));
     var r = s.ops.findIndex(function (op) { return op.reload; });
     assert.ok(r > 0);
+    assert.deepStrictEqual(s.ops[r - 1].wait, ['h2', '通算記録']);
     assert.deepStrictEqual(s.ops[r + 1].wait[1], 'ホーム');
     assert.deepStrictEqual(s.ops[r + 2].click[1], 'その他');
     assert.ok(s.required.some(function (r) { return r[0].includes('aria-current') && r[1] === 'その他'; }));
     assert.ok(s.tap && s.tap.length > 0);
+  });
+
+  it('総合戦歴はその他の下の画面で、タブから直接開かず戻るボタンを必須にし、バッジ画面は5番目のタブに点を要求する', () => {
+    SCREENS.forEach(function (s) {
+      s.ops.forEach(function (op) { assert.ok(!(op.click && op.click[1] === '総合戦歴' && op.click[0].includes('tabbar-item')), s.id); });
+    });
+    ['classrecord', 'mobile-classrecord'].forEach(function (id) {
+      var s = SCREENS.find(function (x) { return x.id === id; });
+      assert.ok(s.required.some(function (r) { return r[0].includes('aria-current') && r[1] === 'その他'; }), id);
+      assert.ok(s.required.some(function (r) { return r[0] === '[data-ui="classrecord-back"]'; }), id);
+    });
+    var b = SCREENS.find(function (x) { return x.id === 'mobile-home-badges'; });
+    assert.ok(b.required.some(function (r) { return r[0].includes('nth-child(5)') && r[0].includes('tabbar-dot'); }));
+    assert.ok(b.absent.some(function (r) { return r[0].includes('nth-child(4)') && r[0].includes('tabbar-dot'); }));
   });
 
   it('ホームのメモ画面は5つで、全て clock を持つ', () => {

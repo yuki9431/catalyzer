@@ -32,12 +32,12 @@
 .note-danger { border-color: var(--bad); color: var(--bad); }
 
 .note-list { display: flex; flex-direction: column; gap: 16px; }
-.search-layer-head .note-list-write { justify-self: end; }
 .note-group-head span { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
 
 .note-pins { display: flex; flex-direction: column; gap: 8px; margin: 0 0 36px; }
-.note-pins-head { display: flex; align-items: center; gap: 8px; }
-.note-pins-head h2 { flex: 1; margin: 0; color: var(--text); font-size: 1.125rem; }
+.note-pins-head, .notes-head { display: flex; align-items: center; gap: 8px; }
+.note-pins-head h2, .notes-head h2 { flex: 1; margin: 0; color: var(--text); font-size: 1.125rem; }
+.notes-head { margin: 0 0 12px; }
 .note-pins-empty { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 36px; padding: 0 4px 0 12px; border: 1px solid var(--line); border-radius: 8px; }
 .note-pins-empty p { display: flex; align-items: center; min-height: 44px; margin: 0; color: var(--muted); font-size: 0.875rem; }
-.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover { background: var(--accent-a10); }
+.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover, .notes-head .search-link:hover { background: var(--accent-a10); }

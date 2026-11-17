@@ -53,6 +53,7 @@ a.ui-row-btn, a.ui-row-btn:hover { color: var(--text); text-decoration: none; }
 .ui-row-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .ui-row-main small { color: var(--muted); font-size: 0.875rem; }
 .ui-row-aside { flex-shrink: 0; color: var(--accent-2); font-weight: bold; }
+.ui-row-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
 .ui-row-aside-good { color: var(--great); }
 .ui-row-aside-bad { color: var(--terrible); }
 .ui-row-bar { display: block; position: relative; height: 4px; margin-top: 6px; border-radius: 2px; background: var(--panel-2); }

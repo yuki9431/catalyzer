@@ -73,6 +73,18 @@ describe('Skeleton', () => {
     assert.deepStrictEqual(r.bad, []);
   });
 
+  it('全ての <${MoreView} 呼び出しに onClassRecord が付く(未注入だと総合戦歴の行で TypeError になる)', () => {
+    var r = missingAttr('MoreView', 'onClassRecord');
+    assert.ok(r.found >= 2);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
+  it('全ての <${NotesView} 呼び出しに notes が付く', () => {
+    var r = missingAttr('NotesView', 'notes');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
   // 渡し忘れると試合詳細の「敵機のメモ」が出ない(props を無視する report-rerender-props-ignored と同じ系統の見落とし)
   it('全ての <${SearchView} 呼び出しに notes が付く', () => {
     var r = missingAttr('SearchView', 'notes');

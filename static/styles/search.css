@@ -108,6 +108,7 @@
 .search-page-info { color: var(--muted); font-size: 0.875rem; }
 
 .search-layer-date { grid-column: 3; justify-self: end; color: var(--muted); font-size: 0.875rem; }
+.search-back:hover { background: var(--accent-a10); }
 .search-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 0 8px 0 0; }
 .search-layer-body .panel { margin-bottom: 24px; }
 .search-pattern { display: flex; flex-wrap: wrap; gap: 8px; }

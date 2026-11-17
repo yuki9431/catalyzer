@@ -96,13 +96,13 @@
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
-│   │   ├── classrecord.js         # モバイル総合戦歴ビュー
+│   │   ├── classrecord.js         # モバイル総合戦歴ビュー（その他から開く）
 │   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）と全画面の層 Layer
-│   │   ├── notes.js               # メモ（取得・書くシート・試合詳細・相性タブの一覧・メモ一覧・ホームのピン留め）
-│   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）とその他画面（再分析・自動更新の設定・メモ一覧への入口を含む）
+│   │   ├── notes.js               # メモ（取得・書くシート・試合詳細・相性タブの一覧・メモタブ・ホームのピン留め）
+│   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）と下部タブ5種（ホーム・レポート・試合検索・メモ・その他）、その他画面（再分析・自動更新の設定・総合戦歴への入口を含む）
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice。Notice は操作ボタン付き）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/

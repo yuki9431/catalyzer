@@ -7,7 +7,7 @@ import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
-import { NoteSheet, PinnedNotes, useNotes } from '../notes.js';
+import { NoteSheet, NotesView, PinnedNotes, useNotes } from '../notes.js';
 import { msChoices } from '../../lib/notes.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MS_CHIP_DEFAULT, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
@@ -260,9 +260,6 @@ export function Report({ data, userKey, actions }) {
   // メモは Report が持つ。書くシートはどの画面からも同じものを開く
   var notes = useNotes(userKey, actions.notes, data);
   var noteChoices = useMemo(function () { return msChoices(msImages, allMatches); }, [msImages, allMatches]);
-  var noteListRef = useState(false);
-  var noteListOpen = noteListRef[0], setNoteListOpen = noteListRef[1];
-  function openNoteList() { setNoteListOpen(true); nav.onNavigate('more'); }
   nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
   if (view === 'home') {
     var msOnly = html`<div class="controls-row" data-ui="filter-bar">
@@ -270,7 +267,7 @@ export function Report({ data, userKey, actions }) {
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${PinnedNotes} notes=${notes} onAll=${openNoteList} />
+      <${PinnedNotes} notes=${notes} onAll=${function () { nav.onNavigate('notes'); }} />
       ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
         ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
         : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} />`}
@@ -284,16 +281,24 @@ export function Report({ data, userKey, actions }) {
     </${AppShell}>`;
   }
 
+  if (view === 'notes') {
+    return html`<${AppShell} nav=${nav}>
+      <${NotesView} notes=${notes} />
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
+    </${AppShell}>`;
+  }
+
   if (view === 'classrecord') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
+      <button type="button" class="search-back" data-ui="classrecord-back" aria-label="その他に戻る" onClick=${function () { nav.onNavigate('more'); }}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>その他</button>
       <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
     </${AppShell}>`;
   }
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} notes=${notes} listOpen=${noteListOpen} onListOpen=${setNoteListOpen} />
-      <${NoteSheet} notes=${notes} choices=${noteChoices} />
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} onClassRecord=${function () { nav.onNavigate('classrecord'); }} classRecordDot=${nav.badges.classrecord} />
     </${AppShell}>`;
   }
 
@@ -385,7 +390,7 @@ export function Skeleton({ actions, nav }) {
   }
   if (n.view === 'more') {
     return html`<${AppShell} nav=${n}>
-      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { n.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />
+      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { n.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} onClassRecord=${function () { n.onNavigate('classrecord'); }} />
     </${AppShell}>`;
   }
   return html`<${AppShell} filters=${filters} tabs=${tabs} nav=${n}>
