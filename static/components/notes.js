@@ -121,7 +121,7 @@ export function NoteItem({ note, showTarget, showPin, onOpen }) {
   </button>`;
 }
 
-var SWIPE_WIDTH = 144;
+var SWIPE_WIDTH = 168;
 
 // 左スワイプでピン留めと削除を出す行。削除は2回タップで確定。rowKey が openId と同じ行だけ開く
 export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, setOpenId, onError }) {
