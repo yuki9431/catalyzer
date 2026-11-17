@@ -60,13 +60,14 @@ export function useNotes(userKey, api, data) {
 
   function apply(fn) { setState(function (prev) { return Object.assign({}, prev, { list: fn(prev.list) }); }); }
 
-  function save(d) {
+  // fromRow は一覧の行の操作。後から開いた編集シートを閉じない
+  function save(d, fromRow) {
     var req = draftToRequest(d);
     var call = d.id ? api.update(d.id, req) : api.create(req);
     return call.then(function (res) {
       var note = res.body && res.body.note ? sanitizeNotes([res.body.note])[0] : null;
       if ((res.status === 200 || res.status === 201) && note) {
-        if (alive.current) { apply(function (list) { return upsertNote(list, note); }); setDraft(null); }
+        if (alive.current) { apply(function (list) { return upsertNote(list, note); }); if (!fromRow) setDraft(null); }
         return '';
       }
       return failText(res, 'メモを保存できませんでした');
@@ -74,10 +75,10 @@ export function useNotes(userKey, api, data) {
   }
 
   // 404 はもう消えているので成功として扱う
-  function remove(id) {
+  function remove(id, fromRow) {
     return api.remove(id).then(function (res) {
       if (res.status === 200 || res.status === 404) {
-        if (alive.current) { apply(function (list) { return removeNoteById(list, id); }); setDraft(null); }
+        if (alive.current) { apply(function (list) { return removeNoteById(list, id); }); if (!fromRow) setDraft(null); }
         return '';
       }
       return failText(res, 'メモを削除できませんでした');
@@ -185,11 +186,11 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
       onError(max ? 'ピン留めは' + max + '件までです' : 'これ以上ピン留めできません');
       return;
     }
-    run(function () { return notes.save(Object.assign(draftFromNote(note), { pinned: !note.pinned })); });
+    run(function () { return notes.save(Object.assign(draftFromNote(note), { pinned: !note.pinned }), true); });
   }
   function remove() {
     if (!confirming) { setConfirming(true); return; }
-    run(function () { return notes.remove(note.id); });
+    run(function () { return notes.remove(note.id, true); });
   }
   var x = drag !== null ? drag : (open ? -SWIPE_WIDTH : 0);
   return html`<div class="note-swipe" data-ui="note-swipe">

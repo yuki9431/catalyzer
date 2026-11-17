@@ -348,6 +348,13 @@ describe('useNotes の取得の判定', () => {
   it('応答は取得時のユーザーと今のユーザーで判定する', () => {
     assert.match(src, /responseOutcome\(key, current\.current, res\)/);
   });
+  it('行の操作(fromRow)の保存・削除は、後から開いた編集シートを閉じない', () => {
+    assert.match(src, /function save\(d, fromRow\)[\s\S]*?upsertNote\(list, note\); \}\); if \(!fromRow\) setDraft\(null\);/);
+    assert.match(src, /function remove\(id, fromRow\)[\s\S]*?removeNoteById\(list, id\); \}\); if \(!fromRow\) setDraft\(null\);/);
+    var row = src.slice(src.indexOf('export function SwipeNote'), src.indexOf('function useSwipeRows'));
+    assert.match(row, /notes\.save\([^;]*\), true\)/);
+    assert.match(row, /notes\.remove\(note\.id, true\)/);
+  });
 });
 
 describe('NoteList・その他画面の受け渡し', () => {
