@@ -171,7 +171,6 @@
 │   │   └── scripts.test.js        # 上記2スクリプトのテスト
 │   └── workflows/
 │       ├── ci.yml                 # CI（Docker build, golangci-lint, Go test -race, JS test）
-│       ├── claude-review.yml      # PRの自動AIレビュー（Claude Code）
 │       ├── build.yml              # ビルド&デプロイ（developマージ→stg、mainマージ→prod）
 │       ├── deploy.yml             # デプロイ（tofu apply）
 │       ├── infra-ci.yml           # インフラCI（tofu fmt・tofu plan）
@@ -179,6 +178,7 @@
 │       └── update-mslist.yml      # MSリスト自動更新
 ├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
 ├── .golangci.yml                  # golangci-lint設定
+├── .coderabbit.yaml               # CodeRabbit設定（PRの自動AIレビュー。規約はCLAUDE.mdを読む）
 ├── Makefile                       # ビルド・起動・インフラコマンド
 ├── Dockerfile                     # マルチステージビルド
 ├── go.mod
