@@ -52,6 +52,13 @@
       groupName: 'non-major',
     },
     {
+      // パッチ版までタグに書くので、Go・Alpine の修正は版の更新で届く。同じタグの再ビルドは取り込まない
+      matchDatasources: ['docker'],
+      matchDepNames: ['golang', 'alpine'],
+      matchUpdateTypes: ['digest'],
+      enabled: false,
+    },
+    {
       // Docker Hub・GCR がこれらのタグの公開日時を返さず、3日待ちのままだと版も digest も更新が止まる
       matchDatasources: ['docker'],
       matchDepNames: ['golang', 'renovate/renovate', 'gcr.io/cloud-builders/docker'],

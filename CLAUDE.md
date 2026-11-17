@@ -206,6 +206,6 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **GCPプロジェクトID、バケット名、サービスアカウント等のインフラ識別子をコードやCLAUDE.mdにハードコードしない。** 環境変数またはGitHub Secrets/Variablesを使うこと。
 - **IAM権限は最小権限の原則を徹底する。** プロジェクトレベルの広範なロール（例: `roles/storage.admin`）ではなく、バケット単位・リソース単位で必要最低限のロール（例: `roles/storage.objectUser`）を付与すること。
 - 公開リポジトリのため、コミット履歴にも残ることを意識する。
-- マルチステージDockerfile: `golang:<Go の版>-alpine` でビルド、`alpine` で実行(版は Dockerfile が正。Renovate が更新する)
-- コンテナイメージは `<タグ>@sha256:<digest>` で固定する。digest は Renovate が付けて更新する（`docker:pinDigests`）。Makefile・workflow に新しいイメージを足したら `renovate.json5` の regex manager に名前を足す
+- マルチステージDockerfile: `golang:<Go のパッチ版>-alpine<Alpine の版>` でビルド、`alpine:<パッチ版>` で実行(版は Dockerfile が正。Renovate が更新する)
+- コンテナイメージは `<タグ>@sha256:<digest>` で固定する。digest は Renovate が付けて更新する（`docker:pinDigests`）。golang・alpine はパッチ版までタグに書き、同じタグの digest 更新は取り込まない（修正は版の更新で入る。Alpine のマイナーは接尾辞が変わるため手で上げる）。Makefile・workflow に新しいイメージを足したら `renovate.json5` の regex manager に名前を足す
 - CSP: `script-src 'self'`（インラインスクリプト禁止）、`style-src 'self' 'unsafe-inline'`
