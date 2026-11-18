@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
+.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades update-geoip-apnic \
 	tofu-shared-plan tofu-shared-apply tofu-app-plan tofu-app-apply
 
 ## Docker イメージをビルド（キャッシュなし）
@@ -54,6 +54,11 @@ extract-grades:
 		-e FIRESTORE_DATABASE \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/root/.config/gcloud/application_default_credentials.json \
 		golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 go run ./cmd/extract-grades
+
+## 国別アクセス制限の補完リスト(APNIC の JP 割当)を取り直す
+update-geoip-apnic:
+	docker run --rm -v "$(CURDIR)":/app -w /app \
+		golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 go run ./cmd/update-geoip-apnic
 
 # OpenTofu。state_bucket と image_uri は TF_VAR_* で渡す(手元は infra/.envrc)。project は gcloud の設定から入れる
 TOFU_ENV = TF_VAR_project=$${TF_VAR_project:-$$(gcloud config get-value project 2>/dev/null)}

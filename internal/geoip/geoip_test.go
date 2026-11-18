@@ -2,6 +2,7 @@ package geoip
 
 import (
 	"net/netip"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -9,9 +10,11 @@ import (
 // loadTestDB は実際の同梱JP許可リストを読み込む。
 func loadTestDB(t *testing.T) *DB {
 	t.Helper()
-	v4 := filepath.Join("..", "..", "data", "jp_ipv4.csv")
-	v6 := filepath.Join("..", "..", "data", "jp_ipv6.csv")
-	db, err := Load(v4, v6)
+	data := filepath.Join("..", "..", "data")
+	db, err := Load(
+		[]string{filepath.Join(data, "jp_ipv4.csv"), filepath.Join(data, "jp_apnic_ipv4.csv")},
+		[]string{filepath.Join(data, "jp_ipv6.csv"), filepath.Join(data, "jp_apnic_ipv6.csv")},
+	)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -40,6 +43,13 @@ func TestContains_RealData(t *testing.T) {
 		{"入れ子外側のJP(v4)", "103.62.49.6", true},
 		{"入れ子外側のJP(v4)2", "134.159.160.224", true},
 		{"入れ子外側のJP(v6)", "2606:f187:c002::", true},
+		// geo-whois に無く APNIC の割当で補ったJP(誤拒否の実例)。
+		{"APNIC補完のJP(OPTAGE)", "2001:ce8:160:a0dd:7997:74d:dace:4f9d", true},
+		{"APNIC補完のJP(KDDI)", "2001:268:c2c2:28a0:f0bd:8717:839b:cf08", true},
+		// APNIC では JP 登録だが geo-whois が海外と判定する範囲は許可しない。
+		{"JP登録の海外利用(KR)", "158.247.192.1", false},
+		{"JP登録の海外利用(KR)2", "141.164.32.1", false},
+		{"JP登録の海外利用(v6)", "2401:c080:1c00::1", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -108,7 +118,7 @@ func TestLoad_MergedRangesDisjoint(t *testing.T) {
 func TestLoad_FamilyMismatch(t *testing.T) {
 	// v4ファイルをv6スロットに渡すとファミリ不一致でエラーになる。
 	v4 := filepath.Join("..", "..", "data", "jp_ipv4.csv")
-	if _, err := Load(v4, v4); err == nil {
+	if _, err := Load([]string{v4}, []string{v4}); err == nil {
 		t.Error("expected error when IPv4 file is loaded as IPv6")
 	}
 }
@@ -121,7 +131,38 @@ func TestContains_InvalidAddr(t *testing.T) {
 }
 
 func TestLoad_MissingFile(t *testing.T) {
-	if _, err := Load("nonexistent_v4.csv", "nonexistent_v6.csv"); err == nil {
+	if _, err := Load([]string{"nonexistent_v4.csv"}, []string{"nonexistent_v6.csv"}); err == nil {
 		t.Error("expected error for missing file")
+	}
+}
+
+func TestLoad_MultipleFilesUnion(t *testing.T) {
+	// 複数ファイルは和集合にし、ファイルをまたぐ重なりも併合する。
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	a4 := write("a4.csv", "10.0.0.0,10.0.0.255,JP\n")
+	b4 := write("b4.csv", "10.0.0.128,10.0.1.255,JP\n")
+	a6 := write("a6.csv", "2001:db8::,2001:db8::ff,JP\n")
+	b6 := write("b6.csv", "2001:db9::,2001:db9::ff,JP\n")
+	db, err := Load([]string{a4, b4}, []string{a6, b6})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(db.v4) != 1 || db.v4[0].end != netip.MustParseAddr("10.0.1.255") {
+		t.Errorf("v4 = %v, want 併合された1件 10.0.0.0-10.0.1.255", db.v4)
+	}
+	for _, ip := range []string{"2001:db8::1", "2001:db9::1"} {
+		if !db.Contains(netip.MustParseAddr(ip)) {
+			t.Errorf("Contains(%s) = false, want true", ip)
+		}
+	}
+	if _, err := Load([]string{a4, "missing.csv"}, []string{a6}); err == nil {
+		t.Error("1ファイルでも読めなければエラーにする")
 	}
 }
