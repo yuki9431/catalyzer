@@ -296,8 +296,6 @@ function NoteSheetBody({ notes, choices }) {
   var busy = busyRef[0], setBusy = busyRef[1];
   var errRef = useState('');
   var error = errRef[0], setError = errRef[1];
-  var confirmRef = useState(false);
-  var confirming = confirmRef[0], setConfirming = confirmRef[1];
   var alive = useRef(true);
   useEffect(function () { return function () { alive.current = false; }; }, []);
 
@@ -324,12 +322,9 @@ function NoteSheetBody({ notes, choices }) {
   var head = html`<span></span>
     <h2>${editing ? 'メモを編集' : 'メモを書く'}</h2>
     <button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${notes.close}>閉じる</button>`;
-  var foot = html`${editing && (confirming
-      ? html`<span class="note-foot-left">
-          <button type="button" class="ui-action note-danger" data-ui="note-delete-confirm" disabled=${busy} onClick=${function () { done(notes.remove(draft.id)); }}>削除する</button>
-          <button type="button" class="ui-action" data-ui="note-delete-cancel" onClick=${function () { setConfirming(false); }}>やめる</button>
-        </span>`
-      : html`<span class="note-foot-left"><button type="button" class="ui-action" data-ui="note-delete" disabled=${busy} onClick=${function () { setConfirming(true); }}>削除</button></span>`)}
+  var foot = html`${editing && html`<span class="note-foot-left">
+      <button type="button" class="ui-action note-danger" data-ui="note-delete" disabled=${busy} onClick=${function () { done(notes.remove(draft.id)); }}>削除</button>
+    </span>`}
     <button type="button" class="search-apply note-save" data-ui="note-save" disabled=${!!problem || busy}
       onClick=${function () { done(notes.save(draft)); }}>${busy ? '保存中…' : '保存'}</button>`;
 
