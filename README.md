@@ -67,12 +67,14 @@
 │   │   ├── classrecord.go         # 戦績ページのクラスマッチ通算戦績取得
 │   │   └── login.go               # ログイン処理
 │   ├── firestore/
+│   │   ├── aidiagnosis.go         # AI診断の状態の読み書き
 │   │   ├── client.go              # Firestoreクライアント初期化
 │   │   ├── notes.go               # メモの読み書き
 │   │   ├── scores.go              # 戦績（matches）の読み書き
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
 │   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
+│   ├── aidiagnosis/               # AI診断（設定・プレイ日と1日1回の判定・要約JSONの検証）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
 │   ├── geoip/                     # 国別アクセス判定（CC0許可リストの二分探索）
@@ -82,6 +84,7 @@
 │       ├── geoblock.go            # 国別アクセス制限（日本のみ許可）
 │       ├── basicauth.go           # Basic認証ミドルウェア
 │       ├── block403.go            # 403時の一時ブロック管理
+│       ├── aidiagnosis.go         # AI診断API
 │       └── notes.go               # メモAPI
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
