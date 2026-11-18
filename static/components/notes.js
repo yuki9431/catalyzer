@@ -268,6 +268,11 @@ export function MatchNotes({ notes, match }) {
 }
 
 // 試合詳細のメモ欄。試合を見る画面なので既定は閉じ、見出しに件数を出す
+// 試合詳細の上部バーの「書く」。メモ欄を開かずに書ける
+export function MatchWriteButton({ notes, match }) {
+  return html`<${WriteButton} ui="match-note-write" onClick=${function () { notes.open(matchDraft(match)); }} />`;
+}
+
 export function MatchNotesPanel({ notes, match }) {
   var openRef = useState(false);
   var open = openRef[0], setOpen = openRef[1];
