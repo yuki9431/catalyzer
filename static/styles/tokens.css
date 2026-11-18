@@ -22,6 +22,8 @@
   --text-dim: var(--muted);
   --input-border: var(--line);
   --on-accent: #06222f;
+  --danger: #d32f2f;
+  --on-danger: #ffffff;
   --disabled-bg: var(--panel-2);
   --disabled-text: var(--muted);
   --surface-sub: var(--panel-2);
@@ -123,6 +125,8 @@
   --shadow-modal: 0 16px 48px rgba(0,0,0,.2);
   --bg-glow: #e6eef2;
   --on-accent: #ffffff;
+  --danger: #c62828;
+  --on-danger: #ffffff;
   --accent-a10: rgba(10,108,153,.1);
   --accent-a18: rgba(10,108,153,.18);
   --accent-a05: rgba(10,108,153,.05);
