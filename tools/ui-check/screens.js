@@ -313,8 +313,8 @@ var SCREEN_DEFS = [
     required: [['[data-ui="note-swipe-pin"]', 'ピンを外す'], ['[data-ui="note-swipe-delete"]', '削除']], inview: [['[data-ui="note-swipe-pin"]'], ['[data-ui="note-swipe-delete"]']],
     tap: ['[data-ui="note-swipe-pin"]', '[data-ui="note-swipe-delete"]'] },
   { id: 'mobile-notes-swipe-delete', viewport: M, full: false, start: 'report-session-valid',
-    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="note-swipe"]', -200] }, { touchTap: ['[data-ui="note-swipe-delete"]', '削除'] }, { wait: ['[data-ui="note-swipe-delete"]', '削除する'] },
-      { touchTap: ['[data-ui="note-swipe-delete"]', '削除する'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="note-swipe"]', -200] }, { touchTap: ['[data-ui="note-swipe-delete"]', '削除'] },
+      { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
     required: [['[data-ui="note-tabs"] button', 'すべて 5']], absent: [['[data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="note-swipe-delete"]']] },
   // ピンが上限(3件)のとき、ピン無しの4件目をスワイプしてピン留めすると止まる。div の4つ目までは タブ行と先頭3件
   { id: 'mobile-notes-swipe-pin-limit', viewport: M, full: false, start: 'report-session-pins3',

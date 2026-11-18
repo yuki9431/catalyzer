@@ -124,13 +124,11 @@ export function NoteItem({ note, showTarget, showPin, onOpen }) {
 
 var SWIPE_WIDTH = 168;
 
-// 左スワイプでピン留めと削除を出す行。削除は2回タップで確定。rowKey が openId と同じ行だけ開く
+// 左スワイプでピン留めと削除を出す行。削除は1回で消す(引く操作が確認を兼ねる)。rowKey が openId と同じ行だけ開く
 export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, setOpenId, onError }) {
   var open = openId === rowKey;
   var dragRef = useState(null);
   var drag = dragRef[0], setDrag = dragRef[1];
-  var confirmRef = useState(false);
-  var confirming = confirmRef[0], setConfirming = confirmRef[1];
   var busyRef = useState(false);
   var busy = busyRef[0], setBusy = busyRef[1];
   var start = useRef(null);
@@ -138,7 +136,6 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
   var moved = useRef(false);
   var guard = useRef(null);
   if (!guard.current) guard.current = createTapGuard(Date.now);
-  useEffect(function () { if (!open) setConfirming(false); }, [open]);
 
   function drop() { start.current = null; dragX.current = null; setDrag(null); }
   function down(e) {
@@ -191,7 +188,6 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
     run(function () { return notes.save(Object.assign(draftFromNote(note), { pinned: !note.pinned }), true); });
   }
   function remove() {
-    if (!confirming) { setConfirming(true); return; }
     run(function () { return notes.remove(note.id, true); });
   }
   function press(fn) {
@@ -208,7 +204,7 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
   return html`<div class="note-swipe" data-ui="note-swipe">
     ${x !== 0 && html`<div class="note-swipe-actions">
       <button type="button" class="note-swipe-pin" data-ui="note-swipe-pin" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(togglePin)}>${note.pinned ? 'ピンを外す' : 'ピン留め'}</button>
-      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(remove)}>${confirming ? '削除する' : '削除'}</button>
+      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(remove)}>削除</button>
     </div>`}
     <div class=${'note-swipe-front' + (drag !== null ? ' note-swipe-drag' : '')} style=${'transform:translateX(' + x + 'px)'}
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${drop}>
