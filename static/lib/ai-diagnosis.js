@@ -44,3 +44,22 @@ export function nextAtLabel(iso) {
 }
 
 export function shouldPoll(status) { return status === 'pending' || status === 'running'; }
+
+// 取得応答の解釈。200 は整形、401/403 は使えない、それ以外(通信失敗 status 0・5xx 等)は前の状態を保って transient
+export function resolveLoad(prev, res) {
+  if (res && res.status === 200) return { status: sanitizeStatus(res.body), transient: false };
+  if (res && (res.status === 401 || res.status === 403)) return { status: { available: false }, transient: false };
+  return { status: prev, transient: true };
+}
+
+var MAX_TIMER_MS = 2147483647;
+var REFETCH_SKEW_MS = 1000;
+
+// done・再試行できない error は next_at に達したら状態を取り直す。待ち時間(ms)を返し、不要・過去・読めなければ null(取り直しの無限ループを避ける)
+export function refetchDelay(status, nowMs) {
+  if (!status || !status.available || !status.next_at) return null;
+  if (!(status.status === 'done' || (status.status === 'error' && !status.retry))) return null;
+  var at = Date.parse(status.next_at);
+  if (!Number.isFinite(at) || at <= nowMs) return null;
+  return Math.min(at - nowMs + REFETCH_SKEW_MS, MAX_TIMER_MS);
+}

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeStatus, nextAtLabel, shouldPoll, POLL_INTERVAL_MS, POLL_MAX } from '../lib/ai-diagnosis.js';
+import { sanitizeStatus, resolveLoad, refetchDelay, nextAtLabel, shouldPoll, POLL_INTERVAL_MS, POLL_MAX } from '../lib/ai-diagnosis.js';
 import { aiDiagnosis } from '../../tools/ui-check/fixture.js';
 
 var RESULT = { headline: 'h', tendencies: ['a', 'b', 'c'], cautions: ['d', 'e', 'f'], strengths: ['g'] };
@@ -71,5 +71,50 @@ describe('shouldPoll と定数', function () {
   it('5秒おき最大72回(6分)', function () {
     assert.equal(POLL_INTERVAL_MS, 5000);
     assert.equal(POLL_MAX, 72);
+  });
+});
+
+describe('resolveLoad', function () {
+  var prev = { available: true, status: 'none', min_matches: 10 };
+  it('200 は整形した状態。available:false の応答は利用不可', function () {
+    assert.deepEqual(resolveLoad(null, { status: 200, body: { available: true, status: 'none' } }), { status: prev, transient: false });
+    assert.deepEqual(resolveLoad(prev, { status: 200, body: { available: false } }), { status: { available: false }, transient: false });
+  });
+  it('401/403 は利用不可', function () {
+    [401, 403].forEach(function (s) {
+      assert.deepEqual(resolveLoad(prev, { status: s, body: null }), { status: { available: false }, transient: false });
+    });
+  });
+  it('通信失敗(0)・5xx・応答なしは既存状態を保持して transient(初回は null のまま)', function () {
+    [{ status: 0, body: null }, { status: 500, body: null }, { status: 503, body: {} }, null].forEach(function (r) {
+      assert.deepEqual(resolveLoad(prev, r), { status: prev, transient: true });
+      assert.deepEqual(resolveLoad(null, r), { status: null, transient: true });
+    });
+  });
+});
+
+describe('refetchDelay', function () {
+  var NOW = Date.parse('2026-11-18T12:00:00+09:00');
+  var done = { available: true, status: 'done', next_at: '2026-11-19T05:00:00+09:00' };
+  it('done と再試行できない error は next_at まで(+1秒)待つ', function () {
+    var ms = Date.parse(done.next_at) - NOW + 1000;
+    assert.equal(refetchDelay(done, NOW), ms);
+    assert.equal(refetchDelay({ available: true, status: 'error', retry: false, next_at: done.next_at }, NOW), ms);
+  });
+  it('再試行できる error・実行中・none・利用不可は待たない', function () {
+    assert.equal(refetchDelay({ available: true, status: 'error', retry: true, next_at: done.next_at }, NOW), null);
+    assert.equal(refetchDelay({ available: true, status: 'pending', next_at: done.next_at }, NOW), null);
+    assert.equal(refetchDelay({ available: true, status: 'none' }, NOW), null);
+    assert.equal(refetchDelay({ available: false }, NOW), null);
+    assert.equal(refetchDelay(null, NOW), null);
+  });
+  it('next_at が過去・読めない・無いときは null(取り直しを繰り返さない)', function () {
+    assert.equal(refetchDelay(done, Date.parse(done.next_at)), null);
+    assert.equal(refetchDelay(done, Date.parse(done.next_at) + 1), null);
+    assert.equal(refetchDelay({ available: true, status: 'done', next_at: 'x' }, NOW), null);
+    assert.equal(refetchDelay({ available: true, status: 'done' }, NOW), null);
+  });
+  it('遠い日時でも setTimeout の上限を超えない', function () {
+    assert.equal(refetchDelay({ available: true, status: 'done', next_at: '2099-01-01T00:00:00+09:00' }, NOW), 2147483647);
   });
 });

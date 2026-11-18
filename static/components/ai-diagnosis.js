@@ -1,11 +1,12 @@
 import { html, useState, useEffect, useRef } from '../htm-preact-standalone.js';
 import { buildDiagnosisInput } from '../analysis/diagnosis.js';
-import { sanitizeStatus, nextAtLabel, shouldPoll, POLL_INTERVAL_MS, POLL_MAX } from '../lib/ai-diagnosis.js';
+import { sanitizeStatus, resolveLoad, refetchDelay, nextAtLabel, shouldPoll, POLL_INTERVAL_MS, POLL_MAX } from '../lib/ai-diagnosis.js';
 import { Panel } from './ui.js';
 import { Notice } from './parts.js';
 
 var SLOW = '時間がかかっています。あとで開き直してください';
 var START_FAILED = '診断を開始できませんでした';
+var LOAD_FAILED = '診断の状態を取得できませんでした';
 var SECTIONS = [['tendencies', '傾向'], ['cautions', '気をつけること'], ['strengths', 'いいところ']];
 
 function Result({ status }) {
@@ -31,6 +32,10 @@ export function AiDiagnosisPanel({ actions, matches, msImages }) {
   var slow = slowRef[0], setSlow = slowRef[1];
   var busyRef = useState(false);
   var sending = busyRef[0], setSending = busyRef[1];
+  var loadFailRef = useState(false);
+  var loadFailed = loadFailRef[0], setLoadFailed = loadFailRef[1];
+  var statusRef = useRef(null);
+  statusRef.current = status;
   var alive = useRef(true);
   var inflight = useRef(false);
   var polls = useRef(0);
@@ -43,13 +48,23 @@ export function AiDiagnosisPanel({ actions, matches, msImages }) {
   function reload() {
     return actions.load().then(function (res) {
       if (!alive.current) return;
-      setStatus(res && res.status === 200 ? sanitizeStatus(res.body) : { available: false });
+      var r = resolveLoad(statusRef.current, res);
+      setLoadFailed(r.transient);
+      if (!r.transient) setStatus(r.status);
     });
   }
   useEffect(function () {
     if (!usable) return;
     reload();
   }, [usable]);
+
+  // 画面を開いたまま next_at を過ぎたら状態を取り直す(日次の切り替わり)
+  useEffect(function () {
+    var delay = refetchDelay(status, Date.now());
+    if (delay === null) return;
+    var timer = setTimeout(reload, delay);
+    return function () { clearTimeout(timer); };
+  }, [status]);
 
   var running = !!status && status.available && shouldPoll(status.status);
   useEffect(function () {
@@ -60,8 +75,9 @@ export function AiDiagnosisPanel({ actions, matches, msImages }) {
       polls.current++;
       actions.load().then(function (res) {
         if (!alive.current) return;
-        if (res && res.status === 401) { setStatus({ available: false }); return; }
-        if (res && res.status === 200) setStatus(sanitizeStatus(res.body));
+        var r = resolveLoad(statusRef.current, res);
+        if (!r.transient) setStatus(r.status);
+        if (!r.transient && !r.status.available) return;
         timer = setTimeout(tick, POLL_INTERVAL_MS);
       });
     }, POLL_INTERVAL_MS);
@@ -82,14 +98,20 @@ export function AiDiagnosisPanel({ actions, matches, msImages }) {
       if (!alive.current) return;
       setSending(false);
       var next = res ? sanitizeStatus(res.body) : { available: false };
-      if (res && (res.status === 202 || res.status === 409) && next.available) { setStatus(next); return; }
+      if (res && (res.status === 202 || res.status === 409) && next.available) { setStatus(next); setLoadFailed(false); return; }
       if (res && res.status === 401) { setStatus({ available: false }); return; }
       setFailure(res && res.body && typeof res.body.error === 'string' && res.body.error ? res.body.error : START_FAILED);
       reload();
     });
   }
 
-  if (!usable || !status || !status.available) return null;
+  if (!usable || (status && !status.available)) return null;
+  if (!status) {
+    if (!loadFailed) return null;
+    return html`<div data-ui="ai-diagnosis"><${Panel} title="AI診断">
+      <${Notice} tone="error" action=${{ label: '再取得', onClick: reload }}>${LOAD_FAILED}<//>
+    <//></div>`;
+  }
   var count = (matches || []).length;
   var st = status.status;
   var body;
@@ -112,6 +134,7 @@ export function AiDiagnosisPanel({ actions, matches, msImages }) {
     <${Panel} title="AI診断">
       ${body}
       ${failure && html`<${Notice} tone="error">${failure}<//>`}
+      ${loadFailed && html`<${Notice} tone="error" action=${{ label: '再取得', onClick: reload }}>${LOAD_FAILED}<//>`}
     <//>
   </div>`;
 }
