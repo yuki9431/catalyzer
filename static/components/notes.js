@@ -242,11 +242,11 @@ export function homeDraft(notes, limits, myMs, now) {
 export function EnemyNotes({ notes, enemy, myMs, writeMs }) {
   var list = notesForEnemy(notes.list, enemy, myMs);
   return html`<div class="note-match" data-ui="enemy-notes">
+    <div class="note-sub-head" data-ui="enemy-notes-head"><span>メモ<small>${list.length}件</small></span>
+      <${WriteButton} ui="note-write" onClick=${function () { notes.open(todayDraft(enemy, writeMs || '', new Date())); }} /></div>
     ${list.length
       ? list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })
       : html`<p class="note-empty">まだメモはありません</p>`}
-    <button type="button" class="ui-action note-write" data-ui="note-write"
-      onClick=${function () { notes.open(todayDraft(enemy, writeMs || '', new Date())); }}>＋ メモを書く</button>
   </div>`;
 }
 
