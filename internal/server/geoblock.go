@@ -9,10 +9,10 @@ import (
 	"github.com/yuki9431/catalyzer/internal/geoip"
 )
 
-// 許可国IPレンジ（CC0: geo-whois-asn-country。現状は日本のみ同梱）
-const (
-	defaultGeoIPv4Path = "data/jp_ipv4.csv"
-	defaultGeoIPv6Path = "data/jp_ipv6.csv"
+// 許可国IPレンジ（日本のみ）。geo-whois-asn-country(CC0) の取りこぼしを APNIC の割当統計で補う。
+var (
+	defaultGeoIPv4Paths = []string{"data/jp_ipv4.csv", "data/jp_apnic_ipv4.csv"}
+	defaultGeoIPv6Paths = []string{"data/jp_ipv6.csv", "data/jp_apnic_ipv6.csv"}
 )
 
 // geoBlockedMessage は許可国外からのアクセスを拒否したときの応答文。
@@ -25,11 +25,11 @@ type geoGuard struct {
 
 // newGeoGuard は GEO_RESTRICT=true のとき許可リストを読み込む。
 // 無効時・読み込み失敗時は nil を返し、呼び出し側は全許可（フェイルオープン）する。
-func newGeoGuard(v4Path, v6Path string) *geoGuard {
+func newGeoGuard(v4Paths, v6Paths []string) *geoGuard {
 	if os.Getenv("GEO_RESTRICT") != "true" {
 		return nil
 	}
-	db, err := geoip.Load(v4Path, v6Path)
+	db, err := geoip.Load(v4Paths, v6Paths)
 	if err != nil {
 		log.Printf("[WARN] GEO_RESTRICT enabled but allowlist load failed, allowing all: %v", err)
 		return nil

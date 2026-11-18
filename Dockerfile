@@ -35,6 +35,8 @@ COPY data/national_ms_stats.json data/
 COPY data/grade_list.json data/
 COPY data/jp_ipv4.csv data/
 COPY data/jp_ipv6.csv data/
+COPY data/jp_apnic_ipv4.csv data/
+COPY data/jp_apnic_ipv6.csv data/
 
 # フロントエンド
 COPY static/ static/

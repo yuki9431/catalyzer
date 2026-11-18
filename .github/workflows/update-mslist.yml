@@ -30,8 +30,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OPEN_PR=$(gh pr list --search "MSリストを自動更新" --state open --json number --jq '.[0].number')
-          if [ -n "$OPEN_PR" ] && [ "$OPEN_PR" != "null" ]; then
+          # 全文検索は日本語を緩く照合しリリース PR にも当たるので、自動更新のブランチ名で判定する
+          OPEN_PR=$(gh pr list --state open --base main --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("auto/update-mslist-"))][0].number // empty')
+          if [ -n "$OPEN_PR" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Open PR #$OPEN_PR already exists, skipping"
           else
