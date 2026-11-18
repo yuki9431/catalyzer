@@ -3,7 +3,7 @@ import { currentPlayDay, playDay } from '../analysis/today.js';
 import {
   sanitizeNotes, notesForMatch, matchEnemies, pinnedNotes, canPinMore, notesForEnemy, groupByMs, MS_TABS, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, canAddEnemy, enemyOptions, withValue, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
-  swipeAxis, swipeOffset, swipeOpens,
+  swipeAxis, swipeOffset, swipeOpens, createTapGuard,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
 import { ToggleGroup, Notice } from './parts.js';
@@ -136,6 +136,8 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
   var start = useRef(null);
   var dragX = useRef(null);
   var moved = useRef(false);
+  var guard = useRef(null);
+  if (!guard.current) guard.current = createTapGuard(Date.now);
   useEffect(function () { if (!open) setConfirming(false); }, [open]);
 
   function drop() { start.current = null; dragX.current = null; setDrag(null); }
@@ -192,11 +194,21 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
     if (!confirming) { setConfirming(true); return; }
     run(function () { return notes.remove(note.id, true); });
   }
+  function press(fn) {
+    var g = guard.current;
+    return {
+      onPointerDown: g.down,
+      onPointerCancel: g.cancel,
+      // disabled のボタンにも pointerup は届くので、保存中は自分で止める
+      onPointerUp: function (e) { if (g.up(e) && !e.currentTarget.disabled) fn(); },
+      onClick: function (e) { if (g.click(e)) fn(); },
+    };
+  }
   var x = drag !== null ? drag : (open ? -SWIPE_WIDTH : 0);
   return html`<div class="note-swipe" data-ui="note-swipe">
     ${x !== 0 && html`<div class="note-swipe-actions">
-      <button type="button" class="note-swipe-pin" data-ui="note-swipe-pin" disabled=${busy} tabindex=${open ? 0 : -1} onClick=${togglePin}>${note.pinned ? 'ピンを外す' : 'ピン留め'}</button>
-      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} onClick=${remove}>${confirming ? '削除する' : '削除'}</button>
+      <button type="button" class="note-swipe-pin" data-ui="note-swipe-pin" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(togglePin)}>${note.pinned ? 'ピンを外す' : 'ピン留め'}</button>
+      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(remove)}>${confirming ? '削除する' : '削除'}</button>
     </div>`}
     <div class=${'note-swipe-front' + (drag !== null ? ' note-swipe-drag' : '')} style=${'transform:translateX(' + x + 'px)'}
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${drop}>
