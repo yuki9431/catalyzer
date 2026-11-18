@@ -550,6 +550,16 @@ describe('スワイプ', () => {
     g.down(ev('mouse', 10, 10));
     assert.strictEqual(g.up(ev('mouse', 10, 10)), false, 'マウスは click で扱う');
   });
+  it('createTapGuard はタッチ由来の click を 800ms 未満だけ捨てる', () => {
+    let t = 0;
+    const g = createTapGuard(() => t);
+    g.down({ pointerType: 'touch', clientX: 0, clientY: 0, pointerId: 1 });
+    assert.strictEqual(g.up({ pointerType: 'touch', clientX: 0, clientY: 0, pointerId: 1 }), true);
+    t = 799;
+    assert.strictEqual(g.click({ detail: 1 }), false);
+    t = 800;
+    assert.strictEqual(g.click({ detail: 1 }), true);
+  });
   it('swipeOpens は半分より引いていれば開く', () => {
     assert.strictEqual(swipeOpens(-73, 144), true);
     assert.strictEqual(swipeOpens(-72, 144), false);
