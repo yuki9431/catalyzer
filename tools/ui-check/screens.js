@@ -165,7 +165,7 @@ var SCREEN_DEFS = [
     absent: [['[data-ui="search-result"]:not(:has([data-ui="note-mark"]))']], tap: ['[data-ui="search-note-filter"]'] },
   { id: 'mobile-report-matchup-notes', viewport: M, full: false, start: 'report-session-valid',
     ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="tab"]', TABS.matchup] }, { click: ['[data-ui="row-list"] button', 'ガルーダ零'] }, { wait: ['[data-ui="enemy-notes"]'] }],
-    required: [['[data-ui="panel"] [data-ui="note-mark"]'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '距離を詰められたら'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '格闘の間合いに入らない'], ['[data-ui="enemy-notes"] [data-ui="note-write"][aria-label="書く"] svg'], ['[data-ui="enemy-notes-head"]', 'メモ'], ['[data-ui="enemy-notes-head"] small', '2件']],
+    required: [['[data-ui="panel"] [data-ui="note-mark"]'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '距離を詰められたら'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '格闘の間合いに入らない'], ['[data-ui="enemy-notes-head"] [data-ui="note-write"][aria-label="書く"] svg'], ['[data-ui="enemy-notes-head"]', 'メモ'], ['[data-ui="enemy-notes-head"] small', '2件']],
     inview: [['[data-ui="enemy-notes"]'], ['[data-ui="enemy-notes"] [data-ui="note-write"]']], tap: ['[data-ui="enemy-notes"] [data-ui="note-item"]', '[data-ui="enemy-notes"] [data-ui="note-write"]'] },
   { id: 'mobile-note-sheet', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED, absent: [MY_MS_FILLED],
     tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-remove"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
