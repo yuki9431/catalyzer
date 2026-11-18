@@ -51,6 +51,8 @@
 │   │   └── main.go                # 指定ユーザーの最新N日間の戦績削除CLI
 │   ├── extract-grades/
 │   │   └── main.go                # Firestoreから未登録グレードURL抽出CLI
+│   ├── update-geoip-apnic/
+│   │   └── main.go                # 国別制限の補完リスト(data/jp_apnic_ipv*.csv)更新CLI
 │   ├── auto-refresh/
 │   │   └── main.go                # 自動更新の Cloud Run Job
 │   └── hash-passphrase/

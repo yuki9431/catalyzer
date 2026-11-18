@@ -9,11 +9,18 @@ import (
 	"github.com/yuki9431/catalyzer/internal/geoip"
 )
 
+// repoPaths は既定の許可リストをテストの作業ディレクトリから見たパスにする。
+func repoPaths(paths []string) []string {
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		out[i] = filepath.Join("..", "..", p)
+	}
+	return out
+}
+
 func testGeoGuard(t *testing.T) *geoGuard {
 	t.Helper()
-	v4 := filepath.Join("..", "..", "data", "jp_ipv4.csv")
-	v6 := filepath.Join("..", "..", "data", "jp_ipv6.csv")
-	db, err := geoip.Load(v4, v6)
+	db, err := geoip.Load(repoPaths(defaultGeoIPv4Paths), repoPaths(defaultGeoIPv6Paths))
 	if err != nil {
 		t.Fatalf("geoip.Load: %v", err)
 	}
@@ -46,6 +53,8 @@ func TestGeoGuard_Allowed(t *testing.T) {
 		{"詐称: 末尾より前にJPを置いても末尾の海外で拒否", "60.71.146.85, 103.62.49.6, 8.8.8.8", false},
 		{"詐称: 末尾より前に海外を置いても末尾JPで許可", "8.8.8.8, 1.1.1.1, 60.71.146.85", true},
 		{"末尾が解釈不能ならフェイルオープン", "8.8.8.8, not-an-ip", true},
+		{"geo-whois に無く APNIC 割当で許可(OPTAGE)", "8.8.8.8, 2001:ce8:160:a0dd:7997:74d:dace:4f9d", true},
+		{"geo-whois に無く APNIC 割当で許可(KDDI)", "8.8.8.8, 2001:268:c2c2:28a0:f0bd:8717:839b:cf08", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -58,14 +67,14 @@ func TestGeoGuard_Allowed(t *testing.T) {
 
 func TestNewGeoGuard_DisabledByDefault(t *testing.T) {
 	t.Setenv("GEO_RESTRICT", "")
-	if g := newGeoGuard(defaultGeoIPv4Path, defaultGeoIPv6Path); g != nil {
+	if g := newGeoGuard(defaultGeoIPv4Paths, defaultGeoIPv6Paths); g != nil {
 		t.Error("expected nil guard when GEO_RESTRICT unset")
 	}
 }
 
 func TestNewGeoGuard_EnabledLoadFailFailsOpen(t *testing.T) {
 	t.Setenv("GEO_RESTRICT", "true")
-	if g := newGeoGuard("missing_v4.csv", "missing_v6.csv"); g != nil {
+	if g := newGeoGuard([]string{"missing_v4.csv"}, []string{"missing_v6.csv"}); g != nil {
 		t.Error("expected nil guard (fail-open) when allowlist load fails")
 	}
 }
@@ -85,9 +94,7 @@ func TestHandleReanalyze_GeoBlocked(t *testing.T) {
 
 func TestNewGeoGuard_Enabled(t *testing.T) {
 	t.Setenv("GEO_RESTRICT", "true")
-	v4 := filepath.Join("..", "..", "data", "jp_ipv4.csv")
-	v6 := filepath.Join("..", "..", "data", "jp_ipv6.csv")
-	g := newGeoGuard(v4, v6)
+	g := newGeoGuard(repoPaths(defaultGeoIPv4Paths), repoPaths(defaultGeoIPv6Paths))
 	if g == nil {
 		t.Fatal("expected non-nil guard when enabled and allowlist loads")
 	}

@@ -72,7 +72,7 @@ func StartServer() {
 	}
 
 	// 国別アクセス制限（GEO_RESTRICT=true で有効。無効・読込失敗時は nil=全許可）
-	geo := newGeoGuard(defaultGeoIPv4Path, defaultGeoIPv6Path)
+	geo := newGeoGuard(defaultGeoIPv4Paths, defaultGeoIPv6Paths)
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
