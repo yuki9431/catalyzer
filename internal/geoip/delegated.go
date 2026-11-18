@@ -16,7 +16,7 @@ import (
 func BuildFromDelegated(delegated, countryV4, countryV6 io.Reader, country string, ignore ...string) (v4, v6 []string, err error) {
 	d4, d6, err := parseDelegated(delegated, country)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("delegated 統計: %w", err)
 	}
 	skip := map[string]bool{country: true}
 	for _, c := range ignore {
@@ -46,8 +46,11 @@ func parseDelegated(r io.Reader, country string) (v4, v6 []ipRange, err error) {
 	for sc.Scan() {
 		lineNo++
 		f := strings.Split(strings.TrimSpace(sc.Text()), "|")
-		if len(f) < 7 || f[1] != country || (f[2] != "ipv4" && f[2] != "ipv6") {
+		if len(f) < 3 || f[1] != country || (f[2] != "ipv4" && f[2] != "ipv6") {
 			continue // コメント・版数行・集計行・他国
+		}
+		if len(f) < 7 {
+			return nil, nil, fmt.Errorf("%d 行目の列が足りない: %q", lineNo, sc.Text())
 		}
 		if f[6] != "allocated" && f[6] != "assigned" {
 			continue

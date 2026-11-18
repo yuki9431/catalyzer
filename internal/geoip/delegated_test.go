@@ -54,6 +54,7 @@ func TestBuildFromDelegated_Malformed(t *testing.T) {
 		"apnic|JP|ipv4|2001:ce8::|256|20110412|allocated",    // ファミリ不一致
 		"apnic|JP|ipv6|2001:ce8:1::|32|20030113|allocated",   // ホスト部が0でない
 		"apnic|JP|ipv6|2001:ce8::|abc|20030113|allocated",    // 長さ不正
+		"apnic|JP|ipv4|1.0.20.0|256|20110412",                // status 欠落
 	} {
 		if _, _, err := BuildFromDelegated(strings.NewReader(ok+bad), strings.NewReader(gw4), strings.NewReader(gw6), "JP"); err == nil {
 			t.Errorf("expected error for %q", bad)

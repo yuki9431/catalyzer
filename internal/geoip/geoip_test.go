@@ -154,7 +154,7 @@ func TestLoad_MultipleFilesUnion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if len(db.v4) != 1 || db.v4[0].end != netip.MustParseAddr("10.0.1.255") {
+	if len(db.v4) != 1 || db.v4[0].start != netip.MustParseAddr("10.0.0.0") || db.v4[0].end != netip.MustParseAddr("10.0.1.255") {
 		t.Errorf("v4 = %v, want 併合された1件 10.0.0.0-10.0.1.255", db.v4)
 	}
 	for _, ip := range []string{"2001:db8::1", "2001:db9::1"} {
