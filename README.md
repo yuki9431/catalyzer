@@ -98,11 +98,13 @@
 │   │   ├── patterns.js            # 試合の展開（負け筋）の定義一覧（ミッション判定・試合検索が共用）
 │   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
+│   │   ├── diagnosis.js           # AI診断に送る要約JSON（数値・列挙キー・機体名だけ）の組み立て
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー（その他から開く）
-│   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
+│   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション・AI診断）
+│   │   ├── ai-diagnosis.js        # AI診断パネル（オーナー限定。診断前・診断中・結果・失敗）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）と全画面の層 Layer
@@ -122,6 +124,7 @@
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
 │   │   ├── notes.js               # メモの純粋ロジック（抽出・下書き・検証・ピン留め・機体の選択肢）
+│   │   ├── ai-diagnosis.js        # AI診断の応答の整形・次回の表示・ポーリング定数
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
@@ -147,6 +150,8 @@
 │   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── notes.test.js          # lib/notes.js テスト
+│   │   ├── diagnosis.test.js      # 要約JSON（diagnosis.js）の形・個人情報の不在・サイズのテスト
+│   │   ├── ai-diagnosis.test.js   # lib/ai-diagnosis.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト

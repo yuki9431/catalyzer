@@ -166,6 +166,25 @@ export function notes(pins) {
   ];
 }
 
+// AI診断の応答のサンプル。status ごとの本文。done の next_at は固定(日時に依存させない)
+export function aiDiagnosis(status) {
+  var base = { available: true, min_matches: 10 };
+  if (status === 'done') {
+    return Object.assign(base, {
+      status: 'done',
+      result: {
+        headline: 'おにーさん、勝率は5割ちょっと。伸びしろはまだまだあるじゃん',
+        tendencies: ['被ダメが多い試合ほど勝率が落ちる、守りに課題ありのタイプ', '先落ちした試合は勝率が低め。相方との順番を意識したいところ', '直近は少し調子を崩していて、与ダメも伸び悩み気味'],
+        cautions: ['被ダメを抑えて、無理な着地を取らないようにする', '先落ちしそうなら覚醒を早めに使う', '苦手な敵機には距離を保って立ち回る'],
+        strengths: ['ストームレイダーでの勝率は安定してるじゃん', '最後に遊んだ日は前の日より勝率が上がってるわね'],
+      },
+      next_at: '2026-10-09T05:00:00+09:00',
+    });
+  }
+  if (status === 'error') return Object.assign(base, { status: 'error', retry: true, attempts_left: 2, error: 'AIの応答を受け取れませんでした' });
+  return Object.assign(base, { status: status });
+}
+
 export function msSvg(n) {
   var hue = (n * 47) % 360;
   return '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="hsl(' + hue + ',50%,40%)"/></svg>';

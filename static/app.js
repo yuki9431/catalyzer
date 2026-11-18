@@ -324,8 +324,15 @@ var NOTES_ACTIONS = {
   remove: function (id) { return apiCall('DELETE', '/notes/' + encodeURIComponent(id)); },
 };
 
+// AI診断(オーナー限定)。要約JSONはブラウザで作り、body だけで送る。結果は GET /ai-diagnosis をポーリングして受け取る
+var AI_DIAGNOSIS_ACTIONS = {
+  available: NOTES_ACTIONS.available,
+  load: function () { return apiCall('GET', '/ai-diagnosis'); },
+  request: function (input) { return apiCall('POST', '/ai-diagnosis', input); },
+};
+
 // report/ は app.js を import できない(循環)ため、操作は props で渡す
-var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, pullEnabled: STANDALONE, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS, notes: NOTES_ACTIONS };
+var REPORT_ACTIONS = { onReanalyze: reAnalyze, canReanalyze: function () { return !analysisBusy(); }, pullEnabled: STANDALONE, onLogout: logout, onRebuildCache: rebuildCache, autoRefresh: AUTO_REFRESH_ACTIONS, notes: NOTES_ACTIONS, aiDiagnosis: AI_DIAGNOSIS_ACTIONS };
 
 function showSkeleton() {
   var reportEl = document.getElementById('report');

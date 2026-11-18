@@ -2,6 +2,7 @@ import { html } from '../htm-preact-standalone.js';
 import { compareToday } from '../analysis/today.js';
 import { ActionPlanPanel } from './report/action-plan.js';
 import { Panel } from './ui.js';
+import { AiDiagnosisPanel } from './ai-diagnosis.js';
 
 var MS_CHIPS = 3;
 
@@ -36,13 +37,14 @@ function TodayCompare({ matches, selectedMs }) {
   </div>`;
 }
 
-// ホーム画面: 今日(無ければ最後に遊んだ日)の成績と前回の比較と、勝率アップミッション
+// ホーム画面: 今日(無ければ最後に遊んだ日)の成績と前回の比較と、勝率アップミッション、AI診断(全試合が対象)
 // 挑戦中ミッションは形式で絞らない全試合(focusMatches)で数える。開始時点と枠が形式の切り替えで変わらないように
-export function HomeView({ matches, focusMatches, selectedMs, userKey, plan, modeFiltered, onShowMatches }) {
+export function HomeView({ matches, focusMatches, selectedMs, userKey, plan, modeFiltered, onShowMatches, aiDiagnosis, msImages }) {
   return html`<div class="tabpane home" data-ui="home">
     <${Panel} title="前回との比較">
       <${TodayCompare} matches=${matches} selectedMs=${selectedMs} />
     <//>
     <${ActionPlanPanel} plan=${plan} selectedMs=${selectedMs} modeFiltered=${modeFiltered} matches=${focusMatches} userKey=${userKey} onShowMatches=${onShowMatches} />
+    <${AiDiagnosisPanel} actions=${aiDiagnosis} matches=${focusMatches} msImages=${msImages} />
   </div>`;
 }

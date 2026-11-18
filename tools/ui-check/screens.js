@@ -13,6 +13,9 @@ var OPEN_SEARCH = [goTab('試合検索')];
 var REPORT_TAB = goTab('レポート');
 var TABBAR = '[data-ui="tabbar"]';
 var HOME_CLOCK = '2026-10-08T22:00:00+09:00';
+// ホームの AI 診断を画面内に出す。sel(状態ごとの目印)の出現を待ってから診断パネルまでスクロールする
+function aiOps(sel) { return [{ wait: [sel] }, { scroll: ['[data-ui="ai-diagnosis"]'] }]; }
+var AI_INVIEW = [['[data-ui="ai-diagnosis"]']];
 var SORT_TRIGGER = '[data-ui="search-sort-trigger"]';
 var SHEET = '[data-ui="search-filter-sheet"]';
 var OPEN_DETAIL = OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]);
@@ -229,6 +232,18 @@ var SCREEN_DEFS = [
     required: [[CURRENT, 'ホーム'], ['[data-ui="focus-review"]', '✗ の試合を見返す'], ['[data-ui="focus-review"]', '3戦']], tap: ['[data-ui="focus-review"]'] },
   { id: 'mobile-focus-review', home: true, viewport: M, full: false, start: 'report-focus', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="focus-review"]'] }, { click: ['[data-ui="focus-review"]'] }, { wait: ['[data-ui="search-range"]'] }],
     required: [['[data-ui="search-range"]', '挑戦中のミッションの試合'], ['[data-ui="search-goal"]', '負け筋: 与ダメ12500未満'], ['[data-ui="search-total"]', '3試合']] },
+  // ホームの AI 診断(#701)。none=診断前・running=診断中・done=結果・error=失敗(もう一度)
+  { id: 'mobile-home-ai-none', home: true, viewport: M, full: false, start: 'report-ai-none', clock: HOME_CLOCK, ops: aiOps('[data-ui="ai-diagnosis-run"]'),
+    required: [['[data-ui="ai-diagnosis"] h2', 'AI診断'], ['[data-ui="ai-diagnosis"]', '全試合(60戦)から診断'], ['[data-ui="ai-diagnosis-run"]', '診断する']],
+    absent: [['[data-ui="ai-diagnosis-busy"]'], ['[data-ui="ai-diagnosis-headline"]'], ['[data-ui="ai-diagnosis"] [data-ui="notice"]']], inview: AI_INVIEW, tap: ['[data-ui="ai-diagnosis-run"]'] },
+  { id: 'mobile-home-ai-running', home: true, viewport: M, full: false, start: 'report-ai-running', clock: HOME_CLOCK, ops: aiOps('[data-ui="ai-diagnosis-busy"]'),
+    required: [['[data-ui="ai-diagnosis-busy"][aria-busy="true"]', '診断中']], absent: [['[data-ui="ai-diagnosis-run"]'], ['[data-ui="ai-diagnosis-headline"]']], inview: AI_INVIEW },
+  { id: 'mobile-home-ai-done', home: true, viewport: M, full: false, start: 'report-ai-done', clock: HOME_CLOCK, ops: aiOps('[data-ui="ai-diagnosis-headline"]'),
+    required: [['[data-ui="ai-diagnosis-headline"]'], ['[data-ui="ai-diagnosis-item"]', null, 7], ['[data-ui="ai-diagnosis"] h3', '気をつけること'], ['[data-ui="ai-diagnosis-next"]', '10/9 5:00']],
+    absent: [['[data-ui="ai-diagnosis-run"]'], ['[data-ui="ai-diagnosis-busy"]']], inview: AI_INVIEW },
+  { id: 'mobile-home-ai-error', home: true, viewport: M, full: false, start: 'report-ai-error', clock: HOME_CLOCK, ops: aiOps('[data-ui="ai-diagnosis"] [data-ui="notice-action"]'),
+    required: [['[data-ui="ai-diagnosis"] [data-ui="notice"][role="alert"]', 'AIの応答を受け取れませんでした'], ['[data-ui="ai-diagnosis"] [data-ui="notice-action"]', 'もう一度診断する']],
+    absent: [['[data-ui="ai-diagnosis-run"]'], ['[data-ui="ai-diagnosis-headline"]']], inview: AI_INVIEW, tap: ['[data-ui="ai-diagnosis"] [data-ui="notice-action"]'] },
   { id: 'mobile-match-gantt', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }, { scroll: ['[data-ui="gantt"]'] }]),
     required: [['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了']], inview: [['[data-ui="gantt-end"]']] },
   // 詳細を開いたまま絞り込みを開こうとしても層は1枚（絞り込みが残り詳細は閉じる）。

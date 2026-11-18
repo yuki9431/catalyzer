@@ -102,6 +102,17 @@ export function createServer() {
       }
       return send(res, 405, 'text/plain', 'method not allowed');
     }
+    // AI診断のモック。Cookie preview_session=valid と preview_ai=<none|running|done|error> が揃うときだけ使える(401 だと既存画面が console エラーで落ちる)
+    if (p === '/ai-diagnosis') {
+      if (get) {
+        var cookie = req.headers.cookie || '';
+        var aiM = /(?:^|;\s*)preview_ai=(none|running|done|error)(?:;|$)/.exec(cookie);
+        var aiOn = aiM && /(?:^|;\s*)preview_session=valid(?:;|$)/.test(cookie);
+        return json(res, 200, aiOn ? fx.aiDiagnosis(aiM[1]) : { available: false });
+      }
+      if (req.method === 'POST') return readJson(req, function () { json(res, 202, { available: true, status: 'pending', min_matches: 10 }); });
+      return send(res, 405, 'text/plain', 'method not allowed');
+    }
     if (get && p === '/tag-partners') return json(res, 200, { user_key: fx.USER_KEY, tag_partners: fx.tagPartners() });
     if (get && p === '/session') return json(res, 200, { valid: /(?:^|;\s*)preview_session=valid(?:;|$)/.test(req.headers.cookie || '') });
     if (p === '/session' && req.method === 'DELETE') return json(res, 200, {});
