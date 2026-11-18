@@ -59,12 +59,14 @@ type limitedBuffer struct {
 }
 
 func (l *limitedBuffer) Write(p []byte) (int, error) {
-	if room := maxStdout - l.buf.Len(); len(p) > room {
+	n := len(p)
+	if room := maxStdout - l.buf.Len(); n > room {
 		l.overflow = true
 		p = p[:max(room, 0)]
 	}
 	l.buf.Write(p)
-	return len(p), nil
+	// 切り詰めても n を返す。短い書き込みは io.ErrShortWrite になり子プロセスの出力が途切れる
+	return n, nil
 }
 
 func (execRunner) Run(ctx context.Context, c Cmd) ([]byte, error) {

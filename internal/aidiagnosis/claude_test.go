@@ -99,3 +99,30 @@ func TestParseCLIResult(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitedBuffer(t *testing.T) {
+	chunk := func(n int) []byte { return make([]byte, n) }
+	l := &limitedBuffer{}
+	for _, c := range []struct {
+		n        int
+		overflow bool
+		held     int
+	}{
+		{maxStdout - 1, false, maxStdout - 1},
+		{1, false, maxStdout},
+		{10, true, maxStdout},
+		{5, true, maxStdout},
+	} {
+		if n, err := l.Write(chunk(c.n)); n != c.n || err != nil {
+			t.Fatalf("Write(%d) = %d, %v", c.n, n, err)
+		}
+		if l.overflow != c.overflow || l.buf.Len() != c.held {
+			t.Errorf("after %d: overflow=%v held=%d", c.n, l.overflow, l.buf.Len())
+		}
+	}
+	// 上限をまたぐ1回の書き込み
+	l = &limitedBuffer{}
+	if n, _ := l.Write(chunk(maxStdout + 7)); n != maxStdout+7 || !l.overflow || l.buf.Len() != maxStdout {
+		t.Errorf("またぐ: n=%d overflow=%v held=%d", n, l.overflow, l.buf.Len())
+	}
+}

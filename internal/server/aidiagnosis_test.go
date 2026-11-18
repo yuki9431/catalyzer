@@ -156,6 +156,16 @@ func TestAIDiagnosisGet(t *testing.T) {
 			}
 		}
 	})
+	t.Run("機体名の集合が空なら available:false", func(t *testing.T) {
+		h := newAIHarness(t, ownerCfg())
+		h.api.msNames = map[string]bool{}
+		if rec := h.do(http.MethodGet, "owner", ""); decodeAI(t, rec)["available"] != false {
+			t.Errorf("%s", rec.Body.String())
+		}
+		if rec := h.do(http.MethodPost, "owner", validAIBody(t)); rec.Code != http.StatusForbidden || h.launches != 0 {
+			t.Errorf("POST: %d launches=%d", rec.Code, h.launches)
+		}
+	})
 	t.Run("状態ごとの本文", func(t *testing.T) {
 		h := newAIHarness(t, ownerCfg())
 		rec := h.do(http.MethodGet, "owner", "")
@@ -268,8 +278,8 @@ func TestAIDiagnosisPost(t *testing.T) {
 		if rec.Code != http.StatusAccepted || m["status"] != "pending" || m["available"] != true {
 			t.Errorf("%d %v", rec.Code, m)
 		}
-		if h.launches != 1 || h.store.requests != 1 {
-			t.Errorf("launches=%d requests=%d", h.launches, h.store.requests)
+		if h.launches != 1 || h.store.requests != 1 || h.store.st == nil {
+			t.Fatalf("launches=%d requests=%d st=%v", h.launches, h.store.requests, h.store.st)
 		}
 		want, err := aidiagnosis.ValidateInput([]byte(validAIBody(t)), h.api.msNames)
 		if err != nil {
@@ -303,7 +313,7 @@ func TestAIDiagnosisPost(t *testing.T) {
 		h := newAIHarness(t, ownerCfg())
 		h.store.global = aidiagnosis.GlobalDailyMax
 		rec := h.do(http.MethodPost, "owner", validAIBody(t))
-		if rec.Code != http.StatusTooManyRequests || decodeAI(t, rec)["error"] != aiDiagnosisCapMessage {
+		if rec.Code != http.StatusTooManyRequests || decodeAI(t, rec)["error"] != aiDiagnosisCapMessage(h.now) {
 			t.Errorf("global_cap: %d %s", rec.Code, rec.Body.String())
 		}
 		h.store.global = 0
@@ -313,6 +323,26 @@ func TestAIDiagnosisPost(t *testing.T) {
 		}
 		if h.launches != 0 {
 			t.Error("Job を起動した")
+		}
+	})
+	t.Run("上限の文言は実際の再開時刻", func(t *testing.T) {
+		h := newAIHarness(t, ownerCfg())
+		h.store.global = aidiagnosis.GlobalDailyMax
+		h.now = time.Date(2026, 11, 18, 4, 30, 0, 0, time.FixedZone("JST", 9*3600))
+		if msg := decodeAI(t, h.do(http.MethodPost, "owner", validAIBody(t)))["error"]; msg != "今日はもう診断できません。今日5時以降にお試しください" {
+			t.Errorf("5時前: %v", msg)
+		}
+		h.now = h.now.Add(10 * time.Hour)
+		if msg := decodeAI(t, h.do(http.MethodPost, "owner", validAIBody(t)))["error"]; msg != "今日はもう診断できません。明日5時以降にお試しください" {
+			t.Errorf("5時以降: %v", msg)
+		}
+	})
+	t.Run("新しいプレイ日の状態は上書きしない", func(t *testing.T) {
+		h := newAIHarness(t, ownerCfg())
+		h.store.st = &model.AIDiagnosisState{Status: "done", PlayDay: "2026-11-19", ResultJSON: "{}"}
+		rec := h.do(http.MethodPost, "owner", validAIBody(t))
+		if rec.Code != http.StatusConflict || h.store.requests != 0 || h.launches != 0 || h.store.st.PlayDay != "2026-11-19" {
+			t.Errorf("%d requests=%d launches=%d", rec.Code, h.store.requests, h.launches)
 		}
 	})
 	t.Run("起動失敗は 502 と launch_failed の記録", func(t *testing.T) {

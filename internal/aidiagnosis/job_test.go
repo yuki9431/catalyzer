@@ -6,9 +6,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/yuki9431/catalyzer/internal/firestore"
 	"github.com/yuki9431/catalyzer/internal/model"
 )
 
@@ -137,4 +139,15 @@ func TestRunJob(t *testing.T) {
 			t.Fatalf("finished = %+v", st.finished)
 		}
 	})
+}
+
+func TestErrKindHidesMessageKeepsCause(t *testing.T) {
+	cause := errors.New("path users/secretkey")
+	err := errKind(cause)
+	if strings.Contains(err.Error(), "secretkey") || !errors.Is(err, cause) {
+		t.Errorf("Error()=%q Is=%v", err.Error(), errors.Is(err, cause))
+	}
+	if !errors.Is(errKind(firestore.ErrAILeaseLost), firestore.ErrAILeaseLost) || errKind(firestore.ErrAILeaseLost).Error() != "lease_lost" {
+		t.Error("lease_lost")
+	}
 }

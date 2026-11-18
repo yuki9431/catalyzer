@@ -59,7 +59,7 @@ func RunJob(ctx context.Context, owner string) error {
 func runJob(ctx context.Context, d jobDeps, owner string) error {
 	pending, err := d.store.ListPending(ctx, jobBatch)
 	if err != nil {
-		return fmt.Errorf("pending の一覧取得: %s", errKind(err))
+		return fmt.Errorf("pending の一覧取得: %w", errKind(err))
 	}
 	for i, st := range pending {
 		processOne(ctx, d, st, owner, i)
@@ -91,12 +91,21 @@ func processOne(ctx context.Context, d jobDeps, st model.AIDiagnosisState, owner
 	log.Printf("[INFO] ai-diagnosis: #%d status=%s code=%s", idx, status, code)
 }
 
-// errKind はログ用にエラーの種類だけを返す。gRPC のメッセージにはドキュメントパス(userKey)が入るため本文は出さない。
-func errKind(err error) string {
+// kindError は Error() では種類だけを返し、Unwrap() で元エラーを残す。
+type kindError struct {
+	kind string
+	err  error
+}
+
+func (e *kindError) Error() string { return e.kind }
+func (e *kindError) Unwrap() error { return e.err }
+
+// errKind はログ用にエラーの種類だけを見せるエラーを返す。gRPC のメッセージにはドキュメントパス(userKey)が入るため本文は出さない。
+func errKind(err error) error {
 	if errors.Is(err, firestore.ErrAILeaseLost) {
-		return "lease_lost"
+		return &kindError{"lease_lost", err}
 	}
-	return "code=" + status.Code(err).String()
+	return &kindError{"code=" + status.Code(err).String(), err}
 }
 
 // diagnose は保存する結果 JSON か失敗コードを返す。

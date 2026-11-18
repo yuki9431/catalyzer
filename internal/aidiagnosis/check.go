@@ -80,8 +80,9 @@ func sampleMatches(root any) float64 {
 
 func checkItem(name string, it Item, root any) []Violation {
 	var vs []Violation
-	text := strings.TrimSpace(it.Text)
-	if n := utf8.RuneCountInString(text); n < 1 || n > textMax {
+	text := it.Text
+	// 空白のみだけ TrimSpace で弾く。前後の改行や空白は制御文字検査・文字数でそのまま見る
+	if n := utf8.RuneCountInString(text); strings.TrimSpace(text) == "" || n > textMax {
 		vs = append(vs, Violation{name, "text_length"})
 	}
 	if strings.ContainsFunc(text, unicode.IsControl) {

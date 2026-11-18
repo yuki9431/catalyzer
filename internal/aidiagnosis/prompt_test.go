@@ -2,6 +2,7 @@ package aidiagnosis
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -21,7 +22,9 @@ func TestOutputSchema(t *testing.T) {
 	if err := json.Unmarshal([]byte(outputSchema), &s); err != nil {
 		t.Fatal(err)
 	}
-	if len(s.Required) != 4 {
-		t.Errorf("required = %v", s.Required)
+	got := slices.Clone(s.Required)
+	slices.Sort(got)
+	if want := []string{"cautions", "headline", "strengths", "tendencies"}; !slices.Equal(got, want) {
+		t.Errorf("required = %v, want %v", s.Required, want)
 	}
 }

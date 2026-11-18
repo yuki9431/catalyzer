@@ -16,7 +16,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
-const aiDiagnosisCapMessage = "今日はもう診断できません。明日5時以降にお試しください"
+// aiDiagnosisCapMessage は日次上限の応答文言。再開は朝5時なので、5時前なら今日になる。
+func aiDiagnosisCapMessage(now time.Time) string {
+	return "今日はもう診断できません。" + aidiagnosis.ResetLabel(now) + "以降にお試しください"
+}
 
 // 診断の要求は IP ごとに 10 分に 1 回回復・バースト 6。インメモリなのでインスタンスごとに数える
 var aiDiagnosisLimiter = newRateLimiter(rate.Every(10*time.Minute), 6)
@@ -157,9 +160,10 @@ func (a *aiDiagnosisAPI) userKeyOf(r *http.Request) string {
 	return uk
 }
 
-// available は機能が使える状態か(Job・セッション暗号化・許可リストがそろっている)。
+// available は機能が使える状態か(Job・セッション暗号化・許可リスト・機体名の集合がそろっている)。
+// 機体名が空(MSリストの読込失敗)だと入力検証が全件通らないので使えないとする。
 func (a *aiDiagnosisAPI) available(userKey string) bool {
-	return a.cfg.JobName != "" && a.sessionOn && a.cfg.Allowed[userKey]
+	return a.cfg.JobName != "" && a.sessionOn && len(a.msNames) > 0 && a.cfg.Allowed[userKey]
 }
 
 func (a *aiDiagnosisAPI) handle(w http.ResponseWriter, r *http.Request) {
@@ -248,11 +252,11 @@ func (a *aiDiagnosisAPI) post(w http.ResponseWriter, r *http.Request) {
 	}
 	switch aidiagnosis.Verdict(verdict) {
 	case aidiagnosis.VerdictOK:
-	case aidiagnosis.VerdictDoneToday, aidiagnosis.VerdictBusy:
+	case aidiagnosis.VerdictDoneToday, aidiagnosis.VerdictBusy, aidiagnosis.VerdictStaleDay:
 		a.respondState(ctx, w, http.StatusConflict, userKey)
 		return
 	default:
-		notesError(w, http.StatusTooManyRequests, aiDiagnosisCapMessage)
+		notesError(w, http.StatusTooManyRequests, aiDiagnosisCapMessage(now))
 		return
 	}
 

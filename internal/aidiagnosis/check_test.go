@@ -82,6 +82,8 @@ func TestCheckOutput(t *testing.T) {
 		{"strengths が3件", func(o *Output) { o.Strengths = append(o.Strengths, o.Strengths[0], o.Strengths[0]) }, "count"},
 		{"text が空白だけ", func(o *Output) { o.Headline.Text = "  " }, "text_length"},
 		{"text が61字", func(o *Output) { o.Headline.Text = strings.Repeat("あ", 61) }, "text_length"},
+		{"末尾の改行", func(o *Output) { o.Headline.Text = "勝率52.5%\n" }, "text_control"},
+		{"先頭の改行", func(o *Output) { o.Headline.Text = "\n勝率52.5%" }, "text_control"},
 		{"制御文字", func(o *Output) { o.Headline.Text = "勝率\n52.5%" }, "text_control"},
 		{"evidence が空", func(o *Output) { o.Headline.Evidence = nil }, "evidence_count"},
 		{"evidence が6件", func(o *Output) {

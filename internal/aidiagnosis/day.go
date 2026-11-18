@@ -35,6 +35,14 @@ func NextReset(t time.Time) time.Time {
 	return next
 }
 
+// ResetLabel は次の再開時刻を「今日5時」「明日5時」で返す。
+func ResetLabel(t time.Time) string {
+	if NextReset(t).In(jst).Day() == t.In(jst).Day() {
+		return "今日5時"
+	}
+	return "明日5時"
+}
+
 type Verdict string
 
 const (
@@ -43,6 +51,7 @@ const (
 	VerdictBusy              Verdict = "busy"
 	VerdictAttemptsExhausted Verdict = "attempts_exhausted"
 	VerdictGlobalCap         Verdict = "global_cap"
+	VerdictStaleDay          Verdict = "stale_day"
 )
 
 func isStale(st *model.AIDiagnosisState, now time.Time) bool {
@@ -61,6 +70,10 @@ func inFlight(st *model.AIDiagnosisState, now time.Time) bool {
 
 // Decide は診断の要求を受けてよいかを判定する。ok のとき attempts は保存する試行回数。
 func Decide(st *model.AIDiagnosisState, globalCount int, now time.Time) (v Verdict, attempts int) {
+	// 遅れて届いた前のプレイ日の要求で、新しいプレイ日の状態を上書きしない
+	if st != nil && st.PlayDay > PlayDay(now) {
+		return VerdictStaleDay, 0
+	}
 	sameDay := st != nil && st.PlayDay == PlayDay(now)
 	if sameDay {
 		switch {

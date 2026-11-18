@@ -75,6 +75,7 @@ func TestDecide(t *testing.T) {
 		{"attempts_exhausted は global_cap より優先", st("error", 3, nil), 10, VerdictAttemptsExhausted, 0},
 		{"状態なしで global_cap", nil, 10, VerdictGlobalCap, 0},
 		{"error でも global_cap", st("error", 1, nil), 10, VerdictGlobalCap, 0},
+		{"保存済みが新しいプレイ日", &model.AIDiagnosisState{Status: "done", PlayDay: "2026-11-19"}, 0, VerdictStaleDay, 0},
 		{"global 9 は通る", nil, 9, VerdictOK, 1},
 	}
 	for _, tt := range tests {
@@ -113,6 +114,21 @@ func TestView(t *testing.T) {
 		if got.Status != tt.want.Status || got.Retry != tt.want.Retry || got.AttemptsLeft != tt.want.AttemptsLeft ||
 			got.ErrorCode != tt.want.ErrorCode || !got.NextAt.Equal(tt.want.NextAt) {
 			t.Errorf("%s: View = %+v, want %+v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestResetLabel(t *testing.T) {
+	for _, tt := range []struct {
+		in   time.Time
+		want string
+	}{
+		{jstTime(2026, 11, 18, 4, 30), "今日5時"},
+		{jstTime(2026, 11, 18, 5, 0), "明日5時"},
+		{jstTime(2026, 11, 18, 23, 0), "明日5時"},
+	} {
+		if got := ResetLabel(tt.in); got != tt.want {
+			t.Errorf("ResetLabel(%v) = %s, want %s", tt.in, got, tt.want)
 		}
 	}
 }
