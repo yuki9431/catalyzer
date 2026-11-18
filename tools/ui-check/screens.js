@@ -331,7 +331,7 @@ var SCREEN_DEFS = [
     ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { wait: ['[data-ui="note-delete"]'] }],
     required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-delete"]', '削除']], tap: ['[data-ui="note-delete"]', '[data-ui="note-save"]'] },
   { id: 'mobile-note-sheet-delete', viewport: M, full: false, start: 'report-session-valid',
-    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { click: ['[data-ui="note-delete"]'] }, { waitGone: ['[data-ui="note-sheet"]'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { touchTap: ['[data-ui="note-delete"]'] }, { waitGone: ['[data-ui="note-sheet"]'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
     required: [['[data-ui="note-tabs"] button', 'すべて 5']], absent: [['[data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="note-sheet"]']] },
   { id: 'mobile-notes-write', viewport: M, full: false, start: 'report-session-valid', clock: HOME_CLOCK, ops: [goTab('メモ'), { click: ['[data-ui="note-write"]'] }, { wait: ['[data-ui="note-sheet"]'] }],
     required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-date-clear"]'], ['[data-ui="note-pin"] input:not(:checked)'], ['[data-ui="note-my"] [data-ui="select-trigger"]'], ['[data-ui="note-partner"] [data-ui="select-trigger"]', '指定しない'], ['[data-ui="note-enemy-add"]'], ['[data-ui="notes-view"][inert], [inert] [data-ui="notes-view"]']],

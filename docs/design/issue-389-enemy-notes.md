@@ -381,7 +381,7 @@ export function NoteList({ notes, onClose })              // 単位4
 - `<label data-ui="note-pin"><input type="checkbox"> ピン留めする（最大3件）</label>`。他のピンが上限に達していて、自分もピン留めしていなければ disabled にし、`ピン留めは3件までです` を添える
 - × ボタンは3つとも 44px 四方以上(ui-check の tap 検査の対象にする)
 - 失敗時: シート内に `Notice tone="error"`。入力はそのまま残し、保存ボタンは押せる状態に戻す
-- foot: 編集時は左に「削除」(`data-ui="note-delete"`)。押すと行内に「削除する」「やめる」(`data-ui="note-delete-confirm"`)。右に「保存」(`data-ui="note-save"`)。`validateDraft` が文言を返す間と保存中は disabled。保存中のラベルは「保存中…」
+- foot: 編集時は左に赤の「削除」(`data-ui="note-delete"`)。1回押すと消す。右に「保存」(`data-ui="note-save"`)。`validateDraft` が文言を返す間と保存中は disabled。保存中のラベルは「保存中…」
 
 入口ごとの既定値(単位5):
 | 入口 | 日付 | 敵機 | 自機 |
