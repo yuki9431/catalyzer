@@ -37,6 +37,18 @@ resource "google_cloud_run_v2_service" "app" {
           }
         }
       }
+      dynamic "env" {
+        for_each = local.e.ai_diagnosis ? [1] : []
+        content {
+          name = "AI_DIAGNOSIS_ALLOWED_USERS"
+          value_source {
+            secret_key_ref {
+              secret  = "ai-diagnosis-allowed-users"
+              version = "latest"
+            }
+          }
+        }
+      }
 
       resources {
         cpu_idle          = true
@@ -142,6 +154,51 @@ resource "google_cloud_run_v2_job" "auto_refresh" {
 
         resources {
           limits = { cpu = "1", memory = "512Mi" }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [client, client_version]
+  }
+}
+
+resource "google_cloud_run_v2_job" "ai_diagnosis" {
+  count        = local.e.ai_diagnosis ? 1 : 0
+  name         = local.ai_diagnosis.job
+  location     = local.region
+  launch_stage = "GA"
+
+  template {
+    parallelism = 1
+    task_count  = 1
+
+    template {
+      service_account = "ai-diagnosis-job@${var.project}.iam.gserviceaccount.com"
+      timeout         = "300s"
+      max_retries     = 0
+
+      containers {
+        image   = "${local.image}-ai"
+        command = ["/app/ai-diagnosis"]
+
+        env {
+          name  = "FIRESTORE_DATABASE"
+          value = local.service_env.FIRESTORE_DATABASE
+        }
+        env {
+          name = "CLAUDE_CODE_OAUTH_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = "claude-code-oauth-token"
+              version = "latest"
+            }
+          }
+        }
+
+        resources {
+          limits = { cpu = "2", memory = "4Gi" }
         }
       }
     }

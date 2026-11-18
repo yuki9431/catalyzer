@@ -155,7 +155,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
 - `data/jp_ipv4.csv` / `data/jp_ipv6.csv` — 日本のIP許可リスト（`start,end,country`。CC0のgeo-whois-asn-countryからJP行のみ抽出。国別アクセス制限用）
 - `infra/shared/` — OpenTofu の共有リソース（`main.tf`（backend・state 暗号化・API）/`iam.tf`（SA・WIF・IAM）/`resources.tf`（Artifact Registry・GCS・DNS・Firestore・Secret。Secret の値の版は gcloud で手作業で足し tofu に入れない））。手元から `make tofu-shared-apply` で反映する
-- `infra/app/` — 環境別リソース（Cloud Run, ドメインマッピング, CNAME。自動更新の Cloud Run Job と Scheduler は prod のみ）。OpenTofu(`main.tf`（環境差は `locals.envs`）/`run.tf`/`{prod,stg}.tfvars`。`make tofu-app-plan STACK=prod|stg`)で管理し、build.yml が tfvars の `image_tag` を書き換え、deploy.yml が apply する
+- `infra/app/` — 環境別リソース（Cloud Run, ドメインマッピング, CNAME。自動更新の Cloud Run Job と Scheduler・AI 診断の Cloud Run Job は prod のみ）。OpenTofu(`main.tf`（環境差は `locals.envs`）/`run.tf`/`{prod,stg}.tfvars`。`make tofu-app-plan STACK=prod|stg`)で管理し、build.yml が tfvars の `image_tag` を書き換え、deploy.yml が apply する
 
 ## GitHub Actions
 

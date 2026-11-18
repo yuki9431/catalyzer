@@ -77,8 +77,8 @@ locals {
   kms_key = "projects/${var.project}/locations/${local.region}/keyRings/pulumi-secrets/cryptoKeys/pulumi-state"
 
   envs = {
-    prod = { service = "exvs-analyzer", domain = "www.exvs-analyzer.com", cpu = "2", memory = "1Gi", max_instances = 3, run_sa = "catalyzer-run", auto_refresh = true }
-    stg  = { service = "stg-exvs-analyzer", domain = "stg.exvs-analyzer.com", cpu = "1", memory = "512Mi", max_instances = 1, run_sa = "catalyzer-run-stg", auto_refresh = false }
+    prod = { service = "exvs-analyzer", domain = "www.exvs-analyzer.com", cpu = "2", memory = "1Gi", max_instances = 3, run_sa = "catalyzer-run", auto_refresh = true, ai_diagnosis = true }
+    stg  = { service = "stg-exvs-analyzer", domain = "stg.exvs-analyzer.com", cpu = "1", memory = "512Mi", max_instances = 1, run_sa = "catalyzer-run-stg", auto_refresh = false, ai_diagnosis = false }
   }
   e = local.envs[var.env]
 
@@ -89,6 +89,10 @@ locals {
     passphrase_hash = "$argon2id$v=19$m=19456,t=2,p=1$av+80NRF4e/uNhUGwFF+fg$f1kfSTJANTaDnFBTHWcQYxx4IJo/5HCsPTTK7MXuutY"
     job             = "${local.e.service}-auto-refresh"
     scheduler_sa    = "auto-refresh-scheduler@${var.project}.iam.gserviceaccount.com"
+  }
+
+  ai_diagnosis = {
+    job = "${local.e.service}-ai-diagnosis"
   }
 
   image    = "${var.image_uri}:${var.image_tag}"
@@ -107,5 +111,8 @@ locals {
       },
       local.auto_refresh.open ? { AUTO_REFRESH_OPEN = "true" } : {},
     ) : {},
+    local.e.ai_diagnosis ? {
+      AI_DIAGNOSIS_JOB = "projects/${var.project}/locations/${local.region}/jobs/${local.ai_diagnosis.job}"
+    } : {},
   )
 }
