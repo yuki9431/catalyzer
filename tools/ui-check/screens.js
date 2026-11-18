@@ -326,6 +326,13 @@ var SCREEN_DEFS = [
     tap: ['[data-ui="note-tabs"] button', '[data-ui="note-item"]'] },
   { id: 'notes', viewport: D, full: false, start: 'report-session-valid', ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }],
     required: [[CURRENT, 'メモ'], ['[data-ui="note-list"] [data-ui="note-item"]', null, 6], ['[data-ui="note-write"]']], absent: [REANALYZE_BTN.slice(0, 1)] },
+  // 既存のメモを開くと編集シートに赤の「削除」が出て、1回押すと消える
+  { id: 'mobile-note-sheet-edit', viewport: M, full: false, start: 'report-session-valid',
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { wait: ['[data-ui="note-delete"]'] }],
+    required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-delete"]', '削除']], tap: ['[data-ui="note-delete"]', '[data-ui="note-save"]'] },
+  { id: 'mobile-note-sheet-delete', viewport: M, full: false, start: 'report-session-valid',
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { click: ['[data-ui="note-delete"]'] }, { waitGone: ['[data-ui="note-sheet"]'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
+    required: [['[data-ui="note-tabs"] button', 'すべて 5']], absent: [['[data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="note-sheet"]']] },
   { id: 'mobile-notes-write', viewport: M, full: false, start: 'report-session-valid', clock: HOME_CLOCK, ops: [goTab('メモ'), { click: ['[data-ui="note-write"]'] }, { wait: ['[data-ui="note-sheet"]'] }],
     required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-date-clear"]'], ['[data-ui="note-pin"] input:not(:checked)'], ['[data-ui="note-my"] [data-ui="select-trigger"]'], ['[data-ui="note-partner"] [data-ui="select-trigger"]', '指定しない'], ['[data-ui="note-enemy-add"]'], ['[data-ui="notes-view"][inert], [inert] [data-ui="notes-view"]']],
     absent: [['[data-ui="note-enemy"]'], ['[data-ui="note-delete"]'], MY_MS_FILLED], tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
