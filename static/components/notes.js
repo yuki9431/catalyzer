@@ -3,7 +3,7 @@ import { currentPlayDay, playDay } from '../analysis/today.js';
 import {
   sanitizeNotes, notesForMatch, matchEnemies, pinnedNotes, canPinMore, notesForEnemy, groupByMs, MS_TABS, notesByTab, tabCounts, noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength,
   validateDraft, canAddEnemy, enemyOptions, withValue, pinnedCount, upsertNote, removeNoteById, loadDecision, responseOutcome,
-  swipeAxis, swipeOffset, swipeOpens,
+  swipeAxis, swipeOffset, swipeOpens, createTapGuard,
 } from '../lib/notes.js';
 import { Layer } from './popover.js';
 import { ToggleGroup, Notice } from './parts.js';
@@ -124,19 +124,18 @@ export function NoteItem({ note, showTarget, showPin, onOpen }) {
 
 var SWIPE_WIDTH = 168;
 
-// 左スワイプでピン留めと削除を出す行。削除は2回タップで確定。rowKey が openId と同じ行だけ開く
+// 左スワイプでピン留めと削除を出す行。削除は1回で消す(引く操作が確認を兼ねる)。rowKey が openId と同じ行だけ開く
 export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, setOpenId, onError }) {
   var open = openId === rowKey;
   var dragRef = useState(null);
   var drag = dragRef[0], setDrag = dragRef[1];
-  var confirmRef = useState(false);
-  var confirming = confirmRef[0], setConfirming = confirmRef[1];
   var busyRef = useState(false);
   var busy = busyRef[0], setBusy = busyRef[1];
   var start = useRef(null);
   var dragX = useRef(null);
   var moved = useRef(false);
-  useEffect(function () { if (!open) setConfirming(false); }, [open]);
+  var guard = useRef(null);
+  if (!guard.current) guard.current = createTapGuard(Date.now);
 
   function drop() { start.current = null; dragX.current = null; setDrag(null); }
   function down(e) {
@@ -189,14 +188,23 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
     run(function () { return notes.save(Object.assign(draftFromNote(note), { pinned: !note.pinned }), true); });
   }
   function remove() {
-    if (!confirming) { setConfirming(true); return; }
     run(function () { return notes.remove(note.id, true); });
+  }
+  function press(fn) {
+    var g = guard.current;
+    return {
+      onPointerDown: g.down,
+      onPointerCancel: g.cancel,
+      // disabled のボタンにも pointerup は届くので、保存中は自分で止める
+      onPointerUp: function (e) { if (g.up(e) && !e.currentTarget.disabled) fn(); },
+      onClick: function (e) { if (g.click(e)) fn(); },
+    };
   }
   var x = drag !== null ? drag : (open ? -SWIPE_WIDTH : 0);
   return html`<div class="note-swipe" data-ui="note-swipe">
     ${x !== 0 && html`<div class="note-swipe-actions">
-      <button type="button" class="note-swipe-pin" data-ui="note-swipe-pin" disabled=${busy} tabindex=${open ? 0 : -1} onClick=${togglePin}>${note.pinned ? 'ピンを外す' : 'ピン留め'}</button>
-      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} onClick=${remove}>${confirming ? '削除する' : '削除'}</button>
+      <button type="button" class="note-swipe-pin" data-ui="note-swipe-pin" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(togglePin)}>${note.pinned ? 'ピンを外す' : 'ピン留め'}</button>
+      <button type="button" class="note-swipe-delete" data-ui="note-swipe-delete" disabled=${busy} tabindex=${open ? 0 : -1} ...${press(remove)}>削除</button>
     </div>`}
     <div class=${'note-swipe-front' + (drag !== null ? ' note-swipe-drag' : '')} style=${'transform:translateX(' + x + 'px)'}
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${drop}>
@@ -234,11 +242,11 @@ export function homeDraft(notes, limits, myMs, now) {
 export function EnemyNotes({ notes, enemy, myMs, writeMs }) {
   var list = notesForEnemy(notes.list, enemy, myMs);
   return html`<div class="note-match" data-ui="enemy-notes">
+    <div class="note-sub-head" data-ui="enemy-notes-head"><span>メモ<small>${list.length}件</small></span>
+      <${WriteButton} ui="note-write" onClick=${function () { notes.open(todayDraft(enemy, writeMs || '', new Date())); }} /></div>
     ${list.length
       ? list.map(function (n) { return html`<${NoteItem} key=${n.id} note=${n} onOpen=${function (x) { notes.open(draftFromNote(x)); }} />`; })
       : html`<p class="note-empty">まだメモはありません</p>`}
-    <button type="button" class="ui-action note-write" data-ui="note-write"
-      onClick=${function () { notes.open(todayDraft(enemy, writeMs || '', new Date())); }}>＋ メモを書く</button>
   </div>`;
 }
 
@@ -260,6 +268,11 @@ export function MatchNotes({ notes, match }) {
 }
 
 // 試合詳細のメモ欄。試合を見る画面なので既定は閉じ、見出しに件数を出す
+// 試合詳細の上部バーの「書く」。メモ欄を開かずに書ける
+export function MatchWriteButton({ notes, match }) {
+  return html`<${WriteButton} ui="match-note-write" onClick=${function () { notes.open(matchDraft(match)); }} />`;
+}
+
 export function MatchNotesPanel({ notes, match }) {
   var openRef = useState(false);
   var open = openRef[0], setOpen = openRef[1];
@@ -283,8 +296,6 @@ function NoteSheetBody({ notes, choices }) {
   var busy = busyRef[0], setBusy = busyRef[1];
   var errRef = useState('');
   var error = errRef[0], setError = errRef[1];
-  var confirmRef = useState(false);
-  var confirming = confirmRef[0], setConfirming = confirmRef[1];
   var alive = useRef(true);
   useEffect(function () { return function () { alive.current = false; }; }, []);
 
@@ -311,12 +322,9 @@ function NoteSheetBody({ notes, choices }) {
   var head = html`<span></span>
     <h2>${editing ? 'メモを編集' : 'メモを書く'}</h2>
     <button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${notes.close}>閉じる</button>`;
-  var foot = html`${editing && (confirming
-      ? html`<span class="note-foot-left">
-          <button type="button" class="ui-action note-danger" data-ui="note-delete-confirm" disabled=${busy} onClick=${function () { done(notes.remove(draft.id)); }}>削除する</button>
-          <button type="button" class="ui-action" data-ui="note-delete-cancel" onClick=${function () { setConfirming(false); }}>やめる</button>
-        </span>`
-      : html`<span class="note-foot-left"><button type="button" class="ui-action" data-ui="note-delete" disabled=${busy} onClick=${function () { setConfirming(true); }}>削除</button></span>`)}
+  var foot = html`${editing && html`<span class="note-foot-left">
+      <button type="button" class="ui-action note-danger" data-ui="note-delete" disabled=${busy} onClick=${function () { done(notes.remove(draft.id)); }}>削除</button>
+    </span>`}
     <button type="button" class="search-apply note-save" data-ui="note-save" disabled=${!!problem || busy}
       onClick=${function () { done(notes.save(draft)); }}>${busy ? '保存中…' : '保存'}</button>`;
 

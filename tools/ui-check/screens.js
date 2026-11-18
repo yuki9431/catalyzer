@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { swipe: [selector, dx] }(要素の中央から横に dx px 指を滑らせて離す) | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { waitGone: [selector, テキスト?] }(要素が消えるまで待つ) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { swipe: [selector, dx] }(要素の中央から横に dx px 指を滑らせて離す) | { touchTap: [selector, テキスト?] }(指で1回タップする) | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { waitGone: [selector, テキスト?] }(要素が消えるまで待つ) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -137,7 +137,7 @@ var SCREEN_DEFS = [
     tap: ['[data-ui="search-sort-item"]', '[data-ui="search-sort-dir"] button', '[data-ui="search-pagesize"] button', '[data-ui="search-sort-panel"] [data-ui="sheet-close"]'] },
   { id: 'mobile-match-detail', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]),
     required: [['[data-ui="match-detail-back"][aria-label="試合検索に戻る"]'], ['[data-ui="search-filter"][inert]'], ['[inert] [data-ui="search-result"]'], [TABBAR + '[inert], [inert] ' + TABBAR], ['[data-ui="match-detail"]'], ['[data-ui="match-detail-back"]', '試合検索'], ['[data-ui="match-result"]', '敗北'], ['[data-ui="match-score-table"] thead th', 'テスト僚機1'], ['[data-ui="match-score-table"] thead th', 'テスト対戦者15'], ['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了']],
-    inview: [['[data-ui="match-detail-back"]']], absent: [['[data-ui="match-timeline-toggle"]'], ['[data-ui="match-detail"] [data-ui="win-streak"]']], outview: [[TABBAR]],
+    inview: [['[data-ui="match-detail-back"]']], absent: [['[data-ui="match-timeline-toggle"]'], ['[data-ui="match-detail"] [data-ui="win-streak"]'], ['[data-ui="match-note-write"]']], outview: [[TABBAR]],
     tap: ['[data-ui="match-detail-back"]', '[data-ui="radar-toggle"]'] },
   // 連勝中の勝ちは詳細にも連勝数を出す。負けの詳細には出さない(mobile-match-detail)
   { id: 'mobile-match-detail-streak', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]', '2連勝'] }]),
@@ -148,8 +148,11 @@ var SCREEN_DEFS = [
   { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid',
     ops: OPEN_MATCH_NOTES.concat([{ wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-notes-toggle"]'] }, { waitGone: ['[data-ui="match-notes"]'] },
       { click: ['[data-ui="match-notes-toggle"]'] }, { wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-detail-back"]'] }, { waitGone: ['[data-ui="match-detail"]'] }, { click: ['[data-ui="search-result"]'] }, { wait: ['[data-ui="match-notes-toggle"]'] }]),
-    required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件']], absent: [['[data-ui="match-notes"]']],
-    tap: ['[data-ui="match-notes-toggle"]'] },
+    required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件'], ['[data-ui="match-note-write"][aria-label="書く"] svg']], absent: [['[data-ui="match-notes"]']],
+    inview: [['[data-ui="match-note-write"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="match-note-write"]'] },
+  // メモ欄を閉じたまま、上部バーの鉛筆から書ける。既定は試合詳細から書くときと同じ
+  { id: 'mobile-match-detail-write', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL.concat([{ click: ['[data-ui="match-note-write"]'] }, { wait: ['[data-ui="note-sheet"]'] }]),
+    required: NOTE_SHEET_REQUIRED, absent: [MY_MS_FILLED] },
   { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_MATCH_NOTES,
     required: [['[data-ui="match-notes-toggle"][aria-expanded="true"]', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
     absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="note-item"]', '[data-ui="note-write"]'] },
@@ -162,8 +165,8 @@ var SCREEN_DEFS = [
     absent: [['[data-ui="search-result"]:not(:has([data-ui="note-mark"]))']], tap: ['[data-ui="search-note-filter"]'] },
   { id: 'mobile-report-matchup-notes', viewport: M, full: false, start: 'report-session-valid',
     ops: [{ wait: ['[data-ui="report-scope"]'] }, { click: ['[data-ui="tab"]', TABS.matchup] }, { click: ['[data-ui="row-list"] button', 'ガルーダ零'] }, { wait: ['[data-ui="enemy-notes"]'] }],
-    required: [['[data-ui="panel"] [data-ui="note-mark"]'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '距離を詰められたら'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '格闘の間合いに入らない'], ['[data-ui="enemy-notes"] [data-ui="note-write"]']],
-    inview: [['[data-ui="enemy-notes"]']], tap: ['[data-ui="enemy-notes"] [data-ui="note-item"]', '[data-ui="enemy-notes"] [data-ui="note-write"]'] },
+    required: [['[data-ui="panel"] [data-ui="note-mark"]'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '距離を詰められたら'], ['[data-ui="enemy-notes"] [data-ui="note-item"]', '格闘の間合いに入らない'], ['[data-ui="enemy-notes-head"] [data-ui="note-write"][aria-label="書く"] svg'], ['[data-ui="enemy-notes-head"]', 'メモ'], ['[data-ui="enemy-notes-head"] small', '2件']],
+    inview: [['[data-ui="enemy-notes"]'], ['[data-ui="enemy-notes"] [data-ui="note-write"]']], tap: ['[data-ui="enemy-notes"] [data-ui="note-item"]', '[data-ui="enemy-notes"] [data-ui="note-write"]'] },
   { id: 'mobile-note-sheet', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_NOTE_SHEET, required: NOTE_SHEET_REQUIRED, absent: [MY_MS_FILLED],
     tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-remove"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },
   { id: 'mobile-note-sheet-enemies', viewport: M, full: false, start: 'report-session-valid',
@@ -184,7 +187,7 @@ var SCREEN_DEFS = [
     required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3]],
     absent: [['[data-ui="note-pinned"]']] },
   { id: 'mobile-home-notes-swipe', home: true, viewport: M, full: false, start: 'report-session-pins3', clock: HOME_CLOCK,
-    ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="home-notes"] [data-ui="note-swipe"]', -200] }, { click: ['[data-ui="note-swipe-pin"]', 'ピンを外す'] }, { waitGone: ['[data-ui="home-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'] }],
+    ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="home-notes"] [data-ui="note-swipe"]', -200] }, { touchTap: ['[data-ui="note-swipe-pin"]', 'ピンを外す'] }, { waitGone: ['[data-ui="home-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'] }],
     required: [['[data-ui="home-notes"] [data-ui="note-item"]', null, 2]], absent: [['[data-ui="home-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる']] },
   { id: 'mobile-home-notes-empty', home: true, viewport: M, full: false, start: 'report-session-pins0', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-note-write"]'] }],
     required: [['[data-ui="home-notes"]', 'ピン留めすると'], ['[data-ui="home-note-write"][aria-label="書く"] svg'], ['[data-ui="today-card"]']],
@@ -313,8 +316,8 @@ var SCREEN_DEFS = [
     required: [['[data-ui="note-swipe-pin"]', 'ピンを外す'], ['[data-ui="note-swipe-delete"]', '削除']], inview: [['[data-ui="note-swipe-pin"]'], ['[data-ui="note-swipe-delete"]']],
     tap: ['[data-ui="note-swipe-pin"]', '[data-ui="note-swipe-delete"]'] },
   { id: 'mobile-notes-swipe-delete', viewport: M, full: false, start: 'report-session-valid',
-    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="note-swipe"]', -200] }, { click: ['[data-ui="note-swipe-delete"]', '削除'] }, { wait: ['[data-ui="note-swipe-delete"]', '削除する'] },
-      { click: ['[data-ui="note-swipe-delete"]', '削除する'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="note-swipe"]', -200] }, { touchTap: ['[data-ui="note-swipe-delete"]', '削除'] },
+      { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
     required: [['[data-ui="note-tabs"] button', 'すべて 5']], absent: [['[data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="note-swipe-delete"]']] },
   // ピンが上限(3件)のとき、ピン無しの4件目をスワイプしてピン留めすると止まる。div の4つ目までは タブ行と先頭3件
   { id: 'mobile-notes-swipe-pin-limit', viewport: M, full: false, start: 'report-session-pins3',
@@ -326,6 +329,13 @@ var SCREEN_DEFS = [
     tap: ['[data-ui="note-tabs"] button', '[data-ui="note-item"]'] },
   { id: 'notes', viewport: D, full: false, start: 'report-session-valid', ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }],
     required: [[CURRENT, 'メモ'], ['[data-ui="note-list"] [data-ui="note-item"]', null, 6], ['[data-ui="note-write"]']], absent: [REANALYZE_BTN.slice(0, 1)] },
+  // 既存のメモを開くと編集シートに赤の「削除」が出て、1回押すと消える
+  { id: 'mobile-note-sheet-edit', viewport: M, full: false, start: 'report-session-valid',
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { wait: ['[data-ui="note-delete"]'] }],
+    required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-delete"]', '削除']], tap: ['[data-ui="note-delete"]', '[data-ui="note-save"]'] },
+  { id: 'mobile-note-sheet-delete', viewport: M, full: false, start: 'report-session-valid',
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { click: ['[data-ui="note-item"]', '着地を見てから射撃を合わせる'] }, { touchTap: ['[data-ui="note-delete"]'] }, { waitGone: ['[data-ui="note-sheet"]'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
+    required: [['[data-ui="note-tabs"] button', 'すべて 5']], absent: [['[data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="note-sheet"]']] },
   { id: 'mobile-notes-write', viewport: M, full: false, start: 'report-session-valid', clock: HOME_CLOCK, ops: [goTab('メモ'), { click: ['[data-ui="note-write"]'] }, { wait: ['[data-ui="note-sheet"]'] }],
     required: [['[data-ui="note-sheet"] textarea'], ['[data-ui="note-date-clear"]'], ['[data-ui="note-pin"] input:not(:checked)'], ['[data-ui="note-my"] [data-ui="select-trigger"]'], ['[data-ui="note-partner"] [data-ui="select-trigger"]', '指定しない'], ['[data-ui="note-enemy-add"]'], ['[data-ui="notes-view"][inert], [inert] [data-ui="notes-view"]']],
     absent: [['[data-ui="note-enemy"]'], ['[data-ui="note-delete"]'], MY_MS_FILLED], tap: ['[data-ui="note-save"]', '[data-ui="note-enemy-add"]', '[data-ui="note-date-clear"]'] },

@@ -18,8 +18,7 @@
 .note-swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; width: 168px; }
 .note-swipe-actions button { flex: 1; min-height: 44px; margin: 0; padding: 0 4px; border: 0; border-radius: 0; font-size: 0.875rem; font-weight: bold; }
 .note-swipe-pin, .note-swipe-pin:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
-.note-swipe-delete, .note-swipe-delete:hover:not(:disabled) { background: var(--bad-a18); color: var(--bad); }
-.note-swipe-delete:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bad); }
+.note-swipe-delete, .note-swipe-delete:hover:not(:disabled) { background: var(--danger); color: var(--on-danger); }
 .note-panel-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 2px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .note-panel-toggle:hover, .note-panel-toggle:focus { background: none; color: var(--text); }
 .note-panel-toggle small { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
@@ -44,7 +43,7 @@
 
 .note-foot-left { display: flex; gap: 8px; margin-right: auto; }
 .note-save { margin-left: auto; }
-.note-danger { border-color: var(--bad); color: var(--bad); }
+.note-danger { border-color: var(--terrible); color: var(--terrible); }
 
 .note-list { display: flex; flex-direction: column; gap: 16px; }
 .note-tabs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -53,9 +52,11 @@
 
 .note-pins { display: flex; flex-direction: column; gap: 8px; margin: 0 0 36px; }
 .note-pins-head, .notes-head { display: flex; align-items: center; gap: 8px; }
+.note-sub-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: -8px; color: var(--text); font-weight: bold; }
+.note-sub-head small { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
 .note-pins-head h2, .notes-head h2 { flex: 1; margin: 0; color: var(--text); font-size: 1.125rem; }
 .notes-head { margin: 0 0 12px; }
 .note-pins-empty { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 36px; padding: 0 4px 0 12px; border: 1px solid var(--line); border-radius: 8px; }
 .note-pins-empty p { display: flex; align-items: center; min-height: 44px; margin: 0; color: var(--muted); font-size: 0.875rem; }
 .note-write-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
-.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover, .notes-head .search-link:hover { background: var(--accent-a10); }
+.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover, .notes-head .search-link:hover, .note-sub-head .search-link:hover { background: var(--accent-a10); }

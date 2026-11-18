@@ -16,7 +16,7 @@ import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
 import { Layer, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
-import { MatchNotesPanel, NoteMark } from './notes.js';
+import { MatchNotesPanel, MatchWriteButton, NoteMark } from './notes.js';
 import { hasNoteForMatch } from '../lib/notes.js';
 import { PERIOD_DAYS, OPPONENT_GRADE_BANDS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 import { SCOPE_KEYS } from '../lib/scope.js';
@@ -499,7 +499,7 @@ function MatchDetail({ match, msImages, conds, streak, notes, onClose }) {
 
   var head = html`<button type="button" class="search-back" data-ui="match-detail-back" aria-label="試合検索に戻る" onClick=${onClose}>
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>試合検索</button>
-    <span class="search-layer-date">${match.date}</span>`;
+    <span class="search-layer-tail"><span class="search-layer-date">${match.date}</span>${notes && notes.status === 'on' && html`<${MatchWriteButton} notes=${notes} match=${match} />`}</span>`;
   return html`<${Layer} ui="match-detail" label="試合詳細" head=${head} onClose=${onClose}>
     <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}${streakLabel(streak) && html`<span class="search-detail-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
 

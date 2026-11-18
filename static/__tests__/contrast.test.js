@@ -46,6 +46,7 @@ function pairs() {
   const out = [];
   FG.forEach((f) => BG.forEach((b) => out.push([f, b, 'bg'])));
   ['accent', 'accent-2', 'good', 'bad'].forEach((b) => out.push(['on-accent', b, 'bg']));
+  out.push(['on-danger', 'danger', 'bg']);
   TINT.forEach((f) => ['accent-a05', 'accent-a06', 'accent-a07'].forEach((b) => out.push([f, b, 'panel'])));
   out.push(['muted', 'accent-a06', 'bg']);
   [['text', 'accent-a15'], ['text', 'accent-a10'], ['muted', 'accent-a10'], ['accent', 'accent-a10'], ['accent-2', 'accent-a10'], ['accent', 'accent-a08']].forEach(([f, b]) => out.push([f, b, 'panel']));

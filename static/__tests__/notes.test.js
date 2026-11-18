@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import {
   sanitizeNotes, notesForEnemy, notesForMatch, hasNoteForMatch, groupByMs, notesByTab, tabCounts,
-  noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, canAddEnemy, enemyOptions, pinnedCount, swipeAxis, swipeOffset, swipeOpens,
+  noteTargetLabel, defaultDraft, draftFromNote, draftToRequest, textLength, validateDraft, canAddEnemy, enemyOptions, pinnedCount, swipeAxis, swipeOffset, swipeOpens, createTapGuard,
   upsertNote, removeNoteById, msChoices, loadDecision, responseOutcome, matchEnemies, pinnedNotes, canPinMore, lastPlayedMs,
 } from '../lib/notes.js';
 import { Notice } from '../components/parts.js';
@@ -523,6 +523,42 @@ describe('スワイプ', () => {
     assert.strictEqual(swipeOffset(-200, false, 144), -144);
     assert.strictEqual(swipeOffset(40, true, 144), -104);
     assert.strictEqual(swipeOffset(-10, true, 144), -144);
+  });
+  it('createTapGuard はタッチのタップを pointerup で通し、直後の click を捨てる', () => {
+    let t = 1000;
+    const g = createTapGuard(() => t);
+    const ev = (pointerType, x, y, pointerId = 1) => ({ pointerType, clientX: x, clientY: y, pointerId });
+    g.down(ev('touch', 10, 10));
+    assert.strictEqual(g.up(ev('touch', 13, 12)), true);
+    t += 300;
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'touch' }), false);
+    assert.strictEqual(g.click({ detail: 1 }), false, 'pointerType の無い合成 click も捨てる');
+    assert.strictEqual(g.click({ detail: 0 }), true, 'キーボードは通す');
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'mouse' }), false, 'タッチ直後は click の pointerType を当てにしない');
+    g.down(ev('mouse', 10, 10));
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'mouse' }), true, 'マウスの押下は通す');
+    t += 600;
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'touch' }), true);
+    g.down(ev('touch', 10, 10));
+    assert.strictEqual(g.up(ev('touch', 30, 10)), false, '動いたタッチは押下にしない');
+    assert.strictEqual(g.up(ev('touch', 10, 10)), false, 'down の無い up は通さない');
+    g.down(ev('touch', 10, 10));
+    assert.strictEqual(g.up(ev('touch', 10, 10, 2)), false, '別の指の up は通さない');
+    g.down(ev('touch', 10, 10));
+    g.cancel();
+    assert.strictEqual(g.up(ev('touch', 10, 10)), false, 'cancel の後の up は通さない');
+    g.down(ev('mouse', 10, 10));
+    assert.strictEqual(g.up(ev('mouse', 10, 10)), false, 'マウスは click で扱う');
+  });
+  it('createTapGuard はタッチ由来の click を 800ms 未満だけ捨てる', () => {
+    let t = 0;
+    const g = createTapGuard(() => t);
+    g.down({ pointerType: 'touch', clientX: 0, clientY: 0, pointerId: 1 });
+    assert.strictEqual(g.up({ pointerType: 'touch', clientX: 0, clientY: 0, pointerId: 1 }), true);
+    t = 799;
+    assert.strictEqual(g.click({ detail: 1 }), false);
+    t = 800;
+    assert.strictEqual(g.click({ detail: 1 }), true);
   });
   it('swipeOpens は半分より引いていれば開く', () => {
     assert.strictEqual(swipeOpens(-73, 144), true);
