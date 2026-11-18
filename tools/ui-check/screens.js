@@ -137,7 +137,7 @@ var SCREEN_DEFS = [
     tap: ['[data-ui="search-sort-item"]', '[data-ui="search-sort-dir"] button', '[data-ui="search-pagesize"] button', '[data-ui="search-sort-panel"] [data-ui="sheet-close"]'] },
   { id: 'mobile-match-detail', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]),
     required: [['[data-ui="match-detail-back"][aria-label="試合検索に戻る"]'], ['[data-ui="search-filter"][inert]'], ['[inert] [data-ui="search-result"]'], [TABBAR + '[inert], [inert] ' + TABBAR], ['[data-ui="match-detail"]'], ['[data-ui="match-detail-back"]', '試合検索'], ['[data-ui="match-result"]', '敗北'], ['[data-ui="match-score-table"] thead th', 'テスト僚機1'], ['[data-ui="match-score-table"] thead th', 'テスト対戦者15'], ['[data-ui="gantt-bar"]'], ['[data-ui="gantt-end"]', '終了']],
-    inview: [['[data-ui="match-detail-back"]']], absent: [['[data-ui="match-timeline-toggle"]'], ['[data-ui="match-detail"] [data-ui="win-streak"]']], outview: [[TABBAR]],
+    inview: [['[data-ui="match-detail-back"]']], absent: [['[data-ui="match-timeline-toggle"]'], ['[data-ui="match-detail"] [data-ui="win-streak"]'], ['[data-ui="match-note-write"]']], outview: [[TABBAR]],
     tap: ['[data-ui="match-detail-back"]', '[data-ui="radar-toggle"]'] },
   // 連勝中の勝ちは詳細にも連勝数を出す。負けの詳細には出さない(mobile-match-detail)
   { id: 'mobile-match-detail-streak', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]', '2連勝'] }]),
@@ -148,8 +148,11 @@ var SCREEN_DEFS = [
   { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid',
     ops: OPEN_MATCH_NOTES.concat([{ wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-notes-toggle"]'] }, { waitGone: ['[data-ui="match-notes"]'] },
       { click: ['[data-ui="match-notes-toggle"]'] }, { wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-detail-back"]'] }, { waitGone: ['[data-ui="match-detail"]'] }, { click: ['[data-ui="search-result"]'] }, { wait: ['[data-ui="match-notes-toggle"]'] }]),
-    required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件']], absent: [['[data-ui="match-notes"]']],
-    tap: ['[data-ui="match-notes-toggle"]'] },
+    required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件'], ['[data-ui="match-note-write"][aria-label="書く"] svg']], absent: [['[data-ui="match-notes"]']],
+    inview: [['[data-ui="match-note-write"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="match-note-write"]'] },
+  // メモ欄を閉じたまま、上部バーの鉛筆から書ける。既定は試合詳細から書くときと同じ
+  { id: 'mobile-match-detail-write', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL.concat([{ click: ['[data-ui="match-note-write"]'] }, { wait: ['[data-ui="note-sheet"]'] }]),
+    required: NOTE_SHEET_REQUIRED, absent: [MY_MS_FILLED] },
   { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_MATCH_NOTES,
     required: [['[data-ui="match-notes-toggle"][aria-expanded="true"]', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
     absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="note-item"]', '[data-ui="note-write"]'] },

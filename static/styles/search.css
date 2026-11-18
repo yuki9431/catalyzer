@@ -107,7 +107,8 @@
 .search-page-btn:disabled { color: var(--pager-disabled); cursor: default; opacity: 0.5; }
 .search-page-info { color: var(--muted); font-size: 0.875rem; }
 
-.search-layer-date { grid-column: 3; justify-self: end; color: var(--muted); font-size: 0.875rem; }
+.search-layer-tail { grid-column: 3; justify-self: end; display: inline-flex; align-items: center; gap: 4px; }
+.search-layer-date { color: var(--muted); font-size: 0.875rem; white-space: nowrap; }
 .search-back:hover { background: var(--accent-a10); }
 .search-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 0 8px 0 0; }
 .search-layer-body .panel { margin-bottom: 24px; }
