@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { swipe: [selector, dx] }(要素の中央から横に dx px 指を滑らせて離す) | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { waitGone: [selector, テキスト?] }(要素が消えるまで待つ) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -16,7 +16,8 @@ var HOME_CLOCK = '2026-10-08T22:00:00+09:00';
 var SORT_TRIGGER = '[data-ui="search-sort-trigger"]';
 var SHEET = '[data-ui="search-filter-sheet"]';
 var OPEN_DETAIL = OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]'] }]);
-var OPEN_NOTE_SHEET = OPEN_DETAIL.concat([{ click: ['[data-ui="note-write"]'] }]);
+var OPEN_MATCH_NOTES = OPEN_DETAIL.concat([{ click: ['[data-ui="match-notes-toggle"]'] }]);
+var OPEN_NOTE_SHEET = OPEN_MATCH_NOTES.concat([{ click: ['[data-ui="note-write"]'] }]);
 var NOTE_TEXT = 'ui-check で書いたメモ';
 var WRITE_NOTE = [{ type: ['[data-ui="note-sheet"] textarea', NOTE_TEXT] }];
 // 自機は最初から機体が入る(指定しないで始まらない)
@@ -142,9 +143,16 @@ var SCREEN_DEFS = [
   { id: 'mobile-match-detail-streak', viewport: M, full: false, start: 'report', ops: OPEN_SEARCH.concat([{ click: ['[data-ui="search-result"]', '2連勝'] }]),
     required: [['[data-ui="match-result"]', '勝利'], ['[data-ui="match-result"] [data-ui="win-streak"]', '2連勝']], outview: [[TABBAR]] },
   // メモ(#389)。ログイン状態を保持した端末(report-session-valid)で、先頭の試合(ストームレイダー・ヴァルキュリア戦)の詳細から書く
-  { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_DETAIL,
-    required: [['[data-ui="panel"] h2', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
-    absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="note-item"]', '[data-ui="note-write"]'] },
+  // 試合詳細のメモ欄は既定で閉じ、見出しに件数を出す。先頭の試合はストームレイダー2・ヴァルキュリア1・自機・僚機1の4件
+  // 開く→閉じる→また開き、開いたまま試合詳細を出て開き直すと、閉じた状態に戻る
+  { id: 'mobile-match-detail-notes-closed', viewport: M, full: false, start: 'report-session-valid',
+    ops: OPEN_MATCH_NOTES.concat([{ wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-notes-toggle"]'] }, { waitGone: ['[data-ui="match-notes"]'] },
+      { click: ['[data-ui="match-notes-toggle"]'] }, { wait: ['[data-ui="match-notes"]'] }, { click: ['[data-ui="match-detail-back"]'] }, { waitGone: ['[data-ui="match-detail"]'] }, { click: ['[data-ui="search-result"]'] }, { wait: ['[data-ui="match-notes-toggle"]'] }]),
+    required: [['[data-ui="match-notes-toggle"][aria-expanded="false"]', 'メモ'], ['[data-ui="match-notes-toggle"] small', '4件']], absent: [['[data-ui="match-notes"]']],
+    tap: ['[data-ui="match-notes-toggle"]'] },
+  { id: 'mobile-match-detail-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_MATCH_NOTES,
+    required: [['[data-ui="match-notes-toggle"][aria-expanded="true"]', 'メモ'], ['[data-ui="match-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="match-notes"] [data-ui="note-write"]'], ['[data-ui="match-notes"] h3', '自機・僚機'], ['[data-ui="match-notes"] [data-ui="note-item"]', '開幕は前に出すぎない']],
+    absent: [['[data-ui="panel"] h2', '敵機のメモ'], ['[data-ui="note-pinned"]']], inview: [['[data-ui="match-notes"]']], tap: ['[data-ui="match-notes-toggle"]', '[data-ui="note-item"]', '[data-ui="note-write"]'] },
   // メモの印と絞り込み(#389)。先頭の試合の相手(ストームレイダー等)とガルーダ零にメモがある
   { id: 'mobile-search-notes', viewport: M, full: false, start: 'report-session-valid', ops: OPEN_SEARCH.concat([{ wait: ['[data-ui="search-result"] [data-ui="note-mark"]'] }]),
     required: [['[data-ui="search-result"] [data-ui="note-mark"]']] },

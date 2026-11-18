@@ -259,6 +259,22 @@ export function MatchNotes({ notes, match }) {
   </div>`;
 }
 
+// 試合詳細のメモ欄。試合を見る画面なので既定は閉じ、見出しに件数を出す
+export function MatchNotesPanel({ notes, match }) {
+  var openRef = useState(false);
+  var open = openRef[0], setOpen = openRef[1];
+  var count = useMemo(function () {
+    return notesForMatch(notes.list, match).reduce(function (n, g) { return n + g.notes.length; }, 0);
+  }, [notes.list, match]);
+  return html`<div class="panel" data-ui="panel">
+    <h2 class=${open ? '' : 'note-panel-closed'}><button type="button" class=${'note-panel-toggle' + (open ? ' open' : '')} data-ui="match-notes-toggle" aria-expanded=${open}
+      onClick=${function () { setOpen(function (o) { return !o; }); }}>
+      <span>メモ<small>${count}件</small></span><span class="search-chevron" aria-hidden="true"></span>
+    </button></h2>
+    ${open && html`<${MatchNotes} notes=${notes} match=${match} />`}
+  </div>`;
+}
+
 function NoteSheetBody({ notes, choices }) {
   var init = notes.draft;
   var dRef = useState(init);

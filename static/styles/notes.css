@@ -20,6 +20,11 @@
 .note-swipe-pin, .note-swipe-pin:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
 .note-swipe-delete, .note-swipe-delete:hover:not(:disabled) { background: var(--bad-a18); color: var(--bad); }
 .note-swipe-delete:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bad); }
+.note-panel-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 2px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.note-panel-toggle:hover, .note-panel-toggle:focus { background: none; color: var(--text); }
+.note-panel-toggle small { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
+.panel h2.note-panel-closed { margin-bottom: 0; }
+.note-panel-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
 
 .note-mark { display: inline-flex; align-items: center; color: var(--accent-2); vertical-align: middle; }
 

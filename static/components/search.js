@@ -16,7 +16,7 @@ import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
 import { Layer, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
-import { MatchNotes, NoteMark } from './notes.js';
+import { MatchNotesPanel, NoteMark } from './notes.js';
 import { hasNoteForMatch } from '../lib/notes.js';
 import { PERIOD_DAYS, OPPONENT_GRADE_BANDS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 import { SCOPE_KEYS } from '../lib/scope.js';
@@ -505,7 +505,7 @@ function MatchDetail({ match, msImages, conds, streak, notes, onClose }) {
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
 
-    ${notes && notes.status === 'on' && html`<${Panel} title="メモ"><${MatchNotes} notes=${notes} match=${match} /></${Panel}>`}
+    ${notes && notes.status === 'on' && html`<${MatchNotesPanel} notes=${notes} match=${match} />`}
 
     <${Panel} title="4人の比較">
       <div class="search-radar-toggles">
