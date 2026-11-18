@@ -257,9 +257,9 @@ export function swipeOpens(offset, width) {
 var TAP_CLICK_MS = 800;
 // 行の操作ボタンのタップ。iOS はスワイプ直後の1回目の click を捨てることがあるので、タッチは pointerup で実行し直後の click を捨てる
 export function createTapGuard(now) {
-  var down = null, handledAt = -Infinity;
+  var down = null, handledAt = -Infinity, lastType = '';
   return {
-    down: function (e) { down = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null; },
+    down: function (e) { lastType = e.pointerType; down = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null; },
     cancel: function () { down = null; },
     up: function (e) {
       var d = down;
@@ -268,6 +268,7 @@ export function createTapGuard(now) {
       handledAt = now();
       return true;
     },
-    click: function () { return now() - handledAt >= TAP_CLICK_MS; },
+    // 捨てるのはタッチ由来の click だけ。キーボード(detail 0)と直前がマウスの押下は通す(iOS の click の pointerType は当てにしない)
+    click: function (e) { return !e || e.detail === 0 || lastType === 'mouse' || now() - handledAt >= TAP_CLICK_MS; },
   };
 }

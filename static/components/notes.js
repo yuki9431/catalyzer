@@ -201,7 +201,7 @@ export function SwipeNote({ notes, note, rowKey, showTarget, showPin, openId, se
       onPointerCancel: g.cancel,
       // disabled のボタンにも pointerup は届くので、保存中は自分で止める
       onPointerUp: function (e) { if (g.up(e) && !e.currentTarget.disabled) fn(); },
-      onClick: function () { if (g.click()) fn(); },
+      onClick: function (e) { if (g.click(e)) fn(); },
     };
   }
   var x = drag !== null ? drag : (open ? -SWIPE_WIDTH : 0);

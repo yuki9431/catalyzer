@@ -531,9 +531,14 @@ describe('スワイプ', () => {
     g.down(ev('touch', 10, 10));
     assert.strictEqual(g.up(ev('touch', 13, 12)), true);
     t += 300;
-    assert.strictEqual(g.click(), false);
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'touch' }), false);
+    assert.strictEqual(g.click({ detail: 1 }), false, 'pointerType の無い合成 click も捨てる');
+    assert.strictEqual(g.click({ detail: 0 }), true, 'キーボードは通す');
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'mouse' }), false, 'タッチ直後は click の pointerType を当てにしない');
+    g.down(ev('mouse', 10, 10));
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'mouse' }), true, 'マウスの押下は通す');
     t += 600;
-    assert.strictEqual(g.click(), true);
+    assert.strictEqual(g.click({ detail: 1, pointerType: 'touch' }), true);
     g.down(ev('touch', 10, 10));
     assert.strictEqual(g.up(ev('touch', 30, 10)), false, '動いたタッチは押下にしない');
     assert.strictEqual(g.up(ev('touch', 10, 10)), false, 'down の無い up は通さない');
@@ -544,7 +549,6 @@ describe('スワイプ', () => {
     assert.strictEqual(g.up(ev('touch', 10, 10)), false, 'cancel の後の up は通さない');
     g.down(ev('mouse', 10, 10));
     assert.strictEqual(g.up(ev('mouse', 10, 10)), false, 'マウスは click で扱う');
-    assert.strictEqual(g.click(), true);
   });
   it('swipeOpens は半分より引いていれば開く', () => {
     assert.strictEqual(swipeOpens(-73, 144), true);
