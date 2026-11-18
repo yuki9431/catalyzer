@@ -253,3 +253,22 @@ export function swipeOffset(dx, open, width) {
 export function swipeOpens(offset, width) {
   return offset < -width / 2;
 }
+
+var TAP_CLICK_MS = 800;
+// 行の操作ボタンのタップ。iOS はスワイプ直後の1回目の click を捨てることがあるので、タッチは pointerup で実行し直後の click を捨てる
+export function createTapGuard(now) {
+  var down = null, handledAt = -Infinity, lastType = '';
+  return {
+    down: function (e) { lastType = e.pointerType; down = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null; },
+    cancel: function () { down = null; },
+    up: function (e) {
+      var d = down;
+      down = null;
+      if (!d || e.pointerType !== 'touch' || d.id !== e.pointerId || swipeAxis(e.clientX - d.x, e.clientY - d.y)) return false;
+      handledAt = now();
+      return true;
+    },
+    // 捨てるのはタッチ由来の click だけ。キーボード(detail 0)と直前がマウスの押下は通す(iOS の click の pointerType は当てにしない)
+    click: function (e) { return !e || e.detail === 0 || lastType === 'mouse' || now() - handledAt >= TAP_CLICK_MS; },
+  };
+}

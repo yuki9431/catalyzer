@@ -136,7 +136,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     await send('Page.addScriptToEvaluateOnNewDocument', { source: determinismSource });
     var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
     await metrics(screen.viewport.height);
-    if (screen.ops.some(function (o) { return o.pull || o.swipe; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    if (screen.ops.some(function (o) { return o.pull || o.swipe || o.touchTap; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
     if (screen.standalone) await send('Page.addScriptToEvaluateOnNewDocument', { source: "Object.defineProperty(Navigator.prototype,'standalone',{configurable:true,get:function(){return true}})" });
     if (screen.clock) {
       if (Number.isNaN(Date.parse(screen.clock))) throw new InfraError('不正な clock: ' + screen.clock);
@@ -164,7 +164,7 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'swipe', 'release', 'absentNow', 'waitGone', 'colorScheme'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'swipe', 'touchTap', 'release', 'absentNow', 'waitGone', 'colorScheme'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
       if ((kind === 'scrollBy' || kind === 'pull') && typeof a[0] !== 'number') throw new InfraError(kind + ' の第1引数は数値');
       if (kind === 'waitGone') {
         for (var goneEnd = Date.now() + WAIT_MS; await evalJs(countExpr(a[0], a[1] || null));) {
@@ -194,6 +194,15 @@ async function runScreen(conn, origin, screen, theme, update) {
         for (var si = 1; si <= 10; si++) await swipeTouch('touchMove', at[0] + Math.round(a[1] * si / 10));
         await swipeTouch('touchEnd', 0);
         await evalJs('new Promise(function(r){setTimeout(function(){requestAnimationFrame(function(){requestAnimationFrame(r)})},300)})', true);
+        continue;
+      }
+      if (kind === 'touchTap') {
+        // 指で1回タップする(合成の click ではなく touch → pointer → click の順に届く)。a = [セレクタ, 含むテキスト?]
+        if (!(await waitCount(a[0], a[1] || null, 1))) return fail('必須要素なし ' + a[0]);
+        var tp = await evalJs('(function(s,t){var e=Array.from(document.querySelectorAll(s)).filter(function(e){return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)})[0];var r=e.getBoundingClientRect();return [Math.round(r.left+r.width/2),Math.round(r.top+r.height/2)]})(' + JSON.stringify(a[0]) + ',' + JSON.stringify(a[1] || null) + ')');
+        await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tp[0], y: tp[1] }] });
+        await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await evalJs('new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
         continue;
       }
       if (kind === 'release') {

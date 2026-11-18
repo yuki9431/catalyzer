@@ -1,4 +1,4 @@
-// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { swipe: [selector, dx] }(要素の中央から横に dx px 指を滑らせて離す) | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { waitGone: [selector, テキスト?] }(要素が消えるまで待つ) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
+// 画面定義。必須要素 = [selector, 含むテキスト|null, 最小件数(既定1)]。操作 = { click | type | scroll | wait: [selector, ...] } | { scrollBy | pull: [dy, 'release'?] } | { swipe: [selector, dx] }(要素の中央から横に dx px 指を滑らせて離す) | { touchTap: [selector, テキスト?] }(指で1回タップする) | { release: true }(保持中のタッチを離す) | { absentNow: [selector] }(その時点で要素が無いこと) | { waitGone: [selector, テキスト?] }(要素が消えるまで待つ) | { reload: true } | { colorScheme: ['dark'|'light'] }(端末の配色を切り替える)。expectConsole = 許す console エラーの部分文字列(応答自体が主題の 4xx のみ)。inview = [[selector, テキスト?]...] 操作後に最初の可視一致要素が画面内で他に隠されていないことを検査 / outview = 同形式で、在るが画面内に見えないことを検査 / absent = 同形式で、レイアウトを持つ要素が1件も無いことを検査 / clock = 画面の Date を指定 ISO 日時から進む時計に固定 / standalone = ホーム画面アプリ(navigator.standalone)として開く / fixedMax = 固定高さ(上部バー下端+タブバー)の上限px と帯 0px の検査 / oneRow = 可視の子が1段に並ぶことを検査する selector 群 / tap = 高さ44px以上を検査する selector 群
 export var THEMES = ['dark', 'light'];
 var D = { width: 1280, height: 800 };
 var M = { width: 390, height: 844 };
@@ -184,7 +184,7 @@ var SCREEN_DEFS = [
     required: [['[data-ui="home-notes"] h2', 'ピン留めしたメモ'], ['[data-ui="home-notes"] [data-ui="note-item"]', null, 3]],
     absent: [['[data-ui="note-pinned"]']] },
   { id: 'mobile-home-notes-swipe', home: true, viewport: M, full: false, start: 'report-session-pins3', clock: HOME_CLOCK,
-    ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="home-notes"] [data-ui="note-swipe"]', -200] }, { click: ['[data-ui="note-swipe-pin"]', 'ピンを外す'] }, { waitGone: ['[data-ui="home-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'] }],
+    ops: [{ wait: ['[data-ui="home-notes"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="home-notes"] [data-ui="note-swipe"]', -200] }, { touchTap: ['[data-ui="note-swipe-pin"]', 'ピンを外す'] }, { waitGone: ['[data-ui="home-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる'] }],
     required: [['[data-ui="home-notes"] [data-ui="note-item"]', null, 2]], absent: [['[data-ui="home-notes"] [data-ui="note-item"]', '着地を見てから射撃を合わせる']] },
   { id: 'mobile-home-notes-empty', home: true, viewport: M, full: false, start: 'report-session-pins0', clock: HOME_CLOCK, ops: [{ wait: ['[data-ui="home-note-write"]'] }],
     required: [['[data-ui="home-notes"]', 'ピン留めすると'], ['[data-ui="home-note-write"][aria-label="書く"] svg'], ['[data-ui="today-card"]']],
@@ -313,8 +313,8 @@ var SCREEN_DEFS = [
     required: [['[data-ui="note-swipe-pin"]', 'ピンを外す'], ['[data-ui="note-swipe-delete"]', '削除']], inview: [['[data-ui="note-swipe-pin"]'], ['[data-ui="note-swipe-delete"]']],
     tap: ['[data-ui="note-swipe-pin"]', '[data-ui="note-swipe-delete"]'] },
   { id: 'mobile-notes-swipe-delete', viewport: M, full: false, start: 'report-session-valid',
-    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="note-swipe"]', -200] }, { click: ['[data-ui="note-swipe-delete"]', '削除'] }, { wait: ['[data-ui="note-swipe-delete"]', '削除する'] },
-      { click: ['[data-ui="note-swipe-delete"]', '削除する'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
+    ops: [goTab('メモ'), { wait: ['[data-ui="note-list"] [data-ui="note-item"]'] }, { swipe: ['[data-ui="note-swipe"]', -200] }, { touchTap: ['[data-ui="note-swipe-delete"]', '削除'] }, { wait: ['[data-ui="note-swipe-delete"]', '削除する'] },
+      { touchTap: ['[data-ui="note-swipe-delete"]', '削除する'] }, { wait: ['[data-ui="note-tabs"] button', 'すべて 5'] }],
     required: [['[data-ui="note-tabs"] button', 'すべて 5']], absent: [['[data-ui="note-item"]', '着地を見てから射撃を合わせる'], ['[data-ui="note-swipe-delete"]']] },
   // ピンが上限(3件)のとき、ピン無しの4件目をスワイプしてピン留めすると止まる。div の4つ目までは タブ行と先頭3件
   { id: 'mobile-notes-swipe-pin-limit', viewport: M, full: false, start: 'report-session-pins3',
