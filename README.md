@@ -53,6 +53,8 @@
 │   │   └── main.go                # Firestoreから未登録グレードURL抽出CLI
 │   ├── auto-refresh/
 │   │   └── main.go                # 自動更新の Cloud Run Job
+│   ├── ai-diagnosis/
+│   │   └── main.go                # AI診断の Cloud Run Job（-smoke で実機確認）
 │   └── hash-passphrase/
 │       └── main.go                # 自動更新の合言葉ハッシュ生成CLI
 ├── internal/
@@ -74,7 +76,7 @@
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
 │   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
-│   ├── aidiagnosis/               # AI診断（設定・プレイ日と1日1回の判定・要約JSONの検証）
+│   ├── aidiagnosis/               # AI診断（設定・1日1回の判定・要約JSONの検証・Job本体・出力検査・プロンプト）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
 │   ├── geoip/                     # 国別アクセス判定（CC0許可リストの二分探索）
@@ -234,6 +236,9 @@ make test
 
 # フロントエンド（JS）テスト
 make test-js
+
+# AI診断の実機確認（トークンを対話入力。サンプル入力で claude を1回実行して検査する）
+make ai-diagnosis-smoke
 
 # UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）
 make ui-preview

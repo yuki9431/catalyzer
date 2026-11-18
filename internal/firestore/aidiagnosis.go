@@ -2,7 +2,9 @@ package firestore
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -51,7 +53,7 @@ func aiDiagnosisRef(userKey string) (*firestore.DocumentRef, *firestore.Client, 
 func aiSnapshotState(doc *firestore.DocumentSnapshot) (model.AIDiagnosisState, error) {
 	var d aiDiagnosisDoc
 	if err := doc.DataTo(&d); err != nil {
-		return model.AIDiagnosisState{}, fmt.Errorf("parse ai_diagnosis %s: %w", doc.Ref.ID, err)
+		return model.AIDiagnosisState{}, fmt.Errorf("parse ai_diagnosis: %w", err)
 	}
 	return d.state(doc.Ref.ID), nil
 }
@@ -166,6 +168,107 @@ func FailAIDiagnosis(ctx context.Context, userKey, requestID, code string) error
 	})
 	if err != nil {
 		return fmt.Errorf("fail ai_diagnosis: %w", err)
+	}
+	return nil
+}
+
+// ErrAILeaseLost は確保した lease を失った(他の実行が引き継いだ、または既に終わっている)ことを表す。
+var ErrAILeaseLost = errors.New("ai_diagnosis の lease を失っている")
+
+// ListPendingAIDiagnosis は status が pending の診断を最大 limit 件返す(単一フィールドの等価なので自動インデックスで足りる)。
+func ListPendingAIDiagnosis(ctx context.Context, limit int) ([]model.AIDiagnosisState, error) {
+	c := getClient()
+	if c == nil {
+		return nil, fmt.Errorf("firestore client not initialized")
+	}
+	docs, err := c.Collection(aiDiagnosisCollection).Where("status", "==", "pending").Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("list pending ai_diagnosis: %w", err)
+	}
+	states := make([]model.AIDiagnosisState, 0, len(docs))
+	skipped := 0
+	for _, doc := range docs {
+		st, err := aiSnapshotState(doc)
+		if err != nil {
+			skipped++
+			continue
+		}
+		states = append(states, st)
+	}
+	if skipped > 0 {
+		log.Printf("[WARN] ai_diagnosis: 読めないドキュメントを %d 件スキップ", skipped)
+	}
+	return states, nil
+}
+
+// ClaimAIDiagnosis は pending で request_id が一致する診断を running にして lease を付ける。
+// pending のまま pendingStale を過ぎていれば error(timeout)にして false を返す。
+func ClaimAIDiagnosis(ctx context.Context, userKey, requestID, owner string, now time.Time, lease, pendingStale time.Duration) (bool, error) {
+	ref, c, err := aiDiagnosisRef(userKey)
+	if err != nil {
+		return false, err
+	}
+	claimed := false
+	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
+		claimed = false
+		doc, getErr := tx.Get(ref)
+		if getErr != nil {
+			if status.Code(getErr) == codes.NotFound {
+				return nil
+			}
+			return getErr
+		}
+		st, parseErr := aiSnapshotState(doc)
+		if parseErr != nil {
+			return parseErr
+		}
+		if st.RequestID != requestID || st.Status != "pending" {
+			return nil
+		}
+		if now.Sub(st.RequestedAt) > pendingStale {
+			return tx.Set(ref, map[string]interface{}{
+				"status": "error", "error_code": "timeout", "finished_at": now, "updated_at": firestore.ServerTimestamp,
+			}, firestore.MergeAll)
+		}
+		claimed = true
+		return tx.Set(ref, map[string]interface{}{
+			"status": "running", "lease_owner": owner, "lease_until": now.Add(lease), "updated_at": firestore.ServerTimestamp,
+		}, firestore.MergeAll)
+	})
+	if err != nil {
+		return false, fmt.Errorf("claim ai_diagnosis: %w", err)
+	}
+	return claimed, nil
+}
+
+// FinishAIDiagnosis は running で request_id と lease_owner が一致するときだけ結果を書く。一致しなければ ErrAILeaseLost。
+func FinishAIDiagnosis(ctx context.Context, userKey, requestID, owner, finalStatus, resultJSON, code string, now time.Time) error {
+	ref, c, err := aiDiagnosisRef(userKey)
+	if err != nil {
+		return err
+	}
+	err = c.RunTransaction(ctx, func(_ context.Context, tx *firestore.Transaction) error {
+		doc, getErr := tx.Get(ref)
+		if getErr != nil {
+			if status.Code(getErr) == codes.NotFound {
+				return ErrAILeaseLost
+			}
+			return getErr
+		}
+		st, parseErr := aiSnapshotState(doc)
+		if parseErr != nil {
+			return parseErr
+		}
+		if st.RequestID != requestID || st.Status != "running" || st.LeaseOwner != owner {
+			return ErrAILeaseLost
+		}
+		return tx.Set(ref, map[string]interface{}{
+			"status": finalStatus, "result_json": resultJSON, "error_code": code,
+			"finished_at": now, "updated_at": firestore.ServerTimestamp,
+		}, firestore.MergeAll)
+	})
+	if err != nil {
+		return fmt.Errorf("finish ai_diagnosis: %w", err)
 	}
 	return nil
 }

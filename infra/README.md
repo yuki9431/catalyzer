@@ -49,6 +49,17 @@ read -r U && printf '%s' "$U" | gcloud secrets versions add official-site-userna
 read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-password --data-file=-; unset U P
 ```
 
+AI 診断(Claude Code のトークンと許可リスト)。履歴に残さないよう `read` で受け、末尾に改行を入れない:
+
+```bash
+# `claude setup-token` で発行したトークンの版を追加
+read -rs T && printf '%s' "$T" | gcloud secrets versions add claude-code-oauth-token --data-file=-; unset T
+# 許可する userKey(16桁hex)をカンマ区切りで。自分の値はブラウザの localStorage `catalyzer_user_key`
+read -r U && printf '%s' "$U" | gcloud secrets versions add ai-diagnosis-allowed-users --data-file=-; unset U
+```
+
+`claude-code-oauth-token` のローテーションは、新しい版を足したあと旧版を無効にする: `gcloud secrets versions disable <旧版> --secret=claude-code-oauth-token`。旧トークン自体を失効させる方法は公式ドキュメントに記載が無い(未確認。Secret の版を無効にしても発行済みトークンは有効なまま)。
+
 ## GitOps
 
 | タイミング | ワークフロー | 内容 |
@@ -81,3 +92,5 @@ read -rs P && printf '%s' "$P" | gcloud secrets versions add official-site-passw
 ## 鍵と権限
 
 ローカルは ADC、CI は WIF で連合した SA(PR の plan は `gha-pr`、ビルドと stg は `gha-stg`、prod は `github-actions`)が KMS 鍵で state を復号・暗号化する。OpenTofu の state 暗号化は plan でも Encrypt を呼ぶので、`gha-pr` にも暗号化の権限がある。KMS 鍵・cloudbuild バケット・`github-actions` の KMS 付与は tofu の管理外(#599)。
+
+残存リスク: AI診断 Job の SA(`ai-diagnosis-job`)の `roles/datastore.user` はプロジェクト単位で、Firestore 全コレクションに読み書きできる(Firestore のデータベース単位の IAM 条件で絞る余地あり)。

@@ -97,7 +97,7 @@ func View(st *model.AIDiagnosisState, now time.Time) ViewState {
 	}
 	v := ViewState{Status: st.Status}
 	if isStale(st, now) {
-		v.Status, v.ErrorCode = "error", "timeout"
+		v.Status, v.ErrorCode = "error", CodeTimeout
 	} else if st.Status == "error" {
 		v.ErrorCode = st.ErrorCode
 	}

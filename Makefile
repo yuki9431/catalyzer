@@ -1,7 +1,7 @@
 IMAGE_NAME := exvs-analyzer
 PORT ?= 8080
 
-.PHONY: build run restart stop test test-js ui-preview ui-check ui-baseline extract-grades \
+.PHONY: build run restart stop test test-js ai-diagnosis-smoke ui-preview ui-check ui-baseline extract-grades \
 	tofu-shared-plan tofu-shared-apply tofu-app-plan tofu-app-apply
 
 ## Docker イメージをビルド（キャッシュなし）
@@ -30,6 +30,11 @@ test:
 ## JS テストを実行（フロントエンド・ui-check・CI スクリプト。CI スクリプトのテストは bash と jq が要る）
 test-js:
 	node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'
+
+## AI 診断の実機確認(トークンは read で受ける。Job イメージで claude を1回実行して検査する)
+ai-diagnosis-smoke:
+	docker build --target ai-diagnosis -t catalyzer-ai:local .
+	@bash -c 'read -rsp "CLAUDE_CODE_OAUTH_TOKEN: " T; echo; CLAUDE_CODE_OAUTH_TOKEN="$$T" docker run --rm -e CLAUDE_CODE_OAUTH_TOKEN catalyzer-ai:local -smoke; s=$$?; unset T; exit $$s'
 
 ## サンプルデータのUIプレビューを起動（http://127.0.0.1:8090/__preview/）
 ui-preview:

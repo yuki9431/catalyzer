@@ -42,6 +42,9 @@ make test
 # フロントエンド（JS）テスト
 make test-js
 
+# AI診断の実機確認（CLAUDE_CODE_OAUTH_TOKEN を対話入力。Docker の ai-diagnosis ターゲットで claude を1回実行して検査）
+make ai-diagnosis-smoke
+
 # UIプレビュー（サンプルデータ、http://127.0.0.1:8090/__preview/）/ CI が撮った基準の取り込み（画面確認 make ui-check はローカルで回さず PR の CI に任せる。基準の更新は ui-baseline ラベル）
 make ui-preview
 make ui-baseline RUN=<run-id>
@@ -89,6 +92,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `cmd/update-mslist/main.go` — 機体使用率ランキングを1回巡回し `data/ms_list.json` と `data/national_ms_stats.json` を更新するCLI
 - `cmd/delete-recent-matches/` — 指定ユーザーの最新N日間の戦績を削除するCLI（ドライラン対応）
 - `cmd/auto-refresh/` — 自動更新の Cloud Run Job のエントリ（`autorefresh.RunJob`）。Dockerfile で `/app/auto-refresh` に入る
+- `cmd/ai-diagnosis/` — AI診断の Cloud Run Job のエントリ（`aidiagnosis.RunJob`。`-smoke` で Firestore なしにサンプル入力で claude を1回実行して検査する）。Dockerfile の `ai-diagnosis` ターゲット（Claude Code CLI を apk で版固定して入れる。メインのイメージには入れない）の `/app/ai-diagnosis`。イメージは `<キー>-ai` タグで push（`cloudbuild.yaml` の2つ目のステップ）。実機確認は `make ai-diagnosis-smoke`
 - `cmd/hash-passphrase/` — 自動更新の合言葉の argon2id ハッシュを出力するCLI
 - `cmd/extract-grades/` — Firestoreから全ユーザーの未登録グレードURLを抽出するCLI
 - `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `Note`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`, `ClassRecord`/`WinRecord`/`CountStat`）
@@ -97,8 +101,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。判別できなければ空=不明。機能追加前の試合は相方のタッグ登録から推定して DB に補完済みで `match_mode_inferred: true` が付く）を判別。勝ちの行の「N WINS」から連勝数（表示が無ければ1、読めなければ0=不明でフロントが推定）を読み `DatedScore.WinStreak`→`MatchData.win_streak` に流す
 - `internal/geoip/` — 国別アクセス判定（`geoip.go`。CC0の許可リストCSVをソート済みレンジに読み込み二分探索。`Load`, `Contains`）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
-- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）+ AI診断の状態（`aidiagnosis.go`。`ai_diagnosis/{userKey}` と全体の日次カウント `ai_diagnosis_daily/{日}` を同じトランザクションで判定）+ メモ（`notes.go`。`notes/{userKey}/items/{id}` に1件1ドキュメントで持つ。件数・ピン上限は書き込みと同じトランザクション内の count 集計で判定）
-- `internal/aidiagnosis/` — AI診断（オーナー限定）。設定（`config.go`。`AI_DIAGNOSIS_JOB`・`AI_DIAGNOSIS_ALLOWED_USERS`）・朝5時切替のプレイ日と1日1回の判定（`day.go`。`PlayDay`/`NextReset`/`Decide`/`View`）・要約 JSON の検証（`input.go`。`ValidateInput`）。`prompt/sample_input.json` は全項目入りの正しい要約。設計は `docs/design/2026-11-18-ai-diagnosis.md`
+- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）+ AI診断の状態（`aidiagnosis.go`。`ai_diagnosis/{userKey}` と全体の日次カウント `ai_diagnosis_daily/{日}` を同じトランザクションで判定。Job 用に `ListPending`・`Claim`・`Finish`）+ メモ（`notes.go`。`notes/{userKey}/items/{id}` に1件1ドキュメントで持つ。件数・ピン上限は書き込みと同じトランザクション内の count 集計で判定）
+- `internal/aidiagnosis/` — AI診断（オーナー限定）。設定（`config.go`。`AI_DIAGNOSIS_JOB`・`AI_DIAGNOSIS_ALLOWED_USERS`）・朝5時切替のプレイ日と1日1回の判定（`day.go`。`PlayDay`/`NextReset`/`Decide`/`View`）・要約 JSON の検証（`input.go`。`ValidateInput`）。Job 本体は `job.go`（`RunJob`・`Smoke`。pending を確保して順に処理）・`llm.go`（`BuildLLMInput`。`v` を外し `name` を付ける）・`claude.go`（`Runner`・`buildCmd`。env は親を継承せず組み立てる・`parseCLIResult`）・`check.go`（`CheckOutput`。出力の件数・文字数・evidence の実在・数値の裏取りを検査）。`prompt/` に `system.md`・`output.schema.json`（`go:embed`）と `sample_input.json`（全項目入りの正しい要約）。設計は `docs/design/2026-11-18-ai-diagnosis.md`
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
@@ -152,8 +156,8 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 ## GitHub Actions
 
 - **ブランチ運用**（既定ブランチは `develop`）: 作業ブランチ → `develop`（マージで stg に自動デプロイ）→ `main`（マージで prod に自動デプロイ）。develop→main はマージコミットで行う（squash・rebase しない）。緊急修正は main 向けPRも可（マージ後 build.yml が main を develop に自動マージ。衝突時は手動解消）。ただし build.yml の paths-ignore（`infra/app/**`・`deploy.yml`）だけを main で変えた場合は同期されないので develop に手動で反映する
-- CI: `ci.yml`（main/develop 向けPRのみ。Docker build, golangci-lint, go test -race + coverage, JS test。ラベル `skip-ci` でスキップ）
-- Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の `infra/app/<env>.tfvars` の `image_tag` を書き換え → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
+- CI: `ci.yml`（main/develop 向けPRのみ。Docker build, golangci-lint, go test -race + coverage, JS test、AI診断用ターゲット `--target ai-diagnosis` のビルドと `claude --version` の確認。ラベル `skip-ci` でスキップ）
+- Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（メインと AI診断 Job 用の `<キー>-ai` の2つ。content key が同じなら両方揃っているときだけ stg で検証済みイメージを再利用）→ 対象環境の `infra/app/<env>.tfvars` の `image_tag` を書き換え → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
 - Deploy: `deploy.yml`（`infra/app/**` の変更の push（develop→stg、main→prod）or build.yml からの `workflow_dispatch` → `tofu apply -var-file=<env>.tfvars`。refresh 付きで実物を読み直してから適用する（手元の plan・apply も同じ）。prod の手動実行は main からのみ）
 - UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
 - AIレビュー: CodeRabbit（GitHub App。設定は `.coderabbit.yaml`。develop・main 向けPRを CLAUDE.md の規約に照らしてレビューする。ボット（Renovate）・draft・リリース PR（タイトル `release:`）・MSリスト自動更新・`no-review` ラベルの PR は対象外。画像・基準画像・`data/` の生成データ・同梱ライブラリ・`go.sum`・`infra/app/*.tfvars` は読まない）

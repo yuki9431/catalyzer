@@ -22,10 +22,10 @@ const aiDiagnosisCapMessage = "今日はもう診断できません。明日5時
 var aiDiagnosisLimiter = newRateLimiter(rate.Every(10*time.Minute), 6)
 
 var aiErrorMessages = map[string]string{
-	"launch_failed":  "診断を開始できませんでした",
-	"claude_failed":  "AIの応答を受け取れませんでした",
-	"invalid_output": "AIの診断結果を確認できなかったため表示しません",
-	"timeout":        "診断が時間内に終わりませんでした",
+	"launch_failed":               "診断を開始できませんでした",
+	aidiagnosis.CodeClaudeFailed:  "AIの応答を受け取れませんでした",
+	aidiagnosis.CodeInvalidOutput: "AIの診断結果を確認できなかったため表示しません",
+	aidiagnosis.CodeTimeout:       "診断が時間内に終わりませんでした",
 }
 
 const aiErrorDefault = "診断できませんでした"
