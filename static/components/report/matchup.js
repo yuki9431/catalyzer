@@ -6,6 +6,8 @@ import { Panel, SubSection, Table, Tips } from '../ui.js';
 import { ToggleGroup } from '../parts.js';
 import { Popover, usePopover } from '../popover.js';
 import { useThemeName } from '../chart-canvas.js';
+import { EnemyNotes } from '../notes.js';
+import { notesForEnemy } from '../../lib/notes.js';
 import { CompareRadar, CostPairSubSection, EnemyMatchupSection, MsPairSubSection, PartnerSection, WinRateRowList } from '../charts.js';
 
 function entry(name, e) { return { name: name, winRate: e.win_rate, matches: e.matches }; }
@@ -121,7 +123,9 @@ function FixedPartnerPanel({ fp, fpItems, lens }) {
   <//>`;
 }
 
-export function MatchupPane({ frontendData, lens }) {
+export function MatchupPane({ frontendData, lens, notes, selectedMs, lastMs }) {
+  var openRef = useState(null);
+  var openKey = openRef[0], setOpenKey = openRef[1];
   var enemyMatchup = frontendData.enemy_matchup;
   var partnerData = frontendData.partner;
   var costPairData = frontendData.cost_pair;
@@ -130,16 +134,29 @@ export function MatchupPane({ frontendData, lens }) {
   var fpList = fp.partners || fp;
   var fpItems = Array.isArray(fpList) ? fpList : [];
 
-  var enemyStrong = (enemyMatchup && enemyMatchup.strong || []).slice(0, 10).map(function (e) { return entry(e.ms, e); });
-  var enemyWeak = (enemyMatchup && enemyMatchup.weak || []).slice(0, 10).map(function (e) { return entry(e.ms, e); });
+  // メモが使えるときだけ、印と行内のメモを足す。開くのは一度に1行
+  var noteOn = !!notes && notes.status === 'on';
+  function enemyEntries(list) {
+    return (list || []).slice(0, 10).map(function (e, i) {
+      var r = entry(e.ms, e);
+      if (!noteOn) return r;
+      r.key = e.ms + '-' + i;
+      r.mark = notesForEnemy(notes.list, e.ms, selectedMs).length > 0;
+      r.expand = openKey === r.key && html`<${EnemyNotes} notes=${notes} enemy=${e.ms} myMs=${selectedMs} writeMs=${selectedMs || lastMs} />`;
+      return r;
+    });
+  }
+  function toggleRow(key) { setOpenKey(function (k) { return k === key ? null : key; }); }
+  var enemyStrong = enemyEntries(enemyMatchup && enemyMatchup.strong);
+  var enemyWeak = enemyEntries(enemyMatchup && enemyMatchup.weak);
   var partnerEntries = (partnerData || []).slice(0, 10).map(function (p) { return entry(p.ms, p); });
   var msPairEntries = (msPairData && msPairData.by_matches || []).slice(0, 10).map(function (p) { return entry(p.pair, p); });
   var costPairEntries = (costPairData || []).map(function (p) { return entry(p.pair, p); });
 
   return html`<div class="tabpane">
     ${enemyMatchup && html`<${Panel} title="敵機との相性">
-      ${enemyStrong.length > 0 && html`<h3>得意な敵機</h3><${WinRateRowList} entries=${enemyStrong} />`}
-      ${enemyWeak.length > 0 && html`<h3>苦手な敵機</h3><${WinRateRowList} entries=${enemyWeak} />`}
+      ${enemyStrong.length > 0 && html`<h3>得意な敵機</h3><${WinRateRowList} entries=${enemyStrong} onSelect=${noteOn ? toggleRow : undefined} />`}
+      ${enemyWeak.length > 0 && html`<h3>苦手な敵機</h3><${WinRateRowList} entries=${enemyWeak} onSelect=${noteOn ? toggleRow : undefined} />`}
       <${SubSection} title="表で見る"><${EnemyMatchupSection} matchup=${enemyMatchup} /><//>
       <${Tips} tips=${enemyMatchup.tips} />
     <//>`}

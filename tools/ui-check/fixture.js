@@ -99,7 +99,8 @@ export function generateMatches() {
       partner_score: r.int(300, 1200), partner_kills: r.int(0, 5), partner_deaths: pDeaths,
       partner_dmg_given: r.int(500, 2000) * 10, partner_dmg_taken: r.int(500, 1800) * 10, partner_ex_dmg: r.int(0, 700),
       bursts: bursts, partner_bursts: pBursts,
-      proficiency: 'gold2', partner_proficiency: 'silver1',
+      // 乱数を消費せず試合番号で決める(検索の熟練度の並び順を画面で確かめる)
+      proficiency: ['gold2', 'master', 'silver3', 'bronze1', 'legend'][i % 5], partner_proficiency: 'silver1',
       score_ranking: r.int(1, 4), partner_score_ranking: r.int(1, 4),
       arcade: 'テスト店舗',
       // 乱数を消費せず試合番号で決める。7試合に1つは形式不明(取得前のデータ)
@@ -150,6 +151,19 @@ export function classRecord() {
       { label: '最大連勝数', value: 9, unit: '連勝' },
     ],
   };
+}
+
+// 架空のメモ6件(先頭 pins 件がピン留め。既定1件)。敵機は先頭の試合の相手(ストームレイダー・ヴァルキュリア)と、相性タブの苦手な敵機(ガルーダ零)。僚機は1件だけで、先頭の試合の僚機(ガルーダ零)。日時は固定
+export function notes(pins) {
+  var n = pins === undefined ? 1 : pins;
+  return [
+    { id: 'preview-note-1', text: '着地を見てから射撃を合わせる。', enemies: ['ストームレイダー'], my_ms: '', partner_ms: '', date: '', pinned: 0 < n, created_at: '2026-06-14T12:00:00Z', updated_at: '2026-06-15T12:00:00Z' },
+    { id: 'preview-note-2', text: '覚醒を吐かせてから前に出る。\n先落ちは避ける。', enemies: ['ストームレイダー'], my_ms: 'ストームレイダー', partner_ms: '', date: '', pinned: 1 < n, created_at: '2026-06-13T12:00:00Z', updated_at: '2026-06-14T12:00:00Z' },
+    { id: 'preview-note-3', text: '格闘の間合いに入らない。', enemies: ['ヴァルキュリア', 'ガルーダ零'], my_ms: '', partner_ms: '', date: '2026-06-15', pinned: 2 < n, created_at: '2026-06-12T12:00:00Z', updated_at: '2026-06-13T12:00:00Z' },
+    { id: 'preview-note-4', text: '夜は連敗しやすい。早めに切り上げる。', enemies: [], my_ms: '', partner_ms: '', date: '2026-06-15', pinned: 3 < n, created_at: '2026-06-11T12:00:00Z', updated_at: '2026-06-12T12:00:00Z' },
+    { id: 'preview-note-5', text: '開幕は前に出すぎない。', enemies: [], my_ms: '', partner_ms: 'ガルーダ零', date: '', pinned: 4 < n, created_at: '2026-06-10T12:00:00Z', updated_at: '2026-06-11T12:00:00Z' },
+    { id: 'preview-note-6', text: '距離を詰められたら無理に追わない。', enemies: ['ガルーダ零'], my_ms: '', partner_ms: '', date: '', pinned: 5 < n, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-10T12:00:00Z' },
+  ];
 }
 
 export function msSvg(n) {

@@ -3,7 +3,8 @@
 // UI から切り離すことで単体テスト可能にしている。
 
 import { modeLabel } from '../lib/match.js';
-import { PERIOD_DAYS } from './stats.js';
+import { hasNoteForMatch } from '../lib/notes.js';
+import { PERIOD_DAYS, OPPONENT_GRADE_BANDS, gradeBand, opponentGradeBand } from './stats.js';
 import { findPattern, goalPattern, testPattern, patternLabel } from './patterns.js';
 
 // 並べ替えの選択肢。key はソート対象のフィールド。並び順（昇順/降順）はUI側のトグルで制御する。
@@ -36,6 +37,13 @@ export function emptyFilters() {
     myCostList: [],          // 自機コスト（複数選択・OR）
     partnerCostList: [],     // 僚機コスト（複数選択・OR）
     enemyCostPairList: [],   // 相手コスト編成（複数選択・OR）
+    myProficiencyList: [],   // 自機の熟練度（MatchData.proficiency の生値。複数選択・OR）
+    myGradeList: [],         // 自分の階級の段 key（複数選択・OR）
+    enemyGradeList: [],      // 相手の階級の段 key（2人平均。複数選択・OR）
+    scoreRankList: [],       // 自分のスコア順位 '1'〜'4'（複数選択・OR）
+    partnerProficiencyList: [], // 僚機の熟練度（MatchData.partner_proficiency の生値。複数選択・OR）
+    partnerGradeList: [],    // 相方の階級の段 key（複数選択・OR）
+    partnerScoreRankList: [], // 相方のスコア順位 '1'〜'4'（複数選択・OR）
     dmgGivenMin: '', dmgGivenMax: '',
     dmgTakenMin: '', dmgTakenMax: '',
     killsMin: '', killsMax: '',
@@ -47,6 +55,7 @@ export function emptyFilters() {
     patternMode: 'and',      // 'and'=選んだ展開にすべて当てはまる / 'or'=どれかに当てはまる
     goal: null,              // ホームのミッションから渡る負け筋 {key, line?, avoid?}
     focusRange: null,        // 挑戦中カードから渡る範囲 {after, until}（until ''=上限なし）
+    noteEnemies: false,      // メモがある試合だけ
   };
 }
 
@@ -90,13 +99,20 @@ export function removeFilter(filters, field) {
   return next;
 }
 
+// メモが使えない間は noteEnemies を無効にする(0件のまま抜けられなくなるため)
+export function withNoteAvailability(filters, noteOn) {
+  return noteOn || !filters.noteEnemies ? filters : Object.assign({}, filters, { noteEnemies: false });
+}
+
 // 何らかの絞り込みが指定されているか（デフォルト状態でないか）を判定する。
 export function hasActiveFilters(filters) {
   var f = filters || {};
   if (activeConditions(f).length || validRange(f.focusRange)) return true;
   if (f.result && f.result !== 'all') return true;
-  if (modeLabel(f.mode)) return true;
-  var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
+  if (modeLabel(f.mode) || f.noteEnemies === true) return true;
+  var listKeys = ['myMsList', 'partnerMsList', 'enemyMsList', 'myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList',
+    'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList',
+    'partnerProficiencyList', 'partnerGradeList', 'partnerScoreRankList'];
   for (var j = 0; j < listKeys.length; j++) {
     if (f[listKeys[j]] && f[listKeys[j]].length) return true;
   }
@@ -144,8 +160,38 @@ export function enemyCostPairKey(a, b) {
   return Math.max(x, y) + ' + ' + Math.min(x, y);
 }
 
-// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成）を
-// 出現頻度順で返す。
+// 熟練度 class 名の序列。blueN(0-5)は⭐N、bronze/silver/goldN(1-5)は⭐(5/10/15+N)、master=21、legend=22、他は null
+function proficiencyRank(p) {
+  if (p === 'legend') return 22;
+  if (p === 'master') return 21;
+  var mt = /^blue([0-5])$|^(bronze|silver|gold)([1-5])$/.exec(p || '');
+  if (!mt) return null;
+  if (mt[1] != null) return Number(mt[1]);
+  return { bronze: 5, silver: 10, gold: 15 }[mt[2]] + Number(mt[3]);
+}
+
+// 熟練度の表示名。未知の値は生値、空は ''
+export function proficiencyLabel(p) {
+  var r = proficiencyRank(p);
+  if (r == null) return p || '';
+  return r === 22 ? 'Legend' : r === 21 ? 'Master' : '⭐' + r;
+}
+
+// 熟練度の選択肢。序列順（高い方が先、未知は末尾で名前順）
+function proficiencyOptions(ms, get) {
+  var opts = tally(ms, [function (m) { return [get(m)]; }]).map(function (o) {
+    return { name: o.name, matches: o.matches, label: proficiencyLabel(o.name) };
+  });
+  return opts.sort(function (a, b) {
+    var ra = proficiencyRank(a.name), rb = proficiencyRank(b.name);
+    if (ra != null && rb != null) return rb - ra;
+    if (ra != null || rb != null) return ra != null ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// 絞り込みドロップダウン用のリスト（自機・相方・敵の機体名／自陣・敵陣のタッグ名／相手コスト編成／自機・僚機の熟練度）を
+// 出現頻度順（熟練度は序列順）で返す。
 export function collectMsOptions(matches) {
   var ms = matches || [];
   // 相手コスト編成は出現数順ではなくコスト降順（3000+3000 → 3000+2500 → …）で並べる。
@@ -155,6 +201,8 @@ export function collectMsOptions(matches) {
     return (Number(pb[0]) - Number(pa[0])) || (Number(pb[1]) - Number(pa[1]));
   });
   return {
+    proficiencies: proficiencyOptions(ms, function (m) { return m.proficiency; }),
+    partnerProficiencies: proficiencyOptions(ms, function (m) { return m.partner_proficiency; }),
     mine: tally(ms, [function (m) { return [m.ms]; }]),
     partners: tally(ms, [function (m) { return [m.partner_ms]; }]),
     enemies: tally(ms, [function (m) { return [m.opponent1_ms, m.opponent2_ms]; }]),
@@ -195,7 +243,8 @@ function nameMatches(m, needle, scope) {
 
 
 // 試合配列を filters で絞り込む。元配列は変更しない。
-export function filterMatches(matches, filters) {
+// notes はメモの一覧。noteEnemies のとき、渡さなければ空として0件になる
+export function filterMatches(matches, filters, notes) {
   var f = filters || {};
   var dateFrom = f.dateFrom || '';
   var dateTo = f.dateTo || '';
@@ -218,6 +267,13 @@ export function filterMatches(matches, filters) {
   var myCostList = (f.myCostList || []).map(Number);
   var partnerCostList = (f.partnerCostList || []).map(Number);
   var enemyCostPairList = f.enemyCostPairList || [];
+  var myProficiencyList = f.myProficiencyList || [];
+  var myGradeList = f.myGradeList || [];
+  var enemyGradeList = f.enemyGradeList || [];
+  var scoreRankList = (f.scoreRankList || []).map(Number);
+  var partnerProficiencyList = f.partnerProficiencyList || [];
+  var partnerGradeList = f.partnerGradeList || [];
+  var partnerScoreRankList = (f.partnerScoreRankList || []).map(Number);
   var dgMin = toNum(f.dmgGivenMin), dgMax = toNum(f.dmgGivenMax);
   var dtMin = toNum(f.dmgTakenMin), dtMax = toNum(f.dmgTakenMax);
   var kMin = toNum(f.killsMin), kMax = toNum(f.killsMax);
@@ -229,6 +285,7 @@ export function filterMatches(matches, filters) {
   var sheet = sheetConditions(f);
   var patternMode = f.patternMode === 'or' ? 'or' : 'and';
   var range = validRange(f.focusRange) ? f.focusRange : null;
+  var noteEnemies = f.noteEnemies === true;
 
   return (matches || []).filter(function (m) {
     var day = (m.date || '').substring(0, 10);
@@ -254,6 +311,13 @@ export function filterMatches(matches, filters) {
     if (myCostList.length && myCostList.indexOf(m.ms_cost) < 0) return false;
     if (partnerCostList.length && partnerCostList.indexOf(m.partner_cost) < 0) return false;
     if (enemyCostPairList.length && enemyCostPairList.indexOf(enemyCostPairKey(m.opponent1_cost, m.opponent2_cost)) < 0) return false;
+    if (myProficiencyList.length && myProficiencyList.indexOf(m.proficiency) < 0) return false;
+    if (myGradeList.length && myGradeList.indexOf(gradeBand(OPPONENT_GRADE_BANDS, m.grade)) < 0) return false;
+    if (enemyGradeList.length && enemyGradeList.indexOf(opponentGradeBand(m)) < 0) return false;
+    if (scoreRankList.length && scoreRankList.indexOf(m.score_ranking) < 0) return false;
+    if (partnerProficiencyList.length && partnerProficiencyList.indexOf(m.partner_proficiency) < 0) return false;
+    if (partnerGradeList.length && partnerGradeList.indexOf(gradeBand(OPPONENT_GRADE_BANDS, m.partner_grade)) < 0) return false;
+    if (partnerScoreRankList.length && partnerScoreRankList.indexOf(m.partner_score_ranking) < 0) return false;
     if (!inRange(m.dmg_given, dgMin, dgMax)) return false;
     if (!inRange(m.dmg_taken, dtMin, dtMax)) return false;
     if (!inRange(m.kills, kMin, kMax)) return false;
@@ -261,6 +325,7 @@ export function filterMatches(matches, filters) {
     if (!inRange(m.score, scMin, scMax)) return false;
     if (!inRange(m.ex_dmg, exMin, exMax)) return false;
     if (!inRange(m.bursts, buMin, buMax)) return false;
+    if (noteEnemies && !hasNoteForMatch(notes || [], m)) return false;
     if (range && !(m.date > range.after && (range.until === '' || m.date <= range.until))) return false;
     if (goal && testPattern(goal, m) !== true) return false;
     if (sheet.length) {
@@ -331,6 +396,7 @@ export function appliedFilterLabels(filters) {
   if (f.result === 'win') out.push('勝敗: 勝利');
   else if (f.result === 'loss') out.push('勝敗: 敗北');
   if (modeLabel(f.mode)) out.push('対戦形式: ' + modeLabel(f.mode));
+  if (f.noteEnemies === true) out.push('メモがある試合');
   // ホームから同じ負け筋で来ていれば、そのタグ（×で外せる）と重ねない
   var sheet = sheetConditions(f);
   if (sheet.length) {
@@ -347,6 +413,21 @@ export function appliedFilterLabels(filters) {
   if (list('myCostList').length) out.push('自機コスト: ' + listLabel(list('myCostList')));
   if (list('partnerCostList').length) out.push('僚機コスト: ' + listLabel(list('partnerCostList')));
   if (list('enemyCostPairList').length) out.push('相手コスト編成: ' + listLabel(list('enemyCostPairList')));
+  var gradeLabels = function (k) {
+    return list(k).map(function (key) {
+      var b = OPPONENT_GRADE_BANDS.filter(function (x) { return x.key === key; })[0];
+      return b ? b.label : key;
+    });
+  };
+  var profLabels = function (k) { return list(k).map(function (p) { return proficiencyLabel(p); }); };
+  var rankLabels = function (k) { return list(k).map(function (r) { return r + '位'; }); };
+  if (list('myProficiencyList').length) out.push('自機熟練度: ' + listLabel(profLabels('myProficiencyList')));
+  if (list('partnerProficiencyList').length) out.push('僚機熟練度: ' + listLabel(profLabels('partnerProficiencyList')));
+  if (list('scoreRankList').length) out.push('自分の順位: ' + listLabel(rankLabels('scoreRankList')));
+  if (list('partnerScoreRankList').length) out.push('相方の順位: ' + listLabel(rankLabels('partnerScoreRankList')));
+  if (list('myGradeList').length) out.push('自分の階級: ' + listLabel(gradeLabels('myGradeList')));
+  if (list('partnerGradeList').length) out.push('相方の階級: ' + listLabel(gradeLabels('partnerGradeList')));
+  if (list('enemyGradeList').length) out.push('相手の階級: ' + listLabel(gradeLabels('enemyGradeList')));
   RANGE_LABELS.forEach(function (r) {
     var min = toNum(f[r[0] + 'Min']), max = toNum(f[r[0] + 'Max']);
     if (min != null && max != null) out.push(r[1] + ': ' + min + '〜' + max);

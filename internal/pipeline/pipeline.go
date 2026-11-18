@@ -427,30 +427,38 @@ func failScrape(j *Job, err error, usingSession bool, on403 []On403Func) {
 			log.Printf("[WARN] Failed to delete expired session: %v", delErr)
 		}
 	}
+	if errors.Is(err, scraper.ErrAccessDenied) && len(on403) > 0 && on403[0] != nil {
+		on403[0](j.UserKey)
+	}
+	setError(j, scrapeErrorMessage(err, usingSession), err.Error())
+}
+
+// AccessDeniedMessage は公式サイトに 403 で拒否されたときの文言。server の 403 ブロック中の応答も同じ文言を使う。
+// レート制限が原因なので、ログインし直しではなく時間をおいた再試行を促す(#483)。
+// app.js は「セッション」を含むエラーでログイン画面に戻すため、この語を含めない
+const AccessDeniedMessage = "ガンダムモバイルへのアクセスが一時的に拒否されました。しばらく時間をおいてから再度お試しください。解決しない場合は、ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"
+
+// scrapeErrorMessage はログイン・スクレイピングの失敗をユーザー向けの文言にする
+func scrapeErrorMessage(err error, usingSession bool) string {
+	// 保存済みセッションの失効(ログイン画面への遷移・401)は同じ文言にする。
+	// app.js は「セッション」を含むエラーでログイン画面に戻す(セッションは shouldDeleteSession で消える)
+	if usingSession && scraper.IsSessionExpired(err) {
+		return "セッションの有効期限が切れました。再度ログインしてください。"
+	}
 	switch {
 	case errors.Is(err, scraper.ErrLoginFailed):
-		if usingSession {
-			setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
-		} else {
-			setError(j, "ログインに失敗しました。メールアドレスとパスワードを確認してください。", err.Error())
-		}
+		return "ログインに失敗しました。メールアドレスとパスワードを確認してください。"
 	case errors.Is(err, scraper.ErrAccessDenied):
-		if usingSession {
-			setError(j, "セッションの有効期限が切れました。再度ログインしてください。", err.Error())
-		} else {
-			setError(j, "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。", err.Error())
-			if len(on403) > 0 && on403[0] != nil {
-				on403[0](j.UserKey)
-			}
-		}
+		// 保存済みセッションでも 403 は失効ではない(失効はログイン画面への遷移で ErrLoginFailed になる)
+		return AccessDeniedMessage
 	case errors.Is(err, scraper.ErrUnauthorized):
-		setError(j, "認証の有効期限が切れました。再度ログインしてお試しください。", err.Error())
+		return "認証の有効期限が切れました。再度ログインしてお試しください。"
 	case errors.Is(err, scraper.ErrNotFound):
-		setError(j, "対戦履歴ページが見つかりませんでした。サイトの仕様が変更された可能性があります。", err.Error())
+		return "対戦履歴ページが見つかりませんでした。サイトの仕様が変更された可能性があります。"
 	case errors.Is(err, scraper.ErrServerError):
-		setError(j, "ガンダムモバイルのサーバーでエラーが発生しています。しばらく時間をおいてから再度お試しください。", err.Error())
+		return "ガンダムモバイルのサーバーでエラーが発生しています。しばらく時間をおいてから再度お試しください。"
 	default:
-		setError(j, "データの取得に失敗しました。時間をおいて再度お試しいただき、解決しない場合は開発者までお問い合わせください。", err.Error())
+		return "データの取得に失敗しました。時間をおいて再度お試しいただき、解決しない場合は開発者までお問い合わせください。"
 	}
 }
 

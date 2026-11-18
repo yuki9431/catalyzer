@@ -100,6 +100,19 @@ type TagPartner struct {
 	PlayerName string
 }
 
+// Note は対策メモ。日付・敵機・自機・僚機はどれも任意
+type Note struct {
+	ID        string
+	Text      string
+	Enemies   []string // 0〜5機。重複なし・選んだ順
+	MyMS      string   // "" = 指定しない
+	PartnerMS string   // "" = 指定しない
+	Date      string   // YYYY-MM-DD。"" = 日付なし
+	Pinned    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // JobStatus はジョブの状態
 type JobStatus string
 

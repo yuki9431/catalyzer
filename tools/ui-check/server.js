@@ -40,6 +40,10 @@ var JOB_STATUS = {
 };
 var RESULT_FLAG = { 'preview-prelim': 'preliminary', 'preview-partial': 'partial', 'preview-prelim-error': 'preliminary' };
 
+// メモのモック。状態は持たない。Cookie があれば fixture、無ければ空(どちらも 200。401 だと session-expired 画面の console エラーで落ちる)
+var NOTES_LIMITS = { text_max: 500, count_max: 2000, pinned_max: 3, enemies_max: 5 };
+var NOTE_FIXED_AT = '2026-06-16T00:00:00Z';
+
 function readJson(req, cb) {
   var chunks = [];
   req.on('data', function (c) { chunks.push(c); });
@@ -81,6 +85,23 @@ export function createServer() {
       });
     }
     if (p === '/auto-refresh/touch' && req.method === 'POST') return json(res, 200, { enabled: false, status: 'off' });
+    if (p === '/notes' || p.startsWith('/notes/')) {
+      var noteId = p.startsWith('/notes/') ? p.slice('/notes/'.length) : null;
+      if (get && !noteId) {
+        var valid = /(?:^|;\s*)preview_session=valid(?:;|$)/.test(req.headers.cookie || '');
+        var pinsM = /(?:^|;\s*)preview_pins=(\d+)(?:;|$)/.exec(req.headers.cookie || '');
+        return json(res, 200, { user_key: fx.USER_KEY, notes: valid ? fx.notes(pinsM ? Number(pinsM[1]) : undefined) : [], limits: NOTES_LIMITS });
+      }
+      if (req.method === 'DELETE' && noteId) return json(res, 200, { ok: true });
+      if ((req.method === 'POST' && !noteId) || (req.method === 'PUT' && noteId)) {
+        return readJson(req, function (b) {
+          if (String(b.text || '').includes('保存エラー')) return json(res, 500, { error: 'メモを保存できませんでした' });
+          var note = Object.assign({ enemies: [], pinned: false }, b, { id: noteId || 'preview-note-new', created_at: NOTE_FIXED_AT, updated_at: NOTE_FIXED_AT });
+          json(res, noteId ? 200 : 201, { note: note });
+        });
+      }
+      return send(res, 405, 'text/plain', 'method not allowed');
+    }
     if (get && p === '/tag-partners') return json(res, 200, { user_key: fx.USER_KEY, tag_partners: fx.tagPartners() });
     if (get && p === '/session') return json(res, 200, { valid: /(?:^|;\s*)preview_session=valid(?:;|$)/.test(req.headers.cookie || '') });
     if (p === '/session' && req.method === 'DELETE') return json(res, 200, {});

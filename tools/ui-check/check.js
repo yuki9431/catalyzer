@@ -18,10 +18,11 @@ var UPDATE = process.argv.includes('--update');
 // 画像比較は基準を撮る CI だけで行う。ローカルは他の検査だけ
 var PIXEL = !!process.env.CI;
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
-var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', 'report-legacy': '/__preview/?legacy=1', parts: '/__preview/parts.html' };
+var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-session-pins0': '/__preview/?session=valid&pins=0', 'report-session-pins3': '/__preview/?session=valid&pins=3', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', 'report-legacy': '/__preview/?legacy=1', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');
+  if (i < 0) throw new Error('UI_CHECK_INJECT は「画面id:JS」の形で書く: ' + s);
   INJECT[s.slice(0, i)] = s.slice(i + 1);
 });
 
@@ -97,7 +98,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     } else if (method === 'Page.loadEventFired') loadWaiters.splice(0).forEach(function (f) { f(); });
     else if (method === 'Fetch.requestPaused') {
       var u = p.request.url;
-      if (u.indexOf(origin) === 0) send('Fetch.continueRequest', { requestId: p.requestId }).catch(function () {});
+      if (u === origin || u.indexOf(origin + '/') === 0) send('Fetch.continueRequest', { requestId: p.requestId }).catch(function () {});
       else if (p.resourceType === 'Image') {
         send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'image/png' }],
           body: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }).catch(function () {});
@@ -135,7 +136,7 @@ async function runScreen(conn, origin, screen, theme, update) {
     await send('Page.addScriptToEvaluateOnNewDocument', { source: determinismSource });
     var metrics = function (height) { return send('Emulation.setDeviceMetricsOverride', { width: screen.viewport.width, height: height, deviceScaleFactor: 1, mobile: false }); };
     await metrics(screen.viewport.height);
-    if (screen.ops.some(function (o) { return o.pull; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    if (screen.ops.some(function (o) { return o.pull || o.swipe; })) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
     if (screen.standalone) await send('Page.addScriptToEvaluateOnNewDocument', { source: "Object.defineProperty(Navigator.prototype,'standalone',{configurable:true,get:function(){return true}})" });
     if (screen.clock) {
       if (Number.isNaN(Date.parse(screen.clock))) throw new InfraError('不正な clock: ' + screen.clock);
@@ -163,8 +164,15 @@ async function runScreen(conn, origin, screen, theme, update) {
 
     for (var i = 0; i < screen.ops.length; i++) {
       var op = screen.ops[i], kind = Object.keys(op)[0], a = op[kind];
-      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'release', 'absentNow', 'colorScheme'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
+      if (!['click', 'type', 'scroll', 'wait', 'reload', 'scrollBy', 'pull', 'swipe', 'release', 'absentNow', 'waitGone', 'colorScheme'].includes(kind)) throw new InfraError('未知の操作: ' + kind);
       if ((kind === 'scrollBy' || kind === 'pull') && typeof a[0] !== 'number') throw new InfraError(kind + ' の第1引数は数値');
+      if (kind === 'waitGone') {
+        for (var goneEnd = Date.now() + WAIT_MS; await evalJs(countExpr(a[0], a[1] || null));) {
+          if (Date.now() > goneEnd) return fail('消えない要素 ' + a[0] + (a[1] ? ' (' + a[1] + ')' : ''));
+          await new Promise(function (r) { setTimeout(r, 50); });
+        }
+        continue;
+      }
       if (kind === 'absentNow') {
         if (await evalJs(countExpr(a[0], null))) return fail('在ってはいけない要素 ' + a[0]);
         continue;
@@ -174,6 +182,18 @@ async function runScreen(conn, origin, screen, theme, update) {
         await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: a[0] }] });
         // 配色切替だけだと上部バーの backdrop-filter 層が古いまま残り角が1階調ずれるので、再レイアウトで描き直させる
         await evalJs('var y=scrollY;document.documentElement.style.display="none";document.body.offsetHeight;document.documentElement.style.display="";scrollTo(0,y);new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r)})})', true);
+        continue;
+      }
+      if (kind === 'swipe') {
+        // 要素の中央から横に指を滑らせて離す。a = [セレクタ, 横の移動 px]
+        if (typeof a[1] !== 'number') throw new InfraError('swipe の第2引数は数値');
+        if (!(await waitCount(a[0], null, 1))) return fail('必須要素なし ' + a[0]);
+        var at = await evalJs('(function(){var r=document.querySelector(' + JSON.stringify(a[0]) + ').getBoundingClientRect();return [Math.round(r.left+r.width/2),Math.round(r.top+r.height/2)]})()');
+        var swipeTouch = function (type, x) { return send('Input.dispatchTouchEvent', { type: type, touchPoints: type === 'touchEnd' ? [] : [{ x: x, y: at[1] }] }); };
+        await swipeTouch('touchStart', at[0]);
+        for (var si = 1; si <= 10; si++) await swipeTouch('touchMove', at[0] + Math.round(a[1] * si / 10));
+        await swipeTouch('touchEnd', 0);
+        await evalJs('new Promise(function(r){setTimeout(function(){requestAnimationFrame(function(){requestAnimationFrame(r)})},300)})', true);
         continue;
       }
       if (kind === 'release') {
@@ -214,7 +234,7 @@ async function runScreen(conn, origin, screen, theme, update) {
       }
       if (kind === 'wait') continue;
       if (kind === 'scroll') {
-        await evalJs('document.querySelector(' + JSON.stringify(a[0]) + ').scrollIntoView({block:"center"})');
+        await evalJs('Array.from(document.querySelectorAll(' + JSON.stringify(a[0]) + ')).filter(function(e){return e.getClientRects().length>0})[0].scrollIntoView({block:"center"})');
       } else if (kind === 'click') {
         await evalJs('(function(s,t){var e=Array.from(document.querySelectorAll(s)).filter(function(e){return e.getClientRects().length>0&&(!t||e.textContent.indexOf(t)>=0)})[0];e.click()})(' + JSON.stringify(a[0]) + ',' + JSON.stringify(a[1] || null) + ')');
       } else {

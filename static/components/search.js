@@ -4,7 +4,7 @@ import { ganttTicks } from '../lib/gantt.js';
 import {
   emptyFilters, hasActiveFilters, collectMsOptions,
   filterMatches, sortMatches, SORT_OPTIONS, appliedFilterLabels, sortDirLabel, sortLabel, isTimedRange,
-  activeConditions, removableFilterLabels, removeFilter,
+  activeConditions, removableFilterLabels, removeFilter, withNoteAvailability,
 } from '../analysis/search.js';
 import { PATTERNS, patternLabel, patternHits, patternNote, patternReason, testPattern } from '../analysis/patterns.js';
 import {
@@ -14,9 +14,11 @@ import {
 import { CompareRadar } from './charts.js';
 import { useThemeName } from './chart-canvas.js';
 import { RangeCalendar, Dropdown, MultiSelect, Autocomplete, Panel } from './ui.js';
-import { useDismiss, usePopover, Popover } from './popover.js';
+import { Layer, usePopover, Popover } from './popover.js';
 import { Chip, ToggleGroup } from './parts.js';
-import { PERIOD_DAYS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
+import { MatchNotesPanel, NoteMark } from './notes.js';
+import { hasNoteForMatch } from '../lib/notes.js';
+import { PERIOD_DAYS, OPPONENT_GRADE_BANDS, filterByPlayDays, clampMetric } from '../analysis/stats.js';
 import { SCOPE_KEYS } from '../lib/scope.js';
 
 var PAGE_SIZE = 20;
@@ -41,7 +43,7 @@ var GANTT_LEGEND = [
 // 機体/タッグ/コスト編成用の複数選択（OR）。集計結果 [{name, matches}] を渡す。
 // 選択後のトリガーは名前のみ（chip）、ドロップダウン内は「名前（N戦）」を出す。
 function MsMulti({ values, onChange, options }) {
-  var opts = options.map(function (o) { return { value: o.name, label: o.name + '（' + o.matches + '戦）', chip: o.name }; });
+  var opts = options.map(function (o) { var t = o.label || o.name; return { value: o.name, label: t + '（' + o.matches + '戦）', chip: t }; });
   return html`<${MultiSelect} values=${values} options=${opts} onChange=${onChange} placeholder="-" />`;
 }
 
@@ -59,48 +61,24 @@ function RangeInput({ label, minVal, maxVal, onMin, onMax }) {
   </div>`;
 }
 
-// 全画面の層。一覧はマウントしたまま背面に残し、背面スクロールは body・html の overflow で止める。
-function Layer({ ui, label, head, foot, footUi, onClose, children }) {
-  var ref = useRef(null);
-  useDismiss(true, null, onClose);
-  useEffect(function () {
-    var y = window.scrollY, back = document.activeElement;
-    var b = document.body.style.overflow, h = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden'; document.documentElement.style.overflow = 'hidden';
-    // 背面（祖先ごとの兄弟）を inert にして Tab・クリックを層の外に出さない。
-    var dimmed = [];
-    for (var n = ref.current; n && n.parentNode && n !== document.documentElement; n = n.parentNode) {
-      Array.prototype.forEach.call(n.parentNode.children, function (sib) {
-        if (sib !== n && !sib.inert && sib.tagName !== 'SCRIPT') { sib.inert = true; dimmed.push(sib); }
-      });
-    }
-    if (ref.current) ref.current.focus({ preventScroll: true });
-    return function () {
-      dimmed.forEach(function (d) { d.inert = false; });
-      document.body.style.overflow = b; document.documentElement.style.overflow = h;
-      if (window.scrollY !== y) window.scrollTo(0, y);
-      if (back && back.focus) back.focus({ preventScroll: true });
-    };
-  }, []);
-  return html`<div class="search-layer" data-ui=${ui} role="dialog" aria-modal="true" aria-label=${label} tabindex="-1" ref=${ref}>
-    <div class="search-layer-head">${head}</div>
-    <div class="search-layer-body">${children}</div>
-    ${foot && html`<div class="search-layer-foot" data-ui=${footUi}>${foot}</div>`}
-  </div>`;
-}
-
 // 詳細な条件（日付指定・タッグ・コスト・数値レンジ）に含めるフィルタ項目。
 var ADV_FIELDS = ['dateFrom', 'dateTo', 'enemyTagName',
   'dmgGivenMin', 'dmgGivenMax', 'dmgTakenMin', 'dmgTakenMax', 'killsMin', 'killsMax', 'deathsMin', 'deathsMax',
   'scoreMin', 'scoreMax', 'exDmgMin', 'exDmgMax', 'burstsMin', 'burstsMax'];
 // 詳細な条件内の複数選択（配列）フィルタ。
-var ADV_LIST_FIELDS = ['myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList'];
+var ADV_LIST_FIELDS = ['myTagList', 'myCostList', 'partnerCostList', 'enemyCostPairList',
+  'myProficiencyList', 'myGradeList', 'enemyGradeList', 'scoreRankList',
+  'partnerProficiencyList', 'partnerGradeList', 'partnerScoreRankList'];
 
 // 自機コストの選択肢（固定4種）。
 var COST_OPTIONS = [
   { value: '3000', label: '3000' }, { value: '2500', label: '2500' },
   { value: '2000', label: '2000' }, { value: '1500', label: '1500' },
 ];
+
+// 階級の段・スコア順位の選択肢（固定）。
+var GRADE_OPTIONS = OPPONENT_GRADE_BANDS.map(function (b) { return { value: b.key, label: b.label }; });
+var RANK_OPTIONS = [1, 2, 3, 4].map(function (n) { return { value: String(n), label: n + '位' }; });
 
 var ENEMY_MODE_OPTIONS = [{ value: 'and', label: 'すべて含む' }, { value: 'or', label: 'どれかを含む' }];
 var NAME_SCOPE_OPTIONS = [{ value: 'both', label: '両方' }, { value: 'ally', label: '相方' }, { value: 'enemy', label: '相手' }];
@@ -111,7 +89,7 @@ var PATTERN_OPTIONS = PATTERNS.filter(function (p) { return p.sheet; }).map(func
 var PATTERN_MODE_OPTIONS = [{ value: 'and', label: 'すべて当てはまる' }, { value: 'or', label: 'どれかに当てはまる' }];
 
 // 絞り込みの入力欄。条件はその場で filters に反映する。
-function FilterFields({ filters, options, onField }) {
+function FilterFields({ filters, options, onField, noteOn }) {
   // 詳細な条件に条件が入っていれば初期表示は開く。
   var advActive = ADV_FIELDS.some(function (k) { return filters[k] !== '' && filters[k] != null; })
     || ADV_LIST_FIELDS.some(function (k) { return filters[k] && filters[k].length; });
@@ -149,6 +127,9 @@ function FilterFields({ filters, options, onField }) {
         <${MsMulti} values=${filters.enemyMsList} options=${options.enemies}
           onChange=${function (vs) { onField('enemyMsList', vs); }} />
       </div>
+      ${noteOn && html`<div class="search-field search-field-wide search-note-field">
+        <${Chip} ui="search-note-filter" active=${filters.noteEnemies === true} onClick=${function () { onField('noteEnemies', filters.noteEnemies !== true); }}>メモがある試合</${Chip}>
+      </div>`}
 
       <div class="search-field search-field-wide">
         <div class="search-label search-label-row">
@@ -234,6 +215,41 @@ function FilterFields({ filters, options, onField }) {
             <${MsMulti} values=${filters.enemyCostPairList} options=${options.enemyCostPairs}
               onChange=${function (vs) { onField('enemyCostPairList', vs); }} />
           </div>
+          <div class="search-field" data-ui="search-proficiency">
+            <label class="search-label">自機熟練度（複数選択可）</label>
+            <${MsMulti} values=${filters.myProficiencyList} options=${options.proficiencies}
+              onChange=${function (vs) { onField('myProficiencyList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-partner-proficiency">
+            <label class="search-label">僚機熟練度（複数選択可）</label>
+            <${MsMulti} values=${filters.partnerProficiencyList} options=${options.partnerProficiencies}
+              onChange=${function (vs) { onField('partnerProficiencyList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-rank">
+            <label class="search-label">自分の順位（複数選択可）</label>
+            <${MultiSelect} values=${filters.scoreRankList} placeholder="-" options=${RANK_OPTIONS}
+              onChange=${function (vs) { onField('scoreRankList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-partner-rank">
+            <label class="search-label">相方の順位（複数選択可）</label>
+            <${MultiSelect} values=${filters.partnerScoreRankList} placeholder="-" options=${RANK_OPTIONS}
+              onChange=${function (vs) { onField('partnerScoreRankList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-my-grade">
+            <label class="search-label">自分の階級（複数選択可）</label>
+            <${MultiSelect} values=${filters.myGradeList} placeholder="-" options=${GRADE_OPTIONS}
+              onChange=${function (vs) { onField('myGradeList', vs); }} />
+          </div>
+          <div class="search-field" data-ui="search-partner-grade">
+            <label class="search-label">相方の階級（複数選択可）</label>
+            <${MultiSelect} values=${filters.partnerGradeList} placeholder="-" options=${GRADE_OPTIONS}
+              onChange=${function (vs) { onField('partnerGradeList', vs); }} />
+          </div>
+          <div class="search-field search-field-wide" data-ui="search-enemy-grade">
+            <label class="search-label">相手の階級（複数選択可）</label>
+            <${MultiSelect} values=${filters.enemyGradeList} placeholder="-" options=${GRADE_OPTIONS}
+              onChange=${function (vs) { onField('enemyGradeList', vs); }} />
+          </div>
           <${RangeInput} label="与ダメージ" minVal=${filters.dmgGivenMin} maxVal=${filters.dmgGivenMax}
             onMin=${function (v) { onField('dmgGivenMin', v); }} onMax=${function (v) { onField('dmgGivenMax', v); }} />
           <${RangeInput} label="被ダメージ" minVal=${filters.dmgTakenMin} maxVal=${filters.dmgTakenMax}
@@ -254,14 +270,14 @@ function FilterFields({ filters, options, onField }) {
 }
 
 // 絞り込みの全画面シート。条件はその場で一覧に反映し、「結果を見る」で閉じる。
-function FilterSheet({ filters, options, total, onField, onReset, onClose }) {
+function FilterSheet({ filters, options, total, onField, onReset, onClose, noteOn }) {
   var head = html`<button type="button" class="search-link" data-ui="search-filter-clear" onClick=${onReset}>クリア</button>
     <h2>絞り込み</h2>
     <button type="button" class="ui-sheet-close" data-ui="sheet-close" onClick=${onClose}>閉じる</button>`;
   var foot = html`<span class="search-foot-count">${total}試合が該当</span>
     <button type="button" class="search-apply" data-ui="search-filter-apply" onClick=${onClose}>結果を見る</button>`;
   return html`<${Layer} ui="search-filter-sheet" footUi="search-filter-foot" label="絞り込み" head=${head} foot=${foot} onClose=${onClose}>
-    <${FilterFields} filters=${filters} options=${options} onField=${onField} />
+    <${FilterFields} filters=${filters} options=${options} onField=${onField} noteOn=${noteOn} />
   </${Layer}>`;
 }
 
@@ -284,7 +300,7 @@ function MsThumb({ name, msImages }) {
 }
 
 // 1試合分のサマリーカード。機体は画像で並べ、クリックで詳細を開く。
-function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, onOpen }) {
+function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, marked, onOpen }) {
   var metricLabel = sortKey && sortKey !== 'date' ? METRIC_LABELS[sortKey] : null;
   return html`<button type="button" class=${'search-item ' + (match.win ? 'win' : 'lose')} data-ui="search-result" onClick=${function () { onOpen(match); }}>
     <div class="search-item-top">
@@ -292,6 +308,7 @@ function ResultItem({ match, msImages, sortKey, timeOnly, reason, streak, onOpen
       ${modeLabel(match.mode) && html`<span class="search-item-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}
       ${streakLabel(streak) && html`<span class="search-item-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}
       ${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}
+      ${marked && html`<${NoteMark} />`}
       <span class="search-item-date">${timeOnly ? (match.date || '').slice(11, 16) : match.date}</span>
       ${metricLabel && html`<span class="search-item-metric">${metricLabel} ${num(match[sortKey])}</span>`}
     </div>
@@ -444,7 +461,7 @@ function DetailThumb({ name, msImages }) {
 }
 
 // 試合詳細の全画面。試合経過は常に出す。
-function MatchDetail({ match, msImages, conds, streak, onClose }) {
+function MatchDetail({ match, msImages, conds, streak, notes, onClose }) {
   // 当てはまった条件の原因になった撃墜・OL発動（ガントで強調）と注意の一文
   var hits = [], note = '';
   (conds || []).forEach(function (c) {
@@ -487,6 +504,8 @@ function MatchDetail({ match, msImages, conds, streak, onClose }) {
     <p class="search-detail-result" data-ui="match-result"><strong class=${match.win ? 'win' : 'lose'}>${match.win ? '勝利' : '敗北'}</strong>${modeLabel(match.mode) && html`<span class="search-detail-mode" data-ui="match-mode">${modeLabel(match.mode)}</span>`}${streakLabel(streak) && html`<span class="search-detail-streak" data-ui="win-streak">${streakLabel(streak)}</span>`}${isTimeUp(match) && html`<span class="badge-timeup" title="制限時間切れ（勝敗はスコアで決定）">タイムアップ</span>`}</p>
 
     ${note && html`<p class="search-detail-note" data-ui="match-note">${note}</p>`}
+
+    ${notes && notes.status === 'on' && html`<${MatchNotesPanel} notes=${notes} match=${match} />`}
 
     <${Panel} title="4人の比較">
       <div class="search-radar-toggles">
@@ -555,11 +574,13 @@ function SortSheet({ sortKey, desc, pageSize, onSortKey, onDir, onPageSize }) {
 
 // 試合検索ビュー本体。matches はIndexedDBから読み込んだ全試合。
 // initial は前回 onChange で渡した状態(画面を切り替えても条件を残すため)。期間・対戦形式は scope(必須)で受け取り onScope(必須)で親に返す(レポートと共有)
-export function SearchView({ matches, msImages, initial, onChange, scope, onScope }) {
+export function SearchView({ matches, msImages, initial, onChange, scope, onScope, notes }) {
   var init = initial || {};
   var filtersRef = useState(function () { return Object.assign(emptyFilters(), init.filters); });
   var own = filtersRef[0], setFilters = filtersRef[1];
-  var filters = useMemo(function () { return Object.assign({}, own, scope); }, [own, scope]);
+  var noteOn = !!notes && notes.status === 'on';
+  var noteList = noteOn ? notes.list : null;
+  var filters = useMemo(function () { return withNoteAvailability(Object.assign({}, own, scope), noteOn); }, [own, scope, noteOn]);
   var sortRef = useState(init.sortKey || 'date');
   var sortKey = sortRef[0], setSortKey = sortRef[1];
   var descRef = useState(init.desc !== undefined ? init.desc : true);
@@ -585,8 +606,8 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
     var base = filters.playDays && PERIOD_DAYS[filters.playDays]
       ? filterByPlayDays(matches, PERIOD_DAYS[filters.playDays])
       : matches;
-    return sortMatches(filterMatches(base, filters), sortKey, desc);
-  }, [matches, filters, sortKey, desc]);
+    return sortMatches(filterMatches(base, filters, noteList), sortKey, desc);
+  }, [matches, filters, sortKey, desc, noteList]);
 
   // 条件・並び順の変更時は1ページ目に戻す（各操作ハンドラで明示的にリセット）。
   function onField(key, value) {
@@ -649,7 +670,7 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
         ${labels.map(function (l) { return html`<${Chip} ui="search-applied">${l}</${Chip}>`; })}
       </div>`}
     </div>
-    ${sheetOpen && html`<${FilterSheet} filters=${filters} options=${options} total=${total}
+    ${sheetOpen && html`<${FilterSheet} filters=${filters} options=${options} total=${total} noteOn=${noteOn}
       onField=${onField} onReset=${onReset} onClose=${function () { setSheetOpen(false); }} />`}
 
     <section class="search-results">
@@ -666,7 +687,7 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
               var day = (m.date || '').slice(0, 10);
               var sep = byDate && (i === 0 || day !== (pageItems[i - 1].date || '').slice(0, 10))
                 ? html`<p key=${'d' + day} class="search-day" data-ui="search-day">${day}</p>` : null;
-              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} streak=${streaks.get(streakKey(m))} onOpen=${openDetail} />`;
+              return html`${sep}<${ResultItem} key=${m.match_id || m.date} match=${m} msImages=${msImages || {}} sortKey=${sortKey} timeOnly=${byDate} reason=${reasonOf(m)} streak=${streaks.get(streakKey(m))} marked=${noteOn && hasNoteForMatch(noteList, m)} onOpen=${openDetail} />`;
             })}
           </div>`}
 
@@ -679,6 +700,6 @@ export function SearchView({ matches, msImages, initial, onChange, scope, onScop
       </div>`}
     </section>
 
-    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} streak=${streaks.get(streakKey(detail))} onClose=${function () { setDetail(null); }} />`}
+    ${detail && html`<${MatchDetail} match=${detail} msImages=${msImages || {}} conds=${conds} streak=${streaks.get(streakKey(detail))} notes=${notes} onClose=${function () { setDetail(null); }} />`}
   </div>`;
 }

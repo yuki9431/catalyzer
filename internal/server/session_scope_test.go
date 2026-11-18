@@ -11,6 +11,7 @@ func TestDataAPIsRequireSession(t *testing.T) {
 	handlers := map[string]http.HandlerFunc{
 		"/matches":      handleMatches,
 		"/tag-partners": handleTagPartners,
+		"/notes":        newNotesAPI().handleNotes,
 	}
 	for path, h := range handlers {
 		for _, tc := range []struct {

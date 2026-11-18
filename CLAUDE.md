@@ -13,7 +13,7 @@ catalyzer は、EXVS2IB（機動戦士ガンダム エクストリームバー�
 - **ビルド**: `make build`（Docker）/ 直接: `go build ./cmd/server`
 - **テスト（Go）**: `make test` / 直接: `go test -race ./internal/...`
 - **テスト（JS）**: `make test-js` / 直接: `node --test 'static/__tests__/*.test.js' 'tools/ui-check/*.test.js' '.github/scripts/*.test.js'`（`.github/scripts` のテストは bash と jq が要る）
-- **画面確認（UI oracle）**: `make ui-check`（75画面をダーク・ライトの2テーマで計150枚、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)・行が1段に収まるか(`oneRow`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。**ローカルでは実行しない**。画面確認は PR の CI に任せ、失敗したら CI のログと artifact の画像で直す（画面定義を足したら `tools/ui-check/screens.test.js` は test-js で手元でも通す）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
+- **画面確認（UI oracle）**: `make ui-check`（全画面をダーク・ライトの2テーマで、実Chromeで撮影し基準画像と比較・console エラーと14px 未満の文字・主要タップ領域の44px 未満・画面内に見えない要素(`inview`)・画面内に見えるべきでない要素(`outview`)・在ってはいけない要素(`absent`)・スクロール中の固定高さ(`fixedMax`)・行が1段に収まるか(`oneRow`)を検出。UI を変えたら必須。基準画像は CI（`ui-check.yml`。Linux・Chrome 固定）で撮ったものだけが正で、画像比較も CI だけで行う。**ローカルでは実行しない**。画面確認は PR の CI に任せ、失敗したら CI のログと artifact の画像で直す（画面定義を足したら `tools/ui-check/screens.test.js` は test-js で手元でも通す）。意図した変更・画面追加は PR に `ui-baseline` ラベルを付けると CI が基準を撮り直して artifact に上げるので、`make ui-baseline RUN=<run-id>` で取り込んでコミットする（base を取り込んでから付ける。ローカルの `--update` は拒否される）。Chrome が既定パス(macOS の Google Chrome)に無い場合は `CHROME_PATH` で指定する）
 - **lint**: `golangci-lint run`
 - **フォーマット**: `gofmt -l .`（差分ゼロが正）
 - **HCL フォーマット**: `tofu fmt -check -recursive infra`（exit 0 が正）
@@ -49,11 +49,6 @@ make ui-baseline RUN=<run-id>
 # ポート変更
 PORT=3000 make run
 
-# フロントエンド確認（サーバー不要）
-# static/preview.html をローカルHTTPサーバーで開く
-python3 -m http.server 8888 --directory static
-# → http://localhost:8888/preview.html
-
 # Firestoreから未登録グレードURLを抽出（要: gcloud auth application-default login）
 FIRESTORE_DATABASE=exvs-analyzer make extract-grades
 
@@ -86,7 +81,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 フロントエンドがIndexedDBにmatchesを保存し、JS分析関数で統計を計算・表示
 ```
 
-**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `POST /cancel/{id}`（実行中スクレイピングの中断。ログアウト時に使用）, `GET /matches`（セッション本人の試合のみ）, `GET /schema-version`（MatchDataの現行スキーマバージョン。Firestore未アクセス。フロントのIndexedDBキャッシュ再構築判定に使用）, `GET /tag-partners`（セッション本人のみ。分析直後は `/result` にも含む）, `GET /ms-list`（機体名→画像URL）, `GET /national-ms-stats`（機体ごとの全国勝率・使用率。深夜バッチが取得した静的データを起動時に読み込んで配信）, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）, 自動更新: `GET|POST /auto-refresh`（状態取得・有効化/無効化。有効化は合言葉が要る）, `POST /auto-refresh/touch`（最終アクセス更新）, `POST /internal/auto-refresh/tick`（Scheduler 専用。OIDC 検証、対象がいれば Job を起動）
+**主要エンドポイント:** `POST /analyze`, `GET /status/{id}`, `GET /result/{id}`, `POST /cancel/{id}`（実行中スクレイピングの中断。ログアウト時に使用）, `GET /matches`（セッション本人の試合のみ）, `GET /schema-version`（MatchDataの現行スキーマバージョン。Firestore未アクセス。フロントのIndexedDBキャッシュ再構築判定に使用）, `GET /tag-partners`（セッション本人のみ。分析直後は `/result` にも含む）, `GET /ms-list`（機体名→画像URL）, `GET /national-ms-stats`（機体ごとの全国勝率・使用率。深夜バッチが取得した静的データを起動時に読み込んで配信）, `GET /session`, `DELETE /session`, `POST /reanalyze`, `GET /health`, `GET /`（静的UI）, 自動更新: `GET|POST /auto-refresh`（状態取得・有効化/無効化。有効化は合言葉が要る）, `POST /auto-refresh/touch`（最終アクセス更新）, `POST /internal/auto-refresh/tick`（Scheduler 専用。OIDC 検証、対象がいれば Job を起動）, メモ: `GET|POST /notes`（一覧・作成。セッション本人のみ・クエリの `user_key` は無視）, `PUT|DELETE /notes/{id}`（編集・削除。書き込みはユーザー単位のレート制限、POST・PUT は JSON のみ）
 
 ## コード構成
 
@@ -96,40 +91,41 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `cmd/auto-refresh/` — 自動更新の Cloud Run Job のエントリ（`autorefresh.RunJob`）。Dockerfile で `/app/auto-refresh` に入る
 - `cmd/hash-passphrase/` — 自動更新の合言葉の argon2id ハッシュを出力するCLI
 - `cmd/extract-grades/` — Firestoreから全ユーザーの未登録グレードURLを抽出するCLI
-- `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`, `ClassRecord`/`WinRecord`/`CountStat`）
+- `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `Note`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`, `ClassRecord`/`WinRecord`/`CountStat`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出・階級の通し番号（Pilot 10=1 … Extreme 1=40、∞=41。段位は10が下で1が上。試合データ（`/result`・`/matches`）の `grade` 系フィールドに使う）（`LoadGradeList`, `BuildGradeMap`, `BuildRankMap`, `RankOf`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。判別できなければ空=不明。機能追加前の試合は相方のタッグ登録から推定して DB に補完済みで `match_mode_inferred: true` が付く）を判別。勝ちの行の「N WINS」から連勝数（表示が無ければ1、読めなければ0=不明でフロントが推定）を読み `DatedScore.WinStreak`→`MatchData.win_streak` に流す
 - `internal/geoip/` — 国別アクセス判定（`geoip.go`。CC0の許可リストCSVをソート済みレンジに読み込み二分探索。`Load`, `Contains`）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
-- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）
+- `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）+ メモ（`notes.go`。`notes/{userKey}/items/{id}` に1件1ドキュメントで持つ。件数・ピン上限は書き込みと同じトランザクション内の count 集計で判定）
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`。`clientIP` は Cloud Run（domain mapping）の XFF 末尾=実クライアントIPを採る。末尾より前は詐称可能なので使わない）+ 国別アクセス制限（`geoblock.go`。`GEO_RESTRICT=true` で `/analyze`・`/reanalyze` を日本のみ許可。読込失敗・IP解釈不能時はフェイルオープン）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ Scheduler の OIDC 検証（`oidc.go`）
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`。`clientIP` は Cloud Run（domain mapping）の XFF 末尾=実クライアントIPを採る。末尾より前は詐称可能なので使わない）+ 国別アクセス制限（`geoblock.go`。`GEO_RESTRICT=true` で `/analyze`・`/reanalyze` を日本のみ許可。読込失敗・IP解釈不能時はフェイルオープン）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ メモ API（`notes.go`。入力検証・上限・書き込みのレート制限）+ Scheduler の OIDC 検証（`oidc.go`）
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
-- `static/styles/` — CSS（ダーク既定・ライトは選択可(端末に合わせる/ダーク/ライト)、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `:root[data-theme="light"]` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全15ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`<link>` の順がカスケード順なので入れ替えない
+- `static/styles/` — CSS（ダーク既定・ライトは選択可(端末に合わせる/ダーク/ライト)、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `:root[data-theme="light"]` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全16ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`notes.css` はメモ（接頭辞 `note-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/theme-init.js` — テーマの初期適用と切替（`window.catalyzerTheme`。`<head>` の同期クラシックスクリプト。`catalyzer_theme` を読み `<html data-theme>` と theme-color meta を付け、端末に合わせる中は OS 変更を購読）。import を持たない
-- `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・再読み込みでの再分析（`shouldReanalyzeOnReload`。ホーム画面アプリ判定 `STANDALONE`）・自動更新の差分取り込み（`pullAutoRefresh`）・通知（`showNotice`。`#error` に Notice を描く）・分析中の進捗表示と速報の自動描画（`showProgress`/`takePrelim`）・`window.renderReport` のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
-- `static/components/report/` — レポート画面（9ファイル）。`report.js`（Report・Skeleton・タブ定義・状態管理）/ `controls.js`（TimeSelector/PeriodSelector/MsSelector(シート先頭で対戦形式も選ぶ)/LensToggle）/ `summary.js`（ReportSummary・タブごとの要約）/ `action-plan.js`（ActionPlanPanel）/ `overview.js`（総合: BasicLensSection/OverviewPane）/ `playstyle.js`（立ち回り）/ `burst.js`（覚醒）/ `matchup.js`（相性: 敵機・相手の階級・僚機・固定相方 FixedPartnerPanel・編成）/ `time.js`（時間帯: 時間帯・曜日・日別・シーズン）（各タブの Pane）。720px より広い画面では絞り込み行の右端(試合検索・総合戦歴は上部バーの右端 `.topbar-trailing`)に再分析ボタン。standalone の引っ張り再分析はホーム・レポート・試合検索・総合戦歴で有効
-- `static/components/shell.js` — 外枠 AppShell（トップバー・本文・下部タブバー TabBar）、その他画面 MoreView（共有タイル・データ・アカウント）、画面状態 `useView`（`catalyzer_view` の読み書き）、下部タブの更新の点 `useTabBadges`（`catalyzer_tab_seen`）、下スクロールで絞り込み行を隠す `useCollapsingBar`、ホーム画面アプリだけの引っ張り再分析 `PullToRefresh`、その他画面のロゴと「再分析」行、設定のテーマ選択（`ThemeSettings`・`THEME_OPTIONS`）と自動更新セクション（`AutoRefreshSettings`。操作は `autoRefresh` props で app.js から注入）。トップバー定義はここだけ（絞り込みもタブも無い画面は高さ0）
-- `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。期間では絞らず、対戦形式はレポートと共有して効かせる。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）
-- `static/components/popover.js` — 共通ポップオーバー（`usePopover`/`useDismiss`/`Popover`/`popoverStyle`）。外側クリック・Esc の document リスナーはここだけ。ドロップダウン5種が載る
+- `static/app.js` — フロントエンドのエントリ（CSP対応で外部化）。定数・分析ジョブの開始/中断/再分析・ログアウト・キャッシュ再構築・フォーム配線・セッション復元・再読み込みでの再分析（`shouldReanalyzeOnReload`。ホーム画面アプリ判定 `STANDALONE`）・自動更新の差分取り込み（`pullAutoRefresh`。表示中は3分おきに touch なしで取る）・通知（`showNotice`。`#error` に Notice を描く）・分析中の進捗表示と速報の自動描画（`showProgress`/`takePrelim`）のみ。Preact コンポーネントは定義しない（`REPORT_ACTIONS` を props で Report に注入し、report/ から app.js を import しない）
+- `static/components/report/` — レポート画面（9ファイル）。`report.js`（Report・Skeleton・タブ定義・状態管理）/ `controls.js`（TimeSelector/PeriodSelector/MsSelector(シート先頭で対戦形式も選ぶ)/LensToggle）/ `summary.js`（ReportSummary・タブごとの要約）/ `action-plan.js`（ActionPlanPanel）/ `overview.js`（総合: BasicLensSection/OverviewPane）/ `playstyle.js`（立ち回り）/ `burst.js`（覚醒）/ `matchup.js`（相性: 敵機・相手の階級・僚機・固定相方 FixedPartnerPanel・編成。メモが使えるときは得意・苦手な敵機の行に印を付け、タップで行内にメモ `EnemyNotes` を開く）/ `time.js`（時間帯: 時間帯・曜日・日別・シーズン）（各タブの Pane）。720px より広い画面では絞り込み行の右端(試合検索・総合戦歴は上部バーの右端 `.topbar-trailing`)に再分析ボタン。総合戦歴は先頭に戻るボタン `classrecord-back`(その他へ)。standalone の引っ張り再分析はホーム・レポート・試合検索・総合戦歴で有効(メモ・その他では無効)
+- `static/components/shell.js` — 外枠 AppShell（トップバー・本文・下部タブバー TabBar）、その他画面 MoreView（総合戦歴への行(`onClassRecord`。点は `classRecordDot`)・共有・設定・データ・アカウント）、画面状態 `useView`（`catalyzer_view` の読み書き）、下部タブの更新の点 `useTabBadges`（`catalyzer_tab_seen`）。下部タブはホーム・レポート・試合検索・メモ・その他の5種で、総合戦歴(view `classrecord`)はその他の下の画面(`tabOf`・`tabDot` で選択中と点を親タブに寄せる)。他に、下スクロールで絞り込み行を隠す `useCollapsingBar`、ホーム画面アプリだけの引っ張り再分析 `PullToRefresh`、その他画面のロゴと「再分析」行、設定のテーマ選択（`ThemeSettings`・`THEME_OPTIONS`）と自動更新セクション（`AutoRefreshSettings`。操作は `autoRefresh` props で app.js から注入）。トップバー定義はここだけ（絞り込みもタブも無い画面は高さ0）
+- `static/components/home.js` — ホーム画面（HomeView）。前回との比較と勝率アップミッション（ActionPlanPanel）。期間では絞らず、対戦形式はレポートと共有して効かせる。起動時は常にこの画面で開く（app.js が `catalyzer_view` を home にする）。最上部のピン留めしたメモ（`PinnedNotes`）は notes.js が持ち report.js が HomeView の前に描く。ホーム・メモタブの「書く」は鉛筆アイコン
+- `static/components/popover.js` — 共通ポップオーバー（`usePopover`/`useDismiss`/`Popover`/`popoverStyle`）。外側クリック・Esc の document リスナーはここだけ。ドロップダウン5種が載る。全画面の層 `Layer`（絞り込み・試合詳細・メモを書くシートの共通部品）もここ。重なると `createLayerStack` で最上位の1枚だけが Esc で閉じる
+- `static/components/notes.js` — メモ（日付・敵機0〜5機・自機・僚機・ピン。どれも任意。敵機・自機・僚機のうち指定したものが全部合う試合に出す。敵機はどれか1機がいれば合う。試合詳細では当たった相手の組(1機ずつ・2機とも)に1回だけ出す。メモタブはピンのタブを持たず「すべて」の先頭にピン留めを並べ、線画の印を付ける。メモタブとホームのピン留めの行は左スワイプ(`SwipeNote`)でピン留めの切替と削除(2回タップで確定)）。`useNotes`（Report が持つ。メモリだけに置き IndexedDB・localStorage には保存しない。ログイン状態を保持していない端末・401 は 'off' で、メモタブだけ案内が出て他の画面は今と同じ）・`NoteSheet`（書くシート。どの入口から開いても同じ部品。敵機・自機・日付の既定は試合詳細=相手2機・その試合の自機・プレイ日・他=敵機なし(相性タブはその敵機)・最後に遊んだ自機(相性タブは選択中の機体を優先)・今日のプレイ日。僚機は常に指定しない）・`MatchNotesPanel`（試合詳細のメモ欄。既定は閉じ、見出しに件数）・`MatchNotes`・`EnemyNotes`・`NoteItem`・`NoteMark`・`NotesView`（メモタブ。書く・一覧 `NoteList`(内部)。off/loading/error は案内のみ）・`PinnedNotes`（ホームのピン留め。「書く」は `homeDraft`）。import してよいのは popover/parts/ui/lib/notes/analysis/today だけ（search.js・charts.js・report/ から import されるため）
 - `static/components/chart-canvas.js` — `ChartCanvas`（`new Chart(` の唯一の生成箇所。テーマ切替で描き直す）・`useThemeName`（`data-theme` を購読。`themeReader` で色を解決する描画が呼ぶ）と軸・凡例・色ヘルパ（`winRateComboConfig` 等）
-- `static/components/parts.js` — 段階B向けの共通部品5種（Chip/ToggleGroup/Summary(主指標付き)/RowList(バー付き)/Notice）。Chip は `onRemove` で×ボタン付きになる。スタイルは `static/styles/parts.css`。Notice は `action={label,onClick}` で二次ボタン（`.ui-action`）を添えられる。RowList はその他画面（MoreView）が使う（部品一覧は ui-check の `parts`・`parts-sheet` 画面）
+- `static/components/parts.js` — 段階B向けの共通部品5種（Chip/ToggleGroup/Summary(主指標付き)/RowList(バー・更新の点 `dot` 付き)/Notice）。Chip は `onRemove` で×ボタン付きになる。スタイルは `static/styles/parts.css`。Notice は `action={label,onClick}` で二次ボタン（`.ui-action`）を添えられる。RowList はその他画面（MoreView）が使う（部品一覧は ui-check の `parts`・`parts-sheet` 画面）
 - `static/analysis/stats.js` — 統計分析関数。時間帯/曜日/日別/シーズン/基本データ/勝敗パターン/敵相性/相手の階級別勝率（相手2人の平均の7段×相方の階級。`computeOpponentGrade`）/相方/コスト編成/MS編成/ダメージ貢献/被撃墜と勝率（自分×相方の2軸・回数ベース）/覚醒回数/先落ち後落ち/順落ち（自機・僚機が順不同で15秒以内に続けて撃墜。試合継続/そのまま負け/なしに分類）/覚醒タイミング（発動時の被撃墜数で1機目/2機目/3機目に分類）/覚醒タイプ別傾向（F/S/E）/OLスタンバイの順番と勝率（自分と相手の両方がスタンバイになった試合を前後で分類）/試合時間と勝率（30秒刻み＋タイムアップ）/固定相方（シャッフルと分かった試合は除く）/対戦形式での絞り込み `filterByMode`（形式不明は全形式のときだけ含む）/SNS共有データ/MS別サマリー
 - `static/analysis/patterns.js` — 試合の展開（負け筋）の定義一覧 `PATTERNS`（15件）と判定の純粋関数（`testPattern`/`goalPattern`/`patternHits` 等）。ミッション判定・試合検索・詳細の強調が同じ定義を使う。新しい展開は定義1件+テスト1本。stats.js のみ import
 - `static/analysis/coach.js` — 勝率アップミッションの純粋関数（判定は patterns.js から導き、各ミッションを達成できなかった（負け筋に当てはまった）試合数 `unachieved` を持つ）。試合を負け筋の状態（被撃墜回数・先落ち/後落ち・1機目覚醒・覚醒中の被撃墜・覚醒回数・順落ち・OL を覚醒と重ねず使用・最後のコストで覚醒なし・被ダメ/与ダメ/EXダメ）とそれ以外に二分し、勝率差×頻度で影響度と見込み勝率を算出（`computeActionPlan`）。選択したミッションの試合ごとの達成判定（`evaluateGoal`）、苦手機体・3連敗直後の勝率（参考情報）、直近20戦の悪化指標も算出。ホーム画面の ActionPlanPanel が全期間（機体・対戦形式で絞り込み可。挑戦中の枠は全形式で数える）の試合で表示
 - `static/analysis/today.js` — 今日（試合が無ければ最後に遊んだ日）を前回プレイした日と比べる純粋関数（`compareToday`。日付は朝5時で切り替え `playDay`）。勝率・与ダメ・被ダメ・与被ダメ比・EXダメ・被撃墜
-- `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え・適用中の条件と並べ替えの表示文言 `appliedFilterLabels`/`sortLabel`）。試合の展開（複数選択・すべて/どれかに当てはまる）・負け筋（ホームのミッションから渡る条件）・挑戦中の範囲による絞り込み（`activeConditions`/`removableFilterLabels`）も持つ。対戦形式の条件も持つ。IndexedDBの全試合をフロントエンドでフィルタ
+- `static/analysis/search.js` — 試合検索の純粋関数（機体名一覧の集計・条件絞り込み・並べ替え・適用中の条件と並べ替えの表示文言 `appliedFilterLabels`/`sortLabel`）。試合の展開（複数選択・すべて/どれかに当てはまる）・負け筋（ホームのミッションから渡る条件）・挑戦中の範囲による絞り込み（`activeConditions`/`removableFilterLabels`）も持つ。対戦形式の条件・メモがある試合の条件（`noteEnemies`。`filterMatches` の第3引数にメモの一覧）も持つ。熟練度（自機・僚機。`proficiencyLabel`）・自分/相方/相手の階級・自分/相方のスコア順位の複数選択条件も持つ。IndexedDBの全試合をフロントエンドでフィルタ
 - `static/components/ui.js` — 汎用UIコンポーネント（Panel/Tips(事実の箇条書き)/SortableTable/Table/SubSection/Dropdown/MultiSelect/Autocomplete）
 - `static/analysis/classrecord.js` — 通算戦績の整形純粋関数（分析カバー率・通算K/D）
-- `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）
-- `static/components/search.js` — 試合検索ビュー（SearchView。シートの期間・日付・対戦形式はレポートと共有する値（`scope`/`onScope`）。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`Layer`/`FilterSheet`）＋適用中タグ＋結果一覧（`ResultItem`。対戦形式と連勝数の表示・機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。4人の比較・スコア・試合経過）
-- `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（WinRateRowList/EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
+- `static/components/classrecord.js` — モバイル総合戦歴ビュー（ClassRecordView）。通算/チーム/ソロ/日週月の戦績と通算記録（敵撃破数等）。その他の「総合戦歴」の行から開く
+- `static/components/search.js` — 試合検索ビュー（SearchView。シートの期間・日付・対戦形式はレポートと共有する値（`scope`/`onScope`）。試合の展開欄・×で外せるタグ・理由ラベル・詳細の✕とOL発動の強調と一文）。絞り込みの全画面シート（`FilterSheet`。層は popover.js の `Layer`）＋適用中タグ＋結果一覧（`ResultItem`。対戦形式と連勝数の表示・機体サムネイル `MsThumb`・左端の勝敗の色帯・日付順のとき日付区切り・メモがある試合に印 `NoteMark`。絞り込みシートにメモのチップ。並べ替えシート・ページ送り）＋全画面の試合詳細（`MatchDetail`。結果の直後にメモ（`notes` props。メモが使えるときだけ）・4人の比較・スコア・試合経過）
+- `static/components/charts.js` — Chart.jsグラフ＋レポートセクション（WinRateRowList（onSelect と entry の mark/expand/key を受ける）/EnemyMatchupSection/PartnerSection/時間帯・曜日・日別・シーズンChart等）
 - `static/lib/db.js` — IndexedDBキャッシュ（試合データの保存・読み込み・差分取得・ログアウト時の全消去 `clearAllMatches`）
 - `static/lib/format.js` — 書式ヘルパー（数値フォーマット・色分け・SVGアイコン・共有テキスト生成）
-- `static/lib/autorefresh.js` — 自動更新の純粋ロジック（`diffAfterParam`・`shouldPull`・状態表示の文言 `describeStatus`・`errorMessage`）。通信と描画は持たない
+- `static/lib/autorefresh.js` — 自動更新の純粋ロジック（`diffAfterParam`・`shouldPull`・表示中だけ touch なしで差分を取る定期取得の開始停止 `createPeriodicPull`・状態表示の文言 `describeStatus`・`errorMessage`）。通信と描画は持たない
 - `static/lib/theme.js` — canvas/Chart.js 用に CSS 定義を読む `themeReader`（1描画1回 getComputedStyle を呼び読み取り関数を返す）
 - `static/lib/gantt.js` — 試合経過ガントの目盛りの純粋ロジック（`ganttTicks`。終了ラベルと重なる目盛りを画面幅別に間引く）。import を持たない
 - `static/lib/topbar.js` — 上部バーの純粋ロジック（引っ張り再分析 `pullStep`・絞り込み行の隠す/出す `nextBar`）。import を持たない
@@ -139,12 +135,12 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `static/lib/tabseen.js` — 下部タブの更新の点の純粋ロジック（`tabBadges`・`markSeen`。タブごとに最後に見たときの試合数等と比べる）。import を持たない
 - `static/lib/launch.js` — 起動経路の判定（`navigationType`・`isStandalone`・再読み込みでの再分析の抑止 `shouldReanalyzeOnReload`）。DOM・storage を持たない
 - `static/lib/userkey.js` — サーバーの `model.UserKey` と同じユーザーキーの導出（`userKeyOf`。ログイン時に前ユーザーのキャッシュを出さない判定に使う）
+- `static/lib/notes.js` — メモの純粋ロジック（取得応答の検証 `sanitizeNotes`・敵機/試合ごとの抽出 `notesForEnemy`/`notesForMatch`/`matchEnemies`・メモタブの機体別まとめ `groupByMs`/`MS_TABS`・既定の自機 `lastPlayedMs`・ピン留め `pinnedNotes`/`canPinMore`・書くシートの下書き `defaultDraft`/`draftToRequest`/`validateDraft`・敵機の欄 `canAddEnemy`/`enemyOptions`・機体の選択肢 `msChoices`）。上限（敵機の上限は `limits.enemies_max`）はサーバーの `GET /notes` の `limits` を使い定数を持たない。import を持たない
 - `static/lib/match.js` — 試合データの判定ヘルパー（タイムアップ判定・対戦形式の表示名 `MODE_LABELS`/`modeLabel`・連勝数 `winStreaks`(公式の `win_streak` が無い取得前の試合は相方・形式・10分以内の間隔で推定。10連勝で打ち止め)/`streakLabel`）。import を持たず analysis 層からも使う
-- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系を含む API をモックし static/ を無加工配信。状態は持たず、`/analyze` の username（`prelim@`/`partial@`/`error@example.com`）でジョブ id を、Cookie `preview_session=valid` で `/session` を選ぶ、`/__preview/` でサンプル投入（`preview/seed.js`。`?today=N` で最後の N 試合を今日に、`?seen=N` でタブの点を再現、`?focus=N` で後ろから N 戦を挑戦中のミッションの対象に、`?legacy=1` で全試合を対戦形式・連勝数・階級不明に））/ `fixture.js`（架空データ60件）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（75画面×ダーク/ライトの150枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・1段に収まるか(`oneRow`。はみ出し px を出す)・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）/colorScheme（端末の配色を切り替える）。画面の `standalone` でホーム画面アプリとして開く。画面の `clock` で Date を指定日時から進む時計に固定（カレンダー初期月など日時依存の UI 用）。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の150枚。CI の Linux・固定 Chrome で撮影）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
-- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/patterns/today/tabseen/format/search/classrecord/theme/theme-init（初期適用・FOUC 構造）/topbar/runlock/launch/userkey/progress/gantt/streak/scopeの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、user-state（ログアウトとセッション失効で消す画面状態のキーが揃っているかを app.js の静的検査で確認）、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
+- `tools/ui-check/` — UI oracle（依存ゼロ・要Chrome）。`server.js`（`/auto-refresh` 系・`/notes`（Cookie があれば fixture のサンプル、無ければ空。どちらも 200。本文に `保存エラー` を含む保存は 500）を含む API をモックし static/ を無加工配信。状態は持たず、`/analyze` の username（`prelim@`/`partial@`/`error@example.com`）でジョブ id を、Cookie `preview_session=valid` で `/session` を選ぶ、`/__preview/` でサンプル投入（`preview/seed.js`。`?today=N` で最後の N 試合を今日に、`?seen=N` でタブの点を再現、`?pins=N` でメモのピン留め件数（Cookie `preview_pins`。モックの GET /notes が `notes(pins)` を返す）、`?focus=N` で後ろから N 戦を挑戦中のミッションの対象に、`?legacy=1` で全試合を対戦形式・連勝数・階級不明に））/ `fixture.js`（架空データ60件・メモ6件 `notes()`）/ `cdp.js`（CDP pipe クライアント）/ `check.js`+`screens.js`（100画面×ダーク/ライトの200枚の撮影・必須要素・console エラー・14px 未満検出・タップ領域44px検査・`inview`/`outview`/`absent` 検査・固定高さ(`fixedMax`)と帯の検査・1段に収まるか(`oneRow`。はみ出し px を出す)・基準比較。操作は click/type/scroll/wait/reload/scrollBy/pull（CDP のタッチ）/swipe（要素の中央から横に指を滑らせる）/waitGone（要素が消えるまで待つ）/colorScheme（端末の配色を切り替える）。画面の `standalone` でホーム画面アプリとして開く。画面の `clock` で Date を指定日時から進む時計に固定（カレンダー初期月など日時依存の UI 用）。テーマは `Emulation.setEmulatedMedia` で明示）/ `baseline/`（基準画像 `<id>-<theme>.png` の200枚。CI の Linux・固定 Chrome で撮影）。操作・必須要素は `data-ui` と ARIA 属性で探す（コンポーネントの目印。クラス名は使わない）。`preview/parts.html` は部品一覧ページ
+- `static/__tests__/` — フロントエンドJSテスト（Node.js組み込みテストランナー、依存ゼロ。stats/coach/patterns/today/notes/tabseen/format/search/classrecord/theme/theme-init（初期適用・FOUC 構造）/topbar/runlock/launch/userkey/progress/gantt/streak/scopeの純粋関数テスト、contrast.test（tokens.css を解析しダーク・ライトの文字色×背景色が4.5:1以上か判定）/typography.test（font-size が14px以上か静的検査）テスト、db（IndexedDBキャッシュ）テスト、shell（タブ定義と画面状態の読み出し）、autorefresh（自動更新の純粋ロジック）テスト、user-state（ログアウトとセッション失効で消す画面状態のキーが揃っているかを app.js の静的検査で確認）、app-wiring（再構築が分析のロックを通るか・定期取得が touch を送らないかを app.js の静的検査で確認）、popover/chart-canvas/skeleton-actions のコンポーネント周辺テスト。`tools/ui-check/screens.test.js` は画面定義の規約テスト）
 - `static/htm-preact-standalone.js` — htm + Preact ライブラリ（スタンドアロン版）
 - `static/chart.umd.min.js` — Chart.js ライブラリ（グラフ描画用）
-- `static/preview.html` — フロントエンド開発用プレビュー（gitignore対象）
 - `data/ms_list.json` — MS画像URL→名前・コストのマッピング（コスト: 3000/2500/2000/1500）
 - `data/national_ms_stats.json` — 機体ごとの全国平均勝率・使用率（`cmd/update-mslist` が週次で更新）
 - `data/grade_list.json` — 階級画像URL→階級名・グレードのマッピング（Pilot/Valiant/Ace/Extreme、グレード0=∞）
@@ -159,6 +155,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - Build: `build.yml`（develop/mainへのpush時。develop→stg、main→prod。イメージビルド&プッシュ（content key が同じなら stg で検証済みイメージを再利用）→ 対象環境の `infra/app/<env>.tfvars` の `image_tag` を書き換え → コミット → deploy.yml 呼び出し。main の後は main を develop に自動マージ。ラベル `no-deploy` でスキップ（develop への同期は行うが stg 再ビルドはしない）。手動実行は main なら prod、それ以外のブランチは stg）
 - Deploy: `deploy.yml`（`infra/app/**` の変更の push（develop→stg、main→prod）or build.yml からの `workflow_dispatch` → `tofu apply -var-file=<env>.tfvars`。refresh 付きで実物を読み直してから適用する（手元の plan・apply も同じ）。prod の手動実行は main からのみ）
 - UI Check: `ui-check.yml`（main/develop 向けPRで `static/**`・`tools/ui-check/**`・`ui-check.yml` を変えたとき。ubuntu-26.04 で全画面の撮影と基準画像の比較。`skip-ci` では止まらない。失敗時は撮った画像を artifact に上げる。`ui-baseline` ラベルで基準を撮り直し artifact に上げる。CI は push しない）
+- AIレビュー: CodeRabbit（GitHub App。設定は `.coderabbit.yaml`。develop・main 向けPRを CLAUDE.md の規約に照らしてレビューする。ボット（Renovate）・draft・リリース PR（タイトル `release:`）・MSリスト自動更新・`no-review` ラベルの PR は対象外。画像・基準画像・`data/` の生成データ・同梱ライブラリ・`go.sum`・`infra/app/*.tfvars` は読まない）
 - Infra CI: `infra-ci.yml`（infra/配下・`.github/scripts/`・自身の変更時に `tofu fmt -check` と shared + app(prod/stg)の `tofu plan`（PR 用の身元は全リソースを読めないので `-refresh=false`、state に書けないので `-lock=false`）。PR コメントは `.github/scripts/tofu-plan-summary.sh` が出す変更件数とリソースのアドレスだけ（公開 repo に識別子を出さない）。infra-ci・build・deploy のジョブログは `.github/scripts/mask-gcp-ids.sh` でプロジェクト ID・番号をマスク。両スクリプトのテストは `.github/scripts/scripts.test.js`）
 - MSリスト更新: `update-mslist.yml`（毎日03:00-06:00 JST、ランダムスリープ。公式サイトは日本以外の IP を拒否するため、取得は東京の Cloud Build（実行 SA `mslist-build`、ログイン情報は Secret Manager）で行い、結果をバケット経由で受け取る。変更時に main 向けPRを自動作成・マージし prod に反映）
 - 依存更新: Renovate（`renovate.json5`）。`renovate.yml` が毎時、自前の GitHub App のトークンで実行する（秘密鍵は environment `renovate`。develop のみ。設定手順は infra/README.md）。公開から3日経った版だけ develop 向けに PR を作る（セキュリティ修正も3日待つ）。minor/patch とイメージの digest は CI 緑で Renovate 自身が develop に自動マージし、major と OpenTofu の provider・Renovate 本体のイメージは手動マージ（prod へは develop→main の PR で人が出す）。待ち中・保留中の更新は Dependency Dashboard の issue に並ぶ
@@ -170,6 +167,7 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - 作業ブランチのPRは `develop` 向けに作る。本番リリースは `develop` → `main` のPR
 - PRの `no-deploy` ラベルはデフォルトでは付けない（develop マージで stg、main マージで prod に自動デプロイされる）。止めるのは build（イメージ更新）だけで、`infra/app/**` の変更はラベルに関係なくマージで apply される。新しいイメージが前提の設定変更(Job の command・ポート等)は、イメージの PR と分けて後から入れる(同じマージだと push の deploy が先に古いイメージで当たる)
 - Go/Docker以外の軽微な変更には `skip-ci` ラベルを付ける（Renovate の PR には付けない。skipped のチェックも緑とみなして自動マージされる）
+- 本当に軽微な修正（typo・文言・コメントのみ等）には `no-review` ラベルを付けて CodeRabbit のレビューを省く。迷ったら付けない
 - **issueを作成する際は `skip-ci` や `no-deploy` ラベルを付けない。** これらはPR専用のラベル
 - デプロイは `no-deploy` なしでPRをマージ、または `gh workflow run build.yml --ref <branch>` で手動実行（main は prod、それ以外は stg）
 - **コード構成やディレクトリ構造に変更があった場合は、CLAUDE.mdの「コード構成」セクションとREADME.mdのプロジェクト構成も合わせて更新すること**
@@ -209,6 +207,6 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - **GCPプロジェクトID、バケット名、サービスアカウント等のインフラ識別子をコードやCLAUDE.mdにハードコードしない。** 環境変数またはGitHub Secrets/Variablesを使うこと。
 - **IAM権限は最小権限の原則を徹底する。** プロジェクトレベルの広範なロール（例: `roles/storage.admin`）ではなく、バケット単位・リソース単位で必要最低限のロール（例: `roles/storage.objectUser`）を付与すること。
 - 公開リポジトリのため、コミット履歴にも残ることを意識する。
-- マルチステージDockerfile: `golang:<Go の版>-alpine` でビルド、`alpine` で実行(版は Dockerfile が正。Renovate が更新する)
-- コンテナイメージは `<タグ>@sha256:<digest>` で固定する。digest は Renovate が付けて更新する（`docker:pinDigests`）。Makefile・workflow に新しいイメージを足したら `renovate.json5` の regex manager に名前を足す
+- マルチステージDockerfile: `golang:<Go のパッチ版>-alpine<Alpine の版>` でビルド、`alpine:<パッチ版>` で実行(版は Dockerfile が正。Renovate が更新する)
+- コンテナイメージは `<タグ>@sha256:<digest>` で固定する。digest は Renovate が付けて更新する（`docker:pinDigests`）。golang・alpine はパッチ版までタグに書き、同じタグの digest 更新は取り込まない（修正は版の更新で入る。Alpine のマイナーは接尾辞が変わるため手で上げる）。Makefile・workflow に新しいイメージを足したら `renovate.json5` の regex manager に名前を足す
 - CSP: `script-src 'self'`（インラインスクリプト禁止）、`style-src 'self' 'unsafe-inline'`

@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -71,6 +72,70 @@ func TestShouldDeleteSession(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := shouldDeleteSession(tt.usingSession, tt.token, tt.err); got != tt.want {
 				t.Errorf("shouldDeleteSession = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestScrapeErrorMessage(t *testing.T) {
+	expired := scrapeErrorMessage(scraper.ErrLoginFailed, true)
+	denied := scrapeErrorMessage(fmt.Errorf("x: %w", scraper.ErrAccessDenied), true)
+	if denied == expired {
+		t.Fatalf("セッション使用中の 403 が失効と同じ文言: %q", denied)
+	}
+	// app.js は「セッション」を含むエラーでログイン画面に戻す
+	if strings.Contains(denied, "セッション") {
+		t.Errorf("403 の文言に「セッション」を含む: %q", denied)
+	}
+	if !strings.Contains(denied, "時間をおいて") {
+		t.Errorf("403 の文言が再試行を促していない: %q", denied)
+	}
+	if got := scrapeErrorMessage(scraper.ErrAccessDenied, false); got != denied {
+		t.Errorf("403 の文言がセッション有無で違う: %q / %q", got, denied)
+	}
+	if !strings.Contains(expired, "セッション") {
+		t.Errorf("失効の文言: %q", expired)
+	}
+	// セッション使用中の 401 も失効なので、ログイン画面に戻る文言にする
+	if got := scrapeErrorMessage(fmt.Errorf("x: %w", scraper.ErrUnauthorized), true); got != expired {
+		t.Errorf("セッション使用中の 401 = %q, want %q", got, expired)
+	}
+	if got := scrapeErrorMessage(scraper.ErrLoginFailed, false); strings.Contains(got, "セッション") {
+		t.Errorf("パスワードのログイン失敗に「セッション」を含む: %q", got)
+	}
+}
+
+func TestFailScrapeOn403(t *testing.T) {
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	tests := []struct {
+		name         string
+		ctx          context.Context
+		err          error
+		usingSession bool
+		wantBlocked  bool
+		wantStatus   model.JobStatus
+	}{
+		{"セッション使用中の 403 はブロック", context.Background(), fmt.Errorf("x: %w", scraper.ErrAccessDenied), true, true, model.StatusError},
+		{"パスワードでの 403 はブロック", context.Background(), scraper.ErrAccessDenied, false, true, model.StatusError},
+		{"ログイン失敗はブロックしない", context.Background(), scraper.ErrLoginFailed, false, false, model.StatusError},
+		{"5xx はブロックしない", context.Background(), scraper.ErrServerError, true, false, model.StatusError},
+		{"キャンセル済みの 403 はブロックしない", canceled, scraper.ErrAccessDenied, true, false, model.StatusCancelled},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := &Job{ID: "t", UserKey: "user1", ctx: tt.ctx}
+			var blocked []string
+			failScrape(j, tt.err, tt.usingSession, []On403Func{func(k string) { blocked = append(blocked, k) }})
+			if tt.wantBlocked {
+				if len(blocked) != 1 || blocked[0] != "user1" {
+					t.Errorf("on403 = %v, want [user1]", blocked)
+				}
+			} else if len(blocked) != 0 {
+				t.Errorf("on403 が呼ばれた: %v", blocked)
+			}
+			if j.Status != tt.wantStatus {
+				t.Errorf("Status = %v, want %v", j.Status, tt.wantStatus)
 			}
 		})
 	}

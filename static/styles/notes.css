@@ -1,0 +1,61 @@
+/* ===== メモ(components/notes.js)。色は tokens.css の定義だけを使う ===== */
+.note-match { display: flex; flex-direction: column; gap: 16px; }
+.note-group { display: flex; flex-direction: column; gap: 8px; }
+.note-group-head { margin: 0; color: var(--text); font-size: 0.9375rem; }
+.note-empty { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.note-write { align-self: flex-start; }
+
+.note-item { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font-size: 0.9375rem; font-weight: normal; text-align: left; cursor: pointer; transition: none; }
+.note-item:hover { background: var(--accent-a10); }
+.note-item-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 0.875rem; }
+.note-item-meta b { color: var(--accent-2); }
+.note-item-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+
+.note-swipe { position: relative; overflow: hidden; border-radius: 8px; }
+.note-swipe-front { position: relative; border-radius: 8px; background: var(--panel-2); touch-action: pan-y pinch-zoom; transition: transform .2s ease; }
+.note-swipe .note-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.note-swipe-drag { transition: none; }
+.note-swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; width: 168px; }
+.note-swipe-actions button { flex: 1; min-height: 44px; margin: 0; padding: 0 4px; border: 0; border-radius: 0; font-size: 0.875rem; font-weight: bold; }
+.note-swipe-pin, .note-swipe-pin:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
+.note-swipe-delete, .note-swipe-delete:hover:not(:disabled) { background: var(--bad-a18); color: var(--bad); }
+.note-swipe-delete:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bad); }
+.note-panel-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 2px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.note-panel-toggle:hover, .note-panel-toggle:focus { background: none; color: var(--text); }
+.note-panel-toggle small { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
+.panel h2.note-panel-closed { margin-bottom: 0; }
+.note-panel-toggle.open .search-chevron { transform: rotate(-135deg); margin-top: 3px; }
+
+.note-mark { display: inline-flex; align-items: center; color: var(--accent-2); vertical-align: middle; }
+
+.note-form { display: flex; flex-direction: column; gap: 16px; }
+.note-text { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; line-height: 1.5; resize: vertical; }
+.note-text:focus, .note-date:focus { outline: none; border-color: var(--accent); }
+.note-count { margin: 0; color: var(--muted); font-size: 0.875rem; text-align: right; }
+.note-count-over { color: var(--bad); font-weight: bold; }
+.note-date { box-sizing: border-box; align-self: flex-start; min-height: 44px; padding: 0 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+.note-row { display: flex; align-items: center; gap: 8px; }
+.note-row .panel-select-wrap { flex: 1; min-width: 0; }
+.note-x { flex: none; box-sizing: border-box; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 1.25rem; line-height: 1; cursor: pointer; transition: none; }
+.note-x:hover { background: var(--accent-a10); }
+.note-pin { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; margin: 0; padding: 8px 0; color: var(--text); font-size: 0.9375rem; cursor: pointer; }
+.note-pin input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--accent); }
+.note-pin small { display: block; color: var(--muted); font-size: 0.875rem; }
+
+.note-foot-left { display: flex; gap: 8px; margin-right: auto; }
+.note-save { margin-left: auto; }
+.note-danger { border-color: var(--bad); color: var(--bad); }
+
+.note-list { display: flex; flex-direction: column; gap: 16px; }
+.note-tabs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.note-list .ui-toggle-btn { flex: none; min-width: 44px; padding: 0 8px; }
+.note-group-head span { margin-left: 8px; color: var(--muted); font-size: 0.875rem; font-weight: normal; }
+
+.note-pins { display: flex; flex-direction: column; gap: 8px; margin: 0 0 36px; }
+.note-pins-head, .notes-head { display: flex; align-items: center; gap: 8px; }
+.note-pins-head h2, .notes-head h2 { flex: 1; margin: 0; color: var(--text); font-size: 1.125rem; }
+.notes-head { margin: 0 0 12px; }
+.note-pins-empty { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 36px; padding: 0 4px 0 12px; border: 1px solid var(--line); border-radius: 8px; }
+.note-pins-empty p { display: flex; align-items: center; min-height: 44px; margin: 0; color: var(--muted); font-size: 0.875rem; }
+.note-write-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
+.note-pins-head .search-link:hover, .note-pins-empty .search-link:hover, .notes-head .search-link:hover { background: var(--accent-a10); }

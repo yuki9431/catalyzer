@@ -68,6 +68,7 @@
 │   │   └── login.go               # ログイン処理
 │   ├── firestore/
 │   │   ├── client.go              # Firestoreクライアント初期化
+│   │   ├── notes.go               # メモの読み書き
 │   │   ├── scores.go              # 戦績（matches）の読み書き
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
@@ -80,10 +81,11 @@
 │       ├── ratelimit.go           # IPベースレート制限・クライアントIP解決
 │       ├── geoblock.go            # 国別アクセス制限（日本のみ許可）
 │       ├── basicauth.go           # Basic認証ミドルウェア
-│       └── block403.go            # 403時の一時ブロック管理
+│       ├── block403.go            # 403時の一時ブロック管理
+│       └── notes.go               # メモAPI
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
-│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全15ファイル）
+│   ├── styles/                    # CSS（tokens.css に色・文字・余白の定義とライト配色、parts.css に共通部品、他は画面ごと。全16ファイル）
 │   ├── theme-init.js              # テーマの初期適用と切替（<head> で同期実行）
 │   ├── app.js                     # フロントエンドのエントリ（ジョブ制御・フォーム配線・セッション復元）
 │   ├── analysis/
@@ -94,17 +96,18 @@
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
-│   │   ├── classrecord.js         # モバイル総合戦歴ビュー
+│   │   ├── classrecord.js         # モバイル総合戦歴ビュー（その他から開く）
 │   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
-│   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）
-│   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）とその他画面（再分析・自動更新の設定を含む）
+│   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）と全画面の層 Layer
+│   │   ├── notes.js               # メモ（取得・書くシート・試合詳細・相性タブの一覧・メモタブ・ホームのピン留め）
+│   │   ├── shell.js               # AppShell（絞り込み行を隠す上部バー・本文・下部タブバー・ホーム画面アプリの引っ張り再分析）と下部タブ5種（ホーム・レポート・試合検索・メモ・その他）、その他画面（再分析・自動更新の設定・総合戦歴への入口を含む）
 │   │   ├── parts.js               # 共通部品（Chip/ToggleGroup/Summary/RowList/Notice。Notice は操作ボタン付き）
 │   │   └── report/                # レポート画面（report.js・controls.js・各タブ Pane）
 │   ├── lib/
 │   │   ├── db.js                  # IndexedDBキャッシュ
-│   │   ├── autorefresh.js         # 自動更新の純粋ロジック（差分の起点・取り込み可否・状態の文言）
+│   │   ├── autorefresh.js         # 自動更新の純粋ロジック（差分の起点・取り込み可否・定期取得の開始停止・状態の文言）
 │   │   ├── format.js              # 書式・色分け・共有テキスト生成
 │   │   ├── topbar.js              # 上部バーの純粋ロジック（引っ張り再分析・絞り込み行の隠す/出す）
 │   │   ├── runlock.js             # 分析の多重起動ロック
@@ -113,6 +116,7 @@
 │   │   ├── launch.js              # 起動経路の判定（再読み込み・ホーム画面アプリ・再分析の抑止）
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
+│   │   ├── notes.js               # メモの純粋ロジック（抽出・下書き・検証・ピン留め・機体の選択肢）
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
@@ -132,10 +136,12 @@
 │   │   ├── autorefresh.test.js    # autorefresh.js テスト
 │   │   ├── topbar.test.js         # topbar.js テスト
 │   │   ├── runlock.test.js        # runlock.js テスト
+│   │   ├── app-wiring.test.js     # app.js の配線（再構築のロック・定期取得の touch なし）の静的検査
 │   │   ├── scope.test.js          # scope.js テスト
 │   │   ├── launch.test.js         # launch.js テスト
 │   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
+│   │   ├── notes.test.js          # lib/notes.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト
@@ -172,6 +178,7 @@
 │       └── update-mslist.yml      # MSリスト自動更新
 ├── renovate.json5                 # Renovate設定（依存更新。公開3日後にPR、minor/patchは自動マージ）
 ├── .golangci.yml                  # golangci-lint設定
+├── .coderabbit.yaml               # CodeRabbit設定（PRの自動AIレビュー。規約はCLAUDE.mdを読む）
 ├── Makefile                       # ビルド・起動・インフラコマンド
 ├── Dockerfile                     # マルチステージビルド
 ├── go.mod
@@ -199,8 +206,8 @@
 | `static/` | フロントエンドHTML/JS/CSS |
 | `static/styles/` | CSS（`tokens.css` に色・文字・余白の定義、他は画面・部品ごと） |
 | `static/analysis/` | 統計分析・集計関数（ESモジュール） |
-| `static/components/` | UIコンポーネント（`report/` にレポート画面、`shell.js`・`popover.js`・`chart-canvas.js`・`parts.js` に共通部品） |
-| `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー |
+| `static/components/` | UIコンポーネント（`report/` にレポート画面、`shell.js`・`popover.js`・`chart-canvas.js`・`parts.js` に共通部品、`notes.js` にメモ） |
+| `static/lib/` | IndexedDBキャッシュ・書式ヘルパー・試合判定ヘルパー・メモの純粋ロジック |
 | `data/` | 静的データファイル（MSリスト等） |
 | `infra/` | OpenTofu IaC（GCPリソース管理） |
 

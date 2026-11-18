@@ -33,7 +33,8 @@ export function launchChrome(chromePath, userDataDir) {
       buf = Buffer.concat([buf, chunk]);
       var i;
       while ((i = buf.indexOf(0)) >= 0) {
-        var msg = JSON.parse(buf.subarray(0, i).toString('utf8'));
+        var msg;
+        try { msg = JSON.parse(buf.subarray(0, i).toString('utf8')); } catch (e) { kill(); fail(new InfraError('CDP 応答を解釈できない: ' + e.message)); return; }
         buf = buf.subarray(i + 1);
         if (msg.id && pending.has(msg.id)) {
           var p = pending.get(msg.id);

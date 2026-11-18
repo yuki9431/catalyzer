@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { testPattern } from '../../static/analysis/patterns.js';
-import { generateMatches, MATCH_COUNT, msList } from './fixture.js';
+import { generateMatches, MATCH_COUNT, msList, notes } from './fixture.js';
+import { computeEnemyMatchup } from '../../static/analysis/stats.js';
 
 describe('fixture', function () {
   it('is deterministic across calls', function () {
@@ -27,5 +28,37 @@ describe('fixture', function () {
   });
   it('uses local image URLs for every machine', function () {
     msList().forEach(function (m) { assert.match(m.ImageURL, /^\/__preview\/ms\/\d+\.svg$/); });
+  });
+  it('notes(pins) は先頭 pins 件がピン留めで、引数なしは1件', () => {
+    var pinned = function (n) { return notes(n).filter(function (x) { return x.pinned; }).length; };
+    assert.deepEqual([pinned(), pinned(0), pinned(3)], [1, 0, 3]);
+    assert.equal(notes(3)[2].pinned, true);
+  });
+  it('メモの各敵機は先頭の試合の相手か相性タブの得意・苦手な敵機にいて、敵機あり4・日付あり2・両方1・敵機2機以上1・どちらも無し1・ピン1', () => {
+    var top = generateMatches().sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0];
+    assert.strictEqual(top.opponent1_ms, 'ストームレイダー');
+    var ns = notes();
+    var em = computeEnemyMatchup(generateMatches());
+    var listed = em.strong.concat(em.weak).map(function (e) { return e.ms; });
+    var opponents = [top.opponent1_ms, top.opponent2_ms];
+    ns.forEach(function (n) {
+      n.enemies.forEach(function (e) { assert.ok(opponents.includes(e) || listed.includes(e), e); });
+    });
+    assert.ok(ns.some(function (n) { return n.enemies.some(function (e) { return opponents.includes(e); }); }));
+    assert.ok(ns.some(function (n) { return n.enemies.some(function (e) { return listed.includes(e); }); }));
+    var count = function (fn) { return ns.filter(fn).length; };
+    assert.deepEqual([
+      count(function (n) { return n.enemies.length > 0; }),
+      count(function (n) { return n.date !== ''; }),
+      count(function (n) { return n.enemies.length > 0 && n.date !== ''; }),
+      count(function (n) { return n.enemies.length >= 2; }),
+      count(function (n) { return n.enemies.length === 0 && n.date === ''; }),
+    ], [4, 2, 1, 1, 1]);
+    var keys = ['created_at', 'date', 'enemies', 'id', 'my_ms', 'partner_ms', 'pinned', 'text', 'updated_at'];
+    ns.forEach(function (n) { assert.deepEqual(Object.keys(n).sort(), keys); });
+    assert.equal(ns.filter(function (n) { return n.pinned; }).length, 1);
+    assert.ok(ns.some(function (n) { return n.my_ms; }));
+    assert.equal(count(function (n) { return n.partner_ms; }), 1);
+    assert.equal(new Set(ns.map(function (n) { return n.id; })).size, ns.length);
   });
 });

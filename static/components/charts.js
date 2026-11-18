@@ -1,6 +1,7 @@
 import { html } from '../htm-preact-standalone.js';
 import { pct, colorPct, colorDE, colorDmgGiven, colorDmgTaken, signed, wrBarTone, wrMark, wrTone } from '../lib/format.js';
 import { RowList } from './parts.js';
+import { NoteMark } from './notes.js';
 import { Tips, SortableTable, SubSection, Table } from './ui.js';
 import { ChartCanvas, winRateComboConfig, xAxis, pctAxis } from './chart-canvas.js';
 
@@ -178,9 +179,9 @@ export function DmgContributionChart({ dmg }) {
 }
 
 // 勝率の行リスト。バーは絶対勝率(60/50)、値と▲▼は 60/40。全国平均は縦マーカーと差分テキストで示す
-// entries: [{name, winRate, matches?, sub?, national?}]
-export function WinRateRowList({ entries }) {
-  return html`<${RowList} rows=${entries.map(function (e, i) {
+// entries: [{name, key?, winRate, matches?, sub?, national?, mark?, expand?}]。mark で名前の後ろにメモの印、onSelect で行がボタンになり expand(開いた中身。閉じていれば false)を行の下に出す
+export function WinRateRowList({ entries, onSelect }) {
+  return html`<${RowList} onSelect=${onSelect} rows=${entries.map(function (e, i) {
     var sub = e.sub != null ? e.sub : e.matches != null ? e.matches + '試合' : null;
     var hasNatl = typeof e.national === 'number';
     if (hasNatl) {
@@ -188,7 +189,7 @@ export function WinRateRowList({ entries }) {
       sub = html`${sub ? sub + '・' : ''}全国平均 <span class=${diff[0] === '+' ? 'val-good' : 'val-bad'}>${diff}</span>`;
     }
     return {
-      key: e.name + '-' + i, main: e.name, sub: sub,
+      key: e.key || e.name + '-' + i, main: e.mark ? html`<span>${e.name} <${NoteMark} /></span>` : e.name, sub: sub, expand: e.expand,
       aside: wrMark(e.winRate) + pct(e.winRate), asideTone: wrTone(e.winRate),
       bar: { value: e.winRate, tone: wrBarTone(e.winRate), marker: hasNatl ? e.national : undefined },
     };

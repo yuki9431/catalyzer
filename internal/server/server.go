@@ -258,6 +258,9 @@ func StartServer() {
 	// 自動更新（GET/POST /auto-refresh, POST /auto-refresh/touch, POST /internal/auto-refresh/tick）
 	registerAutoRefresh(http.DefaultServeMux, autorefresh.ConfigFromEnv())
 
+	// メモ（GET/POST /notes, PUT/DELETE /notes/{id}）
+	registerNotes(http.DefaultServeMux)
+
 	// 静的ファイル（フロントエンド）
 	// .webmanifest はGo組み込みのMIMEテーブルに無く、実行環境(alpine)に
 	// /etc/mime.types も無いため、PWA仕様が要求するContent-Typeを明示登録する
@@ -274,7 +277,8 @@ func StartServer() {
 	}
 }
 
-const blocked403Message = "対戦履歴ページへのアクセスが拒否されました。ブラウザからガンダムモバイル(https://web.vsmobile.jp)にログインし、対戦履歴が閲覧できるか確認してください。"
+// blocked403Message は 403 ブロック中の /analyze・/reanalyze の応答。分析中の 403 と同じ文言にする(#483)
+const blocked403Message = pipeline.AccessDeniedMessage
 
 // analyzeGate は /analyze のログイン成功後に、403 ブロック中か・自動更新が取得中かを判定し lease を取る
 func analyzeGate(userKey string) (release func(), clientErr string) {
@@ -461,7 +465,6 @@ func handleSchemaVersion(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// securityHeaders は全レスポンスにセキュリティヘッダーを付与する
 // staticCacheControl は HTML/JS/CSS を常に再検証（no-cache）させる。
 // アセットにバージョニングが無いため、デプロイ直後にブラウザが古いHTMLと新しいJS
 // （またはその逆）を混在してキャッシュし、レイアウトが崩れるのを防ぐ。FileServer の
@@ -477,6 +480,7 @@ func staticCacheControl(next http.Handler) http.Handler {
 	})
 }
 
+// securityHeaders は全レスポンスにセキュリティヘッダーを付与する
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -660,7 +664,7 @@ func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter, ge
 
 	// 403ブロックチェック
 	if forbidden403.IsBlocked(userKey) {
-		sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": "対戦履歴ページへのアクセスが拒否されました。しばらく時間をおいてから再度お試しください。"})
+		sendJSON(w, http.StatusTooManyRequests, map[string]string{"error": blocked403Message})
 		return
 	}
 

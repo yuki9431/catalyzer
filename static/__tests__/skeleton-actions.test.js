@@ -73,6 +73,39 @@ describe('Skeleton', () => {
     assert.deepStrictEqual(r.bad, []);
   });
 
+  it('全ての <${MoreView} 呼び出しに onClassRecord が付く(未注入だと総合戦歴の行で TypeError になる)', () => {
+    var r = missingAttr('MoreView', 'onClassRecord');
+    assert.ok(r.found >= 2);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
+  it('全ての <${NotesView} 呼び出しに notes が付く', () => {
+    var r = missingAttr('NotesView', 'notes');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
+  // 渡し忘れると試合詳細の「敵機のメモ」が出ない(props を無視する report-rerender-props-ignored と同じ系統の見落とし)
+  it('全ての <${SearchView} 呼び出しに notes が付く', () => {
+    var r = missingAttr('SearchView', 'notes');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad, []);
+  });
+
+  it('全ての <${MatchupPane} 呼び出しに notes と selectedMs が付く(相性タブのメモの印が出なくなる)', () => {
+    var r = missingAttr('MatchupPane', 'notes');
+    var s = missingAttr('MatchupPane', 'selectedMs');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad.concat(s.bad), []);
+  });
+
+  it('全ての <${PinnedNotes} 呼び出しに notes と myMs が付く', () => {
+    var r = missingAttr('PinnedNotes', 'notes');
+    var s = missingAttr('PinnedNotes', 'myMs');
+    assert.ok(r.found >= 1);
+    assert.deepStrictEqual(r.bad.concat(s.bad), []);
+  });
+
   it('onPull を持つ全ての <${AppShell} 呼び出しに canPull が付く(無いと分析中でも引っ張りで再分析が走る)', () => {
     var root = new URL('..', import.meta.url).pathname;
     var found = 0, bad = [];

@@ -7,6 +7,8 @@ import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
 import { SearchView } from '../search.js';
 import { ClassRecordView } from '../classrecord.js';
 import { Chip } from '../parts.js';
+import { NoteSheet, NotesView, PinnedNotes, useNotes } from '../notes.js';
+import { msChoices, lastPlayedMs } from '../../lib/notes.js';
 import { BurstPane } from './burst.js';
 import { LensToggle, MS_CHIP_DEFAULT, MsSelector, PERIOD_KEYS, PeriodSelector } from './controls.js';
 import { MatchupPane } from './matchup.js';
@@ -255,6 +257,10 @@ export function Report({ data, userKey, actions }) {
 
   // 試合検索ビュー: allMatches（IndexedDBキャッシュ）をフロントエンドで絞り込む。期間・対戦形式だけ共有する
   var count = allMatches ? allMatches.length : null;
+  // メモは Report が持つ。書くシートはどの画面からも同じものを開く
+  var notes = useNotes(userKey, actions.notes, data);
+  var noteChoices = useMemo(function () { return msChoices(msImages, allMatches); }, [msImages, allMatches]);
+  var lastMs = useMemo(function () { return lastPlayedMs(allMatches); }, [allMatches]);
   nav.badges = useTabBadges(userKey, { home: count, report: count, search: count, classrecord: classRecord && classRecord.total ? classRecord.total.matches : null }, view);
   if (view === 'home') {
     var msOnly = html`<div class="controls-row" data-ui="filter-bar">
@@ -262,26 +268,38 @@ export function Report({ data, userKey, actions }) {
         ${reanalyzeButton(actions)}
       </div>`;
     return html`<${AppShell} nav=${nav} filters=${msOnly} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
+      <${PinnedNotes} notes=${notes} myMs=${lastMs} />
       ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
         ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
         : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} />`}
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }
   if (view === 'search') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
-      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} scope=${searchScopeValue} onScope=${onSearchScope} onChange=${function (st) { searchState.current = st; }} />
+      <${SearchView} matches=${allMatches || []} msImages=${msImages || {}} initial=${searchState.current} scope=${searchScopeValue} onScope=${onSearchScope} notes=${notes} onChange=${function (st) { searchState.current = st; }} />
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
+    </${AppShell}>`;
+  }
+
+  if (view === 'notes') {
+    return html`<${AppShell} nav=${nav}>
+      <${NotesView} notes=${notes} myMs=${lastMs} />
+      <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }
 
   if (view === 'classrecord') {
     return html`<${AppShell} nav=${nav} trailing=${reanalyzeButton(actions)} onPull=${pullAction(actions)} canPull=${actions.canReanalyze}>
+      <button type="button" class="search-back" data-ui="classrecord-back" aria-label="その他に戻る" onClick=${function () { nav.onNavigate('more'); }}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" /></svg>その他</button>
       <${ClassRecordView} record=${classRecord} analyzedCount=${(allMatches || []).length} />
     </${AppShell}>`;
   }
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />
+      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} onClassRecord=${function () { nav.onNavigate('classrecord'); }} classRecordDot=${nav.badges.classrecord} />
     </${AppShell}>`;
   }
 
@@ -299,7 +317,7 @@ export function Report({ data, userKey, actions }) {
   } else if (activeTab === 'burst') {
     pane = html`<${BurstPane} frontendData=${frontendData} />`;
   } else if (activeTab === 'matchup') {
-    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} />`;
+    pane = html`<${MatchupPane} frontendData=${frontendData} lens=${lens} notes=${notes} selectedMs=${selectedMs} lastMs=${lastMs} />`;
   } else if (activeTab === 'time') {
     var timePd = { time_of_day: frontendData.time_of_day, day_of_week: frontendData.day_of_week, daily_trend: frontendData.daily_trend, season: frontendData.season };
     pane = html`<${TimePane} pd=${timePd} />`;
@@ -323,6 +341,7 @@ export function Report({ data, userKey, actions }) {
     ${!frontendData.empty && html`<${ReportSummary} activeTab=${activeTab} frontendData=${frontendData} scope=${scopeText(selectedPeriod, periods, selectedMs, lens, mode)} />`}
 
     ${pane}
+    <${NoteSheet} notes=${notes} choices=${noteChoices} />
   </${AppShell}>`;
 }
 
@@ -372,7 +391,7 @@ export function Skeleton({ actions, nav }) {
   }
   if (n.view === 'more') {
     return html`<${AppShell} nav=${n}>
-      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { n.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} />
+      <${MoreView} shareData=${null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { n.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} onClassRecord=${function () { n.onNavigate('classrecord'); }} />
     </${AppShell}>`;
   }
   return html`<${AppShell} filters=${filters} tabs=${tabs} nav=${n}>

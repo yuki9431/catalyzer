@@ -41,12 +41,12 @@ export function Summary({ hero, items }) {
   </div>`;
 }
 
-// rows[i]: {key,main,sub?,aside?,asideTone?:'good'|'bad',bar?:{value:0-100,tone:'good'|'mid'|'bad',marker?:number},href?(外部リンク),tone?:'danger',expand?(行内に展開する要素。null で閉)}
+// rows[i]: {key,main,sub?,dot?,aside?,asideTone?:'good'|'bad',bar?:{value:0-100,tone:'good'|'mid'|'bad',marker?:number},href?(外部リンク),tone?:'danger',expand?(行内に展開する要素。null で閉)}
 export function RowList({ rows, onSelect }) {
   return html`<ul class="ui-rows" data-ui="row-list">
     ${rows.map(function (r) {
       var bar = r.bar ? html`<span class="ui-row-bar" aria-hidden="true"><i class=${'ui-row-bar-fill ui-row-bar-' + r.bar.tone} style=${'width:' + r.bar.value + '%'}></i>${r.bar.marker != null && html`<b class="ui-row-bar-marker" style=${'left:' + r.bar.marker + '%'}></b>`}</span>` : null;
-      var body = html`<span class="ui-row-main">${r.main}${has(r.sub) && html`<small>${r.sub}</small>`}${bar}</span>${has(r.aside) && html`<span class=${'ui-row-aside' + (r.asideTone ? ' ui-row-aside-' + r.asideTone : '')}>${r.aside}</span>`}`;
+      var body = html`<span class="ui-row-main">${r.main}${has(r.sub) && html`<small>${r.sub}</small>`}${bar}</span>${r.dot && html`<span class="ui-row-dot" data-ui="row-dot" aria-hidden="true"></span><span class="visually-hidden">(更新あり)</span>`}${has(r.aside) && html`<span class=${'ui-row-aside' + (r.asideTone ? ' ui-row-aside-' + r.asideTone : '')}>${r.aside}</span>`}`;
       var cls = 'ui-row-btn' + (r.tone === 'danger' ? ' ui-row-danger' : '');
       var op = r.href
         ? html`<a class=${cls} href=${r.href} target="_blank" rel="noopener noreferrer">${body}</a>`

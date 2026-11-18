@@ -13,24 +13,37 @@ export var TAB_ITEMS = [
   { key: 'home', label: 'ホーム' },
   { key: 'report', label: 'レポート' },
   { key: 'search', label: '試合検索' },
-  { key: 'classrecord', label: '総合戦歴' },
+  { key: 'notes', label: 'メモ' },
   { key: 'more', label: 'その他' },
 ];
 
+// その他の下の画面(下部タブには出さず、親タブを選択中として扱う)
+var SUB_VIEWS = { classrecord: 'more' };
+
+export function tabOf(view) {
+  return Object.prototype.hasOwnProperty.call(SUB_VIEWS, view) ? SUB_VIEWS[view] : view;
+}
+
+// 下の画面の点は親タブに出す。表示中のタブには付けない
+export function tabDot(badges, key, view) {
+  if (!badges || key === tabOf(view)) return false;
+  return !!badges[key] || Object.keys(SUB_VIEWS).some(function (s) { return SUB_VIEWS[s] === key && !!badges[s]; });
+}
+
 // アイコンは描画ごとに新しい vnode を返す(vnode の使い回しを避ける)
-var TAB_ICONS = {
+export var TAB_ICONS = {
   home: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6" /></svg>`; },
   report: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>`; },
   search: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>`; },
-  classrecord: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3" /></svg>`; },
+  notes: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1zM14 7l3 3" /></svg>`; },
   more: function () { return html`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></svg>`; },
 };
 
-// 保存値が TAB_ITEMS の key ならそれ、他(未保存・未知・例外)は起動時と同じ home
+// 保存値が TAB_ITEMS か SUB_VIEWS の key ならそれ、他(未保存・未知・例外)は起動時と同じ home
 export function readView() {
   try {
     var v = localStorage.getItem(VIEW_KEY);
-    return TAB_ITEMS.some(function (t) { return t.key === v; }) ? v : 'home';
+    return TAB_ITEMS.some(function (t) { return t.key === v; }) || Object.prototype.hasOwnProperty.call(SUB_VIEWS, v) ? v : 'home';
   } catch (e) {
     return 'home';
   }
@@ -80,8 +93,8 @@ export function useTabBadges(userKey, signals, view) {
 function TabBar({ view, onNavigate, badges }) {
   return html`<nav class="tabbar" aria-label="画面切替" data-ui="tabbar">
     ${TAB_ITEMS.map(function (t) {
-      var dot = badges && badges[t.key];
-      return html`<button type="button" class="tabbar-item" data-ui="tabbar-item" aria-current=${view === t.key ? 'page' : undefined}
+      var dot = tabDot(badges, t.key, view);
+      return html`<button type="button" class="tabbar-item" data-ui="tabbar-item" aria-current=${tabOf(view) === t.key ? 'page' : undefined}
         onClick=${function () { onNavigate(t.key); }}><span class="tabbar-icon">${TAB_ICONS[t.key]()}${dot && html`<span class="tabbar-dot" data-ui="tabbar-dot"></span>`}</span>${t.label}${dot && html`<span class="visually-hidden">(更新あり)</span>`}</button>`;
     })}
   </nav>`;
@@ -195,7 +208,7 @@ function AutoRefreshSettings({ autoRefresh }) {
 
 // --- その他画面 ---
 
-export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh }) {
+export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, autoRefresh, onClassRecord, classRecordDot }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
   var hasShare = !!(shareData && shareData.length);
@@ -211,9 +224,13 @@ export function MoreView({ shareData, onLogout, onRebuildCache, onReanalyze, aut
     { key: 'refetch', main: '試合データを取得し直す', sub: 'サーバーから全件を再取得します', expand: confirmPanel || null },
     { key: 'vsmobile', main: 'ガンダムモバイルを開く', sub: '外部サイト', href: 'https://web.vsmobile.jp/exvs2ib/' },
   ];
+  var classRows = [{ key: 'classrecord', main: '総合戦歴', sub: 'ガンダムモバイルの通算戦績と通算記録', dot: !!classRecordDot }];
   var accountRows = [{ key: 'logout', main: 'ログアウト', sub: '保存したログイン情報と端末内の試合データを削除します', tone: 'danger' }];
   return html`<div data-ui="more">
     <div class="more-brand" data-ui="more-brand"><img src="logo.svg" alt="catalyzer" /></div>
+    <${Panel} title="戦績">
+      <div data-ui="more-classrecord"><${RowList} rows=${classRows} onSelect=${function () { onClassRecord(); }} /></div>
+    </${Panel}>
     ${hasShare && html`<${Panel} title="結果を共有">
       <p class="more-lead">最多使用の機体と敵機との相性を文章にして共有します。</p>
       <${ShareArea} shareData=${shareData} />
