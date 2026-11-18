@@ -91,17 +91,18 @@ Go HTTPサーバーによる**非同期ジョブパイプライン**（最大同
 - `cmd/auto-refresh/` — 自動更新の Cloud Run Job のエントリ（`autorefresh.RunJob`）。Dockerfile で `/app/auto-refresh` に入る
 - `cmd/hash-passphrase/` — 自動更新の合言葉の argon2id ハッシュを出力するCLI
 - `cmd/extract-grades/` — Firestoreから全ユーザーの未登録グレードURLを抽出するCLI
+- `cmd/update-geoip-apnic/` — APNIC の JP 割当から海外判定を除いた補完リスト `data/jp_apnic_ipv{4,6}.csv` を生成するCLI（`make update-geoip-apnic`）
 - `internal/model/` — 型定義 + `UserKey`（`PlayerScore`, `Note`, `DatedScore`, `MSInfo`, `MatchEvent`, `MatchTimeline`, `TagPartner`, `JobStatus`, `JobSnapshot`, `ClassRecord`/`WinRecord`/`CountStat`）
 - `internal/mslist/` — MSリストの読み書き・マージ（`LoadMSList`, `SaveMSList`, `MergeMSList`, `BuildMSNameMap`, `FillMsNames`, `CheckUnknownMS`）
 - `internal/gradelist/` — グレードリストの読み込み・未知URL検出・階級の通し番号（Pilot 10=1 … Extreme 1=40、∞=41。段位は10が下で1が上。試合データ（`/result`・`/matches`）の `grade` 系フィールドに使う）（`LoadGradeList`, `BuildGradeMap`, `BuildRankMap`, `RankOf`, `CheckUnknownGrades`）
 - `internal/scraper/` — Collyベースのスクレイパー（`scraper.go`）+ バンダイナムコID認証（`login.go`）+ 戦績ページのクラスマッチ通算戦績取得（`classrecord.go`。分析時に1回取得し `/result` の `class_record` で返す。永続化しない）。日別一覧のクラスバッジの人型アイコン数で対戦形式（1=シャッフル/2=固定。`DatedScore.MatchMode`→`MatchData.mode`。判別できなければ空=不明。機能追加前の試合は相方のタッグ登録から推定して DB に補完済みで `match_mode_inferred: true` が付く）を判別。勝ちの行の「N WINS」から連勝数（表示が無ければ1、読めなければ0=不明でフロントが推定）を読み `DatedScore.WinStreak`→`MatchData.win_streak` に流す
-- `internal/geoip/` — 国別アクセス判定（`geoip.go`。CC0の許可リストCSVをソート済みレンジに読み込み二分探索。`Load`, `Contains`）
+- `internal/geoip/` — 国別アクセス判定（`geoip.go`。許可リストCSV(複数可)を和集合で読み込み二分探索。`Load`, `Contains`）+ APNIC 補完リストの生成（`delegated.go`・`update.go`。`BuildFromDelegated`, `UpdateAPNIC`）
 - `internal/session/` — セッション暗号化（AES-256-GCM）とCookieJarシリアライズ（`crypto.go`, `jar.go`）
 - `internal/firestore/` — Firestoreクライアント初期化（`client.go`）+ matches/tag_partnersの読み書き（タイムラインはmatches内に埋め込み）+ セッション保存（`session.go`）+ メモ（`notes.go`。`notes/{userKey}/items/{id}` に1件1ドキュメントで持つ。件数・ピン上限は書き込みと同じトランザクション内の count 集計で判定）
 - `internal/autorefresh/` — 自動更新（10:00〜翌1:00 JST の間、最終アクセスから10分間、5分おきに差分取り込み）。合言葉の照合（`passphrase.go`）・Job 起動（`launcher.go`）・ユーザーごとの lease 付き更新（`autorefresh.go`）
 - `internal/pipeline/` — 分析パイプライン（`Job`型、ジョブストア、`Run`関数、JSON生成、試合データ配信（`ActionJSON`型でタイムラインイベント展開）、セッション永続化）
 - `internal/nationalstats/` — 全国統計（勝率・使用率）の読み書き（`Load`, `Save`）。全プレイヤー共通のデータなので `cmd/update-mslist` が取得し `data/national_ms_stats.json` で持ち回る
-- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`。`clientIP` は Cloud Run（domain mapping）の XFF 末尾=実クライアントIPを採る。末尾より前は詐称可能なので使わない）+ 国別アクセス制限（`geoblock.go`。`GEO_RESTRICT=true` で `/analyze`・`/reanalyze` を日本のみ許可。読込失敗・IP解釈不能時はフェイルオープン）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ メモ API（`notes.go`。入力検証・上限・書き込みのレート制限）+ Scheduler の OIDC 検証（`oidc.go`）
+- `internal/server/` — HTTPハンドラ（`server.go`）+ IPベースレート制限（`ratelimit.go`。`clientIP` は Cloud Run（domain mapping）の XFF 末尾=実クライアントIPを採る。末尾より前は詐称可能なので使わない）+ 国別アクセス制限（`geoblock.go`。`GEO_RESTRICT=true` で `/analyze`・`/reanalyze` を日本のみ許可。許可リストは geo-whois の `data/jp_ipv*.csv` と APNIC 割当の `data/jp_apnic_ipv*.csv`(`make update-geoip-apnic` で更新)の和集合。読込失敗・IP解釈不能時はフェイルオープン）+ Basic認証（`basicauth.go`）+ 403一時ブロック（`block403.go`）+ セッション管理エンドポイント + 自動更新 API（`autorefresh.go`）+ メモ API（`notes.go`。入力検証・上限・書き込みのレート制限）+ Scheduler の OIDC 検証（`oidc.go`）
 - `static/index.html` — SPA の HTML 骨格（CSS は `static/styles/` を `<link>` で読む）
 - `static/styles/` — CSS（ダーク既定・ライトは選択可(端末に合わせる/ダーク/ライト)、レスポンシブ対応、カスタムドロップダウン）。`tokens.css` に色・文字・余白の定義を集約（ライトは同ファイル末尾の `:root[data-theme="light"]` で上書き。文字は rem で最小14px）し、他は画面・部品ごと。全16ファイル。`parts.css` は共通部品（接頭辞 `ui-`）。`notes.css` はメモ（接頭辞 `note-`）。`<link>` の順がカスケード順なので入れ替えない
 - `static/theme-init.js` — テーマの初期適用と切替（`window.catalyzerTheme`。`<head>` の同期クラシックスクリプト。`catalyzer_theme` を読み `<html data-theme>` と theme-color meta を付け、端末に合わせる中は OS 変更を購読）。import を持たない

@@ -23,23 +23,42 @@ type DB struct {
 	v6 []ipRange
 }
 
-// Load は許可国のIPv4/IPv6レンジCSV（start,end,country）を読み込む。
+// Load は許可国のIPv4/IPv6レンジCSV（start,end,country）を読み込む。複数ファイルは和集合にする。
 // 不正行が1件でもあれば（許可リストが黙って縮むのを避けるため）エラーにする。
-func Load(v4Path, v6Path string) (*DB, error) {
-	v4, err := loadRanges(v4Path, false)
+func Load(v4Paths, v6Paths []string) (*DB, error) {
+	v4, err := loadRanges(v4Paths, false)
 	if err != nil {
 		return nil, fmt.Errorf("IPv4レンジの読み込み: %w", err)
 	}
-	v6, err := loadRanges(v6Path, true)
+	v6, err := loadRanges(v6Paths, true)
 	if err != nil {
 		return nil, fmt.Errorf("IPv6レンジの読み込み: %w", err)
 	}
 	return &DB{v4: v4, v6: v6}, nil
 }
 
-// loadRanges は1ファイルを読み、昇順ソートして重なり・隣接を併合する。
+// loadRanges は全ファイルを読み、まとめて昇順ソートして重なり・隣接を併合する。
 // wantV6 は期待するアドレスファミリ。混在・逆転・解釈不能・0件はエラー。
-func loadRanges(path string, wantV6 bool) ([]ipRange, error) {
+func loadRanges(paths []string, wantV6 bool) ([]ipRange, error) {
+	var ranges []ipRange
+	for _, path := range paths {
+		rs, err := readRanges(path, wantV6)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		ranges = append(ranges, rs...)
+	}
+	if len(ranges) == 0 {
+		return nil, fmt.Errorf("有効なレンジが0件")
+	}
+	sort.Slice(ranges, func(i, j int) bool {
+		return ranges[i].start.Less(ranges[j].start)
+	})
+	return mergeRanges(ranges), nil
+}
+
+// readRanges は1ファイルのレンジを読む。不正行・0件はエラー。
+func readRanges(path string, wantV6 bool) ([]ipRange, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -70,10 +89,7 @@ func loadRanges(path string, wantV6 bool) ([]ipRange, error) {
 	if len(ranges) == 0 {
 		return nil, fmt.Errorf("有効なレンジが0件")
 	}
-	sort.Slice(ranges, func(i, j int) bool {
-		return ranges[i].start.Less(ranges[j].start)
-	})
-	return mergeRanges(ranges), nil
+	return ranges, nil
 }
 
 // mergeRanges は昇順ソート済みレンジの重なり・隣接を併合し非重複にする。
