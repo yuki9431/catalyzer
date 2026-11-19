@@ -101,6 +101,7 @@
 │   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
 │   │   ├── diagnosis.js           # AI診断に送る要約JSON（数値・列挙キー・機体名だけ）の組み立て
+│   │   ├── report-export.js       # AIエージェントに渡すレポート（全試合の集計の Markdown。プレイヤー名は出さない）
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
@@ -153,6 +154,7 @@
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── notes.test.js          # lib/notes.js テスト
 │   │   ├── diagnosis.test.js      # 要約JSON（diagnosis.js）の形・個人情報の不在・サイズのテスト
+│   │   ├── report-export.test.js  # レポート出力（report-export.js）の見出し・名前の不在・サイズのテスト
 │   │   ├── ai-diagnosis.test.js   # lib/ai-diagnosis.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査

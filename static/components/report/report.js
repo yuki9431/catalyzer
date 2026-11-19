@@ -1,6 +1,7 @@
 import { html, useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../htm-preact-standalone.js';
 import { PERIOD_DAYS, computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOpponentGrade, computeOverlimit, computePartner, computeSeason, computeShareData, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays } from '../../analysis/stats.js';
 import { computeActionPlan } from '../../analysis/coach.js';
+import { buildReportMarkdown } from '../../analysis/report-export.js';
 import { emptyFilters } from '../../analysis/search.js';
 import { loadMatchesFromDB } from '../../lib/db.js';
 import { AppShell, MoreView, useTabBadges, useView } from '../shell.js';
@@ -299,7 +300,7 @@ export function Report({ data, userKey, actions }) {
 
   if (view === 'more') {
     return html`<${AppShell} nav=${nav}>
-      <${MoreView} shareData=${shareData} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} onClassRecord=${function () { nav.onNavigate('classrecord'); }} classRecordDot=${nav.badges.classrecord} />
+      <${MoreView} shareData=${shareData} buildReport=${allMatches && allMatches.length ? function () { return buildReportMarkdown(allMatches, tagPartners, new Date()); } : null} onLogout=${actions.onLogout} onRebuildCache=${actions.onRebuildCache} onReanalyze=${function () { nav.onNavigate('report'); actions.onReanalyze(); }} autoRefresh=${actions.autoRefresh} onClassRecord=${function () { nav.onNavigate('classrecord'); }} classRecordDot=${nav.badges.classrecord} />
     </${AppShell}>`;
   }
 
