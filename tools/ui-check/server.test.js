@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import http from 'node:http';
 import { listen } from './server.js';
-import { MATCH_COUNT, SCHEMA_VERSION, notes as fixtureNotes } from './fixture.js';
+import { MATCH_COUNT, SCHEMA_VERSION, notes as fixtureNotes, aiDiagnosis as fixtureAi } from './fixture.js';
 
 var srv, base;
 before(async function () { srv = await listen(0); base = 'http://127.0.0.1:' + srv.port; });
@@ -109,5 +109,20 @@ describe('preview server', function () {
     assert.ok((await bad.json()).error.includes('保存できませんでした'));
     assert.equal((await fetch(base + '/notes/preview-note-1', { method: 'DELETE' })).status, 200);
     assert.equal((await fetch(base + '/notes', { method: 'PATCH' })).status, 405);
+  });
+  it('/ai-diagnosis は Cookie が揃うときだけ状態を返し、それ以外は available:false(常に 200)。POST は 202', async function () {
+    var get = async function (cookie) { var r = await fetch(base + '/ai-diagnosis', { headers: cookie ? { Cookie: cookie } : {} }); return [r.status, await r.json()]; };
+    assert.deepEqual(await get(null), [200, { available: false }]);
+    assert.deepEqual(await get('preview_ai=done'), [200, { available: false }]);
+    assert.deepEqual(await get('preview_session=valid'), [200, { available: false }]);
+    var none = await get('preview_session=valid; preview_ai=none');
+    assert.deepEqual([none[0], none[1].available, none[1].status], [200, true, 'none']);
+    assert.equal((await get('preview_ai=running; preview_session=valid'))[1].status, 'running');
+    assert.deepEqual((await get('preview_session=valid; preview_ai=done'))[1], fixtureAi('done'));
+    assert.equal((await get('preview_session=valid; preview_ai=error'))[1].retry, true);
+    var post = await fetch(base + '/ai-diagnosis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(post.status, 202);
+    assert.equal((await post.json()).status, 'pending');
+    assert.equal((await fetch(base + '/ai-diagnosis', { method: 'DELETE' })).status, 405);
   });
 });

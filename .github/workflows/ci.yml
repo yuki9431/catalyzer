@@ -33,6 +33,11 @@ jobs:
       - name: Docker Build
         run: docker build -t exvs-analyzer .
 
+      - name: Docker Build (AI diagnosis job)
+        run: |
+          docker build --target ai-diagnosis -t catalyzer-ai .
+          docker run --rm --entrypoint claude catalyzer-ai --version
+
   lint-go:
     needs: check-labels
     if: needs.check-labels.outputs.skip-ci != 'true'

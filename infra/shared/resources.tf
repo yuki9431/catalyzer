@@ -77,6 +77,25 @@ resource "google_firestore_field" "session_ttl" {
   index_config {}
 }
 
+# AI 診断の状態と日次カウント。7日で消す(session_ttl と同じ書き方)
+resource "google_firestore_field" "ai_diagnosis_ttl" {
+  database   = google_firestore_database.db.name
+  collection = "ai_diagnosis"
+  field      = "expire_at"
+
+  ttl_config {}
+  index_config {}
+}
+
+resource "google_firestore_field" "ai_diagnosis_daily_ttl" {
+  database   = google_firestore_database.db.name
+  collection = "ai_diagnosis_daily"
+  field      = "expire_at"
+
+  ttl_config {}
+  index_config {}
+}
+
 # 版は gcloud で足す。消すと復元できない
 resource "google_secret_manager_secret" "s" {
   for_each  = local.secrets

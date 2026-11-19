@@ -39,6 +39,9 @@ if (location.search.includes('session=valid')) {
 // ?pins=N はメモのピン留め件数を N 件にする(Cookie でモックの GET /notes が返す)
 var pinsP = new URLSearchParams(location.search).get('pins');
 if (pinsP !== null) document.cookie = 'preview_pins=' + Number(pinsP) + '; path=/';
+// ?ai=none|running|done|error は AI診断の状態を選ぶ(Cookie でモックの GET /ai-diagnosis が返す。?session=valid と併用)
+var aiP = new URLSearchParams(location.search).get('ai');
+if (['none', 'running', 'done', 'error'].includes(aiP)) document.cookie = 'preview_ai=' + aiP + '; path=/';
 // ?seen=N は各タブを試合数 N の時点で見たことにし、更新の点を再現する
 var seenN = Number(new URLSearchParams(location.search).get('seen'));
 if (seenN > 0) localStorage.setItem('catalyzer_tab_seen', JSON.stringify({ user_key: USER_KEY, seen: { home: seenN, report: seenN, search: seenN, classrecord: 1100 } }));

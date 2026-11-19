@@ -67,6 +67,7 @@ describe('computeActionPlan', function () {
     assert.equal(death.title, '被撃墜を1回以内に抑える');
     assert.match(death.detail, /^2回以上撃墜された試合は20戦中6戦（勝率0%）。/);
     // 20戦12勝。2回撃墜の6戦がそれ以外(14戦12勝)並みに勝てれば約17.1勝
+    assert.deepEqual([death.total, death.bad_win_rate, death.good_win_rate], [20, 0, 86]);
     assert.equal(death.win_rate_from, 60);
     assert.equal(death.win_rate_to, 85.7);
     // 影響度は全体勝率の見込み上昇 % で、見込み勝率の上がり幅と一致する
@@ -224,7 +225,7 @@ describe('computeActionPlan', function () {
     assert.equal(plan.recent.matches, 20);
     assert.ok(plan.recent.win_rate < plan.recent.before_win_rate);
     var taken = plan.recent.worsened.find(function (w) { return w.label === '被ダメ'; });
-    assert.deepEqual(taken, { label: '被ダメ', recent: 1000, before: 800, delta: 200 });
+    assert.deepEqual(taken, { key: 'dmg_taken', label: '被ダメ', recent: 1000, before: 800, delta: 200 });
   });
 
   it('omits recent trend when there are too few matches', function () {

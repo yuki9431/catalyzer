@@ -18,7 +18,7 @@ var UPDATE = process.argv.includes('--update');
 // 画像比較は基準を撮る CI だけで行う。ローカルは他の検査だけ
 var PIXEL = !!process.env.CI;
 var ONLY = process.argv.slice(2).filter(function (a) { return !a.startsWith('--'); });
-var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-session-pins0': '/__preview/?session=valid&pins=0', 'report-session-pins3': '/__preview/?session=valid&pins=3', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', 'report-legacy': '/__preview/?legacy=1', parts: '/__preview/parts.html' };
+var START_URL = { login: '/', report: '/__preview/', 'report-session': '/__preview/?session=1', 'report-session-valid': '/__preview/?session=valid', 'report-session-pins0': '/__preview/?session=valid&pins=0', 'report-session-pins3': '/__preview/?session=valid&pins=3', 'report-today-3': '/__preview/?today=3', 'report-today-12': '/__preview/?today=12', 'report-focus': '/__preview/?focus=8', 'report-seen': '/__preview/?seen=50', 'report-legacy': '/__preview/?legacy=1', 'report-ai-none': '/__preview/?session=valid&ai=none', 'report-ai-running': '/__preview/?session=valid&ai=running', 'report-ai-done': '/__preview/?session=valid&ai=done', 'report-ai-error': '/__preview/?session=valid&ai=error', parts: '/__preview/parts.html' };
 var INJECT = {};
 (process.env.UI_CHECK_INJECT || '').split('\n').filter(Boolean).forEach(function (s) {
   var i = s.indexOf(':');

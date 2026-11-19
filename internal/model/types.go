@@ -208,3 +208,10 @@ type RefreshUpdate struct {
 	ClearSessionToken bool
 	StopActive        bool
 }
+
+// AIDiagnosisState は AI 診断の状態(Firestore ai_diagnosis/{userKey})。
+type AIDiagnosisState struct {
+	UserKey, RequestID, Status, PlayDay, InputJSON, ResultJSON, ErrorCode, LeaseOwner string
+	Attempts                                                                          int
+	RequestedAt, LeaseUntil, FinishedAt                                               time.Time
+}
