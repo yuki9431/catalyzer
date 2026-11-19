@@ -271,7 +271,7 @@ export function Report({ data, userKey, actions }) {
       <${PinnedNotes} notes=${notes} myMs=${lastMs} />
       ${modeLabel(mode) && allMatches && allMatches.length && !homeMatches.length
         ? html`<${EmptyMode} scope=${modeLabel(mode)} onReset=${function () { setMode('all'); }} />`
-        : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} aiDiagnosis=${actions.aiDiagnosis} msImages=${msImages} />`}
+        : html`<${HomeView} matches=${homeMatches} focusMatches=${allMatches || []} selectedMs=${selectedMs} userKey=${userKey} plan=${homePlan} modeFiltered=${!!modeLabel(mode)} onShowMatches=${showMatches} />`}
       <${NoteSheet} notes=${notes} choices=${noteChoices} />
     </${AppShell}>`;
   }

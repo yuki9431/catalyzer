@@ -94,9 +94,3 @@ button.action-link:hover { background: var(--accent-a10); }
 .today-cmp .up { color: var(--good); font-weight: 700; }
 .today-cmp .down { color: var(--bad); font-weight: 700; }
 .today-cmp .flat { color: var(--muted); }
-.ai-note, .ai-busy, .ai-next { font-size: 0.875rem; color: var(--muted); margin: 0 0 10px; }
-.ai-headline { font-size: 1.0625rem; font-weight: 800; margin: 0 0 10px; }
-.panel .ai-section { font-size: 0.9375rem; font-weight: 700; color: var(--text); margin: 12px 0 4px; }
-.panel .ai-list { margin: 0; padding-left: 20px; font-size: 0.9375rem; }
-.panel .ai-list li { margin: 2px 0; }
-.ai-next { margin-top: 12px; margin-bottom: 0; }

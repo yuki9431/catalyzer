@@ -55,8 +55,6 @@
 │   │   └── main.go                # 国別制限の補完リスト(data/jp_apnic_ipv*.csv)更新CLI
 │   ├── auto-refresh/
 │   │   └── main.go                # 自動更新の Cloud Run Job
-│   ├── ai-diagnosis/
-│   │   └── main.go                # AI診断の Cloud Run Job（-smoke で実機確認）
 │   └── hash-passphrase/
 │       └── main.go                # 自動更新の合言葉ハッシュ生成CLI
 ├── internal/
@@ -71,14 +69,12 @@
 │   │   ├── classrecord.go         # 戦績ページのクラスマッチ通算戦績取得
 │   │   └── login.go               # ログイン処理
 │   ├── firestore/
-│   │   ├── aidiagnosis.go         # AI診断の状態の読み書き
 │   │   ├── client.go              # Firestoreクライアント初期化
 │   │   ├── notes.go               # メモの読み書き
 │   │   ├── scores.go              # 戦績（matches）の読み書き
 │   │   ├── tag_partners.go        # 固定相方データの読み書き
 │   │   └── users.go               # ユーザーデータの読み書き
 │   ├── autorefresh/               # 自動更新（合言葉・Job起動・差分取り込み）
-│   ├── aidiagnosis/               # AI診断（設定・1日1回の判定・要約JSONの検証・Job本体・出力検査・プロンプト）
 │   ├── pipeline/
 │   │   └── pipeline.go            # 分析パイプライン（Job管理・実行・JSON生成）
 │   ├── geoip/                     # 国別アクセス判定（CC0許可リストの二分探索）
@@ -88,7 +84,6 @@
 │       ├── geoblock.go            # 国別アクセス制限（日本のみ許可）
 │       ├── basicauth.go           # Basic認証ミドルウェア
 │       ├── block403.go            # 403時の一時ブロック管理
-│       ├── aidiagnosis.go         # AI診断API
 │       └── notes.go               # メモAPI
 ├── static/
 │   ├── index.html                 # フロントエンドHTML骨格
@@ -100,13 +95,11 @@
 │   │   ├── patterns.js            # 試合の展開（負け筋）の定義一覧（ミッション判定・試合検索が共用）
 │   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
-│   │   ├── diagnosis.js           # AI診断に送る要約JSON（数値・列挙キー・機体名だけ）の組み立て
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
 │   │   ├── classrecord.js         # モバイル総合戦歴ビュー（その他から開く）
-│   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション・AI診断）
-│   │   ├── ai-diagnosis.js        # AI診断パネル（オーナー限定。診断前・診断中・結果・失敗）
+│   │   ├── home.js                # ホーム画面（前回との比較・勝率アップミッション）
 │   │   ├── charts.js              # Chart.jsグラフ・レポートセクション・勝率の行リスト（WinRateRowList）
 │   │   ├── chart-canvas.js        # ChartCanvas・軸/凡例/色ヘルパ
 │   │   ├── popover.js             # 共通ポップオーバー（開閉・外側クリック・Esc）と全画面の層 Layer
@@ -126,7 +119,6 @@
 │   │   ├── progress.js            # 分析の進み具合の段階判定（読み込み/取得/集計）
 │   │   ├── userkey.js             # ユーザーキーの導出（サーバーの model.UserKey と同じ）
 │   │   ├── notes.js               # メモの純粋ロジック（抽出・下書き・検証・ピン留め・機体の選択肢）
-│   │   ├── ai-diagnosis.js        # AI診断の応答の整形・次回の表示・ポーリング定数
 │   │   └── theme.js               # canvas/Chart.js 用に CSS 定義を読む themeReader
 │   ├── __tests__/                 # JSユニットテスト（Node.js組み込みテストランナー。contrast.test はダーク・ライトのコントラスト、typography.test は14px 下限を検査）
 │   │   ├── stats.test.js          # stats.js テスト
@@ -152,8 +144,6 @@
 │   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── notes.test.js          # lib/notes.js テスト
-│   │   ├── diagnosis.test.js      # 要約JSON（diagnosis.js）の形・個人情報の不在・サイズのテスト
-│   │   ├── ai-diagnosis.test.js   # lib/ai-diagnosis.js テスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト
@@ -243,9 +233,6 @@ make test
 
 # フロントエンド（JS）テスト
 make test-js
-
-# AI診断の実機確認（トークンを対話入力。サンプル入力で claude を1回実行して検査する）
-make ai-diagnosis-smoke
 
 # UIプレビュー（サンプルデータ。http://127.0.0.1:8090/__preview/）
 make ui-preview
