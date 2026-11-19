@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReportMarkdown, reportFileName } from '../analysis/report-export.js';
+import { buildReportMarkdown, EXPORT_PERIODS, exportMsOptions, reportFileName } from '../analysis/report-export.js';
 import { generateMatches, tagPartners } from '../../tools/ui-check/fixture.js';
 
 var NOW = new Date(2026, 5, 16, 12, 34);
@@ -90,5 +90,35 @@ describe('buildReportMarkdown', function () {
     assert.match(md, /## 勝ち試合と負け試合の差\n\n\(勝ち試合と負け試合の両方があるときだけ比べる\)/);
     assert.match(md, /\| 全体 \| 60 \| [\d.]+% \| [\d.]+% \| - \|/);
     assert.ok(!/\| そのまま負け \| 0 \|/.test(buildReportMarkdown(BASE, [], NOW)));
+  });
+
+  it('期間は試合のあった日で数えて絞る', function () {
+    var md = buildReportMarkdown(BASE, [], NOW, { period: '3d' });
+    var n = BASE.filter(function (m) { return m.date >= '2026-06-07'; }).length;
+    assert.ok(md.includes('- 対象: 直近3日(全機体で試合のあった日を新しい順に3日分)・全形式・全機体の ' + n + '試合(2026-06-07 〜 2026-06-15)'));
+  });
+
+  it('機体で絞る', function () {
+    var name = BASE[0].ms;
+    var n = BASE.filter(function (m) { return m.ms === name; }).length;
+    var md = buildReportMarkdown(BASE, [], NOW, { period: 'all', ms: name });
+    assert.ok(md.includes('- 対象: 全期間・全形式・自機 ' + name + 'の ' + n + '試合'));
+    assert.match(md, new RegExp('\\| 試合数 \\| ' + n + ' \\|'));
+  });
+
+  it('期間と機体の両方に合う試合が無ければ null。知らない期間は全期間', function () {
+    assert.equal(buildReportMarkdown(BASE, [], NOW, { period: '1d', ms: '存在しない機体' }), null);
+    assert.match(buildReportMarkdown(BASE, [], NOW, { period: 'valueOf' }), /全期間・全形式・全機体の 60試合/);
+  });
+
+  it('選択肢: 期間はレポート画面と同じ並び、機体は試合数の多い順', function () {
+    assert.deepEqual(EXPORT_PERIODS.map(function (o) { return o.value; }), ['all', '90d', '60d', '30d', '14d', '7d', '3d', '1d']);
+    assert.equal(EXPORT_PERIODS[3].label, '直近30日');
+    var opts = exportMsOptions(BASE);
+    assert.equal(opts[0].value, 'アクアスカウト');
+    assert.equal(opts[0].label, 'アクアスカウト(13戦)');
+    assert.equal(opts.reduce(function (a, o) { return a + Number(o.label.match(/(\d+)戦/)[1]); }, 0), 60);
+    var recent = exportMsOptions(BASE, '3d');
+    assert.equal(recent.reduce(function (a, o) { return a + Number(o.label.match(/(\d+)戦/)[1]); }, 0), BASE.filter(function (m) { return m.date >= '2026-06-07'; }).length);
   });
 });

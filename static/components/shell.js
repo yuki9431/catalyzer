@@ -1,10 +1,10 @@
 import { html, useState, useEffect, useLayoutEffect, useRef } from '../htm-preact-standalone.js';
-import { Panel } from './ui.js';
+import { Dropdown, Panel } from './ui.js';
 import { RowList, Notice, ToggleGroup } from './parts.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
 import { PULL_IDLE, pullStep, pullReady, BAR_SHOWN, nextBar } from '../lib/topbar.js';
 import { TAB_SEEN_KEY, markSeen, tabBadges } from '../lib/tabseen.js';
-import { reportFileName } from '../analysis/report-export.js';
+import { EXPORT_PERIODS, reportFileName } from '../analysis/report-export.js';
 import { buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK } from '../lib/format.js';
 
 // --- 画面切替(下部タブバー) ---
@@ -224,35 +224,42 @@ function saveText(filename, text) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
 }
 
-var EXPORT_SUB = { '': 'Markdown をクリップボードにコピーします', copied: 'コピーしました。AI のチャットに貼り付けてください', failed: 'コピーできませんでした。ダウンロードをお試しください' };
+var EXPORT_SUB = { '': 'Markdown をクリップボードにコピーします', copied: 'コピーしました。AI のチャットに貼り付けてください', failed: 'コピーできませんでした。ダウンロードをお試しください', empty: 'この期間・機体の試合がありません' };
 
-function ReportExport({ buildReport }) {
+function ReportExport({ report }) {
   var ref = useState('');
   var status = ref[0], setStatus = ref[1];
+  var pRef = useState('all'), period = pRef[0], setPeriod = pRef[1];
+  var mRef = useState(''), setMs = mRef[1];
+  var msOptions = report.msOptions(period);
+  // 選んだ機体がその期間に無ければ全機体に戻す(表示と出力を食い違わせない)
+  var ms = msOptions.some(function (o) { return o.value === mRef[0]; }) ? mRef[0] : '';
   function show(r) {
     setStatus(r);
     setTimeout(function () { setStatus(''); }, 3000);
   }
   // 生成は押したときだけ行う(描画のたびに全集計を回さない)。clipboard の操作起点を保つため同期で作る
   function run(key) {
-    var text = buildReport();
-    if (!text) return;
+    var text = report.build({ period: period, ms: ms });
+    if (!text) { show('empty'); return; }
     if (key === 'download') { saveText(reportFileName(new Date()), text); return; }
     copyText(text).then(function () { show('copied'); }, function () { show('failed'); });
   }
   var rows = [
     { key: 'copy', main: 'レポートをコピー', sub: EXPORT_SUB[status] },
-    { key: 'download', main: 'レポートをダウンロード', sub: 'Markdown ファイル(.md)で保存します' },
+    { key: 'download', main: 'レポートをダウンロード', sub: status === 'empty' ? EXPORT_SUB.empty : 'Markdown ファイル(.md)で保存します' },
   ];
   return html`<div data-ui="report-export">
-    <p class="more-lead">全期間の集計を AI エージェントが読める形にまとめます。プレイヤー名は含めません。</p>
+    <p class="more-lead">選んだ期間・機体の集計を AI エージェントが読める形にまとめます。プレイヤー名は含めません。</p>
+    <div class="more-field" data-ui="report-export-period"><span>期間</span><${Dropdown} value=${period} options=${EXPORT_PERIODS} noClear onChange=${setPeriod} /></div>
+    <div class="more-field" data-ui="report-export-ms"><span>機体</span><${Dropdown} value=${ms} options=${msOptions} placeholder="全機体" onChange=${setMs} /></div>
     <${RowList} rows=${rows} onSelect=${run} />
   </div>`;
 }
 
 // --- その他画面 ---
 
-export function MoreView({ shareData, buildReport, onLogout, onRebuildCache, onReanalyze, autoRefresh, onClassRecord, classRecordDot }) {
+export function MoreView({ shareData, report, onLogout, onRebuildCache, onReanalyze, autoRefresh, onClassRecord, classRecordDot }) {
   var ref = useState(false);
   var confirming = ref[0], setConfirming = ref[1];
   var hasShare = !!(shareData && shareData.length);
@@ -279,8 +286,8 @@ export function MoreView({ shareData, buildReport, onLogout, onRebuildCache, onR
       <p class="more-lead">最多使用の機体と敵機との相性を文章にして共有します。</p>
       <${ShareArea} shareData=${shareData} />
     </${Panel}>`}
-    ${buildReport && html`<${Panel} title="レポート出力">
-      <${ReportExport} buildReport=${buildReport} />
+    ${report && html`<${Panel} title="レポート出力">
+      <${ReportExport} report=${report} />
     </${Panel}>`}
     <${Panel} title="設定">
       <${ThemeSettings} />

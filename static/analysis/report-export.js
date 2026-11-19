@@ -1,5 +1,5 @@
-// --- AI エージェントに渡すレポート(Markdown)。全試合の集計だけを載せ、プレイヤー名・チーム名は出さない ---
-import { computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOpponentGrade, computeOverlimit, computePartner, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, jsWinRate } from './stats.js';
+// --- AI エージェントに渡すレポート(Markdown)。選んだ範囲の集計だけを載せ、プレイヤー名・チーム名は出さない ---
+import { computeBasicStats, computeBurstCount, computeBurstTiming, computeBurstType, computeConsecutiveFall, computeCostPair, computeDailyTrend, computeDayOfWeek, computeDmgContribution, computeEnemyMatchup, computeFallOrder, computeFixedPartners, computeGameDuration, computeMsPair, computeMsSummary, computeOpponentGrade, computeOverlimit, computePartner, computeTeamDeathsImpact, computeTimeOfDay, computeWinLossPattern, filterByMode, filterByPlayDays, jsWinRate, PERIOD_DAYS } from './stats.js';
 import { computeActionPlan } from './coach.js';
 import { MODE_LABELS } from '../lib/match.js';
 
@@ -190,21 +190,47 @@ function times(ms) {
     '### 日別(プレイした直近' + MAX_DAYS + '日)', table(['日付', '試合', '勝率', '与被ダメ比'], trend)].join('\n\n');
 }
 
+// 期間の選択肢。日数は試合のあった日で数える(レポート画面の期間と同じ)
+export var EXPORT_PERIODS = [{ value: 'all', label: '全期間' }].concat(Object.keys(PERIOD_DAYS).map(function (k) { return { value: k, label: '直近' + PERIOD_DAYS[k] + '日' }; }));
+
+// 選んだ期間で遊んだ機体の選択肢。試合数の多い順
+export function exportMsOptions(matches, period) {
+  var counts = {};
+  scopeMatches(matches || [], scopeOf({ period: period })).forEach(function (m) { if (m.ms) counts[m.ms] = (counts[m.ms] || 0) + 1; });
+  return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || (a < b ? -1 : 1); })
+    .map(function (k) { return { value: k, label: k + '(' + counts[k] + '戦)' }; });
+}
+
+function scopeOf(scope) {
+  var s = scope || {};
+  return { days: Object.prototype.hasOwnProperty.call(PERIOD_DAYS, s.period) ? PERIOD_DAYS[s.period] : 0, ms: s.ms || '' };
+}
+
+function scopeMatches(matches, sc) {
+  var out = sc.days ? filterByPlayDays(matches, sc.days) : matches;
+  return sc.ms ? out.filter(function (m) { return m.ms === sc.ms; }) : out;
+}
+
+function scopeLabel(sc) {
+  return (sc.days ? '直近' + sc.days + '日(全機体で試合のあった日を新しい順に' + sc.days + '日分)' : '全期間') + '・全形式・' + (sc.ms ? '自機 ' + sc.ms : '全機体');
+}
+
 export function reportFileName(now) {
   var d = now || new Date();
   return 'catalyzer-report-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '.md';
 }
 
-// 全試合からレポートを作る。試合が無ければ null。tagPartners は固定相方の判定に使い、名前は出さない
-export function buildReportMarkdown(matches, tagPartners, now) {
-  var ms = matches || [];
+// scope({period, ms})で絞った試合からレポートを作る。試合が無ければ null。tagPartners は固定相方の判定に使い、名前は出さない
+export function buildReportMarkdown(matches, tagPartners, now, scope) {
+  var sc = scopeOf(scope);
+  var ms = scopeMatches(matches || [], sc);
   if (!ms.length) return null;
   var dates = ms.map(function (m) { return String(m.date || '').substring(0, 10); }).filter(Boolean).sort();
   var plan = computeActionPlan(ms);
   return [
     '# catalyzer 戦績レポート',
     ['- 出力日時: ' + stamp(now || new Date()),
-      '- 対象: 全期間・全形式・全機体の ' + ms.length + '試合' + (dates.length ? '(' + dates[0] + ' 〜 ' + dates[dates.length - 1] + ')' : ''),
+      '- 対象: ' + scopeLabel(sc) + 'の ' + ms.length + '試合' + (dates.length ? '(' + dates[0] + ' 〜 ' + dates[dates.length - 1] + ')' : ''),
       '- プレイヤー名・チーム名は含めていない'].join('\n'),
     section('このレポートについて', GLOSSARY.join('\n')),
     section('全体', overall(ms)),
