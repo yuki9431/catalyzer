@@ -51,10 +51,10 @@ describe('buildReportMarkdown', function () {
     assert.match(md, /### 覚醒タイプ\n\n\(該当なし\)/);
   });
 
-  it('表のセルの | と改行をエスケープする', function () {
-    var ms = BASE.map(function (m) { return Object.assign({}, m, { ms: 'A|B\nC' }); });
+  it('表のセルの \\ と | と改行をエスケープする', function () {
+    var ms = BASE.map(function (m) { return Object.assign({}, m, { ms: 'A\\|B\nC' }); });
     var md = buildReportMarkdown(ms, [], NOW);
-    assert.ok(md.includes('| A\\|B C | 60 |'));
+    assert.ok(md.includes('| A\\\\\\|B C | 60 |'));
   });
 
   it('3000試合・敵機200種でも 32KB 未満で、敵機は30行まで', function () {

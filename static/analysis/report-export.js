@@ -25,7 +25,7 @@ var GLOSSARY = [
   '- 勝率の差は「%」で書く。試合数の少ない行は偶然の偏りが大きい',
 ];
 
-function cell(v) { return String(v == null ? '-' : v).replace(/\|/g, '\\|').replace(/\n/g, ' '); }
+function cell(v) { return String(v == null ? '-' : v).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' '); }
 function pct(v) { return v == null ? '-' : v + '%'; }
 function n0(v) { return v == null ? '-' : String(Math.round(v)); }
 function n2(v) { return v == null ? '-' : (Math.round(v * 100) / 100).toString(); }
@@ -103,7 +103,7 @@ function winLoss(ms) {
 function enemies(ms) {
   var e = computeEnemyMatchup(ms, MIN_ROW);
   var rows = e.strong.concat(e.even, e.weak).sort(function (a, b) { return b.matches - a.matches || (a.ms < b.ms ? -1 : 1); }).slice(0, MAX_ENEMY);
-  return '敵機ごとに、その機体が相手チームにいた試合を数える(' + MIN_ROW + '試合以上・試合数の多い順に' + MAX_ENEMY + '機まで)。\n\n' +
+  return '敵機ごとに、その機体が相手チームにいた試合を数える(相手が2機とも同じ機体の試合は2回数える。' + MIN_ROW + '試合以上・試合数の多い順に' + MAX_ENEMY + '機まで)。\n\n' +
     table(['敵機', '試合', '勝率', '与被ダメ比'], rows.map(function (r) { return [r.ms, r.matches, pct(r.win_rate), n2(r.dmg_efficiency)]; }));
 }
 
