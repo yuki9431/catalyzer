@@ -7,7 +7,7 @@
 ## 方針
 - 出力形式は **Markdown**。LLM が表と見出しをそのまま読め、人が読んでも分かる。JSON は鍵の意味を別に説明する必要があり、CSV は試合単位で大きく集計をエージェント任せにするため採らない。
 - 対象は **全期間・全形式・全機体**。その他画面には絞り込みが見えないため、画面の絞り込みに従わせると何を出したか利用者に分からない。機体別・形式別・日別の表を中に持たせ、絞り込みはエージェント側で読み分けさせる。
-- 出口は **その他画面の「AIに渡すレポート」欄** の2行(コピー/ダウンロード)。スマホはコピーしてチャットに貼り、PC はファイルで渡す。レポート画面に置くと全画面の基準画像が変わり、絞り込みとの関係も曖昧になる。
+- 出口は **その他画面の「レポート出力」欄** の2行(コピー/ダウンロード)。スマホはコピーしてチャットに貼り、PC はファイルで渡す。レポート画面に置くと全画面の基準画像が変わり、絞り込みとの関係も曖昧になる。
 - 生成はクリック時に同期で行う(描画のたびに全集計を回さない。clipboard の user activation も保つ)。
 - 冒頭に **ゲーム固有の用語説明** を付ける。エージェントはコスト制・覚醒・OL・順落ちを知らないため、無いと数値を誤読する。
 - **他プレイヤーの名前・チーム名は出さない**(第三者の情報を外部サービスへ出さない)。固定相方は試合数順に「固定相方A/B…」に置き換える。
@@ -15,7 +15,7 @@
 
 ## 変更ファイル
 - `static/analysis/report-export.js`(新規): `buildReportMarkdown(matches, tagPartners, now)` → string | null(0試合で null)。stats/coach/match だけを import する純粋関数
-- `static/components/shell.js`: MoreView に `buildReport` props と「AIに渡すレポート」Panel(RowList の2行)。コピー結果は行の sub 文言で示す。ダウンロードは Blob + `a[download]`
+- `static/components/shell.js`: MoreView に `buildReport` props と「レポート出力」Panel(RowList の2行)。コピー結果は行の sub 文言で示す。ダウンロードは Blob + `a[download]`
 - `static/components/report/report.js`: MoreView に `buildReport` を渡す(allMatches・tagPartners を閉じ込める)。試合なし画面の MoreView は渡さない=欄を出さない
 - `tools/ui-check/screens.js`: `more` 画面の required に2行を追加。基準画像は CI(`ui-baseline`)で撮り直す
 - `CLAUDE.md`・`README.md`: コード構成に report-export.js を追記

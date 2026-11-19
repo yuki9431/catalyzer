@@ -279,7 +279,7 @@ export function MoreView({ shareData, buildReport, onLogout, onRebuildCache, onR
       <p class="more-lead">最多使用の機体と敵機との相性を文章にして共有します。</p>
       <${ShareArea} shareData=${shareData} />
     </${Panel}>`}
-    ${buildReport && html`<${Panel} title="AIに渡すレポート">
+    ${buildReport && html`<${Panel} title="レポート出力">
       <${ReportExport} buildReport=${buildReport} />
     </${Panel}>`}
     <${Panel} title="設定">
