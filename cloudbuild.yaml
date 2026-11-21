@@ -1,10 +1,10 @@
 # build.yml から専用のビルド SA で実行する。ユーザー指定の SA は LEGACY ログを使えないため CLOUD_LOGGING_ONLY にする(#460)
 steps:
-  - name: gcr.io/cloud-builders/docker@sha256:dccbdf9b7877dc1b66427d769a55fe9d82c21655a88301e5eba3d0754c76d146
+  - name: gcr.io/cloud-builders/docker@sha256:2d89b48c704ddcc4a199dd1cc70c21813fb675227600f19cb77e5bbf368012bc
     env: ["DOCKER_BUILDKIT=1"]
     args: ["build", "-t", "${_IMAGE}", "."]
   # AI 診断の Job 用イメージ。同じ Dockerfile の ai-diagnosis ターゲットを <キー>-ai タグで出す
-  - name: gcr.io/cloud-builders/docker@sha256:dccbdf9b7877dc1b66427d769a55fe9d82c21655a88301e5eba3d0754c76d146
+  - name: gcr.io/cloud-builders/docker@sha256:2d89b48c704ddcc4a199dd1cc70c21813fb675227600f19cb77e5bbf368012bc
     env: ["DOCKER_BUILDKIT=1"]
     args: ["build", "--target", "ai-diagnosis", "-t", "${_IMAGE}-ai", "."]
 images:
