@@ -291,7 +291,7 @@ function recentTrend(ms) {
     var delta = r - b;
     if ((sp[3] ? delta : -delta) >= sp[2]) {
       var f = Math.pow(10, sp[4]);
-      worsened.push({ key: sp[1], label: sp[0], recent: Math.round(r * f) / f, before: Math.round(b * f) / f, delta: Math.round(delta * f) / f });
+      worsened.push({ label: sp[0], recent: Math.round(r * f) / f, before: Math.round(b * f) / f, delta: Math.round(delta * f) / f });
     }
   });
   return {

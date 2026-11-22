@@ -120,10 +120,8 @@ jobs:
         run: |
           IMAGE_KEY="${{ steps.key.outputs.image }}"
           IMAGE_SHA="${{ secrets.IMAGE_URI }}:${{ github.sha }}"
-          # メインと AI 診断 Job 用(-ai)の両方が揃っているときだけスキップする
-          if gcloud artifacts docker images describe "$IMAGE_KEY" >/dev/null 2>&1 \
-            && gcloud artifacts docker images describe "${IMAGE_KEY}-ai" >/dev/null 2>&1; then
-            echo "同一内容のイメージが既存: $IMAGE_KEY(-ai 含む) — ビルドをスキップ"
+          if gcloud artifacts docker images describe "$IMAGE_KEY" >/dev/null 2>&1; then
+            echo "同一内容のイメージが既存: $IMAGE_KEY — ビルドをスキップ"
           else
             # 未登録の secret は空文字になり、gcloud は空の SA を拒否せず既定 SA で黙ってビルドするため止める
             BUILD_SA="${{ secrets.BUILD_SERVICE_ACCOUNT }}"

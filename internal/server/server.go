@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yuki9431/catalyzer/internal/aidiagnosis"
 	"github.com/yuki9431/catalyzer/internal/autorefresh"
 	"github.com/yuki9431/catalyzer/internal/firestore"
 	"github.com/yuki9431/catalyzer/internal/model"
@@ -261,9 +260,6 @@ func StartServer() {
 
 	// メモ（GET/POST /notes, PUT/DELETE /notes/{id}）
 	registerNotes(http.DefaultServeMux)
-
-	// AI 診断（GET/POST /ai-diagnosis。オーナー限定）
-	registerAIDiagnosis(http.DefaultServeMux, aidiagnosis.ConfigFromEnv(), msNameSet(msList))
 
 	// 静的ファイル（フロントエンド）
 	// .webmanifest はGo組み込みのMIMEテーブルに無く、実行環境(alpine)に
@@ -701,13 +697,4 @@ func handleReanalyze(w http.ResponseWriter, r *http.Request, rl *rateLimiter, ge
 	}()
 
 	sendJSON(w, http.StatusAccepted, map[string]string{"id": j.ID})
-}
-
-// msNameSet は MS リストの機体名の集合を返す。
-func msNameSet(list []model.MSInfo) map[string]bool {
-	names := make(map[string]bool, len(list))
-	for _, m := range list {
-		names[m.Name] = true
-	}
-	return names
 }

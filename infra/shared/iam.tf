@@ -8,7 +8,6 @@ locals {
     catalyzer-build        = "Catalyzer Cloud Build"
     auto-refresh-job       = "Auto Refresh Job"
     auto-refresh-scheduler = "Auto Refresh Scheduler"
-    ai-diagnosis-job       = "AI Diagnosis Job"
     gha-pr                 = "GitHub Actions (PR preview)"
     gha-stg                = "GitHub Actions (stg)"
     gha-mslist             = "GitHub Actions (MS list update)"
@@ -21,7 +20,6 @@ locals {
     catalyzer-run-stg = ["roles/datastore.user"]
     catalyzer-build   = ["roles/logging.logWriter"]
     auto-refresh-job  = ["roles/datastore.user"]
-    ai-diagnosis-job  = ["roles/datastore.user"]
     gha-stg           = ["roles/cloudbuild.builds.editor", "roles/serviceusage.serviceUsageConsumer"]
     gha-mslist        = ["roles/cloudbuild.builds.editor", "roles/serviceusage.serviceUsageConsumer"]
   }
@@ -64,7 +62,6 @@ locals {
     catalyzer-run          = ["github-actions"]
     auto-refresh-job       = ["github-actions"]
     auto-refresh-scheduler = ["github-actions"]
-    ai-diagnosis-job       = ["github-actions"]
     catalyzer-build        = ["gha-stg"]
     catalyzer-run-stg      = ["gha-stg"]
     mslist-build           = ["gha-mslist"]
@@ -75,8 +72,9 @@ locals {
     session-encryption-key-stg  = ["catalyzer-run-stg"]
     official-site-username      = ["mslist-build"]
     official-site-password      = ["mslist-build"]
-    claude-code-oauth-token     = ["ai-diagnosis-job"]
-    ai-diagnosis-allowed-users  = ["catalyzer-run"]
+    # AI診断(#713)の切り戻しで不要。prevent_destroy のため Secret だけ残す
+    claude-code-oauth-token    = []
+    ai-diagnosis-allowed-users = []
   }
   secret_grants = merge([for s, sas in local.secrets :
   { for sa in sas : "${s} ${sa}" => { secret = s, sa = sa } }]...)

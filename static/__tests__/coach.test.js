@@ -225,7 +225,7 @@ describe('computeActionPlan', function () {
     assert.equal(plan.recent.matches, 20);
     assert.ok(plan.recent.win_rate < plan.recent.before_win_rate);
     var taken = plan.recent.worsened.find(function (w) { return w.label === '被ダメ'; });
-    assert.deepEqual(taken, { key: 'dmg_taken', label: '被ダメ', recent: 1000, before: 800, delta: 200 });
+    assert.deepEqual(taken, { label: '被ダメ', recent: 1000, before: 800, delta: 200 });
   });
 
   it('omits recent trend when there are too few matches', function () {
