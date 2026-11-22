@@ -311,7 +311,7 @@ var SCREEN_DEFS = [
     required: [['[data-ui="ms-panel"] h3', '機体'], ['[data-ui="ms-item"]', null, 2]],
     tap: ['[data-ui="ms-item"]', '[data-ui="sheet-close"]'] },
   { id: 'more', viewport: D, full: true, start: 'report', ops: [goTab('その他')],
-    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more-classrecord"] button', '総合戦歴'], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img']], tap: TAP_FORM },
+    required: [[CURRENT, 'その他'], ['[data-ui="more"]'], ['[data-ui="share-item"]', null, 4], ['[data-ui="more-classrecord"] button', '総合戦歴'], ['[data-ui="more"] button', '再分析'], ['[data-ui="more-brand"] img'], ['[data-ui="report-export"] button', 'レポートをコピー'], ['[data-ui="report-export"] button', 'レポートをダウンロード'], ['[data-ui="report-export-period"] [data-ui="select-trigger"]', '全期間'], ['[data-ui="report-export-ms"] [data-ui="select-trigger"]', '全機体']], tap: TAP_FORM },
   { id: 'mobile-more', viewport: M, full: true, start: 'report',
     ops: [goTab('試合検索'), { wait: ['[data-ui="search-filter"]'] }, goTab('メモ'), { wait: ['[data-ui="notes-view"] [data-ui="notice"]', 'ログイン状態を保持すると使えます'] }, goTab('その他'),
       { click: ['[data-ui="more-classrecord"] button', '総合戦歴'] }, { wait: ['h2', '通算記録'] }, { click: ['[data-ui="classrecord-back"]'] }, { wait: ['[data-ui="more-classrecord"]'] },
