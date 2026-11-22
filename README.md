@@ -95,6 +95,7 @@
 │   │   ├── patterns.js            # 試合の展開（負け筋）の定義一覧（ミッション判定・試合検索が共用）
 │   │   ├── coach.js               # 勝率アップミッションの診断
 │   │   ├── today.js               # 今日(無ければ最後に遊んだ日)と前回プレイした日の比較
+│   │   ├── report-export.js       # AIエージェントに渡すレポート（期間・機体で絞った集計の Markdown。プレイヤー名は出さない）
 │   │   └── classrecord.js         # 通算戦績の整形（カバー率・通算K/D）
 │   ├── components/
 │   │   ├── ui.js                  # 汎用UIコンポーネント（Tips/Table等）
@@ -144,6 +145,7 @@
 │   │   ├── progress.test.js       # progress.js テスト
 │   │   ├── userkey.test.js        # userkey.js テスト
 │   │   ├── notes.test.js          # lib/notes.js テスト
+│   │   ├── report-export.test.js  # レポート出力（report-export.js）の見出し・名前の不在・サイズのテスト
 │   │   ├── summary.test.js        # レポート要約（summary.js）の指標・目安テスト
 │   │   ├── surface.test.js        # .panel/.kpi/.card に影・角丸が無いこと・scroll リスナが shell.js だけにあることの静的検査
 │   │   ├── theme-init.test.js     # theme-init.js・FOUC 構造テスト

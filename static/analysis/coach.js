@@ -41,6 +41,9 @@ function candidate(key, bad, good, total, build, weight) {
   var c = build({ badWr: Math.round(badWr), goodWr: Math.round(goodWr), count: total + '戦中' + bad.length + '戦' });
   c.key = key;
   c.unachieved = bad.length;
+  c.total = total;
+  c.bad_win_rate = Math.round(badWr);
+  c.good_win_rate = Math.round(goodWr);
   if (!c.goal) c.goal = { key: key };
   c.gain_wins = bad.length * gap / 100 * (weight || 1);
   return c;
