@@ -98,7 +98,8 @@ export function Report({ data, userKey, actions }) {
       .then(function (list) {
         if (!list) return;
         var map = {};
-        list.forEach(function (m) { if (m && m.Name) map[m.Name] = m.ImageURL; });
+        // 色違いは同名で後ろに並ぶ。先勝ちにして公式ランキングの画像を使う
+        list.forEach(function (m) { if (m && m.Name && !map[m.Name]) map[m.Name] = m.ImageURL; });
         setMsImages(map);
       })
       .catch(function () {});

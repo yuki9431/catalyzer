@@ -1343,5 +1343,10 @@
     "Name": "高機動型ザクⅡ改（シン・マツナガ機）",
     "ImageURL": "https://resource.exvs2ib.vsmobile.jp/images/b9ffa432e42c80d5a9b33c326bfc2bef2f32b0c8b6b2791a0128f67ec412edd42f64a0711249fa1120f5c1b5ddf09dd53e71b4dfbb621c1d095cd8fb0d23f86f.jpg",
     "Cost": 2000
+  },
+  {
+    "Name": "ガンダムエクシア",
+    "ImageURL": "https://resource.exvs2ib.vsmobile.jp/images/ffe246560197b94547690de1cef081d142b01e7dec36cb6874c816ac333feda9df79124514cf65b03364e17bcadafa2c4ea00582d05975855221fb0d3586139f.jpg",
+    "Cost": 2000
   }
 ]
