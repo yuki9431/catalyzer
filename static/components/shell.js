@@ -4,7 +4,7 @@ import { RowList, Notice, ToggleGroup } from './parts.js';
 import { describeStatus, errorMessage } from '../lib/autorefresh.js';
 import { PULL_IDLE, pullStep, pullReady, BAR_SHOWN, nextBar } from '../lib/topbar.js';
 import { TAB_SEEN_KEY, markSeen, tabBadges } from '../lib/tabseen.js';
-import { EXPORT_PERIODS, reportFileName } from '../analysis/report-export.js';
+import { EXPORT_PERIODS, keepMs, reportFileName } from '../analysis/report-export.js';
 import { buildShareText, SVG_X, SVG_BSKY, SVG_LINE, SVG_COPY, SVG_CHECK } from '../lib/format.js';
 
 // --- 画面切替(下部タブバー) ---
@@ -232,8 +232,9 @@ function ReportExport({ report }) {
   var pRef = useState('all'), period = pRef[0], setPeriod = pRef[1];
   var mRef = useState(''), setMs = mRef[1];
   var msOptions = report.msOptions(period);
-  // 選んだ機体がその期間に無ければ全機体に戻す(表示と出力を食い違わせない)
-  var ms = msOptions.some(function (o) { return o.value === mRef[0]; }) ? mRef[0] : '';
+  var ms = keepMs(msOptions, mRef[0]);
+  // 選んだ機体がその期間に無ければ選択ごと外す(期間を戻しても復活させない)
+  function choosePeriod(p) { setPeriod(p); setMs(keepMs(report.msOptions(p), mRef[0])); }
   function show(r) {
     setStatus(r);
     setTimeout(function () { setStatus(''); }, 3000);
@@ -251,7 +252,7 @@ function ReportExport({ report }) {
   ];
   return html`<div data-ui="report-export">
     <p class="more-lead">選んだ期間・機体の集計を AI エージェントが読める形にまとめます。プレイヤー名は含めません。</p>
-    <div class="more-field" data-ui="report-export-period"><span>期間</span><${Dropdown} value=${period} options=${EXPORT_PERIODS} noClear onChange=${setPeriod} /></div>
+    <div class="more-field" data-ui="report-export-period"><span>期間</span><${Dropdown} value=${period} options=${EXPORT_PERIODS} noClear onChange=${choosePeriod} /></div>
     <div class="more-field" data-ui="report-export-ms"><span>機体</span><${Dropdown} value=${ms} options=${msOptions} placeholder="全機体" onChange=${setMs} /></div>
     <${RowList} rows=${rows} onSelect=${run} />
   </div>`;

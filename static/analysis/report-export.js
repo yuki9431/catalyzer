@@ -201,6 +201,11 @@ export function exportMsOptions(matches, period) {
     .map(function (k) { return { value: k, label: k + '(' + counts[k] + '戦)' }; });
 }
 
+// 選択肢に無い機体は全機体('')にする
+export function keepMs(options, ms) {
+  return ms && options.some(function (o) { return o.value === ms; }) ? ms : '';
+}
+
 function scopeOf(scope) {
   var s = scope || {};
   return { days: Object.prototype.hasOwnProperty.call(PERIOD_DAYS, s.period) ? PERIOD_DAYS[s.period] : 0, ms: s.ms || '' };

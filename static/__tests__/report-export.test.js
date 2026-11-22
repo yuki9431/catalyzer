@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReportMarkdown, EXPORT_PERIODS, exportMsOptions, reportFileName } from '../analysis/report-export.js';
+import { buildReportMarkdown, EXPORT_PERIODS, exportMsOptions, keepMs, reportFileName } from '../analysis/report-export.js';
 import { generateMatches, tagPartners } from '../../tools/ui-check/fixture.js';
 
 var NOW = new Date(2026, 5, 16, 12, 34);
@@ -120,5 +120,18 @@ describe('buildReportMarkdown', function () {
     assert.equal(opts.reduce(function (a, o) { return a + Number(o.label.match(/(\d+)戦/)[1]); }, 0), 60);
     var recent = exportMsOptions(BASE, '3d');
     assert.equal(recent.reduce(function (a, o) { return a + Number(o.label.match(/(\d+)戦/)[1]); }, 0), BASE.filter(function (m) { return m.date >= '2026-06-07'; }).length);
+  });
+
+  it('期間を往復しても、その期間に無かった機体の選択は戻らない', function () {
+    var old = BASE.filter(function (m) { return m.date < '2026-06-15'; }).map(function (m) { return m.ms; });
+    var latest = BASE.filter(function (m) { return m.date >= '2026-06-15'; }).map(function (m) { return m.ms; });
+    var gone = old.find(function (n) { return latest.indexOf(n) < 0; });
+    assert.ok(gone, 'fixture に直近1日で遊んでいない機体がある');
+    var sel = keepMs(exportMsOptions(BASE, 'all'), gone);
+    assert.equal(sel, gone);
+    sel = keepMs(exportMsOptions(BASE, '1d'), sel);
+    assert.equal(sel, '');
+    assert.equal(keepMs(exportMsOptions(BASE, 'all'), sel), '');
+    assert.equal(keepMs(exportMsOptions(BASE, '1d'), latest[0]), latest[0]);
   });
 });
