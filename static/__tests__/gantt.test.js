@@ -11,10 +11,10 @@ describe('ganttTicks', () => {
     assert.ok(r.ticks.filter(function (t) { return !t.major; }).every(function (t) { return t.label === null; }));
   });
 
-  it('タイムアップ(240秒)は 180 を広い画面だけで出し、終了と同じ 240 の目盛りは作らない', () => {
-    assert.strictEqual(labelOf(240, 120), 'all');
-    assert.strictEqual(labelOf(240, 180), 'wide');
-    assert.ok(!ganttTicks(240).ticks.some(function (t) { return t.sec === 240; }));
+  it('タイムアップ(230秒)は 180 を広い画面だけで出し、終了と同じ 210 より後の目盛りは作らない', () => {
+    assert.strictEqual(labelOf(230, 120), 'all');
+    assert.strictEqual(labelOf(230, 180), 'wide');
+    assert.strictEqual(ganttTicks(230).ticks.slice(-1)[0].sec, 210);
   });
 
   it('終了に近い目盛りは出さない(205秒の 180)', () => {
