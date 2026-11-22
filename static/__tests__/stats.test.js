@@ -675,7 +675,7 @@ describe('computeConsecutiveFall', function () {
   it('does not treat a death as finishing in wins, time-up, or far from game end', function () {
     var result = computeConsecutiveFall([
       fall([140], [150], { win: true, game_end_sec: 151 }),
-      lost([230], [238], 240),
+      lost([220], [228], 230),
       lost([100], [110], 151),
     ]);
     assert.equal(result.mid_fall.count, 3);
@@ -1148,17 +1148,17 @@ describe('computeOverlimit', function () {
 // --- computeGameDuration ---
 
 describe('computeGameDuration', function () {
-  it('bins by 30 seconds with boundaries at 29/30 and 239/240', function () {
+  it('bins by 30 seconds with boundaries at 29/30 and 229/230', function () {
     var r = computeGameDuration([
       makeMatch({ win: true, game_end_sec: 29 }),
       makeMatch({ win: false, game_end_sec: 30 }),
-      makeMatch({ win: true, game_end_sec: 239 }),
-      makeMatch({ win: false, game_end_sec: 240 }),
+      makeMatch({ win: true, game_end_sec: 229 }),
+      makeMatch({ win: false, game_end_sec: 230 }),
     ]);
     assert.deepEqual(r.by_duration.map(function (b) { return [b.label, b.matches, b.win_rate]; }), [
       ['0〜29秒', 1, 100],
       ['30〜59秒', 1, 0],
-      ['210〜239秒', 1, 100],
+      ['210〜229秒', 1, 100],
       ['タイムアップ', 1, 0],
     ]);
     assert.equal(r.total, 4);

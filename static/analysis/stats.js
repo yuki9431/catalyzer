@@ -1,4 +1,4 @@
-import { isTimeUp, modeLabel } from '../lib/match.js';
+import { TIMEUP_SEC, isTimeUp, modeLabel } from '../lib/match.js';
 
 // --- 分析関数 ---
 // 試合データの配列を受け取り、各種統計・分析結果を返す純粋な計算関数群。
@@ -1068,7 +1068,7 @@ export function computeGameDuration(matches) {
   });
   var byDuration = Object.keys(bins).map(Number).sort(function (a, b) { return a - b; }).map(function (start) {
     var ms = bins[start];
-    return { label: start + '〜' + (start + DURATION_STEP_SEC - 1) + '秒', matches: ms.length, win_rate: round1(jsWinRate(ms)) };
+    return { label: start + '〜' + (Math.min(start + DURATION_STEP_SEC, TIMEUP_SEC) - 1) + '秒', matches: ms.length, win_rate: round1(jsWinRate(ms)) };
   });
   if (timeUp.length) byDuration.push({ label: 'タイムアップ', matches: timeUp.length, win_rate: round1(jsWinRate(timeUp)) });
   var avgSec = function (win) {
