@@ -72,6 +72,9 @@ locals {
     session-encryption-key-stg  = ["catalyzer-run-stg"]
     official-site-username      = ["mslist-build"]
     official-site-password      = ["mslist-build"]
+    # AI診断(#713)の切り戻しで不要。prevent_destroy のため Secret だけ残す
+    claude-code-oauth-token    = []
+    ai-diagnosis-allowed-users = []
   }
   secret_grants = merge([for s, sas in local.secrets :
   { for sa in sas : "${s} ${sa}" => { secret = s, sa = sa } }]...)
