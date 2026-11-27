@@ -1,3 +1,3 @@
 env = "prod"
 
-image_tag = "dfb0424e22e25c58"
+image_tag = "f75c3d967f5e98c6"
